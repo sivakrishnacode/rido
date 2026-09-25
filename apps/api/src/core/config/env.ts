@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+
 /** Validated runtime configuration read from environment variables. */
 export interface Env {
   readonly nodeEnv: string;
@@ -9,6 +11,10 @@ export interface Env {
   /** Dev/demo: accept any 6-digit OTP except 000000 (matches the prototype apps). */
   readonly isOtpDevMode: boolean;
   readonly corsOrigins: readonly string[];
+  /** Server-side Google Maps Platform key (Places, Geocoding, Routes). Empty = local fallback. */
+  readonly googleMapsApiKey: string;
+  /** Phones (+91…) that sign in as ADMIN (admin panel). */
+  readonly adminPhones: readonly string[];
 }
 
 function required(name: string): string {
@@ -19,6 +25,8 @@ function required(name: string): string {
 
 /** Reads and validates the environment once at start-up. */
 export function loadEnv(): Env {
+  // Local dev: read apps/api/.env if present (Docker passes real env vars instead).
+  if (existsSync('.env')) process.loadEnvFile('.env');
   const nodeEnv = process.env.NODE_ENV ?? 'development';
   const jwtSecret = required('JWT_SECRET');
   if (nodeEnv === 'production' && jwtSecret.length < 32) {
@@ -33,5 +41,11 @@ export function loadEnv(): Env {
     jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '30d',
     isOtpDevMode: (process.env.OTP_DEV_MODE ?? 'false') === 'true',
     corsOrigins: (process.env.CORS_ORIGINS ?? '*').split(',').map((o) => o.trim()),
+    googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY ?? '',
+    adminPhones: (process.env.ADMIN_PHONES ?? '')
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => `+91${p.replace(/^\+91/, '')}`),
   };
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart' show MapController;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
@@ -37,7 +36,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   /// Live sheet height (fraction of the screen) so the locate button rides on top of it.
   final ValueNotifier<double?> _sheetExtent = ValueNotifier(null);
 
-  final _map = MapController();
+  final _map = RidoMapController();
 
   static final LatLng _pickup = Seed.gandhipuram.location;
 
@@ -74,11 +73,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   }
 
   void _moveTo(LatLng centre) {
-    try {
-      _map.move(centre, _zoom);
-    } catch (_) {
-      // Map not laid out yet; nothing to recentre.
-    }
+    _map.move(centre, _zoom);
   }
 
   void _moveToPickup(LocateResult r) {

@@ -23,6 +23,7 @@ Future<void> loadTestFonts() async {
   _fontsLoaded = true;
   RidoMap.tilesEnabled = false;
   RoadRouter.enabled = false;
+  GoogleMapsConfig.enabled = false;
   GoogleFonts.config.allowRuntimeFetching = false;
   final loader = FontLoader('packages/material_symbols_icons/MaterialSymbolsRounded')
     ..addFont(rootBundle.load('packages/material_symbols_icons/lib/fonts/MaterialSymbolsRounded.ttf'));

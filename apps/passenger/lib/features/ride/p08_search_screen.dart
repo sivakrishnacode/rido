@@ -23,7 +23,8 @@ class P08SearchScreen extends ConsumerStatefulWidget {
 }
 
 class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
-  static const _debounce = Duration(milliseconds: 250);
+  /// ≥ 300 ms so Google autocomplete is not called on every keystroke.
+  static const _debounce = Duration(milliseconds: 300);
 
   late final TextEditingController _drop = TextEditingController(text: widget.showcase ? 'Brook' : '');
   final TextEditingController _pickup = TextEditingController();
@@ -97,7 +98,16 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
     _onChanged('');
   }
 
-  void _choose(Place p) {
+  Future<void> _choose(Place picked) async {
+    // Google suggestions need their details (coordinates) first; seed places come back as is.
+    final Place p;
+    try {
+      p = await ref.read(placesRepositoryProvider).resolve(picked);
+    } on OfflineException {
+      if (mounted) showRidoSnack(context, "Couldn't load that place. Check your connection and try again.");
+      return;
+    }
+    if (!mounted) return;
     if (_editingPickup) {
       ref.read(rideFlowProvider.notifier).setPickup(p);
       setState(() => _editingPickup = false);

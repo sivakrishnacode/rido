@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
@@ -153,9 +154,11 @@ class ParcelLocationCard extends StatelessWidget {
   }
 }
 
-/// Opens a sheet listing [Seed.places]; returns the picked place.
-Future<Place?> showParcelPlacePicker(BuildContext context, {required String title, Place? current}) {
-  return showRidoSheet<Place>(
+/// Opens a sheet listing [Seed.places]; returns the picked place, resolved through
+/// [PlacesRepository.resolve] (a no-op for seed places).
+Future<Place?> showParcelPlacePicker(BuildContext context, {required String title, Place? current}) async {
+  final places = ProviderScope.containerOf(context, listen: false).read(placesRepositoryProvider);
+  final picked = await showRidoSheet<Place>(
     context,
     builder: (ctx) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -175,6 +178,12 @@ Future<Place?> showParcelPlacePicker(BuildContext context, {required String titl
       ],
     ),
   );
+  if (picked == null) return null;
+  try {
+    return await places.resolve(picked);
+  } on OfflineException {
+    return null;
+  }
 }
 
 class _PhoneFormatter extends TextInputFormatter {

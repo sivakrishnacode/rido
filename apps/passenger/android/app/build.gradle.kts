@@ -1,8 +1,27 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Google Maps SDK key: MAPS_API_KEY in android/local.properties (git-ignored) or the MAPS_API_KEY
+// environment variable. Empty by default so builds work without a key (the app then uses the
+// flutter_map fallback as long as GOOGLE_MAPS_API_KEY is not passed to Dart either).
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+// Also read from the repo's git-ignored .dart-defines.json (Flutter rewrites local.properties on build).
+val dartDefinesMapsKey: String? = rootProject.file("../../../.dart-defines.json").takeIf { it.exists() }?.let {
+    Regex("\"MAPS_API_KEY\"\\s*:\\s*\"([^\"]*)\"").find(it.readText())?.groupValues?.get(1)
+}
+val mapsApiKey: String =
+    dartDefinesMapsKey?.takeIf { it.isNotBlank() }
+        ?: localProperties.getProperty("MAPS_API_KEY")?.takeIf { it.isNotBlank() }
+        ?: System.getenv("MAPS_API_KEY")
+        ?: ""
 
 android {
     namespace = "com.rido.passenger"
@@ -19,7 +38,8 @@ android {
         applicationId = "com.rido.passenger"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // google_maps_flutter_android needs API 24+.
+        minSdk = maxOf(flutter.minSdkVersion, 24)
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
@@ -27,6 +47,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     buildTypes {

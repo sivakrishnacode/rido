@@ -108,6 +108,23 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum ZoneKind {
+  /// Higher demand: shown to drivers as "High demand" and can carry a surge multiplier.
+  SURGE
+  /// Informational demand hotspot (no price change).
+  DEMAND
+  /// No pickups or drops allowed (e.g. restricted areas).
+  NO_SERVICE
+  /// Airport / railway station style pickup points with their own rules.
+  PICKUP_POINT
+}
+
+enum AnnouncementAudience {
+  ALL
+  PASSENGER
+  DRIVER
+}
+
 enum TicketStatus {
   OPEN
   IN_PROGRESS
@@ -123,6 +140,8 @@ model User {
   role              Role               @default(PASSENGER)
   preferWomenDriver Boolean            @default(false)
   autoShareTrips    Boolean            @default(true)
+  isBlocked         Boolean            @default(false)
+  blockedReason     String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   driver            Driver?
@@ -299,4 +318,89 @@ model SupportTicket {
   trip        Trip?        @relation(fields: [tripId], references: [id])
 
   @@index([userId])
+}
+
+/// A city Rido operates in. The service area is a set of H3 cells at [h3Resolution].
+model City {
+  id           String     @id // slug, e.g. "coimbatore"
+  name         String
+  state        String
+  centerLat    Float
+  centerLng    Float
+  h3Resolution Int        @default(8)
+  /// H3 cell indexes (strings) that make up the service area.
+  serviceCells String[]
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  zones        Zone[]
+  fareRules    CityFareRule[]
+}
+
+/// A named group of H3 cells inside a city (surge, demand hotspot, no-service, pickup point).
+model Zone {
+  id              String   @id @default(cuid())
+  cityId          String
+  name            String
+  kind            ZoneKind
+  cells           String[]
+  /// Fare multiplier for SURGE zones (1.0–1.5).
+  surgeMultiplier Float    @default(1)
+  color           String   @default("#F4511E")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  city            City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@index([cityId])
+}
+
+/// Per-city fare rates (fallback: built-in rates in fare-rules.ts).
+model CityFareRule {
+  id          String      @id @default(cuid())
+  cityId      String
+  vehicleKind VehicleKind
+  base        Int
+  perKm       Float
+  perMin      Float
+  minFare     Int
+  isActive    Boolean     @default(true)
+  updatedAt   DateTime    @updatedAt
+  city        City        @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([cityId, vehicleKind])
+}
+
+/// Every admin change (who, what, when).
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String // e.g. "PATCH /admin/drivers/:id"
+  entity    String
+  entityId  String?
+  data      Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+}
+
+/// In-app notices for passengers and/or drivers.
+model Announcement {
+  id        String               @id @default(cuid())
+  audience  AnnouncementAudience @default(ALL)
+  title     String
+  body      String
+  cityId    String?
+  isActive  Boolean              @default(true)
+  startsAt  DateTime             @default(now())
+  endsAt    DateTime?
+  createdAt DateTime             @default(now())
+}
+
+/// Key-value platform settings (e.g. currentMultiplier, searchRadiusKm, offerSeconds).
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }

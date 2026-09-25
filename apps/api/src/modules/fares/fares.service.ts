@@ -1,21 +1,36 @@
 import { Injectable } from '@nestjs/common';
 
 import { TripKind, VehicleKind } from '../../generated/prisma/enums.js';
-import { estimateRoute, FareQuote, GeoPoint, quoteFare } from './fare-engine.js';
+import { GeoService } from '../geo/geo.service.js';
+import { MapsService } from '../maps/maps.service.js';
+import { FareQuote, GeoPoint, quoteFare } from './fare-engine.js';
 import { FARE_RULES } from './fare-rules.js';
 
-/** Quotes every vehicle of a trip kind for a route. */
+/** Quotes vehicles for a route. Distance comes from Google Routes when configured (cached), else haversine. */
 @Injectable()
 export class FaresService {
-  quoteAll(params: { pickup: GeoPoint; drop: GeoPoint; kind: TripKind }): FareQuote[] {
-    const route = estimateRoute(params.pickup, params.drop);
+  constructor(
+    private readonly maps: MapsService,
+    private readonly geo: GeoService,
+  ) {}
+
+  async quoteAll(params: { pickup: GeoPoint; drop: GeoPoint; kind: TripKind }): Promise<FareQuote[]> {
     const wantGoods = params.kind === TripKind.PARCEL;
-    return (Object.keys(FARE_RULES) as VehicleKind[])
-      .filter((k) => FARE_RULES[k].isGoods === wantGoods)
-      .map((vehicleKind) => quoteFare({ vehicleKind, route }));
+    const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: wantGoods ? VehicleKind.THREE_WHEELER : VehicleKind.CAB });
+    const here = await this.geo.locate(params.pickup);
+    const kinds = (Object.keys(FARE_RULES) as VehicleKind[]).filter((k) => FARE_RULES[k].isGoods === wantGoods);
+    return Promise.all(
+      kinds.map(async (vehicleKind) => {
+        const rule = (await this.geo.fareRule(here.cityId, vehicleKind)) ?? undefined;
+        return quoteFare({ vehicleKind, route, multiplier: here.multiplier, rule });
+      }),
+    );
   }
 
-  quoteOne(params: { pickup: GeoPoint; drop: GeoPoint; vehicleKind: VehicleKind }): FareQuote {
-    return quoteFare({ vehicleKind: params.vehicleKind, route: estimateRoute(params.pickup, params.drop) });
+  async quoteOne(params: { pickup: GeoPoint; drop: GeoPoint; vehicleKind: VehicleKind }): Promise<FareQuote> {
+    const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: params.vehicleKind });
+    const here = await this.geo.locate(params.pickup);
+    const rule = (await this.geo.fareRule(here.cityId, params.vehicleKind)) ?? undefined;
+    return quoteFare({ vehicleKind: params.vehicleKind, route, multiplier: here.multiplier, rule });
   }
 }

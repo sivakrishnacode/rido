@@ -1,13 +1,58 @@
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:rido_data/rido_data.dart' show isGoogleMapsEnabled;
 
 import '../theme/rido_colors.dart';
 import '../theme/rido_tokens.dart';
 import '../vehicle_ui.dart';
 import 'location_markers.dart';
+import 'map_bitmaps.dart';
 import 'map_markers.dart';
+import 'rido_map_style.dart';
+
+part 'rido_map_google.dart';
+
+/// Engine-neutral camera snapshot passed to [RidoMap.onPositionChanged].
+@immutable
+class RidoCamera {
+  const RidoCamera({required this.center, required this.zoom});
+  final LatLng center;
+  final double zoom;
+}
+
+/// Engine-neutral map controller: works with both the Google map and the flutter_map fallback.
+class RidoMapController {
+  final MapController _flutterMap = MapController();
+  _GoogleRidoMapState? _google;
+
+  /// Moves the camera (no animation). Does nothing if the map is not laid out yet.
+  void move(LatLng center, double zoom) {
+    final google = _google;
+    if (google != null) {
+      google._moveTo(center, zoom);
+      return;
+    }
+    try {
+      _flutterMap.move(center, zoom);
+    } catch (_) {
+      // Map not laid out yet.
+    }
+  }
+
+  void dispose() {
+    _google = null;
+    _flutterMap.dispose();
+  }
+}
 
 /// A vehicle drawn on the map, rotated to [heading] degrees.
 class MapVehicle {
@@ -28,7 +73,9 @@ class MapZone {
   final String? label;
 }
 
-/// flutter_map wrapper using CARTO light-grey tiles with the required attribution.
+/// Rido map. With a Google Maps key ([isGoogleMapsEnabled]) and [tilesEnabled] it renders the
+/// Google Maps SDK (styled light map, bitmap markers); otherwise flutter_map with CARTO
+/// light-grey tiles and the required attribution (tests, no key).
 ///
 /// Draws pickup (green dot), drop (coral pin), vehicles (navy top-down icons), a coral 5px
 /// route, a pulse ring and demand zones. If tiles fail (offline) the plain #F1F5F9
@@ -55,8 +102,12 @@ class RidoMap extends StatelessWidget {
     this.attributionAlignment = Alignment.bottomLeft,
   });
 
-  /// Global switch; tests set this to false so no network tiles are requested.
+  /// Global switch; tests set this to false so no network tiles are requested and no Google
+  /// platform view is ever created.
   static bool tilesEnabled = true;
+
+  /// True when this build renders the Google Maps SDK instead of flutter_map.
+  static bool get usesGoogle => tilesEnabled && isGoogleMapsEnabled;
 
   /// CARTO basemaps key (sent as `?key=`; without it CARTO watermarks tiles "API KEY REQUIRED").
   /// Override at build time with --dart-define=CARTO_KEY=...
@@ -78,20 +129,21 @@ class RidoMap extends StatelessWidget {
   final List<LatLng>? fitPoints;
   final EdgeInsets fitPadding;
   final bool interactive;
-  final MapController? controller;
-  final void Function(MapCamera camera, bool hasGesture)? onPositionChanged;
+  final RidoMapController? controller;
+  final void Function(RidoCamera camera, bool hasGesture)? onPositionChanged;
   final List<Marker> extraMarkers;
   final bool showAttribution;
   final Alignment attributionAlignment;
 
   @override
   Widget build(BuildContext context) {
+    if (usesGoogle) return _GoogleRidoMap(map: this);
     final fit = fitPoints != null && fitPoints!.length >= 2
         ? CameraFit.coordinates(coordinates: fitPoints!, padding: fitPadding, maxZoom: 16)
         : null;
     return ClipRect(
       child: FlutterMap(
-        mapController: controller,
+        mapController: controller?._flutterMap,
         options: MapOptions(
           initialCenter: center ?? pickup ?? const LatLng(11.0168, 76.9658),
           initialZoom: zoom,
@@ -99,7 +151,10 @@ class RidoMap extends StatelessWidget {
           backgroundColor: RidoColors.inputBg,
           minZoom: 10,
           maxZoom: 18,
-          onPositionChanged: onPositionChanged,
+          onPositionChanged: onPositionChanged == null
+              ? null
+              : (camera, hasGesture) =>
+                  onPositionChanged!(RidoCamera(center: camera.center, zoom: camera.zoom), hasGesture),
           interactionOptions: InteractionOptions(
             flags: interactive ? InteractiveFlag.all & ~InteractiveFlag.rotate : InteractiveFlag.none,
           ),

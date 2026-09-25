@@ -14,7 +14,7 @@ export class FaresController {
   @Public()
   @Post('quote')
   @HttpCode(200)
-  quote(@Body() body: QuoteRequestDto): { quotes: FareQuote[] } {
-    return { quotes: this.fares.quoteAll({ pickup: body.pickup, drop: body.drop, kind: body.kind ?? TripKind.RIDE }) };
+  async quote(@Body() body: QuoteRequestDto): Promise<{ quotes: FareQuote[] }> {
+    return { quotes: await this.fares.quoteAll({ pickup: body.pickup, drop: body.drop, kind: body.kind ?? TripKind.RIDE }) };
   }
 }

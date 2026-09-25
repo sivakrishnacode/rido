@@ -6,6 +6,8 @@
         android:icon="@mipmap/ic_launcher">
         <!-- Impeller on OpenGL ES: the Vulkan backend lags frames on some Mali GPUs (e.g. MediaTek). -->
         <meta-data android:name="io.flutter.embedding.android.ImpellerBackend" android:value="opengles" />
+        <!-- Google Maps SDK key, injected from MAPS_API_KEY (android/local.properties or env); never commit it. -->
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="${MAPS_API_KEY}"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

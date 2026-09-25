@@ -72,9 +72,11 @@ export function quoteFare(params: {
   vehicleKind: VehicleKind;
   route: RouteEstimate;
   multiplier?: number;
+  /** Per-city rates (admin panel); defaults to the built-in [FARE_RULES]. */
+  rule?: { base: number; perKm: number; perMin: number; minFare: number };
 }): FareQuote {
   const { vehicleKind, route } = params;
-  const rule = FARE_RULES[vehicleKind];
+  const rule = params.rule ?? FARE_RULES[vehicleKind];
   const multiplier = Math.min(MAX_MULTIPLIER, Math.max(1, params.multiplier ?? CURRENT_MULTIPLIER));
   const distanceCharge = floorRupee(rule.perKm * route.distanceKm);
   const timeCharge = floorRupee(rule.perMin * route.durationMin);

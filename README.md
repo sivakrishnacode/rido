@@ -40,6 +40,8 @@ background and everything else keeps working. Fonts (Poppins, Inter) are bundled
 
 ```
 apps/
+  api/                NestJS backend (Prisma, Redis)      @rido/api
+  admin/              Next.js admin panel (shadcn/ui)     @rido/admin
   passenger/          Rido passenger app (Flutter)        @rido/passenger
   driver/             Rido Driver app (Flutter)           @rido/driver
 packages/
@@ -83,6 +85,69 @@ lib/
   features/<feature>/       one file per screen, named after its frame ID (P10ChooseVehicleScreen…)
   features/design_gallery/  gallery screen, frame registry, demo controls
 ```
+
+## Backend (apps/api)
+
+NestJS 12 (ESM) + Prisma 7 (PostgreSQL) + Redis + Socket.IO, in `apps/api` (`@rido/api`).
+
+```bash
+cp .env.example .env                # compose settings (ports, JWT secret, Google key)
+docker compose up -d                # postgres + redis + api  → http://localhost:3000
+docker compose --profile tools up -d  # + Adminer :8080, Redis Insight :5540
+curl localhost:3000/health/ready
+```
+
+Local development (API on your machine, databases in Docker):
+
+```bash
+docker compose up -d postgres redis
+cp apps/api/.env.example apps/api/.env
+npm run prisma:deploy -w @rido/api && npm run prisma:seed -w @rido/api
+npm run start:dev -w @rido/api
+npm run test:e2e -w @rido/api       # full ride lifecycle against the real DB + Redis
+```
+
+| Module | Endpoints (prefix `/v1`) |
+|---|---|
+| auth | `POST /auth/otp`, `POST /auth/verify` (OTP in Redis → JWT; dev mode accepts any 6 digits except 000000) |
+| users | `GET/PATCH /me`, `POST/DELETE /me/emergency-contacts`, `POST/DELETE /me/saved-places` |
+| places | `GET /places/autocomplete?q&session`, `GET /places/details/:id`, `GET /places/reverse?lat&lng` |
+| maps | `POST /maps/route` (road polyline, once per leg) |
+| fares | `POST /fares/quote` (same engine as the apps: ₹38 / ₹72 / ₹145) |
+| drivers | `POST /drivers`, `GET /drivers/me`, KYC `POST /drivers/me/documents/:type`, `POST /drivers/me/online|offline|location`, admin `POST /admin/drivers/:id/review` |
+| trips | `POST /trips`, `GET /trips`, `GET /trips/:id`, `POST /trips/:id/accept|decline|arrived|start|complete|cancel|rate` |
+| subscriptions | `GET /plans`, `GET /subscriptions/me`, `POST /subscriptions`, `POST /subscriptions/me/pause|resume|cancel` |
+| support | `GET /support/topics`, `GET/POST /tickets` |
+| realtime | Socket.IO namespace `/rt` (`auth: {token}`): `trip.offer`, `trip.updated`, `trip.location`, `trip.no_drivers`; client sends `trip:join`, `driver:location` |
+| health | `GET /health`, `GET /health/ready` (no prefix) |
+
+Redis holds OTPs and rate limits, live driver positions (GEO sets per vehicle kind), dispatch offers (15 s each,
+nearest driver first) and busy flags, plus the Google Maps response cache. Google Maps Platform is used when
+`GOOGLE_MAPS_API_KEY` is set; otherwise the API falls back to seeded places and haversine distances. See
+[docs/GOOGLE_MAPS_SETUP.md](docs/GOOGLE_MAPS_SETUP.md).
+
+## Admin panel (apps/admin)
+
+Next.js 16 (App Router) + shadcn/ui + Tailwind v4, in `apps/admin` (`@rido/admin`), styled with the Rido palette
+(coral / navy, Poppins + Inter). It talks to the API only from the server; the session JWT lives in an httpOnly cookie.
+
+```bash
+docker compose up -d                   # postgres + redis + api + admin → http://localhost:3001
+docker compose up -d --build admin     # rebuild the admin image only
+npm run dev -w @rido/admin             # local dev on :3001 (API_URL defaults to http://localhost:3000/v1)
+```
+
+Sign in with **9000000001** (listed in `ADMIN_PHONES`) and any 6-digit OTP except `000000` (dev mode). Other numbers
+are refused with "This number is not an admin".
+
+| Area | Pages |
+|---|---|
+| Overview | Dashboard (KPIs, 7-day trips chart, pending KYC, mini live map), Live (drivers + active trips, every 10 s) |
+| Operations | Trips (+ fare breakdown, timeline), Drivers (+ KYC verify / reject, approve / hold / reactivate, plans, payments), KYC queue, Passengers, Users (roles, block / unblock), Support |
+| Configuration | Zones (cities, H3 service-area painter, zones, per-city fares, city settings), Plans (daily / weekly / monthly prices), Settings, Announcements |
+| Finance / System | Payments, Audit log; CSV export on Trips, Drivers and Payments |
+
+Details (auth flow, env vars, maps, tests): [docs/tech-docs/using.tech.md](docs/tech-docs/using.tech.md#6b-admin-panel-appsadmin).
 
 ## Where the data lives
 

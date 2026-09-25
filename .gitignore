@@ -31,3 +31,16 @@ dist/
 
 # OS
 .DS_Store
+
+# Env files and generated code
+.env
+.env.*
+!.env.example
+apps/api/src/generated/
+
+# Local Flutter compile-time keys (copy from .dart-defines.example.json)
+.dart-defines.json
+
+# Credentials kept alongside the tech docs (never commit)
+docs/tech-docs/credentials*
+!docs/tech-docs/credentials.example.md

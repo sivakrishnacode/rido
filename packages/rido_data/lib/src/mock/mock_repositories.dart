@@ -4,6 +4,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../demo_settings.dart';
 import '../fare_engine.dart';
+import '../maps/google_maps_config.dart';
+import '../maps/google_places_client.dart';
 import '../models/driver.dart';
 import '../models/people.dart';
 import '../models/place.dart';
@@ -76,23 +78,56 @@ class MockAuthRepository with _Latency implements AuthRepository {
   }
 }
 
+/// Seed places, upgraded to Google Places autocomplete / details and Geocoding when a key is
+/// configured ([isGoogleMapsEnabled]). Any Google error (offline, quota, bad key) falls back to
+/// the seed data, so the demo never breaks.
 class MockPlacesRepository with _Latency implements PlacesRepository {
-  MockPlacesRepository(this.db, this.settings);
+  MockPlacesRepository(this.db, this.settings, {GooglePlacesClient? google}) : _google = google;
   final MockDatabase db;
   @override
   final SettingsReader settings;
+  final GooglePlacesClient? _google;
+
+  GooglePlacesClient? get _client => isGoogleMapsEnabled ? (_google ?? GooglePlacesClient.shared) : null;
 
   @override
   Place get currentLocation => settings().outsideServiceArea ? Seed.outsideArea : Seed.gandhipuram;
 
   @override
   Future<List<Place>> search(String query) async {
-    await delay();
     final q = query.trim().toLowerCase();
+    final google = _client;
+    final useGoogle = google != null && q.length >= GooglePlacesClient.minQueryLength;
+    // A real network call has its own latency; the fake one is only for seed results.
+    if (useGoogle && settings().offline) throw const OfflineException();
+    if (!useGoogle) await delay();
     if (q.isEmpty) return Seed.places.where((p) => p.id != 'gandhipuram').take(6).toList();
-    return Seed.places
+    final seed = Seed.places
         .where((p) => p.name.toLowerCase().contains(q) || p.address.toLowerCase().contains(q))
         .toList();
+    if (useGoogle) {
+      try {
+        final results = await google.autocomplete(query);
+        if (results.isNotEmpty) return results;
+      } catch (_) {
+        // Fall back to the seed matches below.
+      }
+    }
+    return seed;
+  }
+
+  @override
+  Future<Place> resolve(Place place) async {
+    if (!place.id.startsWith(GooglePlacesClient.idPrefix)) return place;
+    final google = _client;
+    if (google == null) throw const OfflineException();
+    try {
+      final details = await google.placeDetails(place.id.substring(GooglePlacesClient.idPrefix.length));
+      // Keep the suggestion's name: Details only returns Essentials fields.
+      return details.copyWith(name: place.name.isNotEmpty ? place.name : details.name);
+    } catch (_) {
+      throw const OfflineException();
+    }
   }
 
   @override
@@ -129,6 +164,15 @@ class MockPlacesRepository with _Latency implements PlacesRepository {
   Future<Place> reverseGeocode(LatLng point) async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     if (!isInServiceArea(point)) return Seed.outsideArea.copyWith(location: point);
+    final google = _client;
+    if (google != null && !settings().offline) {
+      try {
+        final place = await google.reverseGeocode(point);
+        if (place != null) return place;
+      } catch (_) {
+        // Fall back to the nearest seed place.
+      }
+    }
     const d = Distance();
     final nearest = Seed.places.reduce((a, b) => d(a.location, point) <= d(b.location, point) ? a : b);
     return nearest.copyWith(location: point);

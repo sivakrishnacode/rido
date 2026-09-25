@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart' show MapCamera, MapController;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
@@ -30,7 +29,7 @@ class P09PinOnMapScreen extends ConsumerStatefulWidget {
 
 class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
   static const double _zoom = 16;
-  final _map = MapController();
+  final _map = RidoMapController();
   late final Place _initial = widget.showcase
       ? Seed.brookefields
       : widget.forPickup
@@ -49,7 +48,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
     super.dispose();
   }
 
-  void _onMove(MapCamera camera, bool hasGesture) {
+  void _onMove(RidoCamera camera, bool hasGesture) {
     _centre = camera.center;
     _debounce?.cancel();
     if (!_locating) setState(() => _locating = true);
@@ -67,9 +66,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
   }
 
   void _recentre() {
-    try {
-      _map.move(_initial.location, _zoom);
-    } catch (_) {}
+    _map.move(_initial.location, _zoom);
   }
 
   void _confirm() {

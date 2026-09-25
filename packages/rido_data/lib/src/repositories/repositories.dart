@@ -40,12 +40,17 @@ abstract interface class AuthRepository {
 abstract interface class PlacesRepository {
   Place get currentLocation;
   Future<List<Place>> search(String query);
+
+  /// Completes a [search] result before it is used as a pickup / drop: Google suggestions
+  /// (id `g:…`) only carry a placeholder location until their details are fetched. Seed places
+  /// come back unchanged. Throws [OfflineException] if the place can't be resolved.
+  Future<Place> resolve(Place place);
   Future<List<Place>> recentDestinations();
   Future<List<SavedPlace>> savedPlaces();
   Future<List<SavedPlace>> saveSavedPlace(SavedPlace place);
   Future<List<SavedPlace>> removeSavedPlace(String id);
 
-  /// Nearest known place to [point] (used by "Pin on map").
+  /// Address at [point] (used by "Pin on map" and the device location).
   Future<Place> reverseGeocode(LatLng point);
   bool isInServiceArea(LatLng point);
 }

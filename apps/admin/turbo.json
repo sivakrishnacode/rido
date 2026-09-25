@@ -1,0 +1,18 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "analyze": {
+      "inputs": ["src/**", "test/**", "tsconfig.json", "eslint.config.mjs", "next.config.ts", "package.json"],
+      "outputs": []
+    },
+    "test": {
+      "inputs": ["src/**", "test/**", "vitest.config.ts", "package.json"],
+      "outputs": []
+    },
+    "build": {
+      "inputs": ["src/**", "public/**", "next.config.ts", "postcss.config.mjs", "tsconfig.json", "package.json"],
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
+    }
+  }
+}
