@@ -237,6 +237,9 @@ model Trip {
   dropAddr     String
   dropLat      Float
   dropLng      Float
+  /// H3 cells (res 8) of pickup and drop, for heatmaps and demand stats.
+  pickupCell   String?
+  dropCell     String?
   distanceKm   Float
   durationMin  Int
   /// Itemised quote: base, distance, time, topUp, subtotal, multiplier, peak, total.
@@ -260,6 +263,8 @@ model Trip {
   @@index([passengerId, createdAt])
   @@index([driverId, createdAt])
   @@index([status])
+  @@index([pickupCell])
+  @@index([dropCell])
 }
 
 /// Price list: one row per vehicle and period (daily / weekly / monthly).
@@ -403,4 +408,19 @@ model AppSetting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+/// Historical travel speed between two H3 cells (res 7) by hour of day (IST), built from completed trips.
+model HexStat {
+  fromCell       String
+  toCell         String
+  /// 0–23, IST.
+  hour           Int
+  trips          Int
+  avgSpeedKmh    Float
+  avgDurationMin Float
+  updatedAt      DateTime @updatedAt
+
+  @@id([fromCell, toCell, hour])
+  @@index([fromCell])
 }

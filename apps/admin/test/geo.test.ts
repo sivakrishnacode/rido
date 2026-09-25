@@ -72,4 +72,53 @@ describe("settings validation", () => {
     expect(Object.keys(e).sort()).toEqual(["currentMultiplier", "offerSeconds", "supportPhone"]);
     expect(validateSettings({ ...ok, currentMultiplier: 1.4, maxMultiplier: 1.2 }).currentMultiplier).toMatch(/exceed/);
   });
+
+  it("validates only the keys sent, including new surge keys and unknown numbers", () => {
+    expect(validateSettings({ surgeSensitivity: 0.1 })).toEqual({});
+    expect(Object.keys(validateSettings({ surgeSensitivity: 2, demandWindowMin: 0.5, dynamicSurgeEnabled: "yes", futureKnob: Number.NaN }))).toEqual([
+      "surgeSensitivity",
+      "demandWindowMin",
+      "dynamicSurgeEnabled",
+      "futureKnob",
+    ]);
+  });
+
+  it("surge example matches the API formula (ratio 3 → 1.2×)", async () => {
+    const { surgeExample } = await import("@/lib/validation");
+    expect(surgeExample(3, 0.1, 1.5)).toBe(1.2);
+    expect(surgeExample(12, 0.1, 1.5)).toBe(1.5);
+    expect(surgeExample(1, 0.1, 1.5)).toBe(1);
+    expect(surgeExample(4, 0.05, 1.5)).toBe(1.15);
+  });
+});
+
+describe("editor brush and polygon helpers", () => {
+  it("brush sizes are 1, 7, 19 and 37 hexagons", async () => {
+    const { BRUSH_SIZES, brushCells } = await import("@/lib/hex");
+    const c = cellAt(11.0183, 76.9725, 8);
+    expect(BRUSH_SIZES.map((b) => brushCells(c, b.k).length)).toEqual([1, 7, 19, 37]);
+  });
+
+  it("fills a drawn polygon and never returns nothing for a tiny one", async () => {
+    const { polygonCells, cellsBounds } = await import("@/lib/hex");
+    // ~2 km square around Gandhipuram.
+    const square: [number, number][] = [
+      [11.01, 76.96],
+      [11.01, 76.98],
+      [11.03, 76.98],
+      [11.03, 76.96],
+    ];
+    const cells = polygonCells(square, 8);
+    expect(cells.length).toBeGreaterThan(3);
+    const b = cellsBounds(cells)!;
+    expect(b.south).toBeGreaterThan(11.0);
+    expect(b.north).toBeLessThan(11.04);
+    const tiny: [number, number][] = [
+      [11.0183, 76.9725],
+      [11.01831, 76.97251],
+      [11.01832, 76.9725],
+    ];
+    expect(polygonCells(tiny, 8)).toEqual([cellAt(11.0183, 76.9725, 8)]);
+    expect(polygonCells(square.slice(0, 2), 8)).toEqual([]);
+  });
 });

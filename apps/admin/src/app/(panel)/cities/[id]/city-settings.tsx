@@ -4,7 +4,7 @@ import { Loader2Icon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { PointPicker } from "@/components/map/lazy";
+import { PointPicker } from "@/components/map/google/point-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {

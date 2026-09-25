@@ -1,4 +1,4 @@
-import { cellToBoundary, cellToLatLng, getResolution, gridDisk, isValidCell, latLngToCell, polygonToCells } from "h3-js";
+import { cellToBoundary, cellToChildren, cellToLatLng, cellToParent, getResolution, gridDisk, isValidCell, latLngToCell, polygonToCells } from "h3-js";
 
 /** Average hexagon edge length by H3 resolution (km), same table as apps/api/src/modules/geo/h3.util.ts. */
 const EDGE_KM = [1281.256, 483.057, 182.513, 68.979, 26.072, 9.854, 3.725, 1.406, 0.531, 0.201, 0.076, 0.029];
@@ -117,26 +117,76 @@ export function polygonCells(points: readonly [number, number][], resolution: nu
   return [...new Set(points.map(([lat, lng]) => latLngToCell(lat, lng, resolution)))];
 }
 
-/** Bounding box of cell centres (null for an empty list). */
-export function cellsBounds(cells: readonly string[]): { south: number; west: number; north: number; east: number } | null {
+/**
+ * Bounding box of cell centres (null for an empty list). With [trim], the 2nd–98th percentiles are used once there
+ * are enough cells, so one stray hexagon painted far away doesn't zoom the whole map out.
+ */
+export function cellsBounds(
+  cells: readonly string[],
+  opts: { trim?: boolean } = {},
+): { south: number; west: number; north: number; east: number } | null {
   if (cells.length === 0) return null;
-  let south = 90;
-  let north = -90;
-  let west = 180;
-  let east = -180;
+  const lats: number[] = [];
+  const lngs: number[] = [];
   for (const c of cells) {
     const [lat, lng] = cellToLatLng(c);
-    south = Math.min(south, lat);
-    north = Math.max(north, lat);
-    west = Math.min(west, lng);
-    east = Math.max(east, lng);
+    lats.push(lat);
+    lngs.push(lng);
   }
-  return { south, west, north, east };
+  lats.sort((a, b) => a - b);
+  lngs.sort((a, b) => a - b);
+  const cut = opts.trim && cells.length >= 20 ? Math.floor(cells.length * 0.02) : 0;
+  const hi = cells.length - 1 - cut;
+  return { south: lats[cut], north: lats[hi], west: lngs[cut], east: lngs[hi] };
 }
 
-/** Rough centre of a set of cells (average of cell centres), for labels. */
+/** Largest group of touching cells (6-neighbour flood fill). */
+export function largestCluster(cells: readonly string[]): string[] {
+  const left = new Set(cells);
+  let best: string[] = [];
+  while (left.size > 0) {
+    const start = left.values().next().value as string;
+    left.delete(start);
+    const group = [start];
+    for (let i = 0; i < group.length; i++) {
+      for (const n of gridDisk(group[i], 1)) {
+        if (left.has(n)) {
+          left.delete(n);
+          group.push(n);
+        }
+      }
+    }
+    if (group.length > best.length) best = group;
+  }
+  return best;
+}
+
+/** Approximate area of a lat/lng polygon in km² (equirectangular shoelace; fine at city scale). */
+export function polygonAreaKm2(points: readonly [number, number][]): number {
+  if (points.length < 3) return 0;
+  const lat0 = (points.reduce((a, p) => a + p[0], 0) / points.length) * (Math.PI / 180);
+  const kx = 111.32 * Math.cos(lat0);
+  const ky = 110.57;
+  let sum = 0;
+  for (let i = 0; i < points.length; i++) {
+    const [y1, x1] = points[i];
+    const [y2, x2] = points[(i + 1) % points.length];
+    sum += x1 * kx * (y2 * ky) - x2 * kx * (y1 * ky);
+  }
+  return Math.abs(sum) / 2;
+}
+
+/** Largest polygon fill we accept in one go (keeps the browser responsive). */
+export const MAX_POLYGON_CELLS = 20_000;
+
+/** Visual centre for a label: the centre of the zone's largest touching cluster. */
 export function cellsCentre(cells: readonly string[]): { lat: number; lng: number } | null {
   if (cells.length === 0) return null;
+  const main = largestCluster(cells);
+  return averageCentre(main.length ? main : cells);
+}
+
+function averageCentre(cells: readonly string[]): { lat: number; lng: number } {
   let lat = 0;
   let lng = 0;
   for (const c of cells) {
@@ -145,4 +195,22 @@ export function cellsCentre(cells: readonly string[]): { lat: number; lng: numbe
     lng += b;
   }
   return { lat: lat / cells.length, lng: lng / cells.length };
+}
+
+/** Converts cells to [resolution]: coarser cells expand to their children, finer ones collapse to parents. */
+export function toResolution(cells: readonly string[], resolution: number): string[] {
+  const out = new Set<string>();
+  for (const c of cells) {
+    const r = getResolution(c);
+    if (r === resolution) out.add(c);
+    else if (r < resolution) for (const child of cellToChildren(c, resolution)) out.add(child);
+    else out.add(cellToParent(c, resolution));
+  }
+  return [...out].sort();
+}
+
+/** Centre of a cell as {lat, lng}. */
+export function cellCentre(cell: string): { lat: number; lng: number } {
+  const [lat, lng] = cellToLatLng(cell);
+  return { lat, lng };
 }

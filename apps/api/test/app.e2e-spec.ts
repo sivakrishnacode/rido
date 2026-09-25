@@ -34,7 +34,7 @@ describe('Rido API (e2e)', () => {
     const redis = app.get(RedisService);
     const otpKeys = await redis.keys('otp:*');
     if (otpKeys.length) await redis.del(...otpKeys);
-    const keys = [...(await redis.keys('h3:drv:*')), ...(await redis.keys('driver:*')), ...(await redis.keys('dispatch:*'))];
+    const keys = [...(await redis.keys('h3:*')), ...(await redis.keys('hexstats:*')), ...(await redis.keys('driver:*')), ...(await redis.keys('dispatch:*'))];
     if (keys.length) await redis.del(...keys);
     http = request(app.getHttpServer());
   });
@@ -130,6 +130,10 @@ describe('Rido API (e2e)', () => {
     const docs = await http.post(`/v1/admin/drivers/${driverId}/documents/AADHAAR`).set(auth).send({ status: 'VERIFIED' }).expect(201);
     expect(docs.body.find((d: { type: string }) => d.type === 'AADHAAR').status).toBe('VERIFIED');
     await http.get('/v1/admin/trips').set(auth).expect(200);
+    const heat = await http.get('/v1/admin/heatmap?metric=pickups').set(auth).expect(200);
+    expect(heat.body.cells.length).toBeGreaterThan(0);
+    expect(heat.body.cells[0].intensity).toBe(1);
+    await http.get('/v1/admin/heatmap?metric=unmet&hourFrom=7&hourTo=10&resolution=7').set(auth).expect(200);
     await http.get('/v1/admin/plans').set(auth).expect(200);
   });
 
@@ -172,6 +176,35 @@ describe('Rido API (e2e)', () => {
     // Every admin change is audited.
     const audit = await http.get('/v1/admin/audit?pageSize=5').set(admin).expect(200);
     expect(audit.body.items.length).toBeGreaterThan(0);
+  });
+
+  it('surges from live H3 demand and learns hex-to-hex speeds', async () => {
+    await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
+    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' })).body.accessToken}` };
+    const passenger = await login();
+    const peelamedu = { lat: 11.029, lng: 77.027, name: 'Peelamedu' };
+    const raceCourse = { lat: 10.999, lng: 76.978, name: 'Race Course' };
+    for (let i = 0; i < 5; i++) {
+      await http.post('/v1/trips').set('Authorization', `Bearer ${passenger}`)
+        .send({ kind: 'RIDE', vehicleKind: 'AUTO', pickup: peelamedu, drop: raceCourse }).expect(201);
+    }
+    // No drivers near Peelamedu: demand ÷ supply is high → the cell (and, smoothed, its neighbours) surges.
+    const snap = await http.get('/v1/admin/demand?refresh=true').set(admin).expect(200);
+    const hot = snap.body.cells.find((c: { requests: number }) => c.requests >= 5);
+    expect(hot.level).toBe('high');
+    expect(hot.multiplier).toBeGreaterThan(1.1);
+    const here = await http.get(`/v1/geo/check?lat=${peelamedu.lat}&lng=${peelamedu.lng}`).expect(200);
+    expect(here.body.multiplier).toBe(hot.multiplier);
+    const publicDemand = await http.get('/v1/demand').expect(200);
+    expect(publicDemand.body.cells.some((c: { cell: string }) => c.cell === hot.cell)).toBe(true);
+
+    // Learned speeds: rebuild from completed trips (the ride test completed one) and read the summary.
+    const rebuilt = await http.post('/v1/admin/hex-stats/rebuild').set(admin).expect(200);
+    expect(rebuilt.body.pairs).toBeGreaterThanOrEqual(0);
+    const stats = await http.get('/v1/admin/hex-stats').set(admin).expect(200);
+    expect(stats.body.lastRun).not.toBeNull();
+    const compact = await http.get('/v1/cities/coimbatore/service-area?compact=true').expect(200);
+    expect(compact.body.compacted).toBe(true);
   });
 
   it('starts a free trial and lists daily/weekly/monthly plans', async () => {

@@ -5,7 +5,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import type { PlanPeriod, VehicleKind } from '../src/generated/prisma/enums.js';
 import { PLAN_PRICES } from '../src/modules/subscriptions/plan-prices.js';
-import { cellsForCircle } from '../src/modules/geo/h3.util.js';
+import { cellAt, cellsForCircle } from '../src/modules/geo/h3.util.js';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' }) });
 
@@ -40,6 +40,7 @@ async function main(): Promise<void> {
     }
   }
   await seedCoimbatore();
+  await backfillTripCells();
   console.log(`Seeded ${PLACES.length} places, ${Object.keys(PLAN_PRICES).length * 3} plans and the Coimbatore service area`);
 }
 
@@ -66,6 +67,15 @@ async function seedCoimbatore(): Promise<void> {
       },
     },
   });
+}
+
+/** Fills pickup/drop H3 cells for trips created before heatmaps existed. */
+async function backfillTripCells(): Promise<void> {
+  const trips = await prisma.trip.findMany({ where: { OR: [{ pickupCell: null }, { dropCell: null }] }, select: { id: true, pickupLat: true, pickupLng: true, dropLat: true, dropLng: true } });
+  for (const t of trips) {
+    await prisma.trip.update({ where: { id: t.id }, data: { pickupCell: cellAt(t.pickupLat, t.pickupLng, 8), dropCell: cellAt(t.dropLat, t.dropLng, 8) } });
+  }
+  if (trips.length) console.log(`Backfilled H3 cells on ${trips.length} trips`);
 }
 
 await main();

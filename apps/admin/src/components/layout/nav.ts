@@ -1,6 +1,8 @@
 import {
   BadgeIndianRupeeIcon,
   ClipboardCheckIcon,
+  FlameIcon,
+  GaugeIcon,
   HexagonIcon,
   IdCardIcon,
   LayoutDashboardIcon,
@@ -35,6 +37,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
       { href: "/live", label: "Live", icon: RadarIcon },
+      { href: "/heatmap", label: "Heatmap", icon: FlameIcon },
     ],
   },
   {
@@ -58,7 +61,13 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   { label: "Finance", items: [{ href: "/payments", label: "Payments", icon: WalletCardsIcon }] },
-  { label: "System", items: [{ href: "/audit", label: "Audit", icon: ScrollTextIcon, searchHint: "Search audit log by action" }] },
+  {
+    label: "System",
+    items: [
+      { href: "/travel-speeds", label: "Travel speeds", icon: GaugeIcon },
+      { href: "/audit", label: "Audit", icon: ScrollTextIcon, searchHint: "Search audit log by action" },
+    ],
+  },
 ];
 
 export const NAV: readonly NavItem[] = NAV_GROUPS.flatMap((g) => g.items);

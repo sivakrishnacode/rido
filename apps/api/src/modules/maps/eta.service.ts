@@ -5,6 +5,8 @@ import { RedisService } from '../../core/redis/redis.service.js';
 import type { VehicleKind } from '../../generated/prisma/enums.js';
 import { haversineMeters } from '../fares/fare-engine.js';
 import { cellAt } from '../geo/h3.util.js';
+import { HexStatsService, istHour } from '../geo/hex-stats.service.js';
+import { SettingsService } from '../settings/settings.service.js';
 import { MapsService } from './maps.service.js';
 
 const ETA_RES = 8;
@@ -14,7 +16,8 @@ const FALLBACK_KMH = 20;
 const ROAD_FACTOR = 1.3;
 
 /**
- * Road ETA between two points, cached per H3 cell pair: every driver in the same hexagon
+ * ETA between two points: learned hex-pair speed (HexStatsService) → Google road ETA → estimate;
+ * cached per H3 cell pair: every driver in the same hexagon
  * shares one lookup for 10 minutes, which keeps Routes API calls (and cost) low.
  */
 @Injectable()
@@ -22,6 +25,8 @@ export class EtaService {
   constructor(
     private readonly maps: MapsService,
     private readonly redis: RedisService,
+    private readonly hexStats: HexStatsService,
+    private readonly settings: SettingsService,
   ) {}
 
   async minutes(params: { from: { lat: number; lng: number }; to: { lat: number; lng: number }; vehicleKind?: VehicleKind; useRoad: boolean }): Promise<number> {
@@ -41,6 +46,13 @@ export class EtaService {
     const [bLat, bLng] = cellToLatLng(b);
     const from = { lat: aLat, lng: aLng };
     const to = { lat: bLat, lng: bLng };
+    // 1. Learned speed for this hex pair and hour (from completed trips), when there is enough data.
+    const minTrips = await this.settings.get('historicalEtaMinTrips');
+    const learned = minTrips > 0 ? this.hexStats.speedKmh({ from: a, to: b, hour: istHour(new Date()), minTrips }) : null;
+    if (learned) {
+      const km = (haversineMeters(from, to) / 1000) * ROAD_FACTOR;
+      return Math.max(1, Math.round((km / learned.speed) * 60));
+    }
     if (params.useRoad && this.maps.isGoogleEnabled) {
       const road = await this.maps.route({ from, to, vehicleKind: params.vehicleKind });
       if (road) return Math.max(1, road.durationMin);

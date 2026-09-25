@@ -10,11 +10,20 @@ export const RIDO_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: "poi", stylers: [{ visibility: "off" }] },
   { featureType: "poi.park", elementType: "geometry", stylers: [{ visibility: "on" }, { color: "#DDEBD8" }] },
   { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#475569" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#FFFFFF" }, { weight: 3 }] },
-  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#1E293B" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#334155" }] },
+  // Navy-500 text with a white halo stays readable over coral hexagons.
+  { elementType: "labels.text.fill", stylers: [{ color: "#64748B" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#FFFFFF" }, { weight: 3.5 }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#334155" }] },
+  { featureType: "road.local", elementType: "labels", stylers: [{ visibility: "off" }] },
   { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#CBD5E1" }] },
 ];
+
+/** Below zoom 14 neighbourhood names are hidden too (they collide with localities and zone labels). */
+export const RIDO_MAP_STYLES_ZOOMED_OUT: google.maps.MapTypeStyle[] = [
+  ...RIDO_MAP_STYLES,
+  { featureType: "administrative.neighborhood", elementType: "labels", stylers: [{ visibility: "off" }] },
+];
+
+export const NEIGHBOURHOOD_MIN_ZOOM = 14;
 
 export const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? "";

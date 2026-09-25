@@ -137,14 +137,17 @@ docker compose up -d --build admin     # rebuild the admin image only
 npm run dev -w @rido/admin             # local dev on :3001 (API_URL defaults to http://localhost:3000/v1)
 ```
 
+Maps use the Google Maps JavaScript API: set `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` in `apps/admin/.env.local` (dev) or
+`GOOGLE_MAPS_BROWSER_KEY` in the root `.env` (Docker), and enable the Maps JavaScript API on that key.
+
 Sign in with **9000000001** (listed in `ADMIN_PHONES`) and any 6-digit OTP except `000000` (dev mode). Other numbers
 are refused with "This number is not an admin".
 
 | Area | Pages |
 |---|---|
-| Overview | Dashboard (KPIs, 7-day trips chart, pending KYC, mini live map), Live (drivers + active trips, every 10 s) |
+| Overview | Dashboard (KPIs, 7-day trips chart, pending KYC, hotspots, mini live map), Live (drivers + active trips, every 10 s), Heatmap (pickups / drops / unmet demand / fares per H3 hexagon → zones) |
 | Operations | Trips (+ fare breakdown, timeline), Drivers (+ KYC verify / reject, approve / hold / reactivate, plans, payments), KYC queue, Passengers, Users (roles, block / unblock), Support |
-| Configuration | Zones (cities, H3 service-area painter, zones, per-city fares, city settings), Plans (daily / weekly / monthly prices), Settings, Announcements |
+| Configuration | Zones (cities; Google Maps editor with place search, brush / draw-area / circle tools, zones, per-city fares, city settings), Plans (daily / weekly / monthly prices), Settings, Announcements |
 | Finance / System | Payments, Audit log; CSV export on Trips, Drivers and Payments |
 
 Details (auth flow, env vars, maps, tests): [docs/tech-docs/using.tech.md](docs/tech-docs/using.tech.md#6b-admin-panel-appsadmin).

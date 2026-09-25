@@ -9,6 +9,8 @@ import type { Tool } from "./paint-tools";
 /**
  * Cell-set editing with strokes (a drag = one undo step), undo/redo and keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z).
  */
+export type CellEditor = ReturnType<typeof useCellEditor>;
+
 export function useCellEditor(initial: readonly string[]) {
   const [history, setHistory] = useState<CellHistory>(() => historyInit([...initial].sort()));
   const [stroke, setStroke] = useState<string[] | null>(null);
@@ -28,9 +30,9 @@ export function useCellEditor(initial: readonly string[]) {
       strokeRef.current = [...history.present];
       setStroke(strokeRef.current);
     },
-    onCell: (cell: string, mode: "add" | "remove") => {
+    onCells: (cells: readonly string[], mode: "add" | "remove") => {
       if (!strokeRef.current) return;
-      strokeRef.current = applyCells(strokeRef.current, [cell], mode);
+      strokeRef.current = applyCells(strokeRef.current, cells, mode);
       setStroke(strokeRef.current);
     },
     onStrokeEnd: () => {

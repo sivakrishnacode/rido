@@ -18,6 +18,16 @@ export const SETTING_DEFAULTS = {
   batchWindowMs: 2000,
   /** Rank candidates by road ETA (Google Routes, cached per hex pair) instead of straight-line estimate. */
   useRoadEta: true,
+  /** Automatic surge from live demand vs free drivers per H3 cell (res 7). */
+  dynamicSurgeEnabled: true,
+  /** Extra multiplier per unit of (requests ÷ free drivers) above 1, e.g. 0.1 → ratio 3 = 1.2x. */
+  surgeSensitivity: 0.1,
+  /** Minutes of bookings counted as current demand. */
+  demandWindowMin: 15,
+  /** Minimum bookings in a cell before it can surge or be shown as high demand. */
+  surgeMinRequests: 3,
+  /** Use learned hex-to-hex speeds for ETAs when a pair has at least this many trips (0 = off). */
+  historicalEtaMinTrips: 5,
   /** Support phone shown in the apps. */
   supportPhone: '+91 422 000 0000',
 } as const;

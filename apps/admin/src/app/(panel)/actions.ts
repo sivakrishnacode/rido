@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { ApiError, adminApi, type AnnouncementInput, type CityInput, type FareInput, type ZoneInput } from "@/lib/api";
-import { validateSettings } from "@/lib/validation";
+import { validateSettings, type SettingsInput } from "@/lib/validation";
 import {
   AUDIENCES,
   DRIVER_STATUSES,
@@ -18,7 +18,6 @@ import {
   type DriverStatus,
   type KycDocType,
   type Role,
-  type Settings,
   type TicketStatus,
   type VehicleKind,
 } from "@/lib/types";
@@ -40,7 +39,7 @@ async function run<T>(fn: () => Promise<T>, message: string | ((data: T) => stri
 
 /** Drops the API payload (keeps Server Action responses small). */
 function plain<T>(res: ActionResult<T>): ActionResult {
-  return plain(res);
+  return res.ok ? { ok: true, message: res.message } : { ok: false, error: res.error };
 }
 
 export async function setDriverStatus(driverId: string, status: DriverStatus): Promise<ActionResult> {
@@ -218,10 +217,18 @@ export async function deleteAnnouncement(id: string): Promise<ActionResult> {
 
 // Settings ---------------------------------------------------------------------------------------------------------
 
-export async function saveSettings(input: Settings): Promise<ActionResult> {
+export async function saveSettings(input: SettingsInput): Promise<ActionResult> {
   const errors = validateSettings(input);
   const first = Object.values(errors)[0];
   if (first) return { ok: false, error: first };
-  const res = await run(() => adminApi.updateSettings(input), "Settings saved", ["/settings"]);
+  const res = await run(() => adminApi.updateSettings(input), "Settings saved", ["/settings", "/live"]);
   return plain(res);
+}
+
+// Learned travel speeds -----------------------------------------------------------------------------------------------
+
+export async function rebuildHexStats(): Promise<ActionResult> {
+  return plain(
+    await run(() => adminApi.rebuildHexStats(), (r) => `Rebuilt: ${r.pairs.toLocaleString("en-IN")} hex-pair/hour rows from ${r.trips.toLocaleString("en-IN")} trips`, ["/travel-speeds"]),
+  );
 }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { PointPicker } from "@/components/map/lazy";
+import { PointPicker } from "@/components/map/google/point-picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

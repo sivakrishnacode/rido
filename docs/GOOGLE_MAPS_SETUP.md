@@ -14,7 +14,8 @@ the API falls back to seeded places and straight-line distances.
 |---|---|---|---|
 | **1. `rido-android-maps`** | Both Android apps, to draw the map | Maps SDK for Android | Android apps `com.rido.passenger` and `com.rido.driver` + signing SHA-1 |
 | **2. `rido-server`** | Backend (`apps/api`) | Places API (New), Geocoding API, Routes API | Your server's IP address |
-| **3. `rido-app-services`** (prototype only) | Apps' direct search / geocode / route calls | Places API (New), Geocoding API, Routes API | API restrictions only (see note) |
+| **3. `rido-app-services`** (prototype only) | Apps' direct search / geocode / route calls; **for now also the admin panel's maps** | Places API (New), Geocoding API, Routes API, **Maps JavaScript API** | API restrictions only (see note) |
+| **4. `rido-admin-web`** (recommended, not created yet) | Admin panel maps in the browser (`apps/admin`) | Maps JavaScript API only | HTTP referrers: your admin domain(s), plus `http://localhost:3001/*` for dev |
 
 **Why key 3 exists:** the apps currently call Places, Geocoding and Routes directly over HTTPS. Those calls can't
 prove they come from the Android app, so an Android-restricted key would be rejected. Key 3 is limited to those
@@ -41,6 +42,7 @@ A budget alert only emails you; it doesn't stop spending. The quota caps in Step
 Go to **APIs & Services → Library**, search for each and click **Enable**:
 
 - **Maps SDK for Android**
+- **Maps JavaScript API** (admin panel maps: zones editor, heatmap, live map)
 - **Places API (New)** (not the legacy "Places API")
 - **Geocoding API**
 - **Routes API**
@@ -87,6 +89,18 @@ Go to **APIs & Services → Credentials → Create credentials → API key**. Fo
 - **Name:** `rido-app-services`
 - **Application restrictions:** None (see "Why key 3 exists" above).
 - **API restrictions:** **Places API (New)**, **Geocoding API**, **Routes API**.
+
+### Key 4: `rido-admin-web` (recommended once the admin panel has a domain)
+- **Name:** `rido-admin-web`
+- **Application restrictions:** Websites (HTTP referrers): `https://admin.<your-domain>/*` and `http://localhost:3001/*`.
+- **API restrictions:** **Maps JavaScript API** only.
+- Put it in `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` (`apps/admin/.env.local` for dev, `GOOGLE_MAPS_BROWSER_KEY` in the root
+  `.env` for Docker; it's baked into the admin's client bundle at build time, so rebuild with
+  `docker compose up -d --build admin`). Until then the admin uses key 3, which must have the Maps JavaScript API
+  enabled; otherwise the admin maps show "Enable the Maps JavaScript API for this key…".
+
+The admin's place search does **not** use the browser key: it goes through the API (`/v1/places/autocomplete`, key 2,
+Redis cache), so there is no client-side Places billing.
 
 Save each key. Copy the values; they start with `AIza…`.
 
@@ -162,6 +176,7 @@ In the passenger app:
 | API returns `"source":"local"` | Key 2 missing, IP not allowed, or API not enabled | Check `.env`, the IP restriction and the enabled APIs; see `docker compose logs api` |
 | `403 PERMISSION_DENIED` / `REQUEST_DENIED` in logs | API not enabled, or key restricted to other APIs | Enable the API and add it to the key's API restrictions |
 | `This API project is not authorized` | Billing not linked | Link billing (Step 1) |
+| Admin map shows "Google Maps refused this key" (`ApiNotActivatedMapError` / `RefererNotAllowedMapError` in the browser console) | Maps JavaScript API not enabled for the browser key, or the referrer isn't allowed | Enable the Maps JavaScript API; add the admin URL to the key's referrers; rebuild the admin |
 
 ## Cost notes
 

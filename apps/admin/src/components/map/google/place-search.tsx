@@ -85,9 +85,11 @@ export function PlaceSearch({ onSelect, className }: { onSelect: (place: FoundPl
       <div className="flex h-10 items-center gap-2 rounded-lg border bg-card px-3 shadow-md">
         {isLoading ? <Loader2Icon className="size-4 animate-spin text-muted-foreground" /> : <SearchIcon className="size-4 text-muted-foreground" />}
         <input
-          type="search"
+          type="text"
           value={q}
           placeholder="Find a locality, e.g. Peelamedu"
+          role="combobox"
+          aria-autocomplete="list"
           aria-label="Find a place on the map"
           aria-expanded={isOpen}
           aria-controls="place-results"

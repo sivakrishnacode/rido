@@ -1,28 +1,53 @@
 import type { Settings } from "./types";
 
-export type SettingsErrors = Partial<Record<keyof Settings, string>>;
+export type SettingValue = number | boolean | string;
+export type SettingsInput = Partial<Record<keyof Settings, SettingValue>> & Record<string, SettingValue>;
+export type SettingsErrors = Partial<Record<string, string>>;
 
-function inRange(v: number, min: number, max: number, isInteger = false): boolean {
-  return Number.isFinite(v) && v >= min && v <= max && (!isInteger || Number.isInteger(v));
+function inRange(v: unknown, min: number, max: number, isInteger = false): boolean {
+  return typeof v === "number" && Number.isFinite(v) && v >= min && v <= max && (!isInteger || Number.isInteger(v));
 }
 
-/** Client + server validation for PUT /admin/settings (keys from settings.defaults.ts). */
-export function validateSettings(s: Settings): SettingsErrors {
+/** Rules for the known settings keys (apps/api/src/modules/settings/settings.defaults.ts). */
+const RULES: Record<string, (v: SettingValue) => string | null> = {
+  maxMultiplier: (v) => (inRange(v, 1, 1.5) ? null : "Maximum multiplier must be 1.0–1.5"),
+  currentMultiplier: (v) => (inRange(v, 1, 1.5) ? null : "Current multiplier must be 1.0–1.5"),
+  searchRadiusKm: (v) => (inRange(v, 0.5, 30) ? null : "Search radius must be 0.5–30 km"),
+  offerSeconds: (v) => (inRange(v, 5, 120, true) ? null : "Offer time must be 5–120 whole seconds"),
+  maxCandidates: (v) => (inRange(v, 1, 20, true) ? null : "Drivers per booking must be 1–20"),
+  trialDays: (v) => (inRange(v, 0, 365, true) ? null : "Trial must be 0–365 days"),
+  graceDays: (v) => (inRange(v, 0, 30, true) ? null : "Grace period must be 0–30 days"),
+  batchWindowMs: (v) => (inRange(v, 0, 10_000, true) ? null : "Batch window must be 0–10,000 ms"),
+  surgeSensitivity: (v) => (inRange(v, 0, 1) ? null : "Sensitivity must be 0–1 (e.g. 0.1)"),
+  demandWindowMin: (v) => (inRange(v, 1, 120, true) ? null : "Demand window must be 1–120 whole minutes"),
+  surgeMinRequests: (v) => (inRange(v, 0, 1000, true) ? null : "Minimum requests must be a whole number 0–1,000"),
+  historicalEtaMinTrips: (v) => (inRange(v, 0, 10_000, true) ? null : "Minimum trips must be a whole number (0 = off)"),
+  useRoadEta: (v) => (typeof v === "boolean" ? null : "Road ETA must be on or off"),
+  dynamicSurgeEnabled: (v) => (typeof v === "boolean" ? null : "Dynamic surge must be on or off"),
+  supportPhone: (v) => (typeof v === "string" && /^\+?[\d\s-]{8,20}$/.test(v.trim()) ? null : "Enter a phone number like +91 422 000 0000"),
+};
+
+/** Client + server validation for PUT /admin/settings. Only the keys present are checked; unknown numbers must be finite. */
+export function validateSettings(s: SettingsInput): SettingsErrors {
   const e: SettingsErrors = {};
-  if (!inRange(s.maxMultiplier, 1, 1.5)) e.maxMultiplier = "Maximum multiplier must be 1.0–1.5";
-  if (!inRange(s.currentMultiplier, 1, 1.5)) e.currentMultiplier = "Current multiplier must be 1.0–1.5";
-  else if (inRange(s.maxMultiplier, 1, 1.5) && s.currentMultiplier > s.maxMultiplier) {
+  for (const [key, value] of Object.entries(s)) {
+    const rule = RULES[key];
+    const error = rule ? rule(value) : typeof value === "number" && !Number.isFinite(value) ? "Enter a number" : null;
+    if (error) e[key] = error;
+  }
+  const cur = s.currentMultiplier;
+  const max = s.maxMultiplier;
+  if (!e.currentMultiplier && !e.maxMultiplier && typeof cur === "number" && typeof max === "number" && cur > max) {
     e.currentMultiplier = "Current multiplier can't exceed the maximum";
   }
-  if (!inRange(s.searchRadiusKm, 0.5, 30)) e.searchRadiusKm = "Search radius must be 0.5–30 km";
-  if (!inRange(s.offerSeconds, 5, 120, true)) e.offerSeconds = "Offer time must be 5–120 whole seconds";
-  if (!inRange(s.maxCandidates, 1, 20, true)) e.maxCandidates = "Drivers per booking must be 1–20";
-  if (!inRange(s.trialDays, 0, 365, true)) e.trialDays = "Trial must be 0–365 days";
-  if (!inRange(s.graceDays, 0, 30, true)) e.graceDays = "Grace period must be 0–30 days";
-  if (!inRange(s.batchWindowMs, 0, 10_000, true)) e.batchWindowMs = "Batch window must be 0–10,000 ms";
-  if (typeof s.useRoadEta !== "boolean") e.useRoadEta = "Road ETA must be on or off";
-  if (!/^\+?[\d\s-]{8,20}$/.test(s.supportPhone.trim())) e.supportPhone = "Enter a phone number like +91 422 000 0000";
   return e;
+}
+
+/** multiplier = 1 + sensitivity × (ratio − 1), capped, rounded down to 0.05 (apps/api/src/modules/geo/surge.ts). */
+export function surgeExample(ratio: number, sensitivity: number, maxMultiplier: number): number {
+  if (!(ratio > 1)) return 1;
+  const raw = Math.min(maxMultiplier, 1 + sensitivity * (ratio - 1));
+  return Math.floor(raw * 20 + 1e-9) / 20;
 }
 
 /** H3 resolution 8 hexagon ≈ 0.737 km² (average area). */

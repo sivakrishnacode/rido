@@ -455,8 +455,21 @@ export interface Settings {
   readonly batchWindowMs: number;
   /** Rank candidate drivers by road ETA (Google Routes) instead of a straight-line estimate. */
   readonly useRoadEta: boolean;
+  /** Live surge from demand vs free drivers per res-7 hexagon. */
+  readonly dynamicSurgeEnabled: boolean;
+  /** multiplier = 1 + sensitivity × (ratio − 1). */
+  readonly surgeSensitivity: number;
+  /** Minutes of bookings counted as current demand. */
+  readonly demandWindowMin: number;
+  /** Below this many requests in a hex there is no surge. */
+  readonly surgeMinRequests: number;
+  /** Learned hex-to-hex ETA is used once a pair has this many trips (0 = off). */
+  readonly historicalEtaMinTrips: number;
   readonly supportPhone: string;
 }
+
+/** Settings as returned by the API: the known keys plus anything newer (rendered in "Other"). */
+export type SettingsRecord = Settings & Record<string, number | boolean | string>;
 
 export interface AuditLog {
   readonly id: string;
@@ -475,4 +488,81 @@ export interface ServiceArea {
   readonly resolution: number;
   readonly cells: string[];
   readonly zones: Pick<Zone, "id" | "name" | "kind" | "cells" | "surgeMultiplier" | "color">[];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Heatmap (admin-heatmap.service.ts)
+
+export type HeatmapMetric = "pickups" | "drops" | "unmet" | "fares";
+export const HEATMAP_METRICS: readonly HeatmapMetric[] = ["pickups", "drops", "unmet", "fares"];
+
+export interface HeatCell {
+  readonly cell: string;
+  readonly value: number;
+  /** value / max, 0–1. */
+  readonly intensity: number;
+}
+
+/** GET /admin/heatmap. */
+export interface Heatmap {
+  readonly metric: HeatmapMetric;
+  readonly resolution: number;
+  readonly total: number;
+  readonly max: number;
+  readonly from: string;
+  readonly to: string;
+  readonly cells: HeatCell[];
+}
+
+export interface HeatmapQuery {
+  readonly metric?: HeatmapMetric;
+  readonly from?: string;
+  readonly to?: string;
+  readonly kind?: TripKind;
+  readonly vehicleKind?: VehicleKind;
+  readonly hourFrom?: number;
+  readonly hourTo?: number;
+  readonly resolution?: number;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Live demand / surge (geo/demand.service.ts) and learned travel speeds (geo/hex-stats.service.ts)
+
+export type DemandLevel = "normal" | "busy" | "high";
+
+export interface DemandCell {
+  readonly cell: string;
+  readonly lat: number;
+  readonly lng: number;
+  readonly requests: number;
+  readonly freeDrivers: number;
+  readonly ratio: number;
+  /** Smoothed across ring-1 neighbours. */
+  readonly multiplier: number;
+  readonly level: DemandLevel;
+}
+
+/** GET /admin/demand. */
+export interface DemandSnapshot {
+  readonly at: string;
+  readonly windowMin: number;
+  readonly cells: DemandCell[];
+}
+
+export interface HexStatRow {
+  readonly fromCell: string;
+  readonly toCell: string;
+  /** IST hour 0–23. */
+  readonly hour: number;
+  readonly trips: number;
+  readonly avgSpeedKmh: number;
+  readonly avgDurationMin: number;
+  readonly updatedAt?: string;
+}
+
+/** GET /admin/hex-stats. */
+export interface HexStats {
+  readonly rows: number;
+  readonly lastRun: string | null;
+  readonly top: HexStatRow[];
 }

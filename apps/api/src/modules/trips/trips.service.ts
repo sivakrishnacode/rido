@@ -7,12 +7,17 @@ import type { Prisma, Trip } from '../../generated/prisma/client.js';
 import { TripKind, TripStatus } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
+import { DemandService } from '../geo/demand.service.js';
 import { GeoService } from '../geo/geo.service.js';
+import { cellAt } from '../geo/h3.util.js';
 import { FaresService } from '../fares/fares.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { DispatchService } from './dispatch.service.js';
 import type { BookTripDto } from './dto/book-trip.dto.js';
 import { canTransition, isFinished } from './trip-transitions.js';
+
+/** H3 resolution stored on trips for heatmaps. */
+const HEAT_RES = 8;
 
 /** Rides and parcels: booking, the status lifecycle, cancel and rating. */
 @Injectable()
@@ -24,6 +29,7 @@ export class TripsService {
     private readonly location: DriverLocationService,
     private readonly events: TripEventsService,
     private readonly geo: GeoService,
+    private readonly demand: DemandService,
   ) {}
 
   /** Quotes, stores and starts dispatching a trip. */
@@ -46,6 +52,8 @@ export class TripsService {
         dropAddr: dto.drop.address ?? '',
         dropLat: dto.drop.lat,
         dropLng: dto.drop.lng,
+        pickupCell: cellAt(dto.pickup.lat, dto.pickup.lng, HEAT_RES),
+        dropCell: cellAt(dto.drop.lat, dto.drop.lng, HEAT_RES),
         distanceKm: quote.distanceKm,
         durationMin: quote.durationMin,
         fare: quote as unknown as Prisma.InputJsonValue,
@@ -56,6 +64,7 @@ export class TripsService {
         payer: dto.payer,
       },
     });
+    await this.demand.recordRequest(dto.pickup);
     await this.dispatch.start(trip);
     return trip;
   }

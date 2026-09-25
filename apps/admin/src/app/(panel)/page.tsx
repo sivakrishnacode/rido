@@ -1,6 +1,7 @@
 import {
   BadgeIndianRupeeIcon,
   BanIcon,
+  FlameIcon,
   CarIcon,
   FileSearchIcon,
   HexagonIcon,
@@ -10,6 +11,7 @@ import {
   RadioIcon,
   ReceiptIndianRupeeIcon,
   RouteIcon,
+  TrendingUpIcon,
   UsersIcon,
   WalletCardsIcon,
   type LucideIcon,
@@ -21,7 +23,9 @@ import { EmptyState, PageHeader } from "@/components/common/page";
 import { KycProgress, PlateBadge } from "@/components/common/status";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { adminApi } from "@/lib/api";
+import { adminApi, placeNameAt } from "@/lib/api";
+import { presetRange } from "@/lib/heat";
+import { cellCentre } from "@/lib/hex";
 import { displayName, formatCount, formatDate, formatInr, kycProgress, vehicleLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +87,16 @@ export default async function DashboardPage() {
     adminApi.cities(),
     adminApi.live(),
   ]);
+  const demand = await adminApi.demand().catch(() => null);
+  const surging = demand?.cells.filter((c) => c.multiplier > 1) ?? [];
+  const topSurge = surging.reduce((m, c) => Math.max(m, c.multiplier), 1);
+  const heat = await adminApi.heatmap({ metric: "pickups", ...presetRange("30d") }).catch(() => null);
+  const hotspots = await Promise.all(
+    (heat?.cells.slice(0, 5) ?? []).map(async (c) => {
+      const centre = cellCentre(c.cell);
+      return { ...c, ...centre, name: await placeNameAt(centre.lat, centre.lng) };
+    }),
+  );
   const activeCities = cities.filter((c) => c.isActive);
   const mapCenter: [number, number] = activeCities[0] ? [activeCities[0].centerLat, activeCities[0].centerLng] : [11.0168, 76.9658];
   const { drivers, trips, revenue } = stats;
@@ -107,6 +121,14 @@ export default async function DashboardPage() {
           icon={ClipboardCheckIcon}
           href="/drivers?status=PENDING"
           isHighlighted={drivers.pending > 0}
+        />
+        <Kpi
+          label="Surging now"
+          value={demand ? formatCount(surging.length) : "–"}
+          hint={surging.length ? `Areas up to ${topSurge.toFixed(2)}× · see Live` : demand ? "No surge right now" : "Demand unavailable"}
+          icon={TrendingUpIcon}
+          href="/live"
+          isHighlighted={surging.length > 0}
         />
         <Kpi label="Online now" value={formatCount(drivers.online)} hint="Drivers taking jobs" icon={RadioIcon} />
         <Kpi label="Passengers" value={formatCount(stats.passengers)} hint="Registered riders" icon={UsersIcon} href="/passengers" />
@@ -178,6 +200,38 @@ export default async function DashboardPage() {
         <div className="h-64">
           <MiniLiveMap data={live} center={mapCenter} />
         </div>
+      </Card>
+
+      <Card className="mt-6 gap-0 pb-0">
+        <CardHeader className="border-b">
+          <CardTitle className="flex items-center gap-2 font-semibold">
+            <FlameIcon className="size-4 text-coral-600" /> Hotspots
+          </CardTitle>
+          <CardDescription>Top pickup hexagons, last 30 days</CardDescription>
+          <CardAction>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/heatmap">Open heatmap</Link>
+            </Button>
+          </CardAction>
+        </CardHeader>
+        {hotspots.length === 0 ? (
+          <EmptyState icon={FlameIcon} title="No trips yet" description="Hotspots appear once trips are booked." />
+        ) : (
+          <ol className="grid divide-y sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+            {hotspots.map((h, i) => (
+              <li key={h.cell} className="px-4 py-3">
+                <p className="text-xs font-semibold text-muted-foreground">#{i + 1}</p>
+                <p className="truncate text-sm font-medium text-navy-900" title={h.name ?? h.cell}>
+                  {h.name ?? `${h.lat.toFixed(4)}, ${h.lng.toFixed(4)}`}
+                </p>
+                <p className="font-heading text-lg font-semibold tabular-nums">{formatCount(h.value)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {heat?.total ? Math.round((h.value / heat.total) * 100) : 0}% of pickups · {h.lat.toFixed(3)}, {h.lng.toFixed(3)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
       </Card>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-5">

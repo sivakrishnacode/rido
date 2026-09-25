@@ -4,6 +4,7 @@ import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { City, CityFareRule, Zone } from '../../generated/prisma/client.js';
 import { VehicleKind, ZoneKind } from '../../generated/prisma/enums.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { DemandService } from './demand.service.js';
 import { cellAt } from './h3.util.js';
 
 interface CityIndex {
@@ -17,7 +18,7 @@ export interface PointInfo {
   readonly cell: string | null;
   readonly isServiceable: boolean;
   readonly zones: readonly Zone[];
-  /** Fare multiplier here (max of SURGE zones, else the platform default), capped by maxMultiplier. */
+  /** Fare multiplier: max of SURGE zones (else the platform default) and live H3 demand surge, capped. */
   readonly multiplier: number;
 }
 
@@ -34,6 +35,7 @@ export class GeoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly demand: DemandService,
   ) {}
 
   invalidate(): void {
@@ -62,7 +64,9 @@ export class GeoService {
       const zones = city.zones.filter((z) => z.cells.includes(cell));
       const isBlocked = zones.some((z) => z.kind === ZoneKind.NO_SERVICE);
       const surge = zones.filter((z) => z.kind === ZoneKind.SURGE).map((z) => z.surgeMultiplier);
-      const multiplier = Math.min(s.maxMultiplier, Math.max(1, surge.length ? Math.max(...surge) : s.currentMultiplier));
+      // Highest of: admin surge zones (or the platform default) and live demand-vs-supply surge.
+      const live = await this.demand.surgeAt(point);
+      const multiplier = Math.min(s.maxMultiplier, Math.max(1, live, surge.length ? Math.max(...surge) : s.currentMultiplier));
       return { cityId: city.id, cell, isServiceable: !isBlocked, zones, multiplier };
     }
     return { cityId: null, cell: null, isServiceable: false, zones: [], multiplier: 1 };

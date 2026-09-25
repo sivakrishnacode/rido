@@ -17,12 +17,16 @@ import type {
   CityFare,
   CityFareRule,
   CityListItem,
+  DemandSnapshot,
+  HexStats,
+  SettingsRecord,
+  Heatmap,
+  HeatmapQuery,
   KycQueueItem,
   LiveData,
   PaymentRow,
   Role,
   ServiceArea,
-  Settings,
   UserDetail,
   VehicleKind,
   Zone,
@@ -228,10 +232,33 @@ export const adminApi = {
   setAnnouncementActive: (id: string, isActive: boolean) =>
     apiFetch<Announcement>(`/admin/announcements/${enc(id)}`, { method: "PATCH", body: { isActive } }),
   deleteAnnouncement: (id: string) => apiFetch<null>(`/admin/announcements/${enc(id)}`, { method: "DELETE" }),
-  settings: () => apiFetch<Settings>("/admin/settings"),
-  updateSettings: (data: Partial<Settings>) => apiFetch<Settings>("/admin/settings", { method: "PUT", body: data }),
+  settings: () => apiFetch<SettingsRecord>("/admin/settings"),
+  updateSettings: (data: Record<string, number | boolean | string | undefined>) =>
+    apiFetch<SettingsRecord>("/admin/settings", { method: "PUT", body: data }),
   audit: (q: ListQuery = {}) => apiFetch<Paged<AuditLog>>("/admin/audit", { query: listQuery(q) }),
+  demand: (refresh = false) => apiFetch<DemandSnapshot>("/admin/demand", { query: { refresh: refresh ? "true" : undefined } }),
+  hexStats: () => apiFetch<HexStats>("/admin/hex-stats"),
+  rebuildHexStats: () => apiFetch<{ pairs: number; trips: number }>("/admin/hex-stats/rebuild", { method: "POST" }),
+  heatmap: (q: HeatmapQuery = {}) => apiFetch<Heatmap>("/admin/heatmap", { query: { ...q } }),
 };
+
+/**
+ * Place name at a point (GET /v1/places/reverse, Google Geocoding on the API side). Cached for a day by Next's fetch
+ * cache, so the dashboard's hotspot names cost one geocode per hexagon per day at most. Null on any failure.
+ */
+export async function placeNameAt(lat: number, lng: number): Promise<string | null> {
+  try {
+    const res = await fetch(apiUrl(apiBaseUrl(), "/places/reverse", { lat: lat.toFixed(4), lng: lng.toFixed(4) }), {
+      next: { revalidate: 86_400 },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { place?: { name?: string } | null };
+    return body.place?.name ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /** Public geo endpoints (apps/api/src/modules/geo). */
 export const geoApi = {

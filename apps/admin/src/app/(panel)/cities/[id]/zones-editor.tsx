@@ -5,7 +5,9 @@ import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/common/page";
-import { HexMap, type HexLayerDef, type HexStyle } from "@/components/map/lazy";
+import { HexWorkbench } from "@/components/map/editor/hex-workbench";
+import { useCellEditor } from "@/components/map/editor/use-cell-editor";
+import type { HexLayerDef, HexStyle } from "@/components/map/google/hex-layer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,13 +25,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { formatCount, humanize } from "@/lib/format";
-import { applyCells, circleCells } from "@/lib/hex";
 import { ZONE_KINDS, type CityDetail, type Zone, type ZoneKind } from "@/lib/types";
 import { cellsToKm2 } from "@/lib/validation";
+import { zoneLabel } from "@/lib/zone-label";
 
 import { createZone, deleteZone, updateZone } from "../../actions";
-import { PaintToolbar } from "./paint-tools";
-import { useCellEditor } from "./use-cell-editor";
 
 const KIND_HINT: Record<ZoneKind, string> = {
   SURGE: "Higher demand: shown to drivers and can raise fares (1.0–1.5×)",
@@ -46,12 +46,14 @@ const DEFAULT_COLOR: Record<ZoneKind, string> = {
 };
 
 export function zoneStyle(z: { kind: ZoneKind; color: string; isActive?: boolean }, isSelected = false): HexStyle {
-  if (z.kind === "NO_SERVICE") return { color: "#B91C1C", fillOpacity: 1, weight: isSelected ? 2 : 1, hatched: true };
+  if (z.kind === "NO_SERVICE") {
+    return { color: "#B91C1C", fillColor: "#B91C1C", fillOpacity: isSelected ? 0.45 : 0.32, weight: isSelected ? 2 : 1.5 };
+  }
   return {
     color: z.color,
     fillOpacity: isSelected ? 0.45 : z.isActive === false ? 0.08 : 0.3,
-    weight: isSelected ? 2 : 0.8,
-    dashArray: z.isActive === false ? "4 4" : undefined,
+    weight: isSelected ? 2 : 1,
+    opacity: z.isActive === false ? 0.5 : 1,
   };
 }
 
@@ -91,8 +93,6 @@ export function ZonesEditor({ city }: { city: CityDetail }) {
   const service = useMemo(() => new Set(city.serviceCells), [city.serviceCells]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const ed = useCellEditor([]);
-  const [radius, setRadius] = useState("1");
-  const [centre, setCentre] = useState({ lat: city.centerLat, lng: city.centerLng });
   const [toDelete, setToDelete] = useState<Zone | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -117,13 +117,15 @@ export function ZonesEditor({ city }: { city: CityDetail }) {
     ed.setTool("pan");
   }
 
-  const layers: HexLayerDef[] = [
-    { id: "service", cells: city.serviceCells, style: { color: "#D84315", fillColor: "#F4511E", fillOpacity: 0.06, weight: 0.4, opacity: 0.5 } },
-    ...city.zones
-      .filter((z) => z.id !== draft?.id)
-      .map((z) => ({ id: z.id, cells: z.cells, style: zoneStyle(z) })),
-    ...(draft ? [{ id: "draft", cells: ed.cells, style: zoneStyle({ kind: draft.kind, color: draft.color }, true) }] : []),
-  ];
+  const serviceLayer: HexLayerDef[] = useMemo(
+    () => [{ id: "service", cells: city.serviceCells, zIndex: 1, style: { color: "#D84315", fillColor: "#F4511E", fillOpacity: 0.1, weight: 0.6, opacity: 0.6 } }],
+    [city.serviceCells],
+  );
+  const zoneLayers: HexLayerDef[] = useMemo(
+    () => city.zones.filter((z) => z.id !== draft?.id).map((z) => ({ id: z.id, cells: z.cells, style: zoneStyle(z), zIndex: 3 })),
+    [city.zones, draft?.id],
+  );
+  const labels = useMemo(() => city.zones.flatMap((z) => zoneLabel(z) ?? []), [city.zones]);
 
   function save() {
     if (!draft || !canSave) return;
@@ -145,59 +147,28 @@ export function ZonesEditor({ city }: { city: CityDetail }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-      <Card className="gap-0 overflow-hidden p-0">
-        <div className="flex min-h-12 flex-wrap items-center gap-2 border-b px-3 py-2">
-          {draft ? (
-            <>
-              <PaintToolbar
-                tool={ed.tool}
-                onTool={ed.setTool}
-                canUndo={ed.canUndo}
-                canRedo={ed.canRedo}
-                onUndo={ed.undo}
-                onRedo={ed.redo}
-              />
-              {ed.tool === "circle" && (
-                <span className="flex items-center gap-2">
-                  <Input
-                    aria-label="Circle radius in km"
-                    className="h-8 w-20"
-                    inputMode="decimal"
-                    value={radius}
-                    onChange={(e) => setRadius(e.target.value)}
-                  />
-                  <span className="text-xs text-muted-foreground">km</span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const r = Number(radius);
-                      if (r > 0 && r <= 20) ed.commit(applyCells(ed.cells, circleCells(centre.lat, centre.lng, r, city.h3Resolution), "add"));
-                      else toast.error("Radius must be 0–20 km");
-                    }}
-                  >
-                    Fill
-                  </Button>
-                </span>
-              )}
-            </>
-          ) : (
-            <p className="px-1 text-sm text-muted-foreground">Pick a zone to edit, or create one, then paint its hexagons.</p>
-          )}
-        </div>
-        <div className="h-[62vh] min-h-96">
-          <HexMap
-            center={[city.centerLat, city.centerLng]}
-            resolution={city.h3Resolution}
-            layers={layers}
-            fitCells={city.serviceCells}
-            paint={draft ? ed.paint : undefined}
-            onPick={draft && ed.tool === "circle" ? (lat, lng) => setCentre({ lat, lng }) : undefined}
-            circle={draft && ed.tool === "circle" ? { ...centre, radiusKm: Number(radius) || 0 } : null}
-            className="rounded-none"
-          />
-        </div>
-      </Card>
+      <HexWorkbench
+        center={{ lat: city.centerLat, lng: city.centerLng }}
+        resolution={city.h3Resolution}
+        fitCells={city.serviceCells}
+        editor={draft ? ed : null}
+        editStyle={draft ? zoneStyle({ kind: draft.kind, color: draft.color }, true) : zoneStyle({ kind: "SURGE", color: "#D84315" })}
+        targetLabel="zone"
+        groups={[
+          { key: "service", label: "Service area", layers: serviceLayer },
+          { key: "zones", label: "Zones", layers: zoneLayers },
+        ]}
+        warnCells={outside}
+        zoneLabels={labels}
+        status={
+          draft ? (
+            <span className="tabular-nums">
+              {draft.name || "New zone"}: <b className="text-navy-900">{formatCount(ed.cells.length)}</b> hexagons
+              {outside.length > 0 && <span className="text-warning-text"> · {formatCount(outside.length)} outside</span>}
+            </span>
+          ) : null
+        }
+      />
 
       <div className="grid content-start gap-4">
         {draft ? (
