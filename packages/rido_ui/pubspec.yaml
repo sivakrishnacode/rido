@@ -1,0 +1,29 @@
+name: rido_ui
+description: Rido design system — theme tokens and shared widgets for both apps.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: ^8.2.1
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  material_symbols_icons: ^4.2960.0
+  intl: ^0.20.2
+  rido_data:
+    path: ../rido_data
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  # Poppins + Inter bundled so google_fonts never needs the network (offline-safe).
+  assets:
+    - assets/google_fonts/

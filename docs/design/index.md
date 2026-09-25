@@ -1,0 +1,110 @@
+# Rido · design export
+
+Phone frames: 390 × 844, exported at 2x (780 × 1688). Design system sections: 1x.
+Icons: Material Symbols Rounded — use the `material_symbols_icons` package with the same names. Maps in the PNGs are stylised stand-ins; use CARTO light tiles in Flutter.
+
+| Frame ID | Screen name | File |
+|---|---|---|
+| DS-00-header | Design system · header | system/DS-00-header.png |
+| DS-01-brand | Design system · Brand | system/DS-01-brand.png |
+| DS-02-colours | Design system · Colours | system/DS-02-colours.png |
+| DS-03-typography | Design system · Typography | system/DS-03-typography.png |
+| DS-04-spacing | Design system · Spacing, radius, elevation | system/DS-04-spacing.png |
+| DS-05-components | Design system · Components | system/DS-05-components.png |
+| DS-06-map | Design system · Map style and markers | system/DS-06-map.png |
+| DS-07-illustrations | Design system · Illustrations | system/DS-07-illustrations.png |
+| P-01 | Splash | passenger/P-01.png |
+| P-02a | Onboarding · Lower fares | passenger/P-02a.png |
+| P-02b | Onboarding · Driver keeps 100% | passenger/P-02b.png |
+| P-02c | Onboarding · Rides and parcels | passenger/P-02c.png |
+| P-03 | Phone number | passenger/P-03.png |
+| P-04 | OTP verification | passenger/P-04.png |
+| P-05 | Profile setup | passenger/P-05.png |
+| P-06 | Location permission | passenger/P-06.png |
+| P-07 | Home · Ride tab | passenger/P-07.png |
+| P-07b | Home · trip in progress banner | passenger/P-07b.png |
+| P-08 | Search pickup and drop | passenger/P-08.png |
+| P-09 | Pin on map | passenger/P-09.png |
+| P-10 | Choose vehicle | passenger/P-10.png |
+| P-11 | Fare details (sheet) | passenger/P-11.png |
+| P-12 | Finding your driver | passenger/P-12.png |
+| P-13 | Driver assigned · arriving | passenger/P-13.png |
+| P-14 | Chat with driver | passenger/P-14.png |
+| P-15 | Driver has arrived | passenger/P-15.png |
+| P-16 | Ride in progress | passenger/P-16.png |
+| P-17 | SOS · Emergency help | passenger/P-17.png |
+| P-18 | Share trip (sheet) | passenger/P-18.png |
+| P-19 | Ride completed · pay driver | passenger/P-19.png |
+| P-20 | Rate driver | passenger/P-20.png |
+| P-21 | Activity | passenger/P-21.png |
+| P-22 | Trip details | passenger/P-22.png |
+| P-23 | Account | passenger/P-23.png |
+| P-23b | Add / edit saved place | passenger/P-23b.png |
+| P-24 | Emergency contacts | passenger/P-24.png |
+| P-24b | Add emergency contact (sheet) | passenger/P-24b.png |
+| P-25 | Help & support | passenger/P-25.png |
+| P-25b | New support ticket | passenger/P-25b.png |
+| PP-01 | Parcel home | parcel/PP-01.png |
+| PP-02 | Pickup details | parcel/PP-02.png |
+| PP-03 | Drop · receiver details | parcel/PP-03.png |
+| PP-04 | Parcel details | parcel/PP-04.png |
+| PP-05 | Prohibited items (sheet) | parcel/PP-05.png |
+| PP-06 | Choose goods vehicle · review | parcel/PP-06.png |
+| PP-07 | Finding a goods driver | parcel/PP-07.png |
+| PP-08 | Driver assigned · picking up | parcel/PP-08.png |
+| PP-09 | Parcel in transit | parcel/PP-09.png |
+| PP-10 | Parcel delivered | parcel/PP-10.png |
+| D-01 | Splash | driver/D-01.png |
+| D-02 | Welcome | driver/D-02.png |
+| D-03a | Phone number | driver/D-03a.png |
+| D-03b | OTP verification | driver/D-03b.png |
+| D-04 | Choose work type | driver/D-04.png |
+| D-05 | Choose vehicle | driver/D-05.png |
+| D-06 | Personal details | driver/D-06.png |
+| D-07 | Documents · KYC checklist | driver/D-07.png |
+| D-08a | Upload document · before capture | driver/D-08a.png |
+| D-08b | Upload document · captured | driver/D-08b.png |
+| D-09 | Selfie verification | driver/D-09.png |
+| D-10 | Application under review · Check status | driver/D-10.png |
+| D-11 | Choose plan · start free trial | driver/D-11.png |
+| D-12a | UPI Autopay setup | driver/D-12a.png |
+| D-12b | Autopay success | driver/D-12b.png |
+| D-13 | Home · offline | driver/D-13.png |
+| D-14 | Home · online, waiting | driver/D-14.png |
+| D-14b | Home · trip in progress banner | driver/D-14b.png |
+| D-15 | Incoming ride request | driver/D-15.png |
+| D-16 | Navigate to pickup | driver/D-16.png |
+| D-17 | Enter ride OTP | driver/D-17.png |
+| D-17-error | Enter ride OTP · error state | driver/D-17-error.png |
+| D-18 | Ride in progress | driver/D-18.png |
+| D-18b | Driver SOS | driver/D-18b.png |
+| D-19 | Collect payment | driver/D-19.png |
+| D-20 | Incoming delivery request | driver/D-20.png |
+| D-21 | Delivery in progress | driver/D-21.png |
+| D-22a | Complete delivery with OTP | driver/D-22a.png |
+| D-22b | Collect from receiver | driver/D-22b.png |
+| D-23 | Earnings | driver/D-23.png |
+| D-23b | Earnings · trip detail sheet | driver/D-23b.png |
+| D-24 | Plan · active | driver/D-24.png |
+| D-24b | Plan · paused | driver/D-24b.png |
+| D-24c | Plan · cancelled | driver/D-24c.png |
+| D-25a | Home · grace period | driver/D-25a.png |
+| D-25b | Home · plan expired | driver/D-25b.png |
+| D-26 | Driver account | driver/D-26.png |
+| S-01 | No drivers nearby | states/S-01.png |
+| S-02 | Driver cancelled | states/S-02.png |
+| S-03 | Cancel ride · confirm dialog | states/S-03.png |
+| S-04 | No internet | states/S-04.png |
+| S-05 | Location permission denied | states/S-05.png |
+| S-06 | Empty activity | states/S-06.png |
+| S-07a | Loading · Home sheet skeleton | states/S-07a.png |
+| S-07b | Loading · Activity skeleton | states/S-07b.png |
+| S-08 | Service not available | states/S-08.png |
+| S-09 | KYC rejected | states/S-09.png |
+| S-10 | Account on hold | states/S-10.png |
+| S-11 | Missed ride request | states/S-11.png |
+| S-12 | No ride requests yet | states/S-12.png |
+| S-13 | Selfie check before going online | states/S-13.png |
+| S-14 | Autopay payment failed | states/S-14.png |
+| S-15 | Empty earnings | states/S-15.png |
+| S-16 | GPS weak / location off | states/S-16.png |

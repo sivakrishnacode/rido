@@ -1,0 +1,24 @@
+{
+  "name": "rido",
+  "private": true,
+  "description": "Rido: zero-commission rides and parcels for Coimbatore (Flutter monorepo run by Turborepo)",
+  "packageManager": "npm@11.11.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "get": "turbo run get",
+    "analyze": "turbo run analyze",
+    "test": "turbo run test",
+    "format": "turbo run format",
+    "check": "turbo run analyze test",
+    "build:apk": "turbo run build:apk",
+    "passenger": "cd apps/passenger && sh ../../scripts/flutter.sh run",
+    "driver": "cd apps/driver && sh ../../scripts/flutter.sh run",
+    "clean": "turbo run clean && rm -rf .turbo dist"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0"
+  }
+}

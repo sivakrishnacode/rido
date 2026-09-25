@@ -1,0 +1,17 @@
+{
+  "name": "@rido/driver",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "get": "sh ../../scripts/flutter.sh pub get",
+    "analyze": "sh ../../scripts/flutter.sh analyze",
+    "test": "sh ../../scripts/flutter.sh test",
+    "format": "sh ../../scripts/dart.sh format -l 120 lib test",
+    "clean": "sh ../../scripts/flutter.sh clean",
+    "build:apk": "sh ../../scripts/flutter.sh build apk --release && mkdir -p ../../dist && cp build/app/outputs/flutter-apk/app-release.apk ../../dist/rido-driver.apk"
+  },
+  "dependencies": {
+    "@rido/ui": "*",
+    "@rido/data": "*"
+  }
+}

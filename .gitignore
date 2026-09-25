@@ -1,0 +1,33 @@
+# Node / Turborepo
+node_modules/
+.turbo/
+*.log
+
+# Build output
+dist/
+**/build/
+
+# Flutter / Dart
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.widget_preview/
+**/.pub-cache/
+**/.pub/
+*.iml
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Android
+**/android/.gradle/
+**/android/local.properties
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+**/android/key.properties
+*.jks
+*.keystore
+
+# OS
+.DS_Store

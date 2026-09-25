@@ -1,0 +1,33 @@
+name: rido_driver
+description: Rido Driver — keep 100% of every fare.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  rido_ui:
+    path: ../../packages/rido_ui
+  rido_data:
+    path: ../../packages/rido_data
+  go_router: ^17.5.0
+  flutter_riverpod: ^3.4.3
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+  qr_flutter: ^4.1.0
+  fl_chart: ^1.2.0
+  intl: ^0.20.2
+  material_symbols_icons: ^4.2960.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  google_fonts: ^8.2.1
+
+flutter:
+  uses-material-design: true

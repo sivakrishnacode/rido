@@ -1,0 +1,63 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "tasks": {
+    "get": {
+      "inputs": [
+        "pubspec.yaml",
+        "pubspec.lock"
+      ],
+      "outputs": [
+        ".dart_tool/package_config.json"
+      ],
+      "cache": false
+    },
+    "analyze": {
+      "dependsOn": [
+        "get",
+        "^analyze"
+      ],
+      "inputs": [
+        "lib/**",
+        "test/**",
+        "analysis_options.yaml",
+        "pubspec.yaml"
+      ],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": [
+        "get"
+      ],
+      "inputs": [
+        "lib/**",
+        "test/**",
+        "assets/**",
+        "pubspec.yaml"
+      ],
+      "outputs": []
+    },
+    "format": {
+      "cache": false
+    },
+    "build:apk": {
+      "dependsOn": [
+        "get",
+        "^analyze"
+      ],
+      "inputs": [
+        "lib/**",
+        "android/**",
+        "assets/**",
+        "pubspec.yaml",
+        "$TURBO_DEFAULT$"
+      ],
+      "outputs": [
+        "build/app/outputs/flutter-apk/**"
+      ]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}
