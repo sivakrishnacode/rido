@@ -1,114 +1,65 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 /// The three flat onboarding scenes (P-02a/b/c), drawn with shapes, icons and a painter.
-/// They idle on a slow loop (road scrolls, vehicles bob, chips float) unless the system asks
-/// for reduced motion or [animate] is false.
-class OnboardingScene extends StatefulWidget {
-  const OnboardingScene({
-    super.key,
-    required this.index,
-    this.background = RidoColors.coral50,
-    this.borderRadius = const BorderRadius.all(Radius.circular(RidoSpacing.xl)),
-    this.animate = true,
-  });
+class OnboardingScene extends StatelessWidget {
+  const OnboardingScene({super.key, required this.index});
 
   /// 0 = bike in the city, 1 = smiling driver, 2 = bike + delivery truck.
   final int index;
-  final Color background;
-  final BorderRadius borderRadius;
-  final bool animate;
-
-  @override
-  State<OnboardingScene> createState() => _OnboardingSceneState();
-}
-
-class _OnboardingSceneState extends State<OnboardingScene> with SingleTickerProviderStateMixin {
-  late final AnimationController _loop = AnimationController(vsync: this, duration: const Duration(seconds: 3));
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final still = !widget.animate || MediaQuery.of(context).disableAnimations;
-    if (still) {
-      _loop.stop();
-    } else if (!_loop.isAnimating) {
-      _loop.repeat();
-    }
-  }
-
-  @override
-  void dispose() {
-    _loop.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: widget.borderRadius,
+      borderRadius: BorderRadius.circular(RidoSpacing.xl),
       child: ColoredBox(
-        color: widget.background,
+        color: RidoColors.coral50,
         child: LayoutBuilder(
-          builder: (context, c) => AnimatedBuilder(
-            animation: _loop,
-            builder: (context, _) => switch (widget.index) {
-              0 => _CityBikeScene(size: c.biggest, t: _loop.value),
-              1 => _DriverScene(size: c.biggest, t: _loop.value),
-              _ => _ParcelScene(size: c.biggest, t: _loop.value),
-            },
-          ),
+          builder: (context, c) => switch (index) {
+            0 => _CityBikeScene(size: c.biggest),
+            1 => _DriverScene(size: c.biggest),
+            _ => _ParcelScene(size: c.biggest),
+          },
         ),
       ),
     );
   }
 }
 
-/// Smooth -1..1 wave over one loop, [cycles] times per loop, shifted by [phase] (0..1).
-double _wave(double t, {int cycles = 1, double phase = 0}) => math.sin((t * cycles + phase) * 2 * math.pi);
-
-/// Navy road with a grey dashed centre line that scrolls with [t], across the bottom of a scene.
+/// Navy road with a grey dashed centre line, across the bottom of a scene.
 class _Road extends StatelessWidget {
-  const _Road({required this.height, this.t = 0});
+  const _Road({required this.height});
   final double height;
-  final double t;
 
   @override
   Widget build(BuildContext context) => SizedBox(
     height: height,
     child: ColoredBox(
       color: RidoColors.navy900,
-      child: CustomPaint(painter: _DashPainter(t), size: Size.infinite),
+      child: CustomPaint(painter: _DashPainter(), size: Size.infinite),
     ),
   );
 }
 
 class _DashPainter extends CustomPainter {
-  _DashPainter(this.t);
-  final double t;
-
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
       ..color = RidoColors.navy500
       ..strokeWidth = 4;
     final y = size.height * 0.52;
-    // Two dash periods per loop, moving left so the vehicles look like they drive right.
-    for (double x = -64 + (1 - t) * 64; x < size.width; x += 32) {
+    for (double x = 0; x < size.width; x += 32) {
       canvas.drawLine(Offset(x, y), Offset(x + 16, y), p);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _DashPainter old) => old.t != t;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _CityBikeScene extends StatelessWidget {
-  const _CityBikeScene({required this.size, required this.t});
+  const _CityBikeScene({required this.size});
   final Size size;
-  final double t;
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +84,7 @@ class _CityBikeScene extends StatelessWidget {
       children: [
         Positioned(
           right: w * 0.08,
-          top: h * 0.07 + _wave(t) * h * 0.015,
+          top: h * 0.07,
           child: Container(
             width: w * 0.16,
             height: w * 0.16,
@@ -145,15 +96,10 @@ class _CityBikeScene extends StatelessWidget {
         building(0.4, 0.11, 0.24),
         building(0.66, 0.15, 0.37),
         building(0.82, 0.11, 0.27),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _Road(height: roadH, t: t),
-        ),
+        Positioned(left: 0, right: 0, bottom: 0, child: _Road(height: roadH)),
         Positioned(
           left: w * 0.5 - bike * 0.62,
-          top: ground - bike * 0.78 - _wave(t, cycles: 6).abs() * h * 0.012,
+          top: ground - bike * 0.78,
           child: Icon(Symbols.two_wheeler_rounded, fill: 1, size: bike * 1.24, color: RidoColors.coral500),
         ),
       ],
@@ -162,13 +108,12 @@ class _CityBikeScene extends StatelessWidget {
 }
 
 class _DriverScene extends StatelessWidget {
-  const _DriverScene({required this.size, required this.t});
+  const _DriverScene({required this.size});
   final Size size;
-  final double t;
 
   @override
   Widget build(BuildContext context) {
-    final type = context.type;
+    final t = context.type;
     final w = size.width;
     final h = size.height;
     final orb = h * 0.66;
@@ -181,13 +126,10 @@ class _DriverScene extends StatelessWidget {
           height: orb,
           decoration: const BoxDecoration(color: RidoColors.coral100, shape: BoxShape.circle),
         ),
-        Transform.translate(
-          offset: Offset(0, _wave(t) * h * 0.02),
-          child: CustomPaint(size: Size.square(face), painter: _FacePainter()),
-        ),
+        CustomPaint(size: Size.square(face), painter: _FacePainter()),
         Positioned(
           right: w * 0.1,
-          top: h * 0.13 + _wave(t, phase: 0.25) * h * 0.02,
+          top: h * 0.13,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.s),
             decoration: const BoxDecoration(
@@ -202,7 +144,7 @@ class _DriverScene extends StatelessWidget {
                 const SizedBox(width: RidoSpacing.s),
                 Text(
                   '100%',
-                  style: RidoTextStyles.tabular(type.h1.copyWith(color: RidoColors.success, fontWeight: FontWeight.w700)),
+                  style: RidoTextStyles.tabular(t.h1.copyWith(color: RidoColors.success, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -210,7 +152,7 @@ class _DriverScene extends StatelessWidget {
         ),
         Positioned(
           left: w * 0.1,
-          bottom: h * 0.13 + _wave(t, phase: 0.6) * h * 0.02,
+          bottom: h * 0.13,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.s),
             decoration: const BoxDecoration(color: RidoColors.coral500, borderRadius: RidoRadii.pillRadius),
@@ -219,7 +161,7 @@ class _DriverScene extends StatelessWidget {
               children: [
                 const Icon(Symbols.electric_rickshaw_rounded, color: RidoColors.surface, size: 20),
                 const SizedBox(width: RidoSpacing.s),
-                Text('Murugan · Auto', style: type.bodySemibold.copyWith(color: RidoColors.surface)),
+                Text('Murugan · Auto', style: t.bodySemibold.copyWith(color: RidoColors.surface)),
               ],
             ),
           ),
@@ -266,9 +208,8 @@ class _FacePainter extends CustomPainter {
 }
 
 class _ParcelScene extends StatelessWidget {
-  const _ParcelScene({required this.size, required this.t});
+  const _ParcelScene({required this.size});
   final Size size;
-  final double t;
 
   @override
   Widget build(BuildContext context) {
@@ -283,35 +224,27 @@ class _ParcelScene extends StatelessWidget {
       children: [
         Positioned(
           left: w / 2 - box / 2,
-          top: h * 0.12 + _wave(t) * h * 0.025,
-          child: Transform.rotate(
-            angle: _wave(t, phase: 0.25) * 0.06,
-            child: Container(
-              width: box,
-              height: box,
-              decoration: BoxDecoration(
-                color: RidoColors.surface,
-                borderRadius: BorderRadius.circular(RidoSpacing.xl),
-                boxShadow: RidoShadows.soft,
-              ),
-              child: Icon(Symbols.package_2_rounded, size: box * 0.5, color: RidoColors.navy900),
+          top: h * 0.12,
+          child: Container(
+            width: box,
+            height: box,
+            decoration: BoxDecoration(
+              color: RidoColors.surface,
+              borderRadius: BorderRadius.circular(RidoSpacing.xl),
+              boxShadow: RidoShadows.soft,
             ),
+            child: Icon(Symbols.package_2_rounded, size: box * 0.5, color: RidoColors.navy900),
           ),
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _Road(height: roadH, t: t),
-        ),
+        Positioned(left: 0, right: 0, bottom: 0, child: _Road(height: roadH)),
         Positioned(
           left: w * 0.04,
-          top: ground - bike * 0.74 - _wave(t, cycles: 6).abs() * h * 0.012,
+          top: ground - bike * 0.74,
           child: Icon(Symbols.two_wheeler_rounded, fill: 1, size: bike * 1.2, color: RidoColors.coral500),
         ),
         Positioned(
           right: w * 0.02,
-          top: ground - truck * 0.72 - _wave(t, cycles: 4, phase: 0.5).abs() * h * 0.008,
+          top: ground - truck * 0.72,
           child: Icon(Symbols.local_shipping_rounded, fill: 1, size: truck, color: RidoColors.coral500),
         ),
       ],

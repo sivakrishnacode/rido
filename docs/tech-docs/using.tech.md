@@ -492,18 +492,6 @@ suggestion's name.
   Complete delivery: on `TOO_FAR` it shows the distance, reason chips + "Other", Navigate, and "Continue anyway".
 - **Uploads:** KYC photos are resized to ≤1600 px at quality 80 before upload.
 
-## 7e. Passenger onboarding and sign-in (apps/passenger/lib/features/onboarding)
-
-- **Intro (P-02)**: a tinted scene panel that blends between slide colours while swiping, parallax scenes that idle
-  on a loop (road scrolls, vehicles bob, chips float, sparkles twinkle), text that rises in, and a round "next"
-  button with a progress ring that stretches into "Get started" on the last slide.
-- **Sign-in steps (P-03 number → P-04 verify → P-05 you)** share `widgets/sign_in_step.dart`: a scooter rides a
-  dashed road to the current stop, each step has an animated badge (buzzing phone, bobbing SMS, waving hand), and
-  heading and fields rise in, one after another. The button pops when the form becomes valid. Confetti fires when sign-in finishes
-  (returning passenger on OTP, new passenger on P-05) before the next screen (~0.8 s). The three routes cross-fade
-  (`_signInStep` in `app_router.dart`) so they read as one screen. P-05 in edit mode keeps the plain layout.
-- All looping or decorative motion stops when Android "Remove animations" is on (`MediaQuery.disableAnimations`).
-
 ---
 
 ## 8. Testing and quality

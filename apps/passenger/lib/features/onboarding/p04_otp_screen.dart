@@ -9,10 +9,8 @@ import 'package:rido_ui/rido_ui.dart';
 import '../../router/routes.dart';
 import '../../state/live_trip.dart';
 import '../../state/session_actions.dart';
-import 'widgets/sign_in_step.dart';
 
-/// P-04 OTP verification (sign-in step 2/3): 6-box input, resend countdown, Verify.
-/// A returning passenger gets a confetti burst before Home.
+/// P-04 OTP verification: 6-box input, resend countdown, Verify.
 /// Any 6 digits work except 000000 ("Incorrect OTP" + shake).
 class P04OtpScreen extends ConsumerStatefulWidget {
   const P04OtpScreen({super.key, this.phone = '98765 43210', this.showcase = false});
@@ -35,7 +33,6 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
   bool _verifying = false;
   bool _error = false;
   int _shake = 0;
-  int _celebrate = 0;
 
   @override
   void initState() {
@@ -109,9 +106,8 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
       case OtpResult.newUser:
         context.go(Routes.profileSetup);
       case OtpResult.existingUser:
-        // Welcome back: confetti while the active trip (live API) is looked up.
-        setState(() => _celebrate++);
-        final (trip, _) = await (restoreActiveTrip(ref), Future<void>.delayed(ConfettiBurst.duration * 0.7)).wait;
+        // Live API: reopen a trip that is still running on the server.
+        final trip = await restoreActiveTrip(ref);
         if (!mounted) return;
         context.go(trip ?? Routes.ride);
     }
@@ -120,99 +116,98 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return SignInStep(
-      step: 2,
-      badge: Symbols.sms_rounded,
-      title: 'Check your messages',
-      subtitle: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          const Text('Code sent to '),
-          Text('+91 ${widget.phone}', style: RidoTextStyles.tabular(t.bodySemibold)),
-          TextButton(
-            onPressed: _edit,
-            style: TextButton.styleFrom(
-              foregroundColor: RidoColors.coral600,
-              minimumSize: const Size(48, 48),
-              padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.s),
-            ),
-            child: Text('Edit', style: t.bodySemibold.copyWith(color: RidoColors.coral600)),
-          ),
-        ],
-      ),
-      onBack: _edit,
-      overlay: ConfettiBurst(trigger: _celebrate),
-      card: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          OtpInput(
-            initialValue: _otp,
-            autofocus: !widget.showcase,
-            hasError: _error,
-            shakeTrigger: _shake,
-            onChanged: (v) => setState(() {
-              _otp = v;
-              _error = false;
-            }),
-            onCompleted: (_) => _verify(),
-          ),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 200),
-            child: _error
-                ? Padding(
-                    padding: const EdgeInsets.only(top: RidoSpacing.s),
-                    child: Row(
+    return Scaffold(
+      backgroundColor: RidoColors.surface,
+      appBar: RidoAppBar(onBack: _edit),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.l, RidoSpacing.l, RidoSpacing.l),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Verify OTP', style: t.display),
+                    const SizedBox(height: RidoSpacing.xs),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Icon(Symbols.error_rounded, size: 18, color: RidoColors.error, fill: 1),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Oops, that code didn\'t match. Try again.',
-                          style: t.bodySmallMedium.copyWith(color: RidoColors.error),
+                        Text('Sent to ', style: t.body.copyWith(color: RidoColors.navy700)),
+                        Text('+91 ${widget.phone}', style: RidoTextStyles.tabular(t.bodySemibold)),
+                        TextButton(
+                          onPressed: _edit,
+                          style: TextButton.styleFrom(
+                            foregroundColor: RidoColors.coral600,
+                            minimumSize: const Size(48, 48),
+                            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.s),
+                          ),
+                          child: Text('Edit', style: t.bodySemibold.copyWith(color: RidoColors.coral600)),
                         ),
                       ],
                     ),
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-          const SizedBox(height: RidoSpacing.m),
-          _secondsLeft > 0
-              ? SizedBox(
-                  height: 48,
-                  child: Row(
-                    children: [
-                      SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(
-                          value: _secondsLeft / _resendAfter,
-                          strokeWidth: 2.5,
-                          backgroundColor: RidoColors.divider,
-                          color: RidoColors.coral500,
-                        ),
-                      ),
-                      const SizedBox(width: RidoSpacing.s),
-                      Text('Resend code in ', style: t.body.copyWith(color: RidoColors.navy500)),
-                      Text(
-                        formatCountdown(Duration(seconds: _secondsLeft)),
-                        style: RidoTextStyles.tabular(t.bodySemibold),
+                    const SizedBox(height: RidoSpacing.l),
+                    OtpInput(
+                      initialValue: _otp,
+                      autofocus: !widget.showcase,
+                      hasError: _error,
+                      shakeTrigger: _shake,
+                      onChanged: (v) => setState(() {
+                        _otp = v;
+                        _error = false;
+                      }),
+                      onCompleted: (_) => _verify(),
+                    ),
+                    if (_error) ...[
+                      const SizedBox(height: RidoSpacing.s),
+                      Row(
+                        children: [
+                          const Icon(Symbols.error_rounded, size: 18, color: RidoColors.error, fill: 1),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Incorrect OTP. Please try again.',
+                            style: t.bodySmallMedium.copyWith(color: RidoColors.error),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                )
-              : TextButton.icon(
-                  onPressed: _resend,
-                  style: TextButton.styleFrom(
-                    foregroundColor: RidoColors.coral600,
-                    minimumSize: const Size(48, 48),
-                    padding: EdgeInsets.zero,
-                  ),
-                  icon: const Icon(Symbols.refresh_rounded, size: 20),
-                  label: Text('Resend code', style: t.bodySemibold.copyWith(color: RidoColors.coral600)),
+                    const SizedBox(height: RidoSpacing.l),
+                    _secondsLeft > 0
+                        ? SizedBox(
+                            height: 48,
+                            child: Row(
+                              children: [
+                                const Icon(Symbols.schedule_rounded, size: 20, color: RidoColors.navy500),
+                                const SizedBox(width: RidoSpacing.s),
+                                Text('Resend OTP in ', style: t.body.copyWith(color: RidoColors.navy500)),
+                                Text(
+                                  formatCountdown(Duration(seconds: _secondsLeft)),
+                                  style: RidoTextStyles.tabular(t.bodySemibold),
+                                ),
+                              ],
+                            ),
+                          )
+                        : TextButton.icon(
+                            onPressed: _resend,
+                            style: TextButton.styleFrom(
+                              foregroundColor: RidoColors.coral600,
+                              minimumSize: const Size(48, 48),
+                              padding: EdgeInsets.zero,
+                            ),
+                            icon: const Icon(Symbols.refresh_rounded, size: 20),
+                            label: Text('Resend OTP', style: t.bodySemibold.copyWith(color: RidoColors.coral600)),
+                          ),
+                  ],
                 ),
-        ],
-      ),
-      action: PopWhenReady(
-        ready: _otp.length == 6,
-        child: RidoButton(label: 'Verify', loading: _verifying, onPressed: _otp.length == 6 ? _verify : null),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.l),
+              child: RidoButton(label: 'Verify', loading: _verifying, onPressed: _otp.length == 6 ? _verify : null),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -6,9 +6,8 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
-import 'widgets/sign_in_step.dart';
 
-/// P-05 Profile setup (first sign-in, step 3/3): name, optional email, gender; confetti on Continue.
+/// P-05 Profile setup (first sign-in): name, optional email, gender.
 /// With [editing] it is the Account "Edit profile" screen (title "Edit profile", "Save").
 class P05ProfileSetupScreen extends ConsumerStatefulWidget {
   const P05ProfileSetupScreen({super.key, this.editing = false, this.showcase = false});
@@ -28,7 +27,6 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
   late Gender _gender;
   bool _touched = false;
   bool _saving = false;
-  int _celebrate = 0;
 
   static const _genders = [Gender.female, Gender.male, Gender.preferNotToSay];
 
@@ -72,9 +70,8 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
     if (name.isEmpty || _saving) return;
     FocusScope.of(context).unfocus();
     setState(() => _saving = true);
-    final saved = await ref
-        .read(passengerProfileProvider.notifier)
-        .setBasics(name: name, email: _email.text.trim(), gender: _gender);
+    final saved =
+        await ref.read(passengerProfileProvider.notifier).setBasics(name: name, email: _email.text.trim(), gender: _gender);
     if (!mounted) return;
     setState(() => _saving = false);
     if (!saved) return;
@@ -82,113 +79,103 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
       showRidoSnack(context, 'Profile updated', success: true);
       if (context.canPop()) context.pop();
     } else {
-      setState(() => _celebrate++);
-      await Future<void>.delayed(ConfettiBurst.duration * 0.7);
-      if (mounted) context.go(Routes.locationPermission);
+      context.go(Routes.locationPermission);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final button = RidoButton(
-      label: widget.editing ? 'Save' : 'Continue',
-      loading: _saving,
-      onPressed: _name.text.trim().isEmpty ? null : _submit,
-    );
-    if (!widget.editing) {
-      return SignInStep(
-        step: 3,
-        badge: Symbols.waving_hand_rounded,
-        badgeMotion: BadgeMotion.wave,
-        title: 'Nice to meet you!',
-        subtitle: const Text('What should we call you? Your driver will see your first name.'),
-        overlay: ConfettiBurst(trigger: _celebrate, origin: const Offset(0.5, 0.85)),
-        card: _fields(t),
-        action: PopWhenReady(ready: _name.text.trim().isNotEmpty, child: button),
-      );
-    }
+    final editing = widget.editing;
     return Scaffold(
       backgroundColor: RidoColors.surface,
-      appBar: const RidoAppBar(title: 'Edit profile'),
+      appBar: editing ? const RidoAppBar(title: 'Edit profile') : null,
       body: SafeArea(
-        top: false,
+        top: !editing,
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.l),
-                child: _fields(t),
+                padding: EdgeInsets.fromLTRB(RidoSpacing.l, editing ? RidoSpacing.s : 64, RidoSpacing.l, RidoSpacing.l),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!editing) ...[
+                      Text('What should we call you?', style: t.display),
+                      const SizedBox(height: RidoSpacing.s),
+                      Text('Your driver will see your first name.', style: t.body.copyWith(color: RidoColors.navy700)),
+                      const SizedBox(height: RidoSpacing.xxl),
+                    ],
+                    RidoTextField(
+                      label: 'Full name',
+                      controller: _name,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      onChanged: (_) => setState(() => _touched = true),
+                    ),
+                    const SizedBox(height: RidoSpacing.xl),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: 'Email '),
+                          TextSpan(
+                            text: '(optional)',
+                            style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                          ),
+                        ],
+                      ),
+                      style: t.bodySmallMedium.copyWith(color: RidoColors.navy700),
+                    ),
+                    const SizedBox(height: 6),
+                    RidoTextField(
+                      hint: 'For ride receipts',
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.done,
+                      onChanged: (_) => _touched = true,
+                    ),
+                    const SizedBox(height: RidoSpacing.xl),
+                    Text('Gender', style: t.bodySmallMedium.copyWith(color: RidoColors.navy700)),
+                    const SizedBox(height: RidoSpacing.s),
+                    ChoiceChips<Gender>(
+                      options: _genders,
+                      labelOf: _label,
+                      selected: {_gender},
+                      showCheck: true,
+                      onChanged: (g) => setState(() {
+                        _gender = g;
+                        _touched = true;
+                      }),
+                    ),
+                    const SizedBox(height: RidoSpacing.m),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Symbols.lock_rounded, size: 18, color: RidoColors.navy500),
+                        const SizedBox(width: RidoSpacing.s),
+                        Expanded(
+                          child: Text(
+                            'Only used to offer the "Prefer women driver" option. Never shown to drivers.',
+                            style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.l),
-              child: button,
+              child: RidoButton(
+                label: editing ? 'Save' : 'Continue',
+                loading: _saving,
+                onPressed: _name.text.trim().isEmpty ? null : _submit,
+              ),
             ),
           ],
         ),
       ),
     );
   }
-
-  Widget _fields(RidoTextStyles t) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      RidoTextField(
-        label: 'Full name',
-        controller: _name,
-        textCapitalization: TextCapitalization.words,
-        textInputAction: TextInputAction.next,
-        onChanged: (_) => setState(() => _touched = true),
-      ),
-      const SizedBox(height: RidoSpacing.xl),
-      Text.rich(
-        TextSpan(
-          children: [
-            const TextSpan(text: 'Email '),
-            TextSpan(
-              text: '(optional)',
-              style: t.bodySmall.copyWith(color: RidoColors.navy500),
-            ),
-          ],
-        ),
-        style: t.bodySmallMedium.copyWith(color: RidoColors.navy700),
-      ),
-      const SizedBox(height: 6),
-      RidoTextField(
-        hint: 'For ride receipts',
-        controller: _email,
-        keyboardType: TextInputType.emailAddress,
-        textInputAction: TextInputAction.done,
-        onChanged: (_) => _touched = true,
-      ),
-      const SizedBox(height: RidoSpacing.xl),
-      Text('Gender', style: t.bodySmallMedium.copyWith(color: RidoColors.navy700)),
-      const SizedBox(height: RidoSpacing.s),
-      ChoiceChips<Gender>(
-        options: _genders,
-        labelOf: _label,
-        selected: {_gender},
-        showCheck: true,
-        onChanged: (g) => setState(() {
-          _gender = g;
-          _touched = true;
-        }),
-      ),
-      const SizedBox(height: RidoSpacing.m),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Symbols.lock_rounded, size: 18, color: RidoColors.navy500),
-          const SizedBox(width: RidoSpacing.s),
-          Expanded(
-            child: Text(
-              'Only used to offer the "Prefer women driver" option. Never shown to drivers.',
-              style: t.bodySmall.copyWith(color: RidoColors.navy500),
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
 }
