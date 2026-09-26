@@ -12,3 +12,9 @@ Used by `apps/driver` via `dependency_overrides`. Patches (search for "Rido patc
 5. `closeOverlay` always stops the service (even while it is still starting) and always completes (the Future never
    completed when the overlay wasn't running, which blocked the driver app's overlay queue).
 6. `overlayListener` is a broadcast stream (re-listening threw "Stream has already been listened to").
+7. `keepOnScreen`: every move / resize / tray snap keeps a bubble-sized window fully on screen (a bogus screen size
+   from the app parked it off-screen at x = -186 px).
+8. `WindowSetup.messenger` (overlay → app messages) is claimed only by the engine attached to the Activity, and an
+   engine only clears its own: the FCM background engine used to take it over, so the request card's Accept went to a
+   headless engine.
+9. `resizeOverlay` treats height -1 / -1999 as MATCH_PARENT (the condition was always true).

@@ -5,6 +5,7 @@ import { Public } from '../../core/auth/public.decorator.js';
 import type { City } from '../../generated/prisma/client.js';
 import { DemandService } from './demand.service.js';
 import { GeoService, PointInfo } from './geo.service.js';
+import { DriverMapService, type DriverMap } from './driver-map.service.js';
 
 /** Service areas for the apps: cities, their H3 cells and zones, and point checks. */
 @Public()
@@ -13,6 +14,7 @@ export class GeoController {
   constructor(
     private readonly geo: GeoService,
     private readonly demand: DemandService,
+    private readonly driverMap: DriverMapService,
   ) {}
 
   @Get('cities')
@@ -37,6 +39,12 @@ export class GeoController {
   async demandCells(): Promise<{ at: string; cells: { cell: string; level: string; multiplier: number }[] }> {
     const snap = await this.demand.snapshot();
     return { at: snap.at, cells: snap.cells.filter((c) => c.level !== 'normal').map(({ cell, level, multiplier }) => ({ cell, level, multiplier })) };
+  }
+
+  /** Driver app map: demand hotspots (res-7 hexes with outlines, no counts) and the service area outline. */
+  @Get('demand/hotspots')
+  hotspots(): Promise<DriverMap> {
+    return this.driverMap.map();
   }
 
   @Get('geo/check')

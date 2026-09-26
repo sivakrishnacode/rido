@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +6,9 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/live_trip.dart';
+import 'widgets/sign_in_step.dart';
 
-/// P-03 Phone number: +91 input, "Send OTP" (enabled at 10 digits), Terms & Privacy links.
+/// P-03 Phone number (sign-in step 1/3): +91 input, "Send OTP" (enabled at 10 digits), Terms & Privacy links.
 class P03PhoneScreen extends ConsumerStatefulWidget {
   const P03PhoneScreen({super.key, this.showcase = false});
 
@@ -22,9 +22,6 @@ class P03PhoneScreen extends ConsumerStatefulWidget {
 class _P03PhoneScreenState extends ConsumerState<P03PhoneScreen> {
   /// Mock mode pre-fills the demo number; with the live API the passenger types their own.
   late final _controller = TextEditingController(text: ref.read(isLiveApiProvider) ? '' : '98765 43210');
-  late final TapGestureRecognizer _terms = TapGestureRecognizer()..onTap = () => context.push(Routes.legal('terms'));
-  late final TapGestureRecognizer _privacy = TapGestureRecognizer()
-    ..onTap = () => context.push(Routes.legal('privacy'));
   bool _sending = false;
 
   String get _digits => PhoneInput.digitsOf(_controller.text);
@@ -32,8 +29,6 @@ class _P03PhoneScreenState extends ConsumerState<P03PhoneScreen> {
   @override
   void dispose() {
     _controller.dispose();
-    _terms.dispose();
-    _privacy.dispose();
     super.dispose();
   }
 
@@ -59,73 +54,41 @@ class _P03PhoneScreenState extends ConsumerState<P03PhoneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.type;
-    final canPop = context.canPop();
-    return Scaffold(
-      backgroundColor: RidoColors.surface,
-      appBar: canPop ? const RidoAppBar() : null,
-      body: SafeArea(
-        top: !canPop,
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(RidoSpacing.l, canPop ? RidoSpacing.l : 64, RidoSpacing.l, RidoSpacing.l),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Enter your mobile number', style: t.display),
-                    const SizedBox(height: RidoSpacing.s),
-                    Text("We'll send you a 6-digit OTP", style: t.body.copyWith(color: RidoColors.navy700)),
-                    const SizedBox(height: RidoSpacing.xxl),
-                    ValueListenableBuilder(
-                      valueListenable: _controller,
-                      builder: (context, _, _) =>
-                          PhoneInput(controller: _controller, autofocus: !widget.showcase, onSubmitted: (_) => _send()),
-                    ),
-                  ],
+    return ValueListenableBuilder(
+      valueListenable: _controller,
+      builder: (context, _, _) {
+        final ready = _digits.length == 10;
+        return SignInStep(
+          step: 1,
+          badge: Symbols.smartphone_rounded,
+          badgeMotion: BadgeMotion.buzz,
+          title: 'Hi there! What\'s your number?',
+          subtitle: const Text("We'll text you a 6-digit code to sign in. No passwords."),
+          onBack: context.canPop() ? () => context.pop() : null,
+          card: Stack(
+            alignment: Alignment.centerRight,
+            children: [
+              PhoneInput(controller: _controller, autofocus: !widget.showcase, onSubmitted: (_) => _send()),
+              // A green tick pops in at the end of the field once all 10 digits are in.
+              Positioned(
+                right: RidoSpacing.m,
+                bottom: 14,
+                child: AnimatedScale(
+                  scale: ready ? 1 : 0,
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.elasticOut,
+                  child: const Icon(Symbols.check_circle_rounded, fill: 1, color: RidoColors.success),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.l),
-              child: Column(
-                children: [
-                  ValueListenableBuilder(
-                    valueListenable: _controller,
-                    builder: (context, _, _) => RidoButton(
-                      label: 'Send OTP',
-                      loading: _sending,
-                      onPressed: _digits.length == 10 ? _send : null,
-                    ),
-                  ),
-                  const SizedBox(height: RidoSpacing.m),
-                  Text.rich(
-                    TextSpan(
-                      style: t.bodySmall.copyWith(color: RidoColors.navy500),
-                      children: [
-                        const TextSpan(text: 'By continuing, you agree to our '),
-                        TextSpan(
-                          text: 'Terms',
-                          recognizer: _terms,
-                          style: const TextStyle(color: RidoColors.coral600, fontWeight: FontWeight.w600),
-                        ),
-                        const TextSpan(text: ' & '),
-                        TextSpan(
-                          text: 'Privacy Policy',
-                          recognizer: _privacy,
-                          style: const TextStyle(color: RidoColors.coral600, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+            ],
+          ),
+          footer: const SignInTerms(),
+          action: PopWhenReady(
+            ready: ready,
+            child: RidoButton(label: 'Send OTP', loading: _sending, onPressed: ready ? _send : null),
+          ),
+        );
+      },
     );
   }
 }

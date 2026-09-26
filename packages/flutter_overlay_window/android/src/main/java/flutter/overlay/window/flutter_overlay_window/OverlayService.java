@@ -257,8 +257,11 @@ public class OverlayService extends Service implements View.OnTouchListener {
         if (windowManager != null) {
             WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
             params.width = (width == -1999 || width == -1) ? -1 : dpToPx(width);
-            params.height = (height != 1999 || height != -1) ? dpToPx(height) : height;
+            // Rido patch: -1 / -1999 mean "match parent" (the original condition was always true, so a full-height
+            // request card got -1 dp → WRAP_CONTENT, or a guessed screen height that left a gap).
+            params.height = (height == -1999 || height == -1) ? WindowManager.LayoutParams.MATCH_PARENT : dpToPx(height);
             WindowSetup.enableDrag = enableDrag;
+            keepOnScreen(params);
             windowManager.updateViewLayout(flutterView, params);
             result.success(true);
         } else {
@@ -271,6 +274,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
             WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
             params.x = (x == -1999 || x == -1) ? -1 : dpToPx(x);
             params.y = dpToPx(y);
+            keepOnScreen(params);
             windowManager.updateViewLayout(flutterView, params);
             if (result != null)
                 result.success(true);
@@ -298,6 +302,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
                 WindowManager.LayoutParams params = (WindowManager.LayoutParams) instance.flutterView.getLayoutParams();
                 params.x = (x == -1999 || x == -1) ? -1 : instance.dpToPx(x);
                 params.y = instance.dpToPx(y);
+                instance.keepOnScreen(params);
                 instance.windowManager.updateViewLayout(instance.flutterView, params);
                 return true;
             } else {
@@ -372,6 +377,29 @@ public class OverlayService extends Service implements View.OnTouchListener {
 
     private int getDrawableResourceId(String resType, String name) {
         return getApplicationContext().getResources().getIdentifier(String.format("ic_%s", name), resType, getApplicationContext().getPackageName());
+    }
+
+    /** The physical screen in px (current orientation). */
+    private Point screenSizePx() {
+        DisplayMetrics dm = new DisplayMetrics();
+        windowManager.getDefaultDisplay().getRealMetrics(dm);
+        return new Point(dm.widthPixels, dm.heightPixels);
+    }
+
+    /**
+     * Rido patch: whatever position / size the app asks for, a bubble-sized window stays fully on screen (a wrong
+     * screen size from the app once parked the bubble at x = -186 px, invisible but "displaying over other apps").
+     * Full-width / full-height windows (-1) are left alone.
+     */
+    void keepOnScreen(WindowManager.LayoutParams params) {
+        if (windowManager == null) return;
+        Point screen = screenSizePx();
+        if (params.width > 0 && params.x != -1) {
+            params.x = Math.max(0, Math.min(params.x, screen.x - params.width));
+        }
+        if (params.height > 0 && params.height < screen.y) {
+            params.y = Math.max(0, Math.min(params.y, screen.y - params.height));
+        }
     }
 
     private int dpToPx(int dp) {
@@ -485,7 +513,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
 
         public TrayAnimationTimerTask() {
             super();
-            mDestY = lastYPosition;
+            mDestY = Math.max(0, Math.min(lastYPosition, screenSizePx().y - Math.max(0, flutterView.getHeight())));
             switch (WindowSetup.positionGravity) {
                 case "auto":
                     mDestX = (params.x + (flutterView.getWidth() / 2)) <= szWindow.x / 2 ? 0 : szWindow.x - flutterView.getWidth();

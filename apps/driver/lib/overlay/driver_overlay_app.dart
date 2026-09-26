@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -41,6 +42,7 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
   @override
   void initState() {
     super.initState();
+    _screen = _displaySize() ?? _screen;
     _sub = FlutterOverlayWindow.overlayListener.listen(_onMessage);
     FlutterOverlayWindow.shareData({OverlayMsg.action: OverlayMsg.ready});
   }
@@ -53,14 +55,32 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
     super.dispose();
   }
 
+  /// The physical screen in dp, from this engine's display (null when not known yet).
+  static Size? _displaySize() {
+    try {
+      final display = PlatformDispatcher.instance.displays.first;
+      final size = display.size / display.devicePixelRatio;
+      return size.width >= 200 && size.height >= 300 ? size : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _send(String action, [String? id]) =>
       FlutterOverlayWindow.shareData({OverlayMsg.action: action, 'id': ?id});
 
   void _onMessage(dynamic raw) {
     if (raw is! Map) return;
+    // The overlay's own engine sees the physical display: trust it first. The app's value is only a fallback (a
+    // minimised app's detached view reported a 1×1 "screen", which parked the bubble off screen).
+    final own = _displaySize();
     final w = raw['screenW'];
     final h = raw['screenH'];
-    if (w is num && h is num && w > 0 && h > 0) _screen = Size(w.toDouble(), h.toDouble());
+    if (own != null) {
+      _screen = own;
+    } else if (w is num && h is num && w >= 200 && h >= 300) {
+      _screen = Size(w.toDouble(), h.toDouble());
+    }
     switch (raw[OverlayMsg.cmd]) {
       case OverlayMsg.bubble:
         _collapse();
@@ -89,7 +109,9 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
         _bubblePos = await FlutterOverlayWindow.getOverlayPosition();
       } catch (_) {}
     }
-    await FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, _screen.height.round(), false);
+    // Full screen by the platform's "match parent", not a measured height (the overlay engine can't always read the
+    // display; a guessed 844 dp left the home screen showing below the card).
+    await FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, WindowSize.matchParent, false);
     await FlutterOverlayWindow.moveOverlay(const OverlayPosition(0, 0));
     if (!mounted) return;
     setState(() {

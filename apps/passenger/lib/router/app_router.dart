@@ -57,6 +57,23 @@ GoRoute _full(String path, Widget Function(GoRouterState s) builder, {bool fulls
   pageBuilder: (context, s) => MaterialPage(key: s.pageKey, fullscreenDialog: fullscreenDialog, child: builder(s)),
 );
 
+/// Sign-in step (phone → OTP → name): cross-fades with a slight rise instead of sliding, so the
+/// shared header (the scooter road) stays put and the steps read as one screen.
+GoRoute _signInStep(String path, Widget Function(GoRouterState s) builder) => GoRoute(
+  path: path,
+  parentNavigatorKey: rootNavigatorKey,
+  pageBuilder: (context, s) => CustomTransitionPage(
+    key: s.pageKey,
+    child: builder(s),
+    transitionDuration: const Duration(milliseconds: 280),
+    reverseTransitionDuration: const Duration(milliseconds: 220),
+    transitionsBuilder: (context, animation, secondary, child) => FadeTransition(
+      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+      child: FadeTransition(opacity: ReverseAnimation(secondary), child: child),
+    ),
+  ),
+);
+
 /// Child path of a tab shown full-screen: `_sub('search', …)` under `/ride` → `/ride/search`.
 GoRoute _sub(String path, Widget Function(GoRouterState s) builder) => _full(path, builder);
 
@@ -67,9 +84,9 @@ GoRouter createPassengerRouter({String initialLocation = Routes.splash}) => GoRo
   routes: [
     _full(Routes.splash, (_) => const P01SplashScreen()),
     _full(Routes.onboarding, (_) => const P02OnboardingScreen()),
-    _full(Routes.login, (_) => const P03PhoneScreen()),
-    _full(Routes.otp, (s) => P04OtpScreen(phone: s.uri.queryParameters['phone'] ?? '98765 43210')),
-    _full(Routes.profileSetup, (_) => const P05ProfileSetupScreen()),
+    _signInStep(Routes.login, (_) => const P03PhoneScreen()),
+    _signInStep(Routes.otp, (s) => P04OtpScreen(phone: s.uri.queryParameters['phone'] ?? '98765 43210')),
+    _signInStep(Routes.profileSetup, (_) => const P05ProfileSetupScreen()),
     _full(Routes.locationPermission, (_) => const P06LocationPermissionScreen()),
     _full(Routes.locationDenied, (_) => const S05LocationDeniedScreen()),
     _full(Routes.serviceUnavailable, (_) => const S08ServiceUnavailableScreen()),

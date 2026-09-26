@@ -132,4 +132,25 @@ void main() {
     expect(me.savedPlaces.single.kind, SavedPlaceKind.home);
     expect(me.emergencyContacts.single.relation, 'Mother');
   });
+
+  test('demand map: hotspots with nested hexes and the service-area outline', () {
+    final m = DemandMap.fromJson({
+      'at': '2026-09-26T15:00:00.000Z',
+      'hotspots': [
+        {
+          'cell': '8761a2', 'level': 'high', 'score': 1, 'multiplier': 1.2, 'centre': [11.0168, 76.9779],
+          'boundary': [[11.0, 76.9], [11.1, 76.9], [11.1, 77.0]],
+          'nested': [{'cell': '8861a2', 'score': 0.5, 'boundary': [[11.0, 76.95], [11.02, 76.95], [11.02, 76.97]]}],
+        },
+      ],
+      'serviceArea': [[[10.9, 76.8], [11.2, 76.8], [11.2, 77.1]]],
+    });
+    final h = m.hotspots.single;
+    expect(h.level, HotspotLevel.high);
+    expect(h.isSurging, isTrue);
+    expect(h.centre.latitude, 11.0168);
+    expect(h.boundary, hasLength(3));
+    expect(h.nested.single.score, 0.5);
+    expect(m.serviceArea.single, hasLength(3));
+  });
 }

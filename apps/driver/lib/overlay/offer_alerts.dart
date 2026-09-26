@@ -7,8 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Ride-request alerts outside the app: the `ride_requests` notification with a full-screen intent (wakes a
-/// locked phone and opens the app on the request) that rings and vibrates until it is answered (Android's
-/// FLAG_INSISTENT), and the small native bridge in `MainActivity` (bring the app to the front,
+/// locked phone and opens the app on the request) that rings once per request, and the small native bridge in `MainActivity` (bring the app to the front,
 /// full-screen-intent permission).
 ///
 /// The API sends each offer as a high-priority FCM notification tagged `trip-<id>`. Android draws it itself
@@ -29,8 +28,6 @@ abstract final class OfferAlerts {
   static final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
   static bool _ready = false;
 
-  /// Notification.FLAG_INSISTENT: sound and vibration repeat until the notification is cancelled.
-  static final Int32List _insistent = Int32List.fromList([4]);
 
   static String tagFor(String tripId) => 'trip-$tripId';
 
@@ -78,7 +75,9 @@ abstract final class OfferAlerts {
             tag: tagFor(tripId),
             timeoutAfter: timeout.inMilliseconds,
             autoCancel: true,
-            additionalFlags: _insistent,
+            // One ring per request: re-posting the same trip (the FCM push, then the app) doesn't ring again. (It
+            // used to be FLAG_INSISTENT, which rang non-stop, and each re-offer started it again.)
+            onlyAlertOnce: true,
           ),
         ),
         payload: jsonEncode({'type': 'offer', 'tripId': tripId, 'channel': channelId}),

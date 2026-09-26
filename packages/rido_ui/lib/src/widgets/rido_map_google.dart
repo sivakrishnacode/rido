@@ -119,6 +119,32 @@ class _GoogleRidoMapState extends State<_GoogleRidoMap> {
       if (old.map.controller?._google == this) old.map.controller!._google = null;
       m.controller?._google = this;
     }
+    // A new [RidoMap.center] (e.g. the driver's GPS) moves the camera, keeping the user's zoom. GoogleMap only reads
+    // its initial camera, so without this the map stayed on the first position. Paused for a while after the user
+    // pans / zooms, so following doesn't fight their finger.
+    final centre = m.center;
+    if (centre != null && centre != old.map.center && !_userMovedRecently) _followTo(centre);
+  }
+
+  /// When the user last moved the map by hand, and how many fingers are on it now. GoogleMap also reports camera
+  /// moves it makes itself (first layout, padding changes), so only moves while touching count as the user's.
+  DateTime? _userMovedAt;
+  int _pointers = 0;
+  static const _followPause = Duration(seconds: 15);
+
+  bool get _userMovedRecently {
+    final at = _userMovedAt;
+    return at != null && DateTime.now().difference(at) < _followPause;
+  }
+
+  void _followTo(LatLng centre) {
+    final c = _controller;
+    if (c == null) {
+      _pendingMove = (centre, m.zoom);
+      return;
+    }
+    _programmaticMove = true;
+    unawaited(c.animateCamera(gm.CameraUpdate.newLatLng(_g(centre))).catchError((Object _) {}));
   }
 
   @override
@@ -144,10 +170,15 @@ class _GoogleRidoMapState extends State<_GoogleRidoMap> {
     if (pending != null) _moveTo(pending.$1, pending.$2);
   }
 
-  bool get _hasOverlays => m.pulseAt != null || m.extraMarkers.isNotEmpty || m.zones.any((z) => z.label != null);
+  bool get _hasOverlays =>
+      m.pulseAt != null ||
+      m.extraMarkers.isNotEmpty ||
+      m.zones.any((z) => z.label != null) ||
+      m.polygons.any((p) => p.isZoomLimited);
 
   void _onCameraMove(gm.CameraPosition pos) {
     _camera = pos;
+    if (_pointers > 0) _userMovedAt = DateTime.now();
     if (_hasOverlays) setState(() {});
     m.onPositionChanged?.call(RidoCamera(center: _l(pos.target), zoom: pos.zoom), !_programmaticMove);
   }
@@ -290,50 +321,67 @@ class _GoogleRidoMapState extends State<_GoogleRidoMap> {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: gm.GoogleMap(
-                    initialCameraPosition: initial,
-                    padding: m.mapPadding,
-                    style: ridoGoogleMapStyle,
-                    onMapCreated: _onCreated,
-                    onCameraMove: _onCameraMove,
-                    onCameraIdle: () => _programmaticMove = false,
-                    markers: _markers(),
-                    polylines: {
-                      if (m.route.length >= 2)
-                        gm.Polyline(
-                          polylineId: const gm.PolylineId('route'),
-                          points: [for (final p in m.route) _g(p)],
-                          color: RidoColors.coral500,
-                          width: 5,
-                          startCap: gm.Cap.roundCap,
-                          endCap: gm.Cap.roundCap,
-                          jointType: gm.JointType.round,
-                        ),
-                    },
-                    circles: {
-                      for (var i = 0; i < m.zones.length; i++)
-                        gm.Circle(
-                          circleId: gm.CircleId('zone-$i'),
-                          center: _g(m.zones[i].centre),
-                          radius: m.zones[i].radiusM,
-                          fillColor: RidoColors.coral500.withValues(alpha: 0.16),
-                          strokeColor: RidoColors.coral500.withValues(alpha: 0.5),
-                          strokeWidth: 2,
-                        ),
-                    },
-                    minMaxZoomPreference: const gm.MinMaxZoomPreference(10, 18),
-                    compassEnabled: false,
-                    mapToolbarEnabled: false,
-                    zoomControlsEnabled: false,
-                    myLocationButtonEnabled: false,
-                    rotateGesturesEnabled: false,
-                    tiltGesturesEnabled: false,
-                    scrollGesturesEnabled: m.interactive,
-                    zoomGesturesEnabled: m.interactive,
-                    buildingsEnabled: false,
-                    indoorViewEnabled: false,
-                    trafficEnabled: false,
-                    gestureRecognizers: m.interactive ? _eager : const {},
+                  child: Listener(
+                    onPointerDown: (_) => _pointers++,
+                    onPointerUp: (_) => _pointers = _pointers > 0 ? _pointers - 1 : 0,
+                    onPointerCancel: (_) => _pointers = _pointers > 0 ? _pointers - 1 : 0,
+                    child: gm.GoogleMap(
+                      initialCameraPosition: initial,
+                      padding: m.mapPadding,
+                      style: ridoGoogleMapStyle,
+                      onMapCreated: _onCreated,
+                      onCameraMove: _onCameraMove,
+                      onCameraIdle: () => _programmaticMove = false,
+                      markers: _markers(),
+                      polylines: {
+                        if (m.route.length >= 2)
+                          gm.Polyline(
+                            polylineId: const gm.PolylineId('route'),
+                            points: [for (final p in m.route) _g(p)],
+                            color: RidoColors.coral500,
+                            width: 5,
+                            startCap: gm.Cap.roundCap,
+                            endCap: gm.Cap.roundCap,
+                            jointType: gm.JointType.round,
+                          ),
+                      },
+                      polygons: {
+                        for (var i = 0; i < m.polygons.length; i++)
+                          if (m.polygons[i].visibleAt(_camera.zoom))
+                            gm.Polygon(
+                              polygonId: gm.PolygonId('poly-$i'),
+                              points: [for (final p in m.polygons[i].points) _g(p)],
+                              fillColor: m.polygons[i].fillColor,
+                              strokeColor: m.polygons[i].strokeColor,
+                              strokeWidth: m.polygons[i].strokeWidth.round(),
+                              zIndex: m.polygons[i].zIndex,
+                            ),
+                      },
+                      circles: {
+                        for (var i = 0; i < m.zones.length; i++)
+                          gm.Circle(
+                            circleId: gm.CircleId('zone-$i'),
+                            center: _g(m.zones[i].centre),
+                            radius: m.zones[i].radiusM,
+                            fillColor: RidoColors.coral500.withValues(alpha: 0.16),
+                            strokeColor: RidoColors.coral500.withValues(alpha: 0.5),
+                            strokeWidth: 2,
+                          ),
+                      },
+                      minMaxZoomPreference: const gm.MinMaxZoomPreference(10, 18),
+                      compassEnabled: false,
+                      mapToolbarEnabled: false,
+                      zoomControlsEnabled: false,
+                      myLocationButtonEnabled: false,
+                      rotateGesturesEnabled: false,
+                      tiltGesturesEnabled: false,
+                      scrollGesturesEnabled: m.interactive,
+                      zoomGesturesEnabled: m.interactive,
+                      buildingsEnabled: false,
+                      indoorViewEnabled: false,
+                      trafficEnabled: false,
+                      gestureRecognizers: m.interactive ? _eager : const {},
+                    ),
                   ),
                 ),
                 ..._overlays(),

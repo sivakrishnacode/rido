@@ -8,6 +8,7 @@ import '../../common/job_routes.dart';
 import '../../common/measure_size.dart';
 import '../../overlay/background_permissions.dart';
 import '../../router/routes.dart';
+import '../../state/demand_map.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_location.dart';
 import '../../state/driver_session.dart';
@@ -15,6 +16,7 @@ import '../../state/live_helpers.dart';
 import '../jobs/widgets/job_map.dart';
 import '../states/s11_missed_request_banner.dart';
 import '../states/s16_gps_weak_banner.dart';
+import 'widgets/demand_layer.dart';
 import 'widgets/home_parts.dart';
 import 'widgets/navy_header.dart';
 
@@ -286,8 +288,13 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         : quiet
             ? demandZones(labelled: const {'Gandhipuram', 'Peelamedu'})
             : demandZones(labelled: const {'Gandhipuram'}, highDemandLabel: true);
+    // Live: where orders come from (demand hexes, nested hexes when zoomed in) and the service area when zoomed
+    // out; hidden during a job.
+    final demand = _api && job == null ? ref.watch(demandMapProvider) : null;
     final map = LiveVehicleMap(
       key: ValueKey('home-map-$quiet'),
+      polygons: demandPolygons(demand),
+      labels: gpsLost ? const [] : demandLabels(demand),
       vehicleType: vehicleType,
       fixedPosition: _showcase ? Seed.driverHome : null,
       pulse: online && job == null,
@@ -350,8 +357,11 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
           ),
           if (job != null)
             TripInProgressBanner(
-              title: '${job.isDelivery ? 'Delivery' : 'Ride'} in progress${eta > 0 ? ' · $eta min' : ''}',
-              subtitle: '${job.customerName} → ${job.drop.name}',
+              title: _jobBannerTitle(job, _live ? session.phase : JobPhase.toDrop, eta),
+              // Heading to the pickup: where to go and whom to meet; after that: the drop.
+              subtitle: _live && session.phase == JobPhase.toPickup
+                  ? '${job.customerName} · ${job.pickup.name}'
+                  : '${job.customerName} → ${job.drop.name}',
               onOpen: () {
                 final route = routeForJob(_live ? session.phase : JobPhase.toDrop, delivery: job.isDelivery);
                 if (route != null) context.push(route);
@@ -541,4 +551,17 @@ class _GpsTips extends StatelessWidget {
       ),
     ]);
   }
+}
+
+/// The Home banner for the current job, by step: "Going to pickup" / "At pickup" before the trip starts.
+String _jobBannerTitle(RideRequest job, JobPhase phase, int eta) {
+  final kind = job.isDelivery ? 'Delivery' : 'Ride';
+  final minutes = eta > 0 ? ' · $eta min' : '';
+  return switch (phase) {
+    JobPhase.toPickup => 'Going to pickup$minutes',
+    JobPhase.atPickup => 'At pickup',
+    JobPhase.atDrop => 'At drop',
+    JobPhase.collect => 'Collect payment',
+    JobPhase.toDrop || JobPhase.none => '$kind in progress$minutes',
+  };
 }

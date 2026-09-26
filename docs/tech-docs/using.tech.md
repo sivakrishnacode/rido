@@ -361,8 +361,26 @@ suggestion's name.
 
 ---
 
+## 7a0. Driver demand map (hex + nested hex)
+
+- **API:** public `GET /v1/demand/hotspots` (`DriverMapService`, Redis-cached 60 s, key `drivermap:v2`): up to 30 res-7
+  hexes (≈5 km²) ranked by live demand (distinct riders in the demand window ×3) + bookings in the last hour (×2) +
+  the usual pickups at this IST hour ±1 over the last 4 weeks (weekly average). Level: `high` (surging, or ≥ 60 % of the
+  busiest), `busy` (≥ 30 % or live busy), `some`. Each hotspot carries its outline and its busy res-8 children
+  (`nested`, score 0–1 within the hotspot) like H3's hex-in-hex grid; plus `serviceArea` = each city's service cells
+  merged into outer rings (`cellsToMultiPolygon`). No rider counts are exposed.
+- **Driver app:** `demandMapProvider` (refresh every 2 min while Home shows it, live mode only) → `demand_layer.dart`:
+  service-area edge at zoom ≤ 12.8, demand hexes from 10.5 (coral high / amber busy / yellow some), nested hexes from
+  13.2 shaded by their share, "High demand" (· surge) labels on the top 4. Hidden during a job.
+- **rido_ui:** `RidoMap.polygons` (`MapPolygon` with fill, stroke, zIndex and a zoom range) on both engines.
+
 ## 7a. Device location in the apps
 
+- **Maps follow position changes:** the Google engine now animates to a new `RidoMap.center` (it only read the
+  initial camera, so the driver map stayed on the first position); following pauses 15 s after the user pans or
+  zooms (only camera moves while a finger is on the map count). Driver offline: last known fix (fused, then
+  LocationManager) + a medium-accuracy preview stream (no service, nothing uploaded). Going online uses a position
+  under 2 min old instead of waiting for a fresh precise fix (indoors that timed out).
 - **Always the real position (live):** both apps read the last known fix at once, then a fresh one. Passenger: the
   pickup and map are the phone's location even outside the service area (banner "Rido isn't in your area yet"; the API
   refuses bookings there). Driver: the car marker follows the phone while offline too (nothing uploaded); with no fix
@@ -450,6 +468,13 @@ suggestion's name.
   after Accept) moves the existing task to the front (`ActivityManager.appTasks`). With the template's
   `taskAffinity=""` every such launch started a second copy (splash again, two engines, overlay messages to the wrong
   one: Accept spinning forever).
+- **Verified on a Nothing Phone (1), Android 16, 26 Sep 2026** (adb): online → Home → bubble; tap → same app, still
+  online; Home → bubble again; launcher → no restart; request while minimised → full-screen card; Accept → job screen
+  in front (DRIVER_ASSIGNED); Decline → bubble + NO_DRIVERS; timeout → bubble, re-offer → card again.
+- **Bugs found on the device and fixed:** bubble parked off screen (x = -186 px) because a minimised app reported a
+  1×1 screen (overlay measures itself, plugin clamps on screen); the FCM background engine took over the overlay's
+  message channel so Accept went nowhere (plugin: only the Activity engine owns it); the card height used a guessed
+  844 dp (now MATCH_PARENT); FLAG_INSISTENT rang non-stop (now one ring per request, `onlyAlertOnce`).
 - **Request card safety:** Decline / timeout close the card at once; Accept gives up after 12 s ("Rido didn't
   respond", opens the app); an error closes the card after 2.5 s; a ✕ always returns to the bubble and opens Rido.
 - **Never online by itself:** the app always starts offline; if the API still has the driver online (app killed while
@@ -466,6 +491,18 @@ suggestion's name.
 - **Location check UI:** `too_far_sheet.dart` (`runWithFarCheck`) wraps Arrived / End ride / Reached pickup /
   Complete delivery: on `TOO_FAR` it shows the distance, reason chips + "Other", Navigate, and "Continue anyway".
 - **Uploads:** KYC photos are resized to ≤1600 px at quality 80 before upload.
+
+## 7e. Passenger onboarding and sign-in (apps/passenger/lib/features/onboarding)
+
+- **Intro (P-02)**: a tinted scene panel that blends between slide colours while swiping, parallax scenes that idle
+  on a loop (road scrolls, vehicles bob, chips float, sparkles twinkle), text that rises in, and a round "next"
+  button with a progress ring that stretches into "Get started" on the last slide.
+- **Sign-in steps (P-03 number → P-04 verify → P-05 you)** share `widgets/sign_in_step.dart`: a scooter rides a
+  dashed road to the current stop, each step has an animated badge (buzzing phone, bobbing SMS, waving hand), and
+  heading and fields rise in, one after another. The button pops when the form becomes valid. Confetti fires when sign-in finishes
+  (returning passenger on OTP, new passenger on P-05) before the next screen (~0.8 s). The three routes cross-fade
+  (`_signInStep` in `app_router.dart`) so they read as one screen. P-05 in edit mode keeps the plain layout.
+- All looping or decorative motion stops when Android "Remove animations" is on (`MediaQuery.disableAnimations`).
 
 ---
 

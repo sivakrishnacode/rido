@@ -26,6 +26,8 @@ class LiveVehicleMap extends ConsumerWidget {
     this.gpsLost = false,
     this.centerOnVehicle = true,
     this.mapPadding = EdgeInsets.zero,
+    this.polygons = const [],
+    this.labels = const [],
   });
 
   final MapVehicleType vehicleType;
@@ -47,6 +49,12 @@ class LiveVehicleMap extends ConsumerWidget {
 
   /// Google engine: keeps the logo clear of panels drawn over the map (Maps terms).
   final EdgeInsets mapPadding;
+
+  /// Demand hexes / service-area edge (see `demand_layer.dart`).
+  final List<MapPolygon> polygons;
+
+  /// Extra labels on the map (e.g. "High demand" on the hottest hexes).
+  final List<Marker> labels;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -76,7 +84,9 @@ class LiveVehicleMap extends ConsumerWidget {
         vehicles: gpsLost || !showVehicle
             ? const []
             : [MapVehicle(position: pos, type: vehicleType, heading: heading, large: true)],
+        polygons: polygons,
         extraMarkers: [
+          ...labels,
           if (gpsLost) Marker(point: pos, width: 128, height: 128, child: const _GpsLostMarker()),
         ],
       );

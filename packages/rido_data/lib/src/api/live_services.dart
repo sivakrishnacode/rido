@@ -8,6 +8,7 @@ import '../models/trip.dart';
 import '../models/vehicle.dart';
 import 'api_client.dart';
 import 'api_mappers.dart';
+import 'demand_map.dart';
 import 'realtime_client.dart';
 import '../simulation/road_router.dart';
 
@@ -201,6 +202,9 @@ class LiveJobs {
 
   Future<ChatMessage> sendMessage(String tripId, String text) async =>
       chatFromJson(_map(await api.post('/trips/$tripId/messages', {'text': text})), iAmDriver: true);
+
+  /// Demand hotspots (res-7 hexes with busy res-8 hexes inside) and the service-area outline, for the map.
+  Future<DemandMap> demandMap() async => DemandMap.fromJson(_map(await api.get('/demand/hotspots')));
 
   static LiveOffer _offer(Json j) => LiveOffer(rideRequestFromOffer(j), (j['expiresInSeconds'] as num?)?.toInt() ?? 15);
 }

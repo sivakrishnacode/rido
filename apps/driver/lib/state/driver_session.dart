@@ -187,6 +187,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       _legKey = null;
       ref.onDispose(() {
         _stopTracking();
+        _stopPreview();
         _unwatchJob();
       });
       return const DriverSessionState(todayEarnings: 0, todayRides: 0);
@@ -212,7 +213,14 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     state = state.copyWith(goingOnline: true, missedRequest: false);
     try {
       final locator = ref.read(driverLocatorProvider);
-      final fix = await locator.currentFix();
+      // A recent position (offline preview) is enough to go online right away, also indoors; the online GPS
+      // stream refines it within seconds. A fresh fix is only needed when there's none.
+      final at = _lastFixAt;
+      final recent = _position != null && at != null && DateTime.now().difference(at) < const Duration(minutes: 2)
+          ? GpsFix(_position!, heading: _heading, at: at)
+          : null;
+      if (recent == null) await locator.ensureReady();
+      final fix = recent ?? await locator.currentFix();
       await locator.requestNotificationPermission();
       await _jobs.goOnline(fix.point);
       if (!ref.mounted) return;
@@ -236,6 +244,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _stopTracking();
     state = state.copyWith(online: false, clearIncoming: true, missedRequest: false, gpsLost: false);
     if (pending != null) _quiet(_jobs.decline(pending.id));
+    // Keep showing where the driver is (offline preview, nothing uploaded).
+    unawaited(locateHere(ask: false));
     try {
       await _jobs.goOffline();
     } catch (_) {
@@ -486,9 +496,12 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     }
   }
 
+  /// Offline preview of the driver's position (see [locateHere]); replaced by the online stream.
+  StreamSubscription<GpsFix>? _preview;
+
   /// Live: shows where the driver is while offline too (the car marker follows the phone, nothing is uploaded).
   /// Asks for the permission when [ask] (Home asks on every visit until it's given) and records the access for the
-  /// banner. The last known fix shows at once, then a fresh one.
+  /// banner. The last known fix shows at once, then a light position stream keeps it current until going online.
   Future<void> locateHere({bool ask = true}) async {
     if (!_live) return;
     final locator = ref.read(driverLocatorProvider);
@@ -498,12 +511,16 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (access != LocationAccess.granted || state.online) return;
     final last = await locator.lastKnownFix();
     if (last != null && ref.mounted && !state.online) _onFix(last, upload: false);
-    try {
-      final fresh = await locator.currentFix();
-      if (ref.mounted && !state.online) _onFix(fresh, upload: false);
-    } catch (_) {
-      // The last known fix stays; going online retries.
-    }
+    if (!ref.mounted || state.online) return;
+    await _preview?.cancel();
+    _preview = locator.previewPositions().listen((fix) {
+      if (ref.mounted && !state.online) _onFix(fix, upload: false);
+    }, onError: (Object _) {});
+  }
+
+  void _stopPreview() {
+    _preview?.cancel();
+    _preview = null;
   }
 
   /// App back in the foreground: reconnect, pick up an offer missed meanwhile and check the job.
@@ -549,6 +566,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
 
   void _startTracking() {
     _stopTracking();
+    _stopPreview();
     _gps = ref.read(driverLocatorProvider).positions().listen(_onFix, onError: (Object _) {});
     _offerSub = _jobs.offers().listen(_onOffer, onError: (Object _) {});
     _connectionSub = ref.read(realtimeProvider).connection.listen((up) {

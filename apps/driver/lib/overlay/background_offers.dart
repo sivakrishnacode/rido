@@ -179,8 +179,8 @@ class BackgroundOffers {
   }
 
   Future<void> _showBubbleWindow() async {
-    final dpr = PlatformDispatcher.instance.views.first.devicePixelRatio;
-    final px = (bubbleDp * dpr).round();
+    // The display, not a view: with the screen destroyed in the background the app has no views.
+    final px = (bubbleDp * _devicePixelRatio()).round();
     try {
       await FlutterOverlayWindow.showOverlay(
         width: px,
@@ -218,10 +218,25 @@ class BackgroundOffers {
         ..._screen(),
       });
 
-  /// The overlay can't measure the screen from inside its small window, so each command carries it (dp).
+  static double _devicePixelRatio() {
+    try {
+      final dpr = PlatformDispatcher.instance.displays.first.devicePixelRatio;
+      return dpr > 0 ? dpr : 2.75;
+    } catch (_) {
+      return 2.75;
+    }
+  }
+
+  /// A fallback screen size for the overlay (dp); the overlay measures its own display first. Empty when unknown.
   static Map<String, Object> _screen() {
-    final display = PlatformDispatcher.instance.views.first.display;
-    return {'screenW': display.size.width / display.devicePixelRatio, 'screenH': display.size.height / display.devicePixelRatio};
+    try {
+      final display = PlatformDispatcher.instance.displays.first;
+      final w = display.size.width / display.devicePixelRatio;
+      final h = display.size.height / display.devicePixelRatio;
+      return w >= 200 && h >= 300 ? {'screenW': w, 'screenH': h} : const {};
+    } catch (_) {
+      return const {};
+    }
   }
 
   Future<void> _send(Map<String, Object?> msg) async {

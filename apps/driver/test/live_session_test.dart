@@ -154,16 +154,27 @@ class FakeLocator extends DriverLocator {
   @override
   Future<GpsFix?> lastKnownFix() async => GpsFix(offsetPoint(_here, 300, 90), at: DateTime.now());
 
+  int currentFixCalls = 0;
+
   @override
   Future<GpsFix> currentFix() async {
+    currentFixCalls++;
     if (problem != null) throw problem!;
     return GpsFix(_here, at: DateTime.now());
+  }
+
+  @override
+  Future<void> ensureReady() async {
+    if (problem != null) throw problem!;
   }
 
   @override
   Future<void> requestNotificationPermission() async {}
   @override
   Stream<GpsFix> positions() => fixes.stream;
+  final previewFixes = StreamController<GpsFix>.broadcast();
+  @override
+  Stream<GpsFix> previewPositions() => previewFixes.stream;
   @override
   Future<bool> isReadyWithoutPrompt() async => true;
 }
@@ -433,12 +444,15 @@ void main() {
     expect(fakeJobs.calls, isNot(contains('online')));
   });
 
-  test('offline, the car shows the real position (last known, then fresh) and nothing is uploaded', () async {
+  test('offline, the car shows the real position (last known, then the preview stream) and nothing is uploaded', () async {
     await session().locateHere();
     await pumpEventQueue();
     expect(container.read(locationAccessProvider), LocationAccess.granted);
     expect(locator.asked, 1);
-    expect(session().vehicle.value?.position, _here, reason: 'the fresh fix replaces the last known one');
+    expect(session().vehicle.value?.position, offsetPoint(_here, 300, 90), reason: 'the last known fix shows at once');
+    locator.previewFixes.add(GpsFix(_here, at: DateTime.now()));
+    await pumpEventQueue();
+    expect(session().vehicle.value?.position, _here, reason: 'the offline preview stream keeps it current');
     expect(state().online, isFalse);
     expect(realtime.sent, isEmpty);
     expect(jobs.calls, isNot(contains('online')));
@@ -450,5 +464,15 @@ void main() {
     await pumpEventQueue();
     expect(container.read(locationAccessProvider), LocationAccess.deniedForever);
     expect(session().vehicle.value, isNull, reason: 'no Gandhipuram placeholder in live mode');
+  });
+
+  test('indoors: a recent offline position is enough to go online (no waiting for a fresh GPS fix)', () async {
+    await session().locateHere();
+    await pumpEventQueue();
+    locator.currentFixCalls = 0;
+    await session().goOnline();
+    expect(state().online, isTrue);
+    expect(locator.currentFixCalls, 0);
+    expect(jobs.calls, contains('online'));
   });
 }

@@ -67,13 +67,14 @@ class DriverLocator {
       final p = await geo.Geolocator.getCurrentPosition(
         locationSettings: const geo.LocationSettings(
           accuracy: geo.LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
+          timeLimit: Duration(seconds: 10),
         ),
       );
       return _fix(p);
     } on TimeoutException {
-      final last = await geo.Geolocator.getLastKnownPosition();
-      if (last != null) return _fix(last);
+      // Indoors a precise fix can take long: the last known position (fused or LocationManager) is good enough.
+      final last = await lastKnownFix();
+      if (last != null) return last;
       throw const LocationProblem("Couldn't get your location. Move to an open area and try again.");
     } on geo.LocationServiceDisabledException {
       throw const LocationProblem('Turn on Location to go online', fix: LocationFix.locationSettings);
@@ -114,15 +115,25 @@ class DriverLocator {
     }
   }
 
-  /// The last fix the phone knows (instant, may be old), or null.
+  /// The last fix the phone knows (instant, may be old), or null. Tries the fused provider, then Android's
+  /// LocationManager (the fused cache is often empty right after the app starts).
   Future<GpsFix?> lastKnownFix() async {
-    try {
-      final p = await geo.Geolocator.getLastKnownPosition();
-      return p == null ? null : _fix(p);
-    } catch (_) {
-      return null;
+    for (final forceManager in [false, true]) {
+      try {
+        final p = await geo.Geolocator.getLastKnownPosition(forceAndroidLocationManager: forceManager);
+        if (p != null) return _fix(p);
+      } catch (_) {
+        // Try the other source.
+      }
     }
+    return null;
   }
+
+  /// While offline with the app open: a light stream (Wi-Fi / cell, a fix within seconds indoors, no foreground
+  /// service or notification) so the map shows where the driver is. The high-accuracy [positions] take over online.
+  Stream<GpsFix> previewPositions() => geo.Geolocator.getPositionStream(
+        locationSettings: const geo.LocationSettings(accuracy: geo.LocationAccuracy.medium, distanceFilter: 15),
+      ).map(_fix);
 
   /// True when GPS can be used without asking the driver anything (used to resume after a restart).
   Future<bool> isReadyWithoutPrompt() async {

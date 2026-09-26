@@ -66,6 +66,32 @@ class MapVehicle {
 }
 
 /// Soft coral "busy area" circle, optionally labelled.
+/// A filled / outlined polygon (e.g. an H3 hex or a service-area edge), drawn below markers. Shown only while the
+/// camera zoom is within [minZoom]–[maxZoom].
+@immutable
+class MapPolygon {
+  const MapPolygon({
+    required this.points,
+    this.fillColor = const Color(0x00000000),
+    this.strokeColor = const Color(0x00000000),
+    this.strokeWidth = 0,
+    this.zIndex = 0,
+    this.minZoom = 0,
+    this.maxZoom = 30,
+  });
+
+  final List<LatLng> points;
+  final Color fillColor;
+  final Color strokeColor;
+  final double strokeWidth;
+  final int zIndex;
+  final double minZoom;
+  final double maxZoom;
+
+  bool visibleAt(double zoom) => zoom >= minZoom && zoom <= maxZoom;
+  bool get isZoomLimited => minZoom > 0 || maxZoom < 30;
+}
+
 class MapZone {
   const MapZone({required this.centre, required this.radiusM, this.label});
   final LatLng centre;
@@ -101,6 +127,7 @@ class RidoMap extends StatelessWidget {
     this.showAttribution = true,
     this.attributionAlignment = Alignment.bottomLeft,
     this.mapPadding = EdgeInsets.zero,
+    this.polygons = const [],
   });
 
   /// Global switch; tests set this to false so no network tiles are requested and no Google
@@ -142,6 +169,9 @@ class RidoMap extends StatelessWidget {
   /// to it).
   final EdgeInsets mapPadding;
 
+  /// Polygons under the markers (H3 hexes, service-area edge), each shown within its zoom range.
+  final List<MapPolygon> polygons;
+
   @override
   Widget build(BuildContext context) {
     if (usesGoogle) return _GoogleRidoMap(map: this);
@@ -182,6 +212,7 @@ class RidoMap extends StatelessWidget {
               evictErrorTileStrategy: EvictErrorTileStrategy.dispose,
               errorTileCallback: (tile, error, stack) {},
             ),
+          if (polygons.isNotEmpty) _ZoomedPolygons(polygons: polygons),
           if (zones.isNotEmpty)
             CircleLayer(
               circles: [
@@ -301,4 +332,22 @@ class MapCircleButton extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// flutter_map: [MapPolygon]s visible at the current zoom (rebuilds with the camera).
+class _ZoomedPolygons extends StatelessWidget {
+  const _ZoomedPolygons({required this.polygons});
+  final List<MapPolygon> polygons;
+
+  @override
+  Widget build(BuildContext context) {
+    final zoom = MapCamera.of(context).zoom;
+    final visible = [...polygons.where((p) => p.visibleAt(zoom))]..sort((a, b) => a.zIndex.compareTo(b.zIndex));
+    return PolygonLayer(
+      polygons: [
+        for (final p in visible)
+          Polygon(points: p.points, color: p.fillColor, borderColor: p.strokeColor, borderStrokeWidth: p.strokeWidth),
+      ],
+    );
+  }
 }
