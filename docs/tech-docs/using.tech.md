@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 25 Sep 2026
+Last updated: 26 Sep 2026
 
 ---
 
@@ -14,6 +14,7 @@ Notes from the owner. Each item gets a status and a plan once reviewed.
 | # | Recommendation | Status | Plan |
 |---|---|---|---|
 | 1 | https://h3geo.org - opensource for geo data anlysing and driver - user match, ETA finding and more | **Done (25 Sep 2026):** service areas + zones, H3 dispatch (rings + ETA + batches), heatmaps, live demand/supply surge with k-ring smoothing, learned hex-to-hex ETA, compaction. Refs: Uber H3 blog, "How Uber finds your driver" | See [H3 plan](#h3-plan-owner-recommendation-1) |
+| 2 | Make the app entirely free: 0% commission, no subscription; the owner pays the infra and drivers / riders can contribute | **Done (26 Sep 2026):** paid plans switched off (`driverPlansEnabled`, code kept), Contribute page in both apps (UPI button + QR, monthly running cost with breakdown) | See [Free app and contributions](#6a-free-app-and-contributions) |
 
 ---
 
@@ -155,8 +156,10 @@ Never commit real `.env` files.
 - **Per-city fares:** `CityFareRule` overrides the built-in rates per vehicle; the surge zone or `currentMultiplier`
   setting sets the multiplier, capped by `maxMultiplier`.
 - **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, offerSeconds, maxCandidates, trialDays,
-  graceDays, batchWindowMs, useRoadEta, supportPhone (defaults in `settings.defaults.ts`, cached 15 s). Dispatch reads
-  radius, offer time, candidates, batch window and ETA source from here.
+  graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
+  contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr (defaults in `settings.defaults.ts`, cached
+  15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
+  and contribute keys.
 - **Admin API (`/v1/admin`, ADMIN role; phones in `ADMIN_PHONES`):** stats, live (online drivers + active trips), drivers
   (+ per-document KYC review, status), kyc queue, users (role, block/unblock → Redis `user:blocked:<id>` checked by the
   JWT guard), trips, passengers, plans, tickets, payments, cities / service-cells / zones / fares, announcements,
@@ -233,11 +236,38 @@ Never commit real `.env` files.
   clients `trip:join {tripId}` (participants only).
 - **Fares:** same engine as the apps. Distance: measured demo routes, then Google Routes distance (cached), then
   haversine × 1.3; duration uses 18 km/h so prices stay predictable.
-- **Payments:** simulated (`Payment` rows with `providerRef sim_*`). Plug Razorpay Subscriptions / UPI Autopay into
+- **Payments:** the app is free, so nothing is charged (6a). Plan payments, if plans are switched back on, are
+  simulated (`Payment` rows with `providerRef sim_*`); plug Razorpay Subscriptions / UPI Autopay into
   `SubscriptionsService.purchase`.
 - **SMS:** OTP delivery is a stub (`OtpService.deliver`); plug MSG91 / Twilio there.
 
 ---
+
+## 6a. Free app and contributions
+
+Rido is free for drivers and riders: **0% commission and no subscription** (owner decision, 26 Sep 2026). The owner
+pays the running costs; drivers and riders can contribute by UPI.
+
+- **Plans are off, not deleted.** `driverPlansEnabled` (setting, default `false`):
+  - API: `SubscriptionsService.canGoOnline` returns true, so going online never checks a plan. New drivers still get a
+    trial row at sign-up (harmless; ready if plans come back).
+  - Driver app: no Plan tab (`DriverShell` hides branch 2), D-10 goes straight to Home after approval (skips D-11 /
+    D-12), Home has no plan strip / grace / expired / paused states, D-05 shows every vehicle as "Free · 0% commission".
+  - Switching it on in Admin › Settings brings every plan screen and the go-online check back.
+- **Public config:** `GET /v1/app-config` (no auth) →
+  `{ driverPlansEnabled, supportPhone, contribute: { upiId, payeeName, note, monthlyCost: { totalInr, items: [{label, amountInr}] } | null } }`.
+  `items` are the non-zero parts in a fixed order (Servers & database, Maps, SMS (OTP), Other); `monthlyCost` is null
+  while all four are 0. Apps: `appConfigProvider` / `driverPlansEnabledProvider` in `rido_data` (`src/api/app_config.dart`;
+  mock mode uses `AppConfig.demo`, an unreachable API falls back to `AppConfig.fallback`, plans off).
+- **Contribute page:** Account › Contribute in both apps (`/account/contribute`), body `ContributeView` in `rido_ui`:
+  message, "App running & infrastructure" monthly total with its breakdown, amount chips (₹20 / 50 / 100 / 200 /
+  Other), "Contribute ₹X with UPI" (opens `upi://pay?pa=…&pn=…&am=…&cu=INR&tn=…` in the phone's UPI app), and a QR code
+  without an amount. No UPI ID set → "Contributions open soon". Nothing is tracked: payments go straight to the UPI ID.
+- **Admin:** Settings › Contribute (UPI ID, payee name, message, the four monthly costs) and Settings › Driver plans
+  (the switch). Update the costs each month from the AWS, Google Cloud billing and SMS invoices.
+- **UPI tip:** many UPI apps block or warn on `upi://pay` links with an amount to a personal UPI ID. A free merchant
+  UPI ID (PhonePe Business, Google Pay for Business, Paytm Business) makes the button work reliably; the QR code works
+  with either.
 
 ## 6b. Admin panel (apps/admin)
 
@@ -269,7 +299,8 @@ Never commit real `.env` files.
   trips, tickets), Support (status changes). Configuration: Zones (`/cities`: list, add city with map picker;
   `/cities/[id]`: service-area painter with paint / erase / circle fill / clear / undo-redo and faint viewport hexes,
   zones editor painted on the map with outside-area warning, per-city fares with preview calculator, city settings and
-  delete), Plans (price + active per vehicle × period), Settings (pricing, dispatch, plans, support phone),
+  delete), Plans (price + active per vehicle × period), Settings (pricing, dispatch, driver plans switch, contribute page,
+  support phone),
   Announcements. Finance: Payments. System: Audit log (expandable JSON). Every page has `loading.tsx` skeletons,
   `error.tsx` (retry) and empty states.
 - **Maps (Google Maps JavaScript API):** `src/components/map/google/rido-map.tsx` wraps `APIProvider` (`language=en`,
@@ -582,7 +613,8 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Hosting | **Staging live (26 Sep 2026)**: see "9b. AWS deployment". Later: HTTPS + domain, RDS/ElastiCache when load needs it |
 | Secrets | AWS Secrets Manager / SSM for `JWT_SECRET`, Google keys, DB password |
 | Observability | Structured logs → CloudWatch; health checks already exposed |
-| Payments | Razorpay Subscriptions (UPI Autopay mandates) |
+| Payments | Not needed while the app is free (6a). If plans return: Razorpay Subscriptions (UPI Autopay mandates) |
+| Contributions | Totals aren't tracked (UPI goes straight to the owner). Optional later: Razorpay payment page for receipts and a "raised this month" figure |
 | SMS | MSG91 / Twilio for OTP |
 | Admin panel | **Done (25 Sep 2026)**: `apps/admin`, all modules above. KYC files open via `/files/:name` (S3). Follow-up: no 2FA/IP allow-list for admins yet |
 | Google Maps on device | Verify the Google engine on a real phone with keys (never run with a key yet) |

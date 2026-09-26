@@ -39,8 +39,11 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
       ? Seed.vehicle(k).subscriptionPrice
       : (ref.read(monthlyPlanPricesProvider).value ?? const {})[k] ?? Seed.vehicle(k).subscriptionPrice;
 
+  /// Paid plans on: show monthly prices. Off (the free app): every vehicle is free.
+  bool get _plansOn => widget.showcase || ref.read(driverPlansEnabledProvider);
+
   void _tap(VehicleKind k) {
-    if (_price(k) == null) {
+    if (_plansOn && _price(k) == null) {
       showRidoSnack(context, "We'll call you about pricing");
       return;
     }
@@ -56,6 +59,7 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
   Widget build(BuildContext context) {
     final t = context.type;
     if (!widget.showcase) ref.watch(monthlyPlanPricesProvider);
+    final plansOn = widget.showcase || ref.watch(driverPlansEnabledProvider);
     final options = _options;
     final rides = _draft.workType == WorkType.rides;
     final rows = <List<VehicleKind>>[
@@ -75,7 +79,10 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
                 children: [
                   Text(rides ? 'Which vehicle do you drive?' : 'Which goods vehicle do you drive?', style: t.h1),
                   const SizedBox(height: RidoSpacing.xs),
-                  Text('${rides ? 'Rides' : 'Deliveries'} · one flat plan per month, no commission.',
+                  Text(
+                      plansOn
+                          ? '${rides ? 'Rides' : 'Deliveries'} · one flat plan per month, no commission.'
+                          : '${rides ? 'Rides' : 'Deliveries'} · free to use: 0% commission, no subscription.',
                       style: t.body.copyWith(color: RidoColors.navy700)),
                   const SizedBox(height: RidoSpacing.l),
                   for (final row in rows) ...[
@@ -89,6 +96,7 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
                               child: _VehicleCard(
                                 kind: row[i],
                                 price: _price(row[i]),
+                                free: !plansOn,
                                 selected: _selected == row[i],
                                 onTap: () => _tap(row[i]),
                               ),
@@ -111,10 +119,19 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
 }
 
 class _VehicleCard extends StatelessWidget {
-  const _VehicleCard({required this.kind, required this.price, required this.selected, required this.onTap});
+  const _VehicleCard({
+    required this.kind,
+    required this.price,
+    required this.free,
+    required this.selected,
+    required this.onTap,
+  });
 
   final VehicleKind kind;
   final int? price;
+
+  /// The free app: "Free" instead of a monthly price.
+  final bool free;
   final bool selected;
   final VoidCallback onTap;
 
@@ -126,7 +143,7 @@ class _VehicleCard extends StatelessWidget {
     return Semantics(
       selected: selected,
       button: true,
-      label: '$name, ${price == null ? 'price on request' : '${formatInr(price)} per month'}',
+      label: '$name, ${free ? 'free' : price == null ? 'price on request' : '${formatInr(price)} per month'}',
       excludeSemantics: true,
       child: Material(
         color: selected ? RidoColors.coral50 : RidoColors.surface,
@@ -163,9 +180,11 @@ class _VehicleCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text(price == null ? '₹—' : formatInr(price), style: t.otp),
-                      const SizedBox(width: 4),
-                      Text('/ month', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                      Text(free ? 'Free' : price == null ? '₹—' : formatInr(price), style: t.otp),
+                      if (!free) ...[
+                        const SizedBox(width: 4),
+                        Text('/ month', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                      ],
                     ],
                   ),
                 ),
@@ -174,8 +193,8 @@ class _VehicleCard extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    const _Tag(label: '1st month free', bg: RidoColors.successTint, fg: RidoColors.successText),
-                    if (price == null) const _Tag(label: 'Contact us', bg: RidoColors.coral50, fg: RidoColors.coral600),
+                    _Tag(label: free ? '0% commission' : '1st month free', bg: RidoColors.successTint, fg: RidoColors.successText),
+                    if (!free && price == null) const _Tag(label: 'Contact us', bg: RidoColors.coral50, fg: RidoColors.coral600),
                   ],
                 ),
               ],

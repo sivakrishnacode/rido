@@ -48,6 +48,7 @@ abstract final class Routes {
   static const vehicleDetails = '/account/vehicle';
   static const upiId = '/account/upi';
   static const emergencyContact = '/account/emergency-contact';
+  static const contribute = '/account/contribute';
   static const help = '/help';
   static String newTicket({String? topic}) =>
       topic == null ? '/help/new-ticket' : '/help/new-ticket?topic=${Uri.encodeComponent(topic)}';

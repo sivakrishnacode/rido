@@ -13,7 +13,7 @@ import 'account_providers.dart';
 import 'refer_driver_sheet.dart';
 
 /// D-26 Driver account: profile header, Refer a driver, Documents, Vehicle details, UPI ID,
-/// Emergency contact, Help & support, Terms, Design gallery and Log out.
+/// Emergency contact, Contribute, Help & support, Terms, Design gallery and Log out.
 class D26AccountScreen extends ConsumerWidget {
   const D26AccountScreen({super.key, this.showcase = false});
 
@@ -102,7 +102,7 @@ class D26AccountScreen extends ConsumerWidget {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('Refer a driver', style: t.h2),
-                      Text('Get 7 free days for every driver who joins · Code ${Seed.referralCode}', style: t.bodySmall),
+                      Text('Invite drivers you know · Code ${Seed.referralCode}', style: t.bodySmall),
                     ]),
                   ),
                   const Icon(Symbols.chevron_right_rounded, color: RidoColors.coral600),
@@ -139,6 +139,12 @@ class D26AccountScreen extends ConsumerWidget {
                               ? contact.name.split(' ').first
                               : '${contact.name.split(' ').first} (${contact.relation})',
                   onTap: () => context.push(Routes.emergencyContact),
+                ),
+                RidoListTile(
+                  icon: Symbols.volunteer_activism_rounded,
+                  title: 'Contribute',
+                  subtitle: 'Rido is free. Help keep it running',
+                  onTap: () => context.push(Routes.contribute),
                 ),
                 RidoListTile(
                   icon: Symbols.support_agent_rounded,

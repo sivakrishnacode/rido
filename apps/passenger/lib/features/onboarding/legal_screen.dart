@@ -15,8 +15,8 @@ const _terms = [
   ),
   _Section(
     '2. Drivers are independent',
-    'Every driver on Rido is an independent service provider. Drivers pay Rido a flat monthly plan and '
-        'keep 100% of every fare. Rido takes 0% commission on rides and deliveries.',
+    'Every driver on Rido is an independent service provider. Rido is free for drivers: no subscription, and '
+        'they keep 100% of every fare. Rido takes 0% commission on rides and deliveries.',
   ),
   _Section(
     '3. Fares and payment',

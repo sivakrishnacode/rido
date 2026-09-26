@@ -162,6 +162,8 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
 
     final session = ref.watch(driverSessionProvider);
     final plan = ref.watch(planProvider).value;
+    // Free app (plans off): never a plan state, strip or renew button.
+    final plansOn = ref.watch(driverPlansEnabledProvider);
     final demo = ref.watch(demoSettingsProvider);
     final profile = ref.watch(driverProfileProvider).value ?? Seed.karthik;
 
@@ -176,7 +178,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
             HomeVariant.gpsLost,
           }.contains(_v);
     final status = _live
-        ? (plan?.status ?? PlanStatus.trial)
+        ? (plansOn ? (plan?.status ?? PlanStatus.trial) : PlanStatus.active)
         : switch (_v) {
             HomeVariant.grace => PlanStatus.grace,
             HomeVariant.expired => PlanStatus.expired,
@@ -331,6 +333,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       panel = _OfflinePanel(
         status: status,
         delivery: delivery,
+        showPlan: plansOn,
         planLabel: '${(plan?.vehicle ?? profile.vehicleKind).label} plan',
         planEnd: planEnd,
         graceDays: plan?.graceDaysLeft ?? 2,
@@ -422,6 +425,7 @@ class _OfflinePanel extends StatelessWidget {
   const _OfflinePanel({
     required this.status,
     required this.delivery,
+    required this.showPlan,
     required this.planLabel,
     required this.planEnd,
     required this.graceDays,
@@ -435,6 +439,9 @@ class _OfflinePanel extends StatelessWidget {
 
   final PlanStatus status;
   final bool delivery;
+
+  /// False in the free app: no "plan active till" strip under GO ONLINE.
+  final bool showPlan;
   final String planLabel;
   final DateTime planEnd;
   final int graceDays;
@@ -481,13 +488,15 @@ class _OfflinePanel extends StatelessWidget {
           ),
           const SizedBox(height: RidoSpacing.l),
           GoOnlineButton(onPressed: onGoOnline, loading: goingOnline),
-          const SizedBox(height: RidoSpacing.l),
-          PlanStrip(
-            text: status == PlanStatus.cancelled
-                ? 'Plan cancelled · active till ${formatDate(planEnd)}'
-                : '$planLabel active till ${formatDate(planEnd)}',
-            onTap: onPlan,
-          ),
+          if (showPlan) ...[
+            const SizedBox(height: RidoSpacing.l),
+            PlanStrip(
+              text: status == PlanStatus.cancelled
+                  ? 'Plan cancelled · active till ${formatDate(planEnd)}'
+                  : '$planLabel active till ${formatDate(planEnd)}',
+              onTap: onPlan,
+            ),
+          ],
         ]);
     }
     return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children);

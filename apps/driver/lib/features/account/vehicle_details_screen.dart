@@ -74,7 +74,7 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
             Icon(_p.vehicleKind.icon, color: RidoColors.coral600),
             const SizedBox(width: RidoSpacing.m),
             Expanded(child: Text(_p.vehicleKind.label, style: t.bodySemibold)),
-            Text('Linked to your plan', style: t.caption),
+            Text('Set at sign-up', style: t.caption),
           ]),
         ),
         const SizedBox(height: RidoSpacing.l),

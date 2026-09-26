@@ -52,6 +52,10 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
     super.dispose();
   }
 
+  /// Plans on → D-11 choose a plan; the free app → straight to Home.
+  Future<String> _approvedRoute() async =>
+      (await ref.read(appConfigProvider.future)).driverPlansEnabled ? Routes.choosePlan : Routes.home;
+
   /// [silent]: the live API's background check (no spinner, no "still under review" snack).
   Future<void> _check({bool silent = false}) async {
     _timer?.cancel();
@@ -76,12 +80,14 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
       return;
     }
     if (!_live) {
-      context.go(ok == true ? Routes.choosePlan : Routes.kycRejected);
+      final route = ok == true ? await _approvedRoute() : Routes.kycRejected;
+      if (mounted) context.go(route);
       return;
     }
     if (ok == true) {
       _poll?.cancel();
-      context.go(Routes.choosePlan);
+      final route = await _approvedRoute();
+      if (mounted) context.go(route);
       return;
     }
     final route = applicationRoute(approved: ok, docs: ref.read(kycProvider).value ?? const []);

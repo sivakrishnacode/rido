@@ -14,18 +14,13 @@ class LegalScreen extends StatelessWidget {
 
   static const _terms = <(String, String)>[
     (
-      'Your subscription',
-      'Rido charges a flat monthly plan for your vehicle type instead of a commission. Bike, auto and cab plans are '
-          '₹2,000 a month, 3-wheeler goods ₹3,000 and mini truck ₹4,000. The first month is free for every plan.'
+      'Free to use',
+      'Rido charges no commission and no subscription for any vehicle type. It runs on voluntary contributions '
+          'from drivers and riders (Account › Contribute); contributing is never required to get requests.'
     ),
     (
       'You keep 100% of fares',
       'Riders pay you directly by cash or UPI. Rido never takes a share of a fare, tip or waiting charge.'
-    ),
-    (
-      'UPI Autopay',
-      'Your plan renews through UPI Autopay on the same date each month. If a payment fails, you get a 2-day grace '
-          'period to pay before going online is paused. You can pause or cancel from the Plan tab at any time.'
     ),
     (
       'Documents and safety',

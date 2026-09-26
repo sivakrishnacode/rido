@@ -1,7 +1,8 @@
 # CLAUDE.md — Rido monorepo
 
-Rido is a zero-commission ride-hailing and parcel delivery platform for Coimbatore. Drivers pay a flat daily /
-weekly / monthly plan instead of a per-ride cut.
+Rido is a free ride-hailing and parcel delivery platform for Coimbatore: 0% commission and no subscription for
+drivers. The owner pays the running costs; drivers and riders can contribute by UPI (Account › Contribute). Paid
+driver plans still exist in the code but are switched off (`driverPlansEnabled`).
 
 This file holds the working rules plus a quick map of the repo. **The full technical reference is
 [docs/tech-docs/using.tech.md](docs/tech-docs/using.tech.md)** (stack versions, env vars, endpoints, H3, FCM, AWS).
@@ -98,7 +99,7 @@ Flutter app layout: `lib/router` (go_router 17, **pinned**: 18 needs `material_u
 controllers), `lib/features/<feature>/` (one file per screen, named after its frame ID, e.g. `P10ChooseVehicleScreen`),
 `lib/features/design_gallery/` (frame registry + demo controls).
 
-API modules: admin, auth, drivers, fares, geo (H3), health, maps, notifications (FCM), places, realtime, settings,
+API modules: admin, app-config, auth, drivers, fares, geo (H3), health, maps, notifications (FCM), places, realtime, settings,
 subscriptions, support, trips, users.
 
 ---
@@ -147,3 +148,4 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
 | Date | Change |
 |---|---|
 | 26 Sep 2026 | Created: working rules (commit every change, docs, checks), repo map, commands, key facts |
+| 26 Sep 2026 | Free app: intro updated (no subscription, contributions), `app-config` module added to the map |

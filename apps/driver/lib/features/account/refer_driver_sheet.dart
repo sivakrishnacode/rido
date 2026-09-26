@@ -25,7 +25,7 @@ class ReferDriverSheet extends StatelessWidget {
       const SizedBox(height: RidoSpacing.s),
       Text('Refer a driver', style: t.h1),
       const SizedBox(height: RidoSpacing.xs),
-      Text('Get 7 free days on your plan for every driver who joins with your code.',
+      Text('Rido is free for drivers: 0% commission, no subscription. Invite the drivers you know.',
           style: t.body.copyWith(color: RidoColors.navy700)),
       const SizedBox(height: RidoSpacing.xl),
       Container(

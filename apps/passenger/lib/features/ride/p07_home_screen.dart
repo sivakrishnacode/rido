@@ -490,7 +490,7 @@ class _PromoCard extends StatelessWidget {
                 Text('Your driver keeps 100% of your fare', style: t.bodySemibold),
                 const SizedBox(height: 2),
                 Text(
-                  'Rido charges drivers a flat plan, not commission.',
+                  'Rido is free for drivers: 0% commission, no subscription.',
                   style: t.bodySmall.copyWith(color: RidoColors.navy700),
                 ),
               ],

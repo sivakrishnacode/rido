@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../common/passenger_shell.dart';
 import '../features/account/about_screen.dart';
+import '../features/account/contribute_screen.dart';
 import '../features/account/p23_account_screen.dart';
 import '../features/account/p23b_saved_place_editor_screen.dart';
 import '../features/account/p24_emergency_contacts_screen.dart';
@@ -157,6 +158,7 @@ GoRouter createPassengerRouter({String initialLocation = Routes.splash}) => GoRo
                 GoRoute(path: 'saved-places', builder: (_, _) => const SavedPlacesScreen()),
                 GoRoute(path: 'safety', builder: (_, _) => const SafetyPreferencesScreen()),
                 GoRoute(path: 'about', builder: (_, _) => const AboutScreen()),
+                GoRoute(path: 'contribute', builder: (_, _) => const ContributeScreen()),
                 GoRoute(path: 'emergency-contacts', builder: (_, _) => const P24EmergencyContactsScreen()),
               ],
             ),

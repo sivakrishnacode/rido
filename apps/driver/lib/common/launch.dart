@@ -36,3 +36,14 @@ Future<void> openNavigation(BuildContext context, LatLng to) async {
   }
   if (!opened && context.mounted) showRidoSnack(context, 'Could not open Google Maps');
 }
+
+/// Opens a `upi://pay` link in the phone's UPI app (GPay, PhonePe, Paytm, BHIM…).
+Future<void> openUpi(BuildContext context, Uri uri) async {
+  var opened = false;
+  try {
+    opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    opened = false;
+  }
+  if (!opened && context.mounted) showRidoSnack(context, 'No UPI app found. Scan the QR code from another phone');
+}

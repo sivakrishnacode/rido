@@ -100,6 +100,15 @@ class P23AccountScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 RidoListGroup(children: [
                   RidoListTile(
+                    icon: Symbols.volunteer_activism_rounded,
+                    title: 'Contribute',
+                    subtitle: 'Rido is free. Help keep it running',
+                    onTap: () => context.push(Routes.contribute),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                RidoListGroup(children: [
+                  RidoListTile(
                     icon: Symbols.support_agent_rounded,
                     title: 'Help & support',
                     onTap: () => context.push(Routes.help()),

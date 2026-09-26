@@ -31,9 +31,9 @@ class AboutScreen extends StatelessWidget {
           const Center(child: CommissionBadge(large: true)),
           const SizedBox(height: 24),
           Text(
-            'Rido is a zero-commission ride and parcel app built in Coimbatore. Drivers pay a small '
-            'flat monthly plan instead of giving away a cut of every trip, so they keep 100% of each fare '
-            'and you pay a fair price, directly to them in cash or UPI.',
+            'Rido is a free ride and parcel app built in Coimbatore. Drivers pay no commission and no '
+            'subscription, so they keep 100% of each fare and you pay a fair price, directly to them in cash '
+            'or UPI. Rido runs on contributions from the people who use it.',
             style: t.body.copyWith(color: RidoColors.navy700),
           ),
           const SizedBox(height: 24),
