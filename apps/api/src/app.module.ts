@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { CoreModule } from './core/core.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
+import { AppConfigModule } from './modules/app-config/app-config.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { DriversModule } from './modules/drivers/drivers.module.js';
 import { FaresModule } from './modules/fares/fares.module.js';
@@ -24,6 +25,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     SettingsModule,
     GeoModule,
     HealthModule,
+    AppConfigModule,
     AuthModule,
     UsersModule,
     MapsModule,

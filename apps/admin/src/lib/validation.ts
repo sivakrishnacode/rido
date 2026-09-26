@@ -26,6 +26,14 @@ const RULES: Record<string, (v: SettingValue) => string | null> = {
   historicalEtaMinTrips: (v) => (inRange(v, 0, 10_000, true) ? null : "Minimum trips must be a whole number (0 = off)"),
   useRoadEta: (v) => (typeof v === "boolean" ? null : "Road ETA must be on or off"),
   dynamicSurgeEnabled: (v) => (typeof v === "boolean" ? null : "Dynamic surge must be on or off"),
+  driverPlansEnabled: (v) => (typeof v === "boolean" ? null : "Paid driver plans must be on or off"),
+  contributeUpiId: (v) => (typeof v === "string" && (v.trim() === "" || /^[\w.-]{2,}@[a-z]{2,}$/i.test(v.trim())) ? null : "Enter a UPI ID like name@okaxis, or leave it empty"),
+  contributePayeeName: (v) => (typeof v === "string" && v.trim().length >= 1 && v.trim().length <= 50 ? null : "Payee name must be 1–50 characters"),
+  contributeNote: (v) => (typeof v === "string" && v.trim().length <= 300 ? null : "Message must be 300 characters or fewer"),
+  costServersInr: (v) => (inRange(v, 0, 10_000_000, true) ? null : "Enter whole rupees (0 = none)"),
+  costMapsInr: (v) => (inRange(v, 0, 10_000_000, true) ? null : "Enter whole rupees (0 = none)"),
+  costSmsInr: (v) => (inRange(v, 0, 10_000_000, true) ? null : "Enter whole rupees (0 = none)"),
+  costOtherInr: (v) => (inRange(v, 0, 10_000_000, true) ? null : "Enter whole rupees (0 = none)"),
   supportPhone: (v) => (typeof v === "string" && /^\+?[\d\s-]{8,20}$/.test(v.trim()) ? null : "Enter a phone number like +91 422 000 0000"),
 };
 

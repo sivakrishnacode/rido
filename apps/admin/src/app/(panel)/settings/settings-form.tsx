@@ -59,10 +59,24 @@ const GROUPS: readonly Group[] = [
   },
   {
     group: "Driver plans",
-    description: "Applies to new subscriptions.",
+    description: "Off = Rido is free: drivers see no plans and can always go online. Trial and grace apply to new subscriptions when plans are on.",
     fields: [
+      { key: "driverPlansEnabled", label: "Paid driver plans", hint: "Off = free app, no subscription" },
       { key: "trialDays", label: "Free trial", hint: "Days for new drivers", step: "1", suffix: "days" },
       { key: "graceDays", label: "Grace period", hint: "Days a lapsed plan can still go online", step: "1", suffix: "days" },
+    ],
+  },
+  {
+    group: "Contribute",
+    description: "The Contribute page in both apps: a UPI pay button and QR code, and the monthly running cost with its breakdown.",
+    fields: [
+      { key: "contributeUpiId", label: "UPI ID", hint: "Receives contributions, e.g. name@okaxis (empty = no pay button)" },
+      { key: "contributePayeeName", label: "Payee name", hint: "Shown in the UPI app" },
+      { key: "costServersInr", label: "Servers & database", hint: "Per month; the apps show the total and this breakdown", step: "100", suffix: "₹" },
+      { key: "costMapsInr", label: "Maps", hint: "Google Maps per month", step: "100", suffix: "₹" },
+      { key: "costSmsInr", label: "SMS (OTP)", hint: "Per month", step: "100", suffix: "₹" },
+      { key: "costOtherInr", label: "Other", hint: "Domain, Play Store, tools… per month (all 0 = cost hidden)", step: "100", suffix: "₹" },
+      { key: "contributeNote", label: "Message", hint: "Shown at the top of the page" },
     ],
   },
   {

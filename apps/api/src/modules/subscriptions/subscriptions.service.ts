@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
+import { SettingsService } from '../settings/settings.service.js';
 import type { Payment, Plan, Subscription } from '../../generated/prisma/client.js';
 import { PlanPeriod, SubscriptionStatus, VehicleKind } from '../../generated/prisma/enums.js';
 import { GRACE_DAYS, PERIOD_DAYS, TRIAL_DAYS } from './plan-prices.js';
@@ -14,7 +15,10 @@ type SubscriptionWithPlan = Subscription & { plan: Plan };
  */
 @Injectable()
 export class SubscriptionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
   plans(vehicleKind?: VehicleKind): Promise<Plan[]> {
     return this.prisma.plan.findMany({ where: { isActive: true, vehicleKind }, orderBy: [{ vehicleKind: 'asc' }, { price: 'asc' }] });
@@ -38,7 +42,9 @@ export class SubscriptionsService {
     return isInGrace ? SubscriptionStatus.GRACE : SubscriptionStatus.EXPIRED;
   }
 
+  /** Always true while paid plans are off (`driverPlansEnabled`). */
   async canGoOnline(driverId: string): Promise<boolean> {
+    if (!(await this.settings.get('driverPlansEnabled'))) return true;
     const sub = await this.current(driverId);
     const allowed: SubscriptionStatus[] = [SubscriptionStatus.TRIAL, SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE];
     return !!sub && allowed.includes(sub.status);

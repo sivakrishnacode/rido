@@ -1,11 +1,12 @@
 # Rido: clickable prototype
 
-Two Flutter apps for **Rido**, a zero-commission ride-hailing and parcel delivery platform for Coimbatore:
+Two Flutter apps for **Rido**, a free ride-hailing and parcel delivery platform for Coimbatore (0% commission, no
+subscription; drivers and riders can contribute by UPI):
 
 | App | Folder | Android id | What it does |
 |---|---|---|---|
 | Rido | `apps/passenger` | `com.rido.passenger` | Book bike / auto / cab rides and send parcels |
-| Rido Driver | `apps/driver` | `com.rido.driver` | Ride drivers and delivery drivers: go online, accept jobs, collect fares, manage the plan |
+| Rido Driver | `apps/driver` | `com.rido.driver` | Ride drivers and delivery drivers: go online, accept jobs, collect fares, contribute |
 
 This is a **frontend-only prototype**. There is no backend: every screen reads built-in seed data through mock
 repositories, and flows move forward on timers where a real backend would push updates ("driver found",
@@ -116,7 +117,8 @@ npm run test:e2e -w @rido/api       # full ride lifecycle against the real DB + 
 | fares | `POST /fares/quote` (same engine as the apps: ₹38 / ₹72 / ₹145) |
 | drivers | `POST /drivers`, `GET /drivers/me`, KYC `POST /drivers/me/documents/:type`, `POST /drivers/me/online|offline|location`, admin `POST /admin/drivers/:id/review` |
 | trips | `POST /trips`, `GET /trips`, `GET /trips/:id`, `POST /trips/:id/accept|decline|arrived|start|complete|cancel|rate` |
-| subscriptions | `GET /plans`, `GET /subscriptions/me`, `POST /subscriptions`, `POST /subscriptions/me/pause|resume|cancel` |
+| app-config | `GET /app-config` (public: plans switch, contribute page UPI ID and monthly cost) |
+| subscriptions | `GET /plans`, `GET /subscriptions/me`, `POST /subscriptions`, `POST /subscriptions/me/pause|resume|cancel` (unused while `driverPlansEnabled` is off) |
 | support | `GET /support/topics`, `GET/POST /tickets` |
 | realtime | Socket.IO namespace `/rt` (`auth: {token}`): `trip.offer`, `trip.updated`, `trip.location`, `trip.no_drivers`; client sends `trip:join`, `driver:location` |
 | health | `GET /health`, `GET /health/ready` (no prefix) |

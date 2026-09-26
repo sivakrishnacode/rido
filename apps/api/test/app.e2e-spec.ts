@@ -207,6 +207,12 @@ describe('Rido API (e2e)', () => {
     expect(compact.body.compacted).toBe(true);
   });
 
+  it('serves the public app config: plans off, contribute page without a cost until one is set', async () => {
+    const res = await http.get('/v1/app-config').expect(200);
+    expect(res.body.driverPlansEnabled).toBe(false);
+    expect(res.body.contribute).toMatchObject({ upiId: '', payeeName: 'Rido', monthlyCost: null });
+  });
+
   it('starts a free trial and lists daily/weekly/monthly plans', async () => {
     const plans = await http.get('/v1/plans?vehicleKind=BIKE').expect(200);
     expect(plans.body.map((p: { price: number }) => p.price)).toEqual([79, 449, 1499]);
