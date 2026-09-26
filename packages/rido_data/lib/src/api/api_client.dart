@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,18 +10,53 @@ import '../repositories/repositories.dart';
 
 /// The API answered with an error. [message] is safe to show (the API writes user-facing messages).
 class ApiException implements Exception {
-  const ApiException(this.status, this.message);
+  const ApiException(this.status, this.message, {this.code, this.details = const {}});
   final int status;
   final String message;
+
+  /// Machine-readable reason for errors the app handles specially (e.g. `TOO_FAR`).
+  final String? code;
+  final Map<String, dynamic> details;
+
+  /// The driver is too far from the pickup / drop and must give a reason to continue.
+  TooFar? get tooFar => code == 'TOO_FAR' ? TooFar.fromDetails(details, message) : null;
 
   @override
   String toString() => message;
 }
 
+/// 422 `TOO_FAR` from `POST /trips/:id/arrived` or `/complete`: resend with `farReason` to continue.
+class TooFar {
+  const TooFar({required this.stop, required this.distanceM, required this.radiusM, required this.reasons, required this.message});
+
+  factory TooFar.fromDetails(Map<String, dynamic> d, String message) => TooFar(
+        stop: d['stop'] == 'drop' ? 'drop' : 'pickup',
+        distanceM: (d['distanceM'] as num?)?.round() ?? 0,
+        radiusM: (d['radiusM'] as num?)?.round() ?? 0,
+        reasons: [for (final r in (d['reasons'] as List? ?? const [])) '$r'],
+        message: message,
+      );
+
+  /// `pickup` or `drop`.
+  final String stop;
+  final int distanceM;
+  final int radiusM;
+
+  /// Suggested reasons (the driver can also type one, 3–200 characters).
+  final List<String> reasons;
+
+  /// e.g. "You're 850 m from the pickup point".
+  final String message;
+}
+
 /// Signed-in state kept on the device: the access token and (driver app) the driver id.
 class ApiSession {
-  ApiSession(this._prefs);
+  ApiSession(this._prefs) : tokenChanges = ValueNotifier(_prefs.getString(_tokenKey));
   final SharedPreferences _prefs;
+
+  /// The stored token (null when signed out). Every sign-in, including a new driver token after sign-up, is a
+  /// change; push registration follows it.
+  final ValueNotifier<String?> tokenChanges;
 
   static const _tokenKey = 'rido.accessToken';
   static const _driverKey = 'rido.driverId';
@@ -40,6 +76,7 @@ class ApiSession {
     } else {
       await _prefs.remove(_driverKey);
     }
+    tokenChanges.value = token;
   }
 
   Future<void> markOnboardingSeen() => _prefs.setBool(_onboardingKey, true);
@@ -47,6 +84,7 @@ class ApiSession {
   Future<void> clear() async {
     await _prefs.remove(_tokenKey);
     await _prefs.remove(_driverKey);
+    tokenChanges.value = null;
   }
 }
 
@@ -73,17 +111,22 @@ class ApiClient {
     return '${u.scheme}://${u.host}${u.hasPort ? ':${u.port}' : ''}';
   }
 
-  Future<dynamic> get(String path, {Map<String, Object?>? query}) => _send('GET', path, query: query);
-  Future<dynamic> post(String path, [Object? body]) => _send('POST', path, body: body);
-  Future<dynamic> patch(String path, Object? body) => _send('PATCH', path, body: body);
-  Future<dynamic> delete(String path) => _send('DELETE', path);
+  Future<dynamic> get(String path, {Map<String, Object?>? query}) => _send('GET', path, query: query, canRetry: true);
 
-  /// multipart/form-data upload with one file field.
-  Future<dynamic> upload(String path, {required String field, required List<int> bytes, required String filename}) async {
-    final req = http.MultipartRequest('POST', _uri(path))
-      ..headers.addAll(_headers(json: false))
-      ..files.add(http.MultipartFile.fromBytes(field, bytes, filename: filename, contentType: _mediaType(filename)));
-    return _guard(() async => http.Response.fromStream(await _http.send(req).timeout(const Duration(seconds: 60))));
+  /// [idempotent]: safe to send twice (quotes, routes); only those are retried after a dropped connection.
+  Future<dynamic> post(String path, [Object? body, bool idempotent = false]) =>
+      _send('POST', path, body: body, canRetry: idempotent);
+  Future<dynamic> patch(String path, Object? body) => _send('PATCH', path, body: body, canRetry: true);
+  Future<dynamic> delete(String path) => _send('DELETE', path, canRetry: true);
+
+  /// multipart/form-data upload with one file field (re-uploading replaces the same document, so it is retried).
+  Future<dynamic> upload(String path, {required String field, required List<int> bytes, required String filename}) {
+    return _guard(() async {
+      final req = http.MultipartRequest('POST', _uri(path))
+        ..headers.addAll(_headers(json: false))
+        ..files.add(http.MultipartFile.fromBytes(field, bytes, filename: filename, contentType: _mediaType(filename)));
+      return http.Response.fromStream(await _http.send(req).timeout(const Duration(seconds: 90)));
+    }, canRetry: true);
   }
 
   Uri _uri(String path, [Map<String, Object?>? query]) {
@@ -97,26 +140,31 @@ class ApiClient {
         if (session.isLoggedIn) 'authorization': 'Bearer ${session.token}',
       };
 
-  Future<dynamic> _send(String method, String path, {Map<String, Object?>? query, Object? body}) {
+  Future<dynamic> _send(String method, String path, {Map<String, Object?>? query, Object? body, required bool canRetry}) {
     return _guard(() {
       final req = http.Request(method, _uri(path, query))..headers.addAll(_headers(json: body != null));
       if (body != null) req.body = jsonEncode(body);
       return _http.send(req).timeout(_timeout).then(http.Response.fromStream);
-    });
+    }, canRetry: canRetry);
   }
 
-  Future<dynamic> _guard(Future<http.Response> Function() run) async {
-    final http.Response res;
+  /// Runs [run]; a connection that drops before any answer (a pooled connection the server or a mobile network
+  /// already closed) is retried once on a fresh connection when [canRetry]. Only then is it "offline".
+  Future<dynamic> _guard(Future<http.Response> Function() run, {required bool canRetry}) async {
+    http.Response res;
     try {
       res = await run();
-    } on SocketException {
-      throw const OfflineException();
     } on TimeoutException {
       throw const OfflineException();
-    } on http.ClientException {
-      throw const OfflineException();
-    } on HandshakeException {
-      throw const OfflineException();
+    } on Exception catch (e) {
+      if (!_isConnectionError(e)) rethrow;
+      if (!canRetry) throw const OfflineException();
+      try {
+        res = await run();
+      } on Exception catch (e2) {
+        if (_isConnectionError(e2) || e2 is TimeoutException) throw const OfflineException();
+        rethrow;
+      }
     }
     final body = res.body.isEmpty ? null : _decode(res.body);
     if (res.statusCode >= 200 && res.statusCode < 300) return body;
@@ -124,8 +172,16 @@ class ApiClient {
       await session.clear();
       _unauthorized.add(null);
     }
-    throw ApiException(res.statusCode, _message(body) ?? 'Something went wrong (${res.statusCode})');
+    throw ApiException(
+      res.statusCode,
+      _message(body) ?? 'Something went wrong (${res.statusCode})',
+      code: body is Map ? body['code'] as String? : null,
+      details: body is Map && body['details'] is Map ? (body['details'] as Map).cast<String, dynamic>() : const {},
+    );
   }
+
+  static bool _isConnectionError(Exception e) =>
+      e is SocketException || e is http.ClientException || e is HandshakeException || e is HttpException;
 
   static dynamic _decode(String text) {
     try {

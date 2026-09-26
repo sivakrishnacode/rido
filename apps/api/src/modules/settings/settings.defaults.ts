@@ -28,6 +28,10 @@ export const SETTING_DEFAULTS = {
   surgeMinRequests: 3,
   /** Use learned hex-to-hex speeds for ETAs when a pair has at least this many trips (0 = off). */
   historicalEtaMinTrips: 5,
+  /** Driver must be within this distance of the pickup to mark "Arrived" without giving a reason. */
+  arrivalRadiusM: 250,
+  /** …and within this distance of the drop to end the ride / complete the delivery without a reason. */
+  dropRadiusM: 400,
   /** Support phone shown in the apps. */
   supportPhone: '+91 422 000 0000',
 } as const;

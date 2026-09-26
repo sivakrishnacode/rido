@@ -147,6 +147,16 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                 )}
               </Field>
             </dl>
+            {t.arrivedFarReason && (
+              <p className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning-text">
+                Marked arrived {formatMetres(t.arrivedDistanceM)} from the pickup: {t.arrivedFarReason}
+              </p>
+            )}
+            {t.endFarReason && (
+              <p className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning-text">
+                Ended {formatMetres(t.endDistanceM)} from the drop: {t.endFarReason}
+              </p>
+            )}
             {t.cancelReason && (
               <p className="rounded-lg bg-error-tint px-3 py-2 text-sm text-error">Cancel reason: {t.cancelReason}</p>
             )}
@@ -253,4 +263,9 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
       </div>
     </>
   );
+}
+
+function formatMetres(m: number | null | undefined): string {
+  if (m == null) return "far";
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
 }

@@ -10,6 +10,7 @@ import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'widgets/job_common.dart';
+import 'widgets/too_far_sheet.dart';
 import 'widgets/job_map.dart';
 
 /// D-16 Navigate to pickup: route to the pickup with the moving vehicle, Navigate, passenger
@@ -48,8 +49,11 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
     if (_busy) return;
     if (_live) {
       setState(() => _busy = true);
+      final session = ref.read(driverSessionProvider.notifier);
+      bool done;
       try {
-        await ref.read(driverSessionProvider.notifier).arrivedAtPickup();
+        // Far from the pickup the API asks for a reason (TooFarSheet), then the step goes through.
+        done = await runWithFarCheck(context, (r) => session.arrivedAtPickup(farReason: r), target: _job.pickup.location);
       } on Exception catch (e) {
         if (!mounted) return;
         setState(() => _busy = false);
@@ -57,6 +61,10 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
         return;
       }
       if (!mounted) return;
+      if (!done) {
+        setState(() => _busy = false);
+        return;
+      }
     }
     if (widget.showcase) {
       context.push(Routes.rideOtp);
@@ -79,6 +87,12 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
     }
     showRidoSnack(context, 'Ride cancelled · $reason');
     context.go(Routes.home);
+  }
+
+  /// Live API: warns early when the GPS is already outside the pickup radius (the API decides).
+  String _arrivedLabel() {
+    final m = _api ? ref.read(driverSessionProvider.notifier).metresTo(_job.pickup.location) : null;
+    return m != null && m > kPickupRadiusM ? 'Arrived · ${formatMetres(m)} away' : 'Arrived at pickup';
   }
 
   void _call() => _api
@@ -226,7 +240,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                   ]),
                 ),
                 const SizedBox(height: RidoSpacing.l),
-                SwipeToConfirm(label: 'Arrived at pickup', enabled: !_busy, onConfirmed: _arrived),
+                SwipeToConfirm(label: _arrivedLabel(), enabled: !_busy, onConfirmed: _arrived),
               ]),
             ),
           ],

@@ -12,6 +12,10 @@
         <!-- Impeller on OpenGL ES: the Vulkan backend lags frames on some Mali GPUs (e.g. MediaTek). -->
         <meta-data android:name="io.flutter.embedding.android.ImpellerBackend" android:value="opengles" />
         <!-- Google Maps SDK key, injected from MAPS_API_KEY (android/local.properties or env); never commit it. -->
+        <!-- FCM: status-bar icon (white "ri" mark), accent colour and fallback channel for pushes shown by Android. -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_notification" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/ic_launcher_background" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="trip_updates" />
         <meta-data android:name="com.google.android.geo.API_KEY" android:value="${MAPS_API_KEY}"/>
         <activity
             android:name=".MainActivity"

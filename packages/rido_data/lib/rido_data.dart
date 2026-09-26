@@ -8,6 +8,7 @@ export 'src/api/api_config.dart';
 export 'src/api/api_mappers.dart' show apiPhone, enumToApi, rideRequestFromTrip, tripFromJson, vehicleKindFromApi;
 export 'src/api/api_repositories.dart';
 export 'src/api/live_services.dart';
+export 'src/api/push.dart';
 export 'src/api/realtime_client.dart';
 export 'src/demo_settings.dart';
 export 'src/fare_engine.dart';

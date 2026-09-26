@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,10 +39,18 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   /// Live sheet height (fraction of the screen) so the locate button rides on top of it.
   final ValueNotifier<double?> _sheetExtent = ValueNotifier(null);
 
+  /// Sheet size the map's padding follows, updated once a drag settles (the Google logo sits right above the
+  /// sheet; re-padding the platform map on every drag frame would stutter).
+  final ValueNotifier<double?> _paddedExtent = ValueNotifier(null);
+  Timer? _padTimer;
+
   final _map = RidoMapController();
 
   /// Re-reads the location when the passenger comes back (e.g. from the system settings after S-05).
   AppLifecycleListener? _lifecycle;
+
+  /// Live API: the last located point was outside the service area (banner).
+  bool _outsideArea = false;
 
   static final LatLng _pickup = Seed.gandhipuram.location;
 
@@ -64,6 +74,8 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   void dispose() {
     _lifecycle?.dispose();
     _sheetExtent.dispose();
+    _paddedExtent.dispose();
+    _padTimer?.cancel();
     _map.dispose();
     super.dispose();
   }
@@ -71,16 +83,26 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Use the phone's location if permission was already given (no prompt here).
+    // Live: the pickup is always the phone's location, and the permission is asked on every visit until given
+    // (on opening and when the passenger comes back to the app; not right after the dialog closes, which would
+    // loop). The seeded demo only uses a permission already given.
     if (!widget.showcase) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _locateQuietly());
-      _lifecycle = AppLifecycleListener(onResume: _locateQuietly);
+      final live = ref.read(isLiveApiProvider);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _locate(ask: live));
+      _lifecycle = AppLifecycleListener(onRestart: () => _locate(ask: live));
     }
   }
 
-  void _locateQuietly() {
+  Future<void> _locate({required bool ask}) async {
     if (!mounted || ref.read(rideFlowProvider).isActive) return;
-    ref.read(deviceLocationProvider.notifier).locate(askPermission: false).then(_moveToPickup);
+    final r = await ref.read(deviceLocationProvider.notifier).locate(askPermission: ask);
+    _moveToPickup(r);
+  }
+
+  /// The location banner's button: ask again / open the right settings page, then locate.
+  Future<void> _fixLocation() async {
+    final r = await ref.read(deviceLocationProvider.notifier).fixAccess();
+    _moveToPickup(r);
   }
 
   void _moveTo(LatLng centre) {
@@ -89,7 +111,13 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
   void _moveToPickup(LocateResult r) {
     if (!mounted) return;
-    if (r == LocateResult.inArea) _moveTo(_cameraFor(ref.read(rideFlowProvider).pickup.location));
+    final live = ref.read(isLiveApiProvider);
+    if (r == LocateResult.inArea || (live && r == LocateResult.outsideArea)) {
+      _moveTo(_cameraFor(ref.read(rideFlowProvider).pickup.location));
+    }
+    if (live && (r == LocateResult.inArea || r == LocateResult.outsideArea)) {
+      setState(() => _outsideArea = r == LocateResult.outsideArea);
+    }
   }
 
   /// Locate me: asks for permission if needed, then centres on the phone's location.
@@ -100,7 +128,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
       case LocateResult.inArea:
         _moveToPickup(r);
       case LocateResult.outsideArea:
-        _moveTo(_camera);
+        if (!ref.read(isLiveApiProvider)) _moveTo(_camera);
         showRidoSnack(
           context,
           ref.read(isLiveApiProvider)
@@ -108,7 +136,8 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
               : "You're outside Coimbatore. The demo keeps Gandhipuram as pickup.",
         );
       case LocateResult.denied:
-        context.push(Routes.locationDenied);
+        // Live: the banner explains and its button fixes it; the demo keeps S-05.
+        if (!ref.read(isLiveApiProvider)) context.push(Routes.locationDenied);
       case LocateResult.unavailable:
         _moveTo(_camera);
     }
@@ -157,29 +186,40 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
           return Stack(
             children: [
               Positioned.fill(
-                child: RidoMap(
-                  controller: _map,
-                  center: tripActive
-                      ? (RidoMap.usesGoogle ? ride.pickup.location : offsetPoint(ride.pickup.location, 600, 180))
-                      : _cameraFor(ride.pickup.location),
-                  zoom: _zoom,
-                  mapPadding: sheetMapPadding(c.maxHeight * sheetSize),
-                  pickup: ref.watch(rideFlowProvider.select((r) => r.pickup.location)),
-                  vehicles: showNearby ? _nearbyAround(ref.watch(rideFlowProvider.select((r) => r.pickup.location))) : const [],
-                  attributionAlignment: Alignment.topRight,
-                  showAttribution: true,
+                child: ValueListenableBuilder<double?>(
+                  valueListenable: _paddedExtent,
+                  builder: (context, padded, _) => RidoMap(
+                    controller: _map,
+                    center: tripActive
+                        ? (RidoMap.usesGoogle ? ride.pickup.location : offsetPoint(ride.pickup.location, 600, 180))
+                        : _cameraFor(ride.pickup.location),
+                    zoom: _zoom,
+                    mapPadding: sheetMapPadding(c.maxHeight * (padded ?? sheetSize)),
+                    pickup: ref.watch(rideFlowProvider.select((r) => r.pickup.location)),
+                    vehicles: showNearby
+                        ? _nearbyAround(ref.watch(rideFlowProvider.select((r) => r.pickup.location)))
+                        : const [],
+                    attributionAlignment: Alignment.topRight,
+                    showAttribution: true,
+                  ),
                 ),
               ),
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, RidoSpacing.l, 0),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: _GreetingCard(greeting: _greeting(), profile: profile),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _GreetingCard(greeting: _greeting(), profile: profile),
+                          ),
+                          const SizedBox(width: RidoSpacing.s),
+                          SosButton(size: 56, onPressed: () => context.push(Routes.sos)),
+                        ],
                       ),
-                      const SizedBox(width: RidoSpacing.s),
-                      SosButton(size: 56, onPressed: () => context.push(Routes.sos)),
+                      if (!widget.showcase) _LocationBanners(outsideArea: _outsideArea, onFix: _fixLocation),
                     ],
                   ),
                 ),
@@ -209,6 +249,10 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
               NotificationListener<DraggableScrollableNotification>(
                 onNotification: (n) {
                   _sheetExtent.value = n.extent;
+                  _padTimer?.cancel();
+                  _padTimer = Timer(const Duration(milliseconds: 180), () {
+                    if (mounted) _paddedExtent.value = (n.extent * 100).round() / 100;
+                  });
                   return false;
                 },
                 child: MapBottomSheet(
@@ -579,4 +623,53 @@ class _TripBanner extends StatelessWidget {
     ParcelPhase.delivered => 'Delivered',
     ParcelPhase.planning => 'Parcel',
   };
+}
+
+/// Live: "Turn on location" while the app can't use it (with the right action), else "not in your area yet".
+class _LocationBanners extends ConsumerWidget {
+  const _LocationBanners({required this.outsideArea, required this.onFix});
+  final bool outsideArea;
+  final VoidCallback onFix;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(isLiveApiProvider)) return const SizedBox.shrink();
+    final access = ref.watch(locationAccessProvider);
+    final Widget? banner = switch (access) {
+      LocationAccess.serviceOff => RidoBanner(
+          type: RidoBannerType.warning,
+          icon: Symbols.location_off_rounded,
+          title: 'Turn on location',
+          message: 'Rido needs your location to set your pickup and find drivers near you.',
+          actionLabel: 'Turn on',
+          onAction: onFix,
+        ),
+      LocationAccess.denied => RidoBanner(
+          type: RidoBannerType.warning,
+          icon: Symbols.location_off_rounded,
+          title: 'Allow location access',
+          message: 'Rido uses your location to set your pickup and show drivers near you. The app works best with it.',
+          actionLabel: 'Allow',
+          onAction: onFix,
+        ),
+      LocationAccess.deniedForever => RidoBanner(
+          type: RidoBannerType.warning,
+          icon: Symbols.location_off_rounded,
+          title: 'Location is off for Rido',
+          message: 'Open Settings → Permissions → Location and choose "Allow while using the app".',
+          actionLabel: 'Open settings',
+          onAction: onFix,
+        ),
+      LocationAccess.granted || LocationAccess.unknown => outsideArea
+          ? const RidoBanner(
+              type: RidoBannerType.info,
+              icon: Symbols.wrong_location_rounded,
+              title: "Rido isn't in your area yet",
+              message: 'You can still book a trip inside Coimbatore by choosing the pickup yourself.',
+            )
+          : null,
+    };
+    if (banner == null) return const SizedBox.shrink();
+    return Padding(padding: const EdgeInsets.only(top: RidoSpacing.s), child: banner);
+  }
 }

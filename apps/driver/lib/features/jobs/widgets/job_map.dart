@@ -54,11 +54,14 @@ class LiveVehicleMap extends ConsumerWidget {
     final notifier = ref.read(driverSessionProvider.notifier);
     return ValueListenableBuilder<VehicleFix?>(
       valueListenable: notifier.vehicle,
-      builder: (context, fix, _) => _map(fix?.position ?? Seed.driverHome, fix?.heading ?? 0),
+      builder: (context, fix, _) => fix == null && ref.read(isLiveApiProvider)
+          // Live, no GPS fix yet: the city without a made-up car position.
+          ? _map(const LatLng(11.0168, 76.9658), 0, showVehicle: false)
+          : _map(fix?.position ?? Seed.driverHome, fix?.heading ?? 0),
     );
   }
 
-  Widget _map(LatLng pos, double heading) => RidoMap(
+  Widget _map(LatLng pos, double heading, {bool showVehicle = true}) => RidoMap(
         center: centerOnVehicle ? pos : null,
         zoom: zoom,
         pickup: pickup,
@@ -67,10 +70,12 @@ class LiveVehicleMap extends ConsumerWidget {
         fitPoints: fitPoints,
         fitPadding: fitPadding,
         mapPadding: mapPadding,
-        pulseAt: pulse && !gpsLost ? pos : null,
+        pulseAt: pulse && !gpsLost && showVehicle ? pos : null,
         pulseColor: RidoColors.success,
         zones: zones,
-        vehicles: gpsLost ? const [] : [MapVehicle(position: pos, type: vehicleType, heading: heading, large: true)],
+        vehicles: gpsLost || !showVehicle
+            ? const []
+            : [MapVehicle(position: pos, type: vehicleType, heading: heading, large: true)],
         extraMarkers: [
           if (gpsLost) Marker(point: pos, width: 128, height: 128, child: const _GpsLostMarker()),
         ],

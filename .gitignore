@@ -52,3 +52,5 @@ apps/api/uploads/
 **/google-services.json
 *firebase-adminsdk*.json
 firebase-sa.json
+
+sync_config.jsonc

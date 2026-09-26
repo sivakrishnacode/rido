@@ -22,6 +22,8 @@ export interface Env {
   readonly s3Region: string;
   /** Only for S3-compatible servers in dev (e.g. MinIO); empty = AWS. */
   readonly s3Endpoint: string;
+  /** Firebase service-account JSON for FCM (from FIREBASE_SERVICE_ACCOUNT_B64, base64). Empty = push disabled. */
+  readonly firebaseServiceAccount: string;
 }
 
 function required(name: string): string {
@@ -58,5 +60,8 @@ export function loadEnv(): Env {
     s3Bucket: process.env.S3_BUCKET ?? '',
     s3Region: process.env.S3_REGION ?? process.env.AWS_REGION ?? 'ap-south-1',
     s3Endpoint: process.env.S3_ENDPOINT ?? '',
+    firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT_B64
+      ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8')
+      : '',
   };
 }

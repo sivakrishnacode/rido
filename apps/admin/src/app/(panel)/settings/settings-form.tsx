@@ -53,6 +53,8 @@ const GROUPS: readonly Group[] = [
       { key: "searchRadiusKm", label: "Search radius", hint: "Around the pickup", step: "0.5", suffix: "km" },
       { key: "offerSeconds", label: "Offer time", hint: "Seconds each driver has to accept", step: "1", suffix: "s" },
       { key: "maxCandidates", label: "Drivers per booking", hint: "Offered one at a time before \"No drivers\"", step: "1" },
+      { key: "arrivalRadiusM", label: "Arrived within", hint: "Farther from the pickup, the driver must give a reason to mark Arrived", step: "10", suffix: "m" },
+      { key: "dropRadiusM", label: "End trip within", hint: "Farther from the drop, the driver must give a reason to end the trip", step: "10", suffix: "m" },
     ],
   },
   {

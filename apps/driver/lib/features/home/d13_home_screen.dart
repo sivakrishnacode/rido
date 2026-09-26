@@ -6,6 +6,7 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../common/job_routes.dart';
 import '../../common/measure_size.dart';
+import '../../overlay/background_permissions.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_location.dart';
@@ -50,13 +51,42 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
   bool get _showcase => widget.showcase || !_live;
   bool get _api => !_showcase && ref.read(isLiveApiProvider);
 
+  /// Asks for location again whenever the driver comes back to the app (not after the dialog itself closes).
+  AppLifecycleListener? _lifecycle;
+
   @override
   void initState() {
     super.initState();
     if (_api) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) ref.read(driverSessionProvider.notifier).attach();
+        if (!mounted) return;
+        final session = ref.read(driverSessionProvider.notifier);
+        session.attach();
+        // The car shows the real position from the start; the permission is asked on every visit until given.
+        session.locateHere();
       });
+      _lifecycle = AppLifecycleListener(onRestart: () {
+        if (mounted) ref.read(driverSessionProvider.notifier).locateHere();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _lifecycle?.dispose();
+    super.dispose();
+  }
+
+  /// The location banner's button: ask again while Android still shows the prompt, else the right settings page.
+  Future<void> _fixLocation(LocationAccess access) async {
+    final locator = ref.read(driverLocatorProvider);
+    switch (access) {
+      case LocationAccess.serviceOff:
+        await locator.openSettings(LocationFix.locationSettings);
+      case LocationAccess.deniedForever:
+        await locator.openSettings(LocationFix.appSettings);
+      case LocationAccess.denied || LocationAccess.unknown || LocationAccess.granted:
+        await ref.read(driverSessionProvider.notifier).locateHere();
     }
   }
 
@@ -116,6 +146,12 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_api) {
+      // First time online: ask for the bubble / full-screen request permissions (each once).
+      ref.listen(driverSessionProvider.select((s) => s.online), (prev, next) {
+        if (next && prev == false && mounted) explainBackgroundPermissions(context);
+      });
+    }
     if (!_showcase) {
       ref.listen(driverSessionProvider.select((s) => s.incoming), (prev, next) {
         if (next != null && prev?.id != next.id) context.push(requestRoute(next));
@@ -190,7 +226,29 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
 
     // ------------------------------------------------------------- top card
     Widget? topCard;
-    if (!online && status == PlanStatus.grace) {
+    final access = _api ? ref.watch(locationAccessProvider) : LocationAccess.granted;
+    if (access == LocationAccess.serviceOff || access == LocationAccess.denied || access == LocationAccess.deniedForever) {
+      // Nothing works without location: shown above everything else until it's allowed.
+      topCard = RidoBanner(
+        type: RidoBannerType.warning,
+        icon: Symbols.location_off_rounded,
+        title: switch (access) {
+          LocationAccess.serviceOff => 'Turn on location',
+          LocationAccess.deniedForever => 'Location is off for Rido Driver',
+          _ => 'Allow location access',
+        },
+        message: access == LocationAccess.deniedForever
+            ? 'Open Settings → Permissions → Location and choose "Allow while using the app". '
+                'Rido needs it to send you requests and share live tracking with riders.'
+            : 'Rido needs your location to send you ride requests nearby and share live tracking with riders.',
+        actionLabel: switch (access) {
+          LocationAccess.serviceOff => 'Turn on',
+          LocationAccess.deniedForever => 'Open settings',
+          _ => 'Allow',
+        },
+        onAction: () => _fixLocation(access),
+      );
+    } else if (!online && status == PlanStatus.grace) {
       topCard = GraceBanner(
         daysLeft: plan?.graceDaysLeft ?? 2,
         amount: price,

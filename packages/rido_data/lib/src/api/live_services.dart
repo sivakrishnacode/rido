@@ -155,15 +155,25 @@ class LiveJobs {
 
   Future<void> decline(String tripId) => api.post('/trips/$tripId/decline');
 
-  Future<LiveTripUpdate> arrived(String tripId) async => LiveTrips._update(_map(await api.post('/trips/$tripId/arrived')));
+  /// At the pickup. Throws [ApiException] with [ApiException.tooFar] when [at] is outside the allowed radius and
+  /// no [farReason] was given; call again with the driver's reason to continue.
+  Future<LiveTripUpdate> arrived(String tripId, {LatLng? at, String? farReason}) async =>
+      LiveTrips._update(_map(await api.post('/trips/$tripId/arrived', _position(at, farReason))));
+
+  static Json _position(LatLng? at, String? farReason) => {
+        if (at != null) 'lat': at.latitude,
+        if (at != null) 'lng': at.longitude,
+        'farReason': ?farReason,
+      };
 
   /// Ride: [otp] is the passenger's code. Parcel: marks picked up (no OTP).
   Future<LiveTripUpdate> start(String tripId, {String? otp}) async =>
       LiveTrips._update(_map(await api.post('/trips/$tripId/start', {'otp': ?otp})));
 
-  /// Ride: ends the trip. Parcel: [otp] is the receiver's delivery code.
-  Future<LiveTripUpdate> complete(String tripId, {String? otp}) async =>
-      LiveTrips._update(_map(await api.post('/trips/$tripId/complete', {'otp': ?otp})));
+  /// Ride: ends the trip. Parcel: [otp] is the receiver's delivery code. Far from the drop without [farReason] →
+  /// [ApiException.tooFar] (the OTP is validated first).
+  Future<LiveTripUpdate> complete(String tripId, {String? otp, LatLng? at, String? farReason}) async =>
+      LiveTrips._update(_map(await api.post('/trips/$tripId/complete', {'otp': ?otp, ..._position(at, farReason)})));
 
   Future<LiveTripUpdate> cancel(String tripId, {String? reason}) async =>
       LiveTrips._update(_map(await api.post('/trips/$tripId/cancel', {'reason': ?reason})));
@@ -221,7 +231,7 @@ BackendRouter backendRouter(ApiClient api) => (from, to, mode) async {
         'from': {'lat': from.latitude, 'lng': from.longitude},
         'to': {'lat': to.latitude, 'lng': to.longitude},
         if (mode == RouteTravelMode.twoWheeler) 'vehicleKind': 'BIKE',
-      }));
+      }, true));
       if (res['source'] != 'google') return null;
       return [
         for (final p in (res['points'] as List? ?? const []))

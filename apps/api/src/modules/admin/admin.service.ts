@@ -5,6 +5,7 @@ import type { Driver, KycDocument, Plan, Prisma, SupportTicket, Trip, User } fro
 import { DriverStatus, KycDocType, KycStatus, Role, TicketStatus } from '../../generated/prisma/enums.js';
 import type { Paged } from './admin.types.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
+import { NotifierService } from '../notifications/notifier.service.js';
 
 function paging(q: ListQueryDto): { skip: number; take: number; page: number; pageSize: number } {
   const page = q.page ?? 1;
@@ -19,7 +20,10 @@ function isOneOf<T extends string>(value: string | undefined, values: readonly T
 /** Admin lists and actions: drivers + KYC, trips, passengers, plans, tickets. */
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifier: NotifierService,
+  ) {}
 
   async drivers(q: ListQueryDto): Promise<Paged<Driver>> {
     const { skip, take, page, pageSize } = paging(q);
@@ -67,6 +71,8 @@ export class AdminService {
     if (isAllVerified || hasRejected) {
       await this.prisma.driver.update({ where: { id: params.driverId }, data: { status: isAllVerified ? DriverStatus.APPROVED : DriverStatus.REJECTED } });
     }
+    if (params.status === 'REJECTED') void this.notifier.kycReviewed({ driverId: params.driverId, type: params.type, status: 'REJECTED', reason: params.reason });
+    else if (isAllVerified) void this.notifier.kycReviewed({ driverId: params.driverId, status: 'APPROVED' });
     return docs;
   }
 

@@ -6,6 +6,9 @@ interface ErrorBody {
   readonly statusCode: number;
   readonly error: string;
   readonly message: string | string[];
+  /** Machine-readable reason the apps branch on (e.g. TOO_FAR), when the thrower set one. */
+  readonly code?: string;
+  readonly details?: Record<string, unknown>;
 }
 
 /** Returns one JSON error shape for every failure; maps common Prisma errors to 404 / 409. */
@@ -23,8 +26,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private toBody(e: unknown): ErrorBody {
     if (e instanceof HttpException) {
       const r = e.getResponse();
-      const message = typeof r === 'string' ? r : ((r as { message?: string | string[] }).message ?? e.message);
-      return { statusCode: e.getStatus(), error: e.name, message };
+      const body = typeof r === 'string' ? {} : (r as { message?: string | string[]; code?: string; details?: Record<string, unknown> });
+      const message = typeof r === 'string' ? r : (body.message ?? e.message);
+      return { statusCode: e.getStatus(), error: e.name, message, ...(body.code ? { code: body.code } : {}), ...(body.details ? { details: body.details } : {}) };
     }
     if (e instanceof Prisma.PrismaClientKnownRequestError) {
       if (e.code === 'P2025') return { statusCode: HttpStatus.NOT_FOUND, error: 'NotFound', message: 'Not found' };

@@ -203,7 +203,7 @@ class ApiRideRepository implements RideRepository {
 }
 
 Future<List<FareQuote>> _quotes(ApiClient api, Place from, Place to, String kind) async {
-  final res = _map(await api.post('/fares/quote', {'pickup': pointJson(from), 'drop': pointJson(to), 'kind': kind}));
+  final res = _map(await api.post('/fares/quote', {'pickup': pointJson(from), 'drop': pointJson(to), 'kind': kind}, true));
   return [for (final q in _list(res['quotes'])) quoteFromJson(q)];
 }
 

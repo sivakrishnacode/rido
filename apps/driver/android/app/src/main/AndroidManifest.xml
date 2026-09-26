@@ -13,6 +13,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- KYC document photos (image_picker camera). -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Floating Rido bubble and full-screen requests over other apps while online (asked with an explanation;
+         optional). Its overlay runs as a special-use foreground service. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <!-- Ride-request notifications open full screen on a locked phone (Android 14+: user-controlled). -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <application
         android:label="Rido Driver"
         android:name="${applicationName}"
@@ -22,12 +28,27 @@
         <meta-data android:name="io.flutter.embedding.android.ImpellerBackend" android:value="opengles" />
         <!-- Google Maps SDK key, injected from MAPS_API_KEY (android/local.properties or env); never commit it. -->
         <meta-data android:name="com.google.android.geo.API_KEY" android:value="${MAPS_API_KEY}"/>
+        <!-- FCM notifications drawn by Android (app in the background / closed). -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_notification" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/ic_launcher_background" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="ride_requests" />
+        <!-- flutter_overlay_window: the floating bubble / request card over other apps. -->
+        <service
+            android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating driver bubble and incoming ride request card shown over other apps while the driver is online" />
+        </service>
+        <!-- singleTask + the default task affinity: one Rido Driver only. With taskAffinity="" every launch from the
+             bubble / request card (FLAG_ACTIVITY_NEW_TASK) started a second copy of the app in a new task (splash
+             again, two engines fighting over the bubble, overlay taps going to the wrong copy). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:screenOrientation="portrait"
-            android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"

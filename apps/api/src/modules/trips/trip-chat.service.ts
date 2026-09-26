@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { RedisService } from '../../core/redis/redis.service.js';
+import { NotifierService } from '../notifications/notifier.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { TripsService } from './trips.service.js';
 
@@ -23,6 +24,7 @@ export class TripChatService {
     private readonly redis: RedisService,
     private readonly trips: TripsService,
     private readonly events: TripEventsService,
+    private readonly notifier: NotifierService,
   ) {}
 
   async list(user: AuthUser, tripId: string): Promise<ChatMessage[]> {
@@ -44,6 +46,7 @@ export class TripChatService {
     await this.redis.ltrim(key, -MAX_MESSAGES, -1);
     await this.redis.expire(key, KEEP_S);
     this.events.toTrip(tripId, 'trip.message', { tripId, ...message });
+    void this.notifier.chat({ tripId, from: message.from, text: message.text });
     return message;
   }
 

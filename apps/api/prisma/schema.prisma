@@ -258,6 +258,12 @@ model Trip {
   payer        ParcelPayer?
   rating       Int?
   cancelReason String?
+  /// Driver's distance from the pickup when marking "Arrived", and the reason given when outside `arrivalRadiusM`.
+  arrivedDistanceM Int?
+  arrivedFarReason String?
+  /// Distance from the drop when the trip was completed, and the reason when outside `dropRadiusM`.
+  endDistanceM     Int?
+  endFarReason     String?
   createdAt    DateTime     @default(now())
   assignedAt   DateTime?
   startedAt    DateTime?

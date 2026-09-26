@@ -155,7 +155,8 @@ class _GoogleRidoMapState extends State<_GoogleRidoMap> {
   gm.CameraPosition _initialCamera(Size size) {
     final fit = m.fitPoints;
     if (fit != null && fit.length >= 2) {
-      final (centre, zoom) = _Mercator.fit(fit, size, m.fitPadding);
+      // GoogleMap centres the camera in the area left by `mapPadding`, so fit inside that area.
+      final (centre, zoom) = _Mercator.fit(fit, m.mapPadding.deflateSize(size), m.fitPadding);
       return gm.CameraPosition(target: _g(centre), zoom: zoom);
     }
     return gm.CameraPosition(target: _g(m.center ?? m.pickup ?? const LatLng(11.0168, 76.9658)), zoom: m.zoom);
@@ -240,9 +241,13 @@ class _GoogleRidoMapState extends State<_GoogleRidoMap> {
 
   // ---- widget overlays (pulse ring, zone labels, extra markers) ----
 
+  /// Screen position of [p]. The camera target sits at the centre of the area left by `mapPadding` (not of the
+  /// widget), otherwise overlays such as the pulse ring drift away from their point as the zoom changes.
   Offset _screen(LatLng p) {
     final z = _camera.zoom;
-    return _Mercator.world(p, z) - _Mercator.world(_l(_camera.target), z) + _size.center(Offset.zero);
+    final pad = m.mapPadding;
+    final centre = Offset(pad.left + (_size.width - pad.horizontal) / 2, pad.top + (_size.height - pad.vertical) / 2);
+    return _Mercator.world(p, z) - _Mercator.world(_l(_camera.target), z) + centre;
   }
 
   Widget? _overlay(LatLng point, double width, double height, Alignment alignment, Widget child) {

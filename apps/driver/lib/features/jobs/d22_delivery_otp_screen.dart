@@ -8,6 +8,7 @@ import '../../router/routes.dart';
 import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import 'widgets/otp_step.dart';
+import 'widgets/too_far_sheet.dart';
 
 /// D-22a Complete delivery: "Ask Meena for the delivery OTP" (7153), optional photo of the
 /// delivered parcel, "Complete delivery" → D-22b collect. Wrong code shakes with an error.
@@ -42,8 +43,11 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen> {
     final c = ref.read(driverSessionProvider.notifier);
     if (_api) {
       setState(() => _busy = true);
+      bool done;
       try {
-        await c.completeDelivery(otp: _code);
+        // The OTP is checked first (wrong → 400); far from the drop the API then asks for a reason.
+        done = await runWithFarCheck(context, (r) => c.completeDelivery(otp: _code, farReason: r),
+            target: _job.drop.location);
       } on ApiException catch (e) {
         if (mounted) _fail(e.message);
         return;
@@ -53,7 +57,12 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen> {
         showRidoSnack(context, userMessage(e));
         return;
       }
-      if (mounted) context.pushReplacement(Routes.collectDelivery);
+      if (!mounted) return;
+      if (!done) {
+        setState(() => _busy = false);
+        return;
+      }
+      context.pushReplacement(Routes.collectDelivery);
       return;
     }
     if (!c.verifyDeliveryOtp(_code)) {

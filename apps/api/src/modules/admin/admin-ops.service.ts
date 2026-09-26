@@ -7,6 +7,7 @@ import { TripStatus } from '../../generated/prisma/enums.js';
 import type { Paged } from './admin.types.js';
 import type { CreateAnnouncementDto } from './dto/announcement.dto.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
+import { NotifierService } from '../notifications/notifier.service.js';
 
 /** A driver dot on the live map. */
 export interface LiveDriver {
@@ -27,6 +28,7 @@ export class AdminOpsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly notifier: NotifierService,
   ) {}
 
   /** Online drivers with their last GPS fix, plus active trips. */
@@ -64,8 +66,11 @@ export class AdminOpsService {
     return this.prisma.announcement.findMany({ orderBy: { createdAt: 'desc' } });
   }
 
-  createAnnouncement(dto: CreateAnnouncementDto): Promise<Announcement> {
-    return this.prisma.announcement.create({ data: { ...dto, endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined } });
+  /** Also pushed to the audience's topic (announcements scheduled for later are shown in-app only). */
+  async createAnnouncement(dto: CreateAnnouncementDto): Promise<Announcement> {
+    const a = await this.prisma.announcement.create({ data: { ...dto, endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined } });
+    this.notifier.announcement(a);
+    return a;
   }
 
   async setAnnouncementActive(id: string, isActive: boolean): Promise<Announcement> {

@@ -10,6 +10,7 @@ import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'widgets/job_common.dart';
+import 'widgets/too_far_sheet.dart';
 import 'widgets/job_map.dart';
 
 /// D-18 Ride in progress: turn-by-turn strip with ETA, route to the drop with the moving
@@ -37,8 +38,11 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
     if (_busy) return;
     if (live) {
       setState(() => _busy = true);
+      final session = ref.read(driverSessionProvider.notifier);
+      bool done;
       try {
-        await ref.read(driverSessionProvider.notifier).endRide();
+        // Far from the drop the API asks for a reason (TooFarSheet), then the ride ends.
+        done = await runWithFarCheck(context, (r) => session.endRide(farReason: r), target: _job.drop.location);
       } on Exception catch (e) {
         if (!mounted) return;
         setState(() => _busy = false);
@@ -46,12 +50,22 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
         return;
       }
       if (!mounted) return;
+      if (!done) {
+        setState(() => _busy = false);
+        return;
+      }
     }
     if (widget.showcase) {
       context.push(Routes.collect);
     } else {
       context.pushReplacement(Routes.collect);
     }
+  }
+
+  /// Live API: warns early when the GPS is already outside the drop radius (the API decides).
+  String _endLabel() {
+    final m = _api ? ref.read(driverSessionProvider.notifier).metresTo(_job.drop.location) : null;
+    return m != null && m > kDropRadiusM ? 'End ride · ${formatMetres(m)} from drop' : 'Swipe to end ride';
   }
 
   @override
@@ -142,7 +156,7 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
                   ]),
                 ]),
                 const SizedBox(height: RidoSpacing.l),
-                SwipeToConfirm(label: 'Swipe to end ride', enabled: !_busy, onConfirmed: () => _endRide(live)),
+                SwipeToConfirm(label: _endLabel(), enabled: !_busy, onConfirmed: () => _endRide(live)),
               ]),
             ),
           ],

@@ -260,7 +260,9 @@ class RideFlowController extends Notifier<RideFlowState> {
     state = state.copyWith(serverQuotes: null, quotesError: null);
     try {
       final quotes = await ref.read(rideRepositoryProvider).quotes(a, b);
-      if (state.pickup != a || state.drop != b) return;
+      // The pickup / drop moved meanwhile (e.g. GPS resolved): fetch fares for the new points instead of
+      // leaving the screen on the loading skeleton.
+      if (!_samePlace(state.pickup, a) || !_samePlace(state.drop, b)) return await loadQuotes();
       if (quotes.isEmpty) {
         state = state.copyWith(quotesError: "Couldn't get fares for this trip. Try again.");
         return;
@@ -271,7 +273,11 @@ class RideFlowController extends Notifier<RideFlowState> {
         vehicle: kinds.contains(state.vehicle) ? null : quotes.first.vehicle.kind,
       );
     } catch (e) {
-      if (state.pickup == a && state.drop == b) state = state.copyWith(quotesError: apiErrorMessage(e));
+      if (_samePlace(state.pickup, a) && _samePlace(state.drop, b)) {
+        state = state.copyWith(quotesError: apiErrorMessage(e));
+      } else {
+        return loadQuotes();
+      }
     }
   }
 
@@ -667,3 +673,6 @@ class RideFlowController extends Notifier<RideFlowState> {
 }
 
 final rideFlowProvider = NotifierProvider<RideFlowController, RideFlowState>(RideFlowController.new);
+
+/// Same place for fares: `Place ==` only compares ids, and the current location keeps its id as it moves.
+bool _samePlace(Place a, Place b) => a.id == b.id && a.location == b.location;

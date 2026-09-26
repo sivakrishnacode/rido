@@ -15,6 +15,8 @@ const RULES: Record<string, (v: SettingValue) => string | null> = {
   searchRadiusKm: (v) => (inRange(v, 0.5, 30) ? null : "Search radius must be 0.5–30 km"),
   offerSeconds: (v) => (inRange(v, 5, 120, true) ? null : "Offer time must be 5–120 whole seconds"),
   maxCandidates: (v) => (inRange(v, 1, 20, true) ? null : "Drivers per booking must be 1–20"),
+  arrivalRadiusM: (v) => (inRange(v, 50, 2000, true) ? null : "Arrived radius must be 50–2,000 whole metres"),
+  dropRadiusM: (v) => (inRange(v, 50, 5000, true) ? null : "End-trip radius must be 50–5,000 whole metres"),
   trialDays: (v) => (inRange(v, 0, 365, true) ? null : "Trial must be 0–365 days"),
   graceDays: (v) => (inRange(v, 0, 30, true) ? null : "Grace period must be 0–30 days"),
   batchWindowMs: (v) => (inRange(v, 0, 10_000, true) ? null : "Batch window must be 0–10,000 ms"),

@@ -206,6 +206,12 @@ export interface TripBase {
   readonly payer: ParcelPayer | null;
   readonly rating: number | null;
   readonly cancelReason: string | null;
+  /** Driver's distance from the pickup at "Arrived", and the reason given when outside the radius. */
+  readonly arrivedDistanceM?: number | null;
+  readonly arrivedFarReason?: string | null;
+  /** Distance from the drop when the trip ended, and the reason when outside the radius. */
+  readonly endDistanceM?: number | null;
+  readonly endFarReason?: string | null;
   readonly createdAt: string;
   readonly assignedAt: string | null;
   readonly startedAt: string | null;

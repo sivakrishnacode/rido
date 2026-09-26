@@ -163,6 +163,14 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// Latest GPS fix (live API), or null before the first one.
   LatLng? get position => _position;
 
+  /// Metres from the latest GPS fix to [point] (null without a fix or in mock mode), for the early
+  /// "you're far" hint on the Arrived / End buttons. The API decides.
+  int? metresTo(LatLng point) {
+    final p = _position;
+    if (!_live || p == null) return null;
+    return const Distance().as(LengthUnit.Meter, p, point).round();
+  }
+
   bool get _live => ref.read(isLiveApiProvider);
   LiveJobs get _jobs => ref.read(liveJobsProvider);
 
@@ -170,7 +178,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   DriverSessionState build() {
     ref.onDispose(_sim.cancelAll);
     ref.watch(mockDatabaseProvider);
-    _sim.place(Seed.driverHome);
+    // The seeded demo parks the car at its home point; the live app shows only the real GPS position.
+    if (!_live) _sim.place(Seed.driverHome);
     if (_live) {
       // A rebuild (log out / log in) starts a fresh session.
       _attached = false;
@@ -266,11 +275,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _scheduleRequest(_t(SimTimings.nextRequest));
   }
 
-  /// The countdown ran out: shows the S-11 banner on D-14. (Live: the server has already moved the
-  /// offer to the next driver.)
+  /// The countdown ran out: shows the S-11 banner on D-14. (Live: the server moves the offer on, and may offer it
+  /// to this driver again when nobody else is around, so a timed-out trip is *not* added to [_closedOffers]; only
+  /// accepted / declined ones are.)
   void requestTimedOut() {
-    final r = state.incoming;
-    if (r != null) _closedOffers.add(r.id);
     state = state.copyWith(clearIncoming: true, missedRequest: true);
     _scheduleRequest(_t(SimTimings.nextRequest));
   }
@@ -311,12 +319,13 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   }
 
   // -------------------------------------------------------------------- ride
-  /// D-16 "Arrived at pickup" (rides) / D-21 "Reached pickup" (deliveries).
-  Future<void> arrivedAtPickup() async {
+  /// D-16 "Arrived at pickup" (rides) / D-21 "Reached pickup" (deliveries). Live API: sends the GPS fix;
+  /// farther than the pickup radius the API refuses with [ApiException.tooFar] until [farReason] is given.
+  Future<void> arrivedAtPickup({String? farReason}) async {
     final job = state.job;
     if (job == null) return;
     if (_live) {
-      await _jobs.arrived(job.id);
+      await _jobs.arrived(job.id, at: _position, farReason: farReason);
       if (ref.mounted) state = state.copyWith(phase: JobPhase.atPickup, etaMin: 0);
       return;
     }
@@ -346,12 +355,13 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _sim.animateAlong(leg, _t(SimTimings.rideDuration), onProgress: (p) => _eta(job.tripMin, p));
   }
 
-  /// D-18 "Swipe to end ride" → collect payment. Live API: completes the trip (the fare is recorded).
-  Future<void> endRide() async {
+  /// D-18 "Swipe to end ride" → collect payment. Live API: completes the trip (the fare is recorded); far from
+  /// the drop it needs [farReason] ([ApiException.tooFar]).
+  Future<void> endRide({String? farReason}) async {
     final job = state.job;
     if (job == null) return;
     if (_live) {
-      await _jobs.complete(job.id);
+      await _jobs.complete(job.id, at: _position, farReason: farReason);
       if (!ref.mounted) return;
       _unwatchJob();
       state = state.copyWith(phase: JobPhase.collect, etaMin: 0);
@@ -379,11 +389,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
 
   /// D-22a "Complete delivery" → collect view. Live API: the server checks the receiver's [otp] and
   /// throws [ApiException] when it is wrong.
-  Future<void> completeDelivery({String? otp}) async {
+  Future<void> completeDelivery({String? otp, String? farReason}) async {
     final job = state.job;
     if (job == null) return;
     if (_live) {
-      await _jobs.complete(job.id, otp: otp);
+      await _jobs.complete(job.id, otp: otp, at: _position, farReason: farReason);
       if (!ref.mounted) return;
       _unwatchJob();
     }
@@ -453,8 +463,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   }
 
   // ------------------------------------------------------------- live API only
-  /// Restores the session when Home opens (live API): today's earnings, the job the driver was on
-  /// (after an app restart) and, if the API still has the driver online, the online state.
+  /// Restores the session when Home opens (live API): today's earnings and the job the driver was on (after an app
+  /// restart; the driver stays online to finish it). Otherwise the app always starts **offline**: only the driver
+  /// goes online, so if the API still has them online (the app was killed while online) it is told they're offline.
   Future<void> attach() async {
     if (!_live || _attached) return;
     if (!ref.read(driverRepositoryProvider).isLoggedIn) return;
@@ -469,9 +480,29 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       }
       final me = await ref.read(apiClientProvider).get('/drivers/me');
       if (!ref.mounted || state.online) return;
-      if (me is Map && me['isOnline'] == true) await _resumeOnline();
+      if (me is Map && me['isOnline'] == true) _quiet(_jobs.goOffline());
     } catch (_) {
       _attached = false; // Try again the next time Home opens.
+    }
+  }
+
+  /// Live: shows where the driver is while offline too (the car marker follows the phone, nothing is uploaded).
+  /// Asks for the permission when [ask] (Home asks on every visit until it's given) and records the access for the
+  /// banner. The last known fix shows at once, then a fresh one.
+  Future<void> locateHere({bool ask = true}) async {
+    if (!_live) return;
+    final locator = ref.read(driverLocatorProvider);
+    final access = await locator.access(ask: ask);
+    if (!ref.mounted) return;
+    ref.read(locationAccessProvider.notifier).set(access);
+    if (access != LocationAccess.granted || state.online) return;
+    final last = await locator.lastKnownFix();
+    if (last != null && ref.mounted && !state.online) _onFix(last, upload: false);
+    try {
+      final fresh = await locator.currentFix();
+      if (ref.mounted && !state.online) _onFix(fresh, upload: false);
+    } catch (_) {
+      // The last known fix stays; going online retries.
     }
   }
 
@@ -514,21 +545,6 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       case JobPhase.none || JobPhase.atPickup || JobPhase.collect:
         break;
     }
-  }
-
-  /// The API still had the driver online (app killed): resume silently when GPS needs no prompt,
-  /// otherwise tell the API the driver is offline.
-  Future<void> _resumeOnline() async {
-    if (await ref.read(driverLocatorProvider).isReadyWithoutPrompt()) {
-      try {
-        await goOnline();
-        if (ref.mounted) state = state.copyWith(selfieDoneThisSession: true);
-        return;
-      } catch (_) {
-        // Fall through.
-      }
-    }
-    _quiet(_jobs.goOffline());
   }
 
   void _startTracking() {

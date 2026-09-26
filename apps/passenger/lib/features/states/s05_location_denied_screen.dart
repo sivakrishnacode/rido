@@ -55,7 +55,12 @@ class S05LocationDeniedView extends ConsumerWidget {
                   RidoButton(
                     label: 'Open settings',
                     onPressed: () {
-                      ref.read(deviceLocationProvider.notifier).openSettings();
+                      // Live: ask again while Android still shows the prompt, else open the right settings page.
+                      if (ref.read(isLiveApiProvider)) {
+                        ref.read(deviceLocationProvider.notifier).fixAccess();
+                      } else {
+                        ref.read(deviceLocationProvider.notifier).openSettings();
+                      }
                       showRidoSnack(context, 'Opening location settings');
                       ref.read(demoSettingsProvider.notifier).update((s) => s.copyWith(locationDenied: false));
                       context.go(Routes.ride);

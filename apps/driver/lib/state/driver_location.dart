@@ -19,6 +19,32 @@ class LocationProblem implements Exception {
 /// What the "Settings" action of a [LocationProblem] opens.
 enum LocationFix { none, locationSettings, appSettings }
 
+/// Whether the app may use the phone's location (the Home "Turn on location" banner).
+enum LocationAccess {
+  unknown,
+  granted,
+
+  /// Phone location (GPS) is switched off.
+  serviceOff,
+
+  /// "Don't allow": Android will ask again.
+  denied,
+
+  /// Android no longer shows the prompt: only the app's settings page can allow it.
+  deniedForever,
+}
+
+class LocationAccessController extends Notifier<LocationAccess> {
+  @override
+  LocationAccess build() => LocationAccess.unknown;
+
+  void set(LocationAccess access) {
+    if (state != access) state = access;
+  }
+}
+
+final locationAccessProvider = NotifierProvider<LocationAccessController, LocationAccess>(LocationAccessController.new);
+
 /// A GPS fix with the direction of travel (degrees, or null when standing still).
 @immutable
 class GpsFix {
@@ -72,6 +98,32 @@ class DriverLocator {
     }
   }
 
+  /// Location access now, asking for the permission first when [ask] and Android still shows the prompt.
+  Future<LocationAccess> access({bool ask = false}) async {
+    try {
+      if (!await geo.Geolocator.isLocationServiceEnabled()) return LocationAccess.serviceOff;
+      var p = await geo.Geolocator.checkPermission();
+      if (p == geo.LocationPermission.denied && ask) p = await geo.Geolocator.requestPermission();
+      return switch (p) {
+        geo.LocationPermission.denied => LocationAccess.denied,
+        geo.LocationPermission.deniedForever => LocationAccess.deniedForever,
+        _ => LocationAccess.granted,
+      };
+    } catch (_) {
+      return LocationAccess.unknown;
+    }
+  }
+
+  /// The last fix the phone knows (instant, may be old), or null.
+  Future<GpsFix?> lastKnownFix() async {
+    try {
+      final p = await geo.Geolocator.getLastKnownPosition();
+      return p == null ? null : _fix(p);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// True when GPS can be used without asking the driver anything (used to resume after a restart).
   Future<bool> isReadyWithoutPrompt() async {
     try {
@@ -120,6 +172,7 @@ class DriverLocator {
           notificationTitle: "You're online on Rido Driver",
           notificationText: 'Sharing your location for ride requests and live tracking',
           notificationChannelName: 'Online status',
+          notificationIcon: geo.AndroidResource(name: 'ic_notification', defType: 'drawable'),
           enableWakeLock: true,
           setOngoing: true,
         ),

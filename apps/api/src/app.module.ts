@@ -15,6 +15,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { SupportModule } from './modules/support/support.module.js';
 import { TripsModule } from './modules/trips/trips.module.js';
 import { UsersModule } from './modules/users/users.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
 
 /** Root module: one module per domain. */
 @Module({
@@ -34,6 +35,7 @@ import { UsersModule } from './modules/users/users.module.js';
     RealtimeModule,
     SupportModule,
     AdminModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

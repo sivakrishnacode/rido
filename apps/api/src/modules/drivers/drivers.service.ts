@@ -10,6 +10,7 @@ import { AuthService } from '../auth/auth.service.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
 import { DriverLocationService } from './driver-location.service.js';
 import type { RegisterDriverDto } from './dto/register-driver.dto.js';
+import { NotifierService } from '../notifications/notifier.service.js';
 
 /** Driver registration, KYC and online status. */
 @Injectable()
@@ -21,6 +22,7 @@ export class DriversService {
     private readonly location: DriverLocationService,
     private readonly earnings: DriverEarningsService,
     private readonly files: FileStorageService,
+    private readonly notifier: NotifierService,
   ) {}
 
   /** Creates the driver, 5 KYC rows and a 30-day free trial; returns a token with the DRIVER role. */
@@ -73,9 +75,11 @@ export class DriversService {
   async review(params: { driverId: string; isApproved: boolean; rejectType?: KycDocType; reason?: string }): Promise<Driver> {
     if (params.isApproved) {
       await this.prisma.kycDocument.updateMany({ where: { driverId: params.driverId }, data: { status: KycStatus.VERIFIED } });
+      void this.notifier.kycReviewed({ driverId: params.driverId, status: 'APPROVED' });
       return this.prisma.driver.update({ where: { id: params.driverId }, data: { status: DriverStatus.APPROVED } });
     }
     if (!params.rejectType) throw new BadRequestException('rejectType is required when rejecting');
+    void this.notifier.kycReviewed({ driverId: params.driverId, type: params.rejectType, status: 'REJECTED', reason: params.reason });
     await this.prisma.kycDocument.update({
       where: { driverId_type: { driverId: params.driverId, type: params.rejectType } },
       data: { status: KycStatus.REJECTED, rejectReason: params.reason ?? 'Please upload a clearer image' },

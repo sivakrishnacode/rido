@@ -10,6 +10,7 @@ import { CancelTripDto } from './dto/cancel-trip.dto.js';
 import { ChatMessageDto } from './dto/chat-message.dto.js';
 import { DispatchService, type OfferDetails } from './dispatch.service.js';
 import { OtpDto } from './dto/otp.dto.js';
+import { CompleteTripDto, PositionCheckDto } from './dto/position-check.dto.js';
 import { RateTripDto } from './dto/rate-trip.dto.js';
 import { type ChatMessage, TripChatService } from './trip-chat.service.js';
 import { TripsService } from './trips.service.js';
@@ -93,8 +94,8 @@ export class TripsController {
   @Roles(Role.DRIVER)
   @Post(':id/arrived')
   @HttpCode(200)
-  arrived(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<Trip> {
-    return this.trips.arrived(TripsController.driverId(user), id);
+  arrived(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: PositionCheckDto): Promise<Trip> {
+    return this.trips.arrived(TripsController.driverId(user), id, body);
   }
 
   @Roles(Role.DRIVER)
@@ -107,8 +108,8 @@ export class TripsController {
   @Roles(Role.DRIVER)
   @Post(':id/complete')
   @HttpCode(200)
-  complete(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: OtpDto): Promise<Trip> {
-    return this.trips.complete(TripsController.driverId(user), id, body.otp);
+  complete(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: CompleteTripDto): Promise<Trip> {
+    return this.trips.complete(TripsController.driverId(user), id, body);
   }
 
   private static driverId(user: AuthUser): string {

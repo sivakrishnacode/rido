@@ -60,12 +60,16 @@ export class DemandService implements OnModuleInit, OnModuleDestroy {
     return Math.floor(ms / 60_000);
   }
 
-  /** Counts one booking at [point] in the current minute. */
-  async recordRequest(point: { lat: number; lng: number }): Promise<void> {
+  /**
+   * Counts a booking at [point] in the current minute, **once per passenger**: someone re-booking or retrying
+   * another vehicle is still one rider, so a single person can't create surge on their own.
+   */
+  async recordRequest(point: { lat: number; lng: number }, passengerId: string): Promise<void> {
     const cell = cellAt(point.lat, point.lng, DEMAND_RES);
     const b = DemandService.bucket(Date.now());
     const ttl = ((await this.settings.get('demandWindowMin')) + 5) * 60;
-    await this.redis.multi().incr(`h3:req:${b}:${cell}`).expire(`h3:req:${b}:${cell}`, ttl).sadd(`h3:req:${b}`, cell).expire(`h3:req:${b}`, ttl).exec();
+    const riders = `h3:riders:${b}:${cell}`;
+    await this.redis.multi().sadd(riders, passengerId).expire(riders, ttl).sadd(`h3:req:${b}`, cell).expire(`h3:req:${b}`, ttl).exec();
   }
 
   /** Live surge multiplier at [point] (1 when none or disabled). */
@@ -89,8 +93,8 @@ export class DemandService implements OnModuleInit, OnModuleDestroy {
     const cells = buckets.length ? await this.redis.sunion(...buckets.map((b) => `h3:req:${b}`)) : [];
     const result: DemandCell[] = [];
     for (const cell of cells) {
-      const counts = await this.redis.mget(...buckets.map((b) => `h3:req:${b}:${cell}`));
-      const requests = counts.reduce((a, c) => a + Number(c ?? 0), 0);
+      // Distinct passengers who booked here in the window (sets of passenger ids per minute).
+      const requests = (await this.redis.sunion(...buckets.map((b) => `h3:riders:${b}:${cell}`))).length;
       const freeDrivers = await this.freeDriversIn(cell);
       const { ratio, multiplier, level } = surgeFor({ requests, freeDrivers, sensitivity: s.surgeSensitivity, minRequests: s.surgeMinRequests, maxMultiplier: s.maxMultiplier });
       const [lat, lng] = cellToLatLng(cell);

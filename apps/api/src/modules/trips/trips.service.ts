@@ -11,9 +11,13 @@ import { DemandService } from '../geo/demand.service.js';
 import { GeoService } from '../geo/geo.service.js';
 import { cellAt } from '../geo/h3.util.js';
 import { FaresService } from '../fares/fares.service.js';
+import { NotifierService, type TripWithPeople } from '../notifications/notifier.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { DispatchService } from './dispatch.service.js';
 import type { BookTripDto } from './dto/book-trip.dto.js';
+import { SettingsService } from '../settings/settings.service.js';
+import type { PositionCheckDto } from './dto/position-check.dto.js';
+import { checkNearStop } from './trip-position.js';
 import { canTransition, isFinished } from './trip-transitions.js';
 
 /** H3 resolution stored on trips for heatmaps. */
@@ -36,6 +40,8 @@ export class TripsService {
     private readonly events: TripEventsService,
     private readonly geo: GeoService,
     private readonly demand: DemandService,
+    private readonly notifier: NotifierService,
+    private readonly settings: SettingsService,
   ) {}
 
   /** Quotes, stores and starts dispatching a trip. */
@@ -70,7 +76,7 @@ export class TripsService {
         payer: dto.payer,
       },
     });
-    await this.demand.recordRequest(dto.pickup);
+    await this.demand.recordRequest(dto.pickup, passengerId);
     await this.dispatch.start(trip);
     return trip;
   }
@@ -108,15 +114,30 @@ export class TripsService {
     if (count === 0) throw new ConflictException('Trip already taken or cancelled');
     await this.dispatch.stop(tripId);
     await this.location.setBusy(driverId, tripId);
-    return this.publish(tripId);
+    return this.publish(tripId, 'DRIVER');
   }
 
   async decline(driverId: string, tripId: string): Promise<void> {
-    if ((await this.dispatch.offeredTo(tripId)) === driverId) await this.dispatch.next(tripId);
+    if ((await this.dispatch.offeredTo(tripId)) === driverId) await this.dispatch.decline(tripId, driverId);
   }
 
-  arrived(driverId: string, tripId: string): Promise<Trip> {
-    return this.move({ driverId, tripId, to: TripStatus.DRIVER_ARRIVED });
+  /** Driver at the pickup. Too far from it without a reason → 422 TOO_FAR (see [checkNearStop]). */
+  async arrived(driverId: string, tripId: string, pos: PositionCheckDto = {}): Promise<Trip> {
+    const trip = await this.driverTrip(driverId, tripId);
+    const check = checkNearStop({
+      stop: 'pickup',
+      at: await this.driverPosition(driverId, pos),
+      target: { lat: trip.pickupLat, lng: trip.pickupLng },
+      radiusM: await this.settings.get('arrivalRadiusM'),
+      farReason: pos.farReason,
+    });
+    return this.move({ driverId, tripId, to: TripStatus.DRIVER_ARRIVED, data: { arrivedDistanceM: check.distanceM, arrivedFarReason: check.farReason } });
+  }
+
+  /** The fix sent with the request, else the last one from the app's GPS stream. */
+  private async driverPosition(driverId: string, pos: PositionCheckDto): Promise<{ lat: number; lng: number } | null> {
+    if (pos.lat !== undefined && pos.lng !== undefined) return { lat: pos.lat, lng: pos.lng };
+    return this.location.position(driverId);
   }
 
   /** Ride: driver enters the passenger's OTP to start. Parcel: marks picked up. */
@@ -127,13 +148,26 @@ export class TripsService {
     return this.move({ driverId, tripId, to: TripStatus.IN_PROGRESS, data: { startedAt: new Date() } });
   }
 
-  /** Ride: end trip. Parcel: receiver's OTP confirms delivery. Frees the driver. */
-  async complete(driverId: string, tripId: string, otp?: string): Promise<Trip> {
+  /**
+   * Ride: end trip. Parcel: receiver's OTP confirms delivery. Frees the driver. Too far from the drop without a
+   * reason → 422 TOO_FAR (the OTP is checked first so the driver isn't asked for a reason and then told it's wrong).
+   */
+  async complete(driverId: string, tripId: string, body: { otp?: string } & PositionCheckDto = {}): Promise<Trip> {
     const trip = await this.driverTrip(driverId, tripId);
     const isParcel = trip.kind === TripKind.PARCEL;
-    if (isParcel && otp !== trip.otp) throw new BadRequestException('Wrong OTP, please try again');
+    if (isParcel && body.otp !== trip.otp) throw new BadRequestException('Wrong OTP, please try again');
+    const check = checkNearStop({
+      stop: 'drop',
+      at: await this.driverPosition(driverId, body),
+      target: { lat: trip.dropLat, lng: trip.dropLng },
+      radiusM: await this.settings.get('dropRadiusM'),
+      farReason: body.farReason,
+    });
     const updated = await this.move({
-      driverId, tripId, to: isParcel ? TripStatus.DELIVERED : TripStatus.COMPLETED, data: { endedAt: new Date() },
+      driverId,
+      tripId,
+      to: isParcel ? TripStatus.DELIVERED : TripStatus.COMPLETED,
+      data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason },
     });
     await this.prisma.driver.update({ where: { id: driverId }, data: { ridesCount: { increment: 1 } } });
     await this.location.setBusy(driverId, null);
@@ -148,7 +182,7 @@ export class TripsService {
     await this.prisma.trip.update({ where: { id: tripId }, data: { status: TripStatus.CANCELLED, cancelReason: reason } });
     await this.dispatch.stop(tripId);
     if (trip.driverId) await this.location.setBusy(trip.driverId, null);
-    return this.publish(tripId);
+    return this.publish(tripId, user.driverId && trip.driverId === user.driverId ? 'DRIVER' : 'PASSENGER');
   }
 
   /** Passenger rates the driver; updates the driver's running average. */
@@ -175,14 +209,15 @@ export class TripsService {
       throw new BadRequestException(`Cannot go from ${trip.status} to ${params.to}`);
     }
     await this.prisma.trip.update({ where: { id: trip.id }, data: { ...params.data, status: params.to } });
-    return this.publish(trip.id);
+    return this.publish(trip.id, 'DRIVER');
   }
 
-  /** Emits the fresh trip to both sides and returns it. */
-  private async publish(tripId: string): Promise<Trip> {
+  /** Emits the fresh trip to both sides (socket + push) and returns it. [by] caused the change. */
+  private async publish(tripId: string, by: 'PASSENGER' | 'DRIVER'): Promise<Trip> {
     const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE });
     this.events.toTrip(tripId, 'trip.updated', { ...trip, otp: '' });
     this.events.toUser(trip.passengerId, 'trip.updated', trip);
+    this.notifier.tripChanged(trip as TripWithPeople, by);
     return trip;
   }
 }

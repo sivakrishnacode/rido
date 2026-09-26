@@ -52,10 +52,11 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
         KycDocType.policeVerification => 'certificate',
       };
 
-  /// Live API: camera or gallery. JPEG at most 2000 px, so uploads stay well under the 8 MB limit.
+  /// Live API: camera or gallery, compressed on the phone (JPEG, longest side 1600 px, quality 80: a few
+  /// hundred KB) so the upload is quick on mobile data.
   Future<void> _pick(ImageSource source) async {
     try {
-      final file = await ImagePicker().pickImage(source: source, maxWidth: 2000, maxHeight: 2000, imageQuality: 85);
+      final file = await ImagePicker().pickImage(source: source, maxWidth: 1600, maxHeight: 1600, imageQuality: 80);
       if (file == null || !mounted) return;
       final bytes = await file.readAsBytes();
       final ext = file.name.contains('.') ? file.name.split('.').last.toLowerCase() : '';
@@ -101,7 +102,14 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
     setState(() => _submitting = true);
     try {
       await ref.read(kycProvider.notifier).uploadFile(widget.type, bytes, name);
+    } on OfflineException {
+      // No response in time (weak signal) or no connection.
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      showRidoSnack(context, "Upload didn't finish. Check your internet and tap Use photo again.");
+      return;
     } on Exception catch (e) {
+      // The API's reason, e.g. a file type or size it doesn't accept.
       if (!mounted) return;
       setState(() => _submitting = false);
       showRidoSnack(context, userMessage(e));

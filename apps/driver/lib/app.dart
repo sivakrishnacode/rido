@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import 'common/job_routes.dart';
+import 'overlay/background_offers.dart';
 import 'router/app_router.dart';
 import 'router/routes.dart';
 import 'state/driver_account.dart';
@@ -15,7 +17,8 @@ import 'state/driver_session.dart';
 ///
 /// With the live API it also: sends the driver to log in when the token is rejected (401), shows the
 /// session's notices (e.g. "Priya cancelled the ride") and closes the job screens when a job ends from
-/// the other side, and tells the session when the app comes back to the foreground.
+/// the other side, and tells the session when the app comes back to the foreground. In the background it
+/// runs [BackgroundOffers]: the floating bubble while online and the full-screen request card.
 class RidoDriverApp extends ConsumerStatefulWidget {
   const RidoDriverApp({super.key, this.router});
   final GoRouter? router;
@@ -27,6 +30,8 @@ class RidoDriverApp extends ConsumerStatefulWidget {
 class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindingObserver {
   late final GoRouter _router = widget.router ?? createDriverRouter();
   StreamSubscription<void>? _unauthorized;
+  StreamSubscription<PushData>? _pushTaps;
+  BackgroundOffers? _background;
 
   /// Routes where a signed-out driver already is (no redirect, no snack).
   static const _authPaths = {Routes.splash, Routes.welcome, '/auth/phone', '/auth/otp'};
@@ -39,17 +44,50 @@ class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindi
     if (!_live) return;
     WidgetsBinding.instance.addObserver(this);
     _unauthorized = ref.read(apiClientProvider).onUnauthorized.listen((_) => _signedOut());
+    _background = BackgroundOffers(ref, onAccepted: _openJob)..start();
+    final push = ref.read(pushProvider);
+    if (push != null) {
+      // While the app is open the request card and job screens show these; account news still notifies.
+      push.suppress = (data) => const {'offer', 'trip'}.contains(data['type']);
+      _pushTaps = push.taps.listen(_onPushTap);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final launch = push.takeLaunchTap();
+        if (launch != null) _onPushTap(launch);
+      });
+    }
+  }
+
+  /// Request / job / chat → pick up the offer or job from the API; KYC decision → the start screen decides
+  /// (plan, re-upload or home).
+  void _onPushTap(PushData data) {
+    switch (data['type']) {
+      case 'offer' || 'trip' || 'chat':
+        ref.read(driverSessionProvider.notifier).onAppResumed();
+      case 'kyc':
+        if (!_authPaths.contains(_path)) _router.go(Routes.splash);
+    }
+  }
+
+  /// Accepted on the overlay: the job's screen, ready when the app comes to the front.
+  void _openJob(RideRequest job) {
+    final route = routeForJob(JobPhase.toPickup, delivery: job.isDelivery);
+    if (route == null) return;
+    _router.go(Routes.home);
+    _router.push(route);
   }
 
   @override
   void dispose() {
+    _background?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _unauthorized?.cancel();
+    _pushTaps?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _background?.onLifecycle(state);
     if (state == AppLifecycleState.resumed) ref.read(driverSessionProvider.notifier).onAppResumed();
   }
 
@@ -79,6 +117,9 @@ class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindi
     if (_live) {
       ref.listen(driverSessionProvider.select((s) => s.notice), (prev, next) {
         if (next != null && !identical(prev, next)) _onNotice(next);
+      });
+      ref.listen(driverSessionProvider.select((s) => (s.online, s.incoming?.id, s.job?.id)), (_, _) {
+        _background?.onSession();
       });
     }
     return MaterialApp.router(

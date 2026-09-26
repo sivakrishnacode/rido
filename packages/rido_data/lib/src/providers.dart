@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'api/api_client.dart';
 import 'api/api_repositories.dart';
 import 'api/live_services.dart';
+import 'api/push.dart';
 import 'api/realtime_client.dart';
 import 'demo_settings.dart';
 import 'mock/mock_database.dart';
@@ -75,9 +76,13 @@ final liveTripsProvider = Provider<LiveTrips>((ref) => LiveTrips(ref.watch(apiCl
 /// Driver: offers, jobs, GPS and chat.
 final liveJobsProvider = Provider<LiveJobs>((ref) => LiveJobs(ref.watch(apiClientProvider), ref.watch(realtimeProvider)));
 
+/// Push notifications (null in mock mode, tests, or builds without Firebase config).
+final pushProvider = Provider<RidoPush?>((ref) => null);
+
 /// Overrides that switch every repository to the Rido API (`ProviderScope(overrides: liveApiOverrides(api))`).
-List<Override> liveApiOverrides(ApiClient api) => [
+List<Override> liveApiOverrides(ApiClient api, {RidoPush? push}) => [
       isLiveApiProvider.overrideWithValue(true),
+      pushProvider.overrideWithValue(push),
       apiClientProvider.overrideWithValue(api),
       authRepositoryProvider.overrideWith((ref) => ApiAuthRepository(api)),
       placesRepositoryProvider.overrideWith((ref) => ApiPlacesRepository(api)),

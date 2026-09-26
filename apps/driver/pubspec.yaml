@@ -26,13 +26,25 @@ dependencies:
   image_picker: ^1.2.3
   url_launcher: ^6.3.2
   permission_handler: ^12.0.1
+  shared_preferences: ^2.5.5
+  flutter_overlay_window: ^0.5.0
+  firebase_messaging: ^16.7.0
+  flutter_local_notifications: ^22.3.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   google_fonts: ^8.2.1
-  shared_preferences: ^2.5.5
+  http: ^1.6.0
 
 flutter:
   uses-material-design: true
+  assets:
+    # The floating bubble over other apps (same art as the launcher icon).
+    - assets/brand/rido_icon.png
+
+# Patched copy of flutter_overlay_window (see packages/flutter_overlay_window/RIDO_PATCHES.md).
+dependency_overrides:
+  flutter_overlay_window:
+    path: ../../packages/flutter_overlay_window

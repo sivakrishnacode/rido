@@ -66,6 +66,8 @@ services:
       S3_ENDPOINT: ${S3_ENDPOINT:-}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # Firebase service account (base64 of the JSON) for push notifications. Empty = push disabled.
+      FIREBASE_SERVICE_ACCOUNT_B64: ${FIREBASE_SERVICE_ACCOUNT_B64:-}
     volumes:
       - uploads:/data/uploads
     ports:

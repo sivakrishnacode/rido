@@ -10,6 +10,7 @@ import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'widgets/job_common.dart';
+import 'widgets/too_far_sheet.dart';
 import 'widgets/job_map.dart';
 
 /// D-21 Delivery in progress: stepper Go to pickup → Picked up → Go to drop → Delivered,
@@ -52,7 +53,10 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
 
     switch (phase) {
       case JobPhase.toPickup:
-        live ? await step(c.arrivedAtPickup) : setState(() => _localPhase = JobPhase.atPickup);
+        // Far from the pickup the API asks for a reason (TooFarSheet) first.
+        live
+            ? await step(() => runWithFarCheck(context, (r) => c.arrivedAtPickup(farReason: r), target: _job.pickup.location))
+            : setState(() => _localPhase = JobPhase.atPickup);
       case JobPhase.atPickup:
         live ? await step(c.startTrip) : setState(() => _localPhase = JobPhase.toDrop);
       default:
@@ -92,10 +96,16 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
         ? (parcel?.dropNote.isNotEmpty ?? false ? parcel!.dropNote : 'House 14, near walking track')
         : (parcel?.pickupNote.isNotEmpty ?? false ? parcel!.pickupNote : place.address);
     final byReceiver = parcel?.payer != ParcelPayer.sender;
+    // Live API: early hint when the GPS is already outside the stop's radius (the API decides).
+    final farM = _api && (phase == JobPhase.toPickup || phase == JobPhase.toDrop)
+        ? ref.read(driverSessionProvider.notifier).metresTo(place.location)
+        : null;
+    final radius = toDrop ? kDropRadiusM : kPickupRadiusM;
+    final far = farM != null && farM > radius ? ' · ${formatMetres(farM)} away' : '';
     final swipeLabel = switch (phase) {
-      JobPhase.none || JobPhase.toPickup => 'Reached pickup',
+      JobPhase.none || JobPhase.toPickup => 'Reached pickup$far',
       JobPhase.atPickup => 'Picked up',
-      _ => 'Reached drop location',
+      _ => 'Reached drop$far',
     };
 
     return PopScope(

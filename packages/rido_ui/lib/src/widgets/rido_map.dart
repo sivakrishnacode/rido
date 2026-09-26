@@ -138,6 +138,8 @@ class RidoMap extends StatelessWidget {
 
   /// Google engine: insets for the logo / attribution and controls (`GoogleMap.padding`). Screens with a bottom
   /// sheet over the map pass the sheet height so the Google logo stays visible (required by the Maps terms).
+  /// The camera centre, [fitPoints] and overlays then use the area inside this padding ([fitPadding] is relative
+  /// to it).
   final EdgeInsets mapPadding;
 
   @override

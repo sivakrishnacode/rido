@@ -23,6 +23,7 @@ class RidoPassengerApp extends ConsumerStatefulWidget {
 class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
   late final GoRouter _router = widget.router ?? createPassengerRouter();
   StreamSubscription<void>? _unauthorized;
+  StreamSubscription<PushData>? _pushTaps;
 
   @override
   void initState() {
@@ -34,12 +35,30 @@ class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
         resetSignedInState(ref);
         ref.read(appNoticeProvider.notifier).show('Please sign in again', goTo: Routes.login);
       });
+      final push = ref.read(pushProvider);
+      if (push != null) {
+        // Trip progress is already on screen while the app is open; chat and announcements still show.
+        push.suppress = (data) => data['type'] == 'trip';
+        _pushTaps = push.taps.listen(_onPushTap);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final launch = push.takeLaunchTap();
+          if (launch != null) _onPushTap(launch);
+        });
+      }
     }
+  }
+
+  /// A tapped notification about a trip or its chat opens that trip's screen.
+  Future<void> _onPushTap(PushData data) async {
+    if (data['type'] != 'trip' && data['type'] != 'chat') return;
+    final route = await restoreActiveTrip(ref);
+    if (mounted && route != null) _router.go(route);
   }
 
   @override
   void dispose() {
     _unauthorized?.cancel();
+    _pushTaps?.cancel();
     super.dispose();
   }
 
