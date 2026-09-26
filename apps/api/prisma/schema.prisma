@@ -411,9 +411,12 @@ model AppSetting {
 }
 
 /// Historical travel speed between two H3 cells (res 7) by hour of day (IST), built from completed trips.
+/// Learned travel speed between two H3 cells of the same resolution (9, 8 and 7; ETAs use the finest with enough trips).
 model HexStat {
   fromCell       String
   toCell         String
+  /// H3 resolution of both cells.
+  res            Int      @default(7)
   /// 0–23, IST.
   hour           Int
   trips          Int
@@ -423,4 +426,5 @@ model HexStat {
 
   @@id([fromCell, toCell, hour])
   @@index([fromCell])
+  @@index([res, trips])
 }

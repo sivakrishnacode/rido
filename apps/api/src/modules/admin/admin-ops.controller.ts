@@ -4,8 +4,7 @@ import { Roles } from '../../core/auth/roles.decorator.js';
 import type { Announcement, AuditLog, Payment } from '../../generated/prisma/client.js';
 import { Role } from '../../generated/prisma/enums.js';
 import { DemandService, DemandSnapshot } from '../geo/demand.service.js';
-import { HexStatsService } from '../geo/hex-stats.service.js';
-import type { HexStat } from '../../generated/prisma/client.js';
+import { HexStatsService, type HexStatsSummary } from '../geo/hex-stats.service.js';
 import type { Settings } from '../settings/settings.defaults.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { AdminHeatmapService, Heatmap } from './admin-heatmap.service.js';
@@ -14,6 +13,7 @@ import type { Paged } from './admin.types.js';
 import { AuditInterceptor } from './audit.interceptor.js';
 import { CreateAnnouncementDto } from './dto/announcement.dto.js';
 import { HeatmapQueryDto } from './dto/heatmap-query.dto.js';
+import { HexStatsQueryDto } from './dto/hex-stats-query.dto.js';
 import { ListQueryDto } from './dto/list-query.dto.js';
 
 /** Live map, payments, announcements, settings, audit log and CSV export. */
@@ -46,10 +46,20 @@ export class AdminOpsController {
     return refresh === 'true' ? this.demand.refresh(true) : this.demand.snapshot();
   }
 
-  /** Learned hex-pair speeds (for ETAs): summary and busiest pairs. */
+  /**
+   * Learned hex-pair speeds (for ETAs) at ?res=9|8|7 (default 8): pairs filtered by ?hour=0–23 and ?used=true
+   * (≥ historicalEtaMinTrips), sorted by ?sort=busiest|slowest|fastest; speed by hour, slow areas and ETA accuracy.
+   */
   @Get('hex-stats')
-  hexStatsSummary(): Promise<{ rows: number; lastRun: string | null; top: HexStat[] }> {
-    return this.hexStats.summary();
+  async hexStatsSummary(@Query() q: HexStatsQueryDto): Promise<HexStatsSummary> {
+    return this.hexStats.summary({
+      res: q.res ?? 8,
+      hour: q.hour,
+      sort: q.sort ?? 'busiest',
+      usedOnly: q.used ?? false,
+      minTrips: await this.settings.get('historicalEtaMinTrips'),
+      limit: q.limit ?? 100,
+    });
   }
 
   @Post('hex-stats/rebuild')

@@ -18,7 +18,9 @@ import type {
   CityFareRule,
   CityListItem,
   DemandSnapshot,
+  HexStatRes,
   HexStats,
+  HexStatsSort,
   SettingsRecord,
   Heatmap,
   HeatmapQuery,
@@ -237,7 +239,7 @@ export const adminApi = {
     apiFetch<SettingsRecord>("/admin/settings", { method: "PUT", body: data }),
   audit: (q: ListQuery = {}) => apiFetch<Paged<AuditLog>>("/admin/audit", { query: listQuery(q) }),
   demand: (refresh = false) => apiFetch<DemandSnapshot>("/admin/demand", { query: { refresh: refresh ? "true" : undefined } }),
-  hexStats: () => apiFetch<HexStats>("/admin/hex-stats"),
+  hexStats: (q: { res: HexStatRes; hour?: number; sort?: HexStatsSort; used?: boolean; limit?: number }) => apiFetch<HexStats>("/admin/hex-stats", { query: q }),
   rebuildHexStats: () => apiFetch<{ pairs: number; trips: number }>("/admin/hex-stats/rebuild", { method: "POST" }),
   heatmap: (q: HeatmapQuery = {}) => apiFetch<Heatmap>("/admin/heatmap", { query: { ...q } }),
 };

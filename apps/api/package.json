@@ -26,7 +26,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
-    "seed:demo-trips": "tsx prisma/seed-demo-trips.ts"
+    "seed:demo-trips": "tsx prisma/seed-demo-trips.ts",
+    "seed:demo-people": "tsx prisma/seed-demo-people.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

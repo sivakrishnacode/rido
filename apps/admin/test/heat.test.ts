@@ -44,16 +44,22 @@ describe("toResolution", () => {
 });
 
 describe("travel speeds", () => {
-  it("weights hourly speed by trips", async () => {
-    const { speedByHour } = await import("@/lib/speeds");
-    const rows = [
-      { fromCell: "a", toCell: "b", hour: 8, trips: 3, avgSpeedKmh: 10, avgDurationMin: 12 },
-      { fromCell: "a", toCell: "c", hour: 8, trips: 1, avgSpeedKmh: 30, avgDurationMin: 6 },
-      { fromCell: "b", toCell: "c", hour: 18, trips: 2, avgSpeedKmh: 12, avgDurationMin: 9 },
-    ];
-    expect(speedByHour(rows)).toEqual([
-      { hour: "08:00", speed: 15, trips: 4 },
-      { hour: "18:00", speed: 12, trips: 2 },
+  it("compares rush hours with the rest of the day (time-weighted)", async () => {
+    const { peakVsOffPeak } = await import("@/lib/speeds");
+    const r = peakVsOffPeak([
+      { hour: 9, speed: 12, trips: 10 },
+      { hour: 18, speed: 12, trips: 10 },
+      { hour: 13, speed: 20, trips: 5 },
+      { hour: 14, speed: 30, trips: 5 },
     ]);
+    expect(r.peak).toBeCloseTo(12);
+    expect(r.offPeak).toBeCloseTo(24); // 10 trips / (5/20 + 5/30)
+    expect(r.slowdownPct).toBeCloseTo(50);
+  });
+
+  it("compares a pair with the hourly average", async () => {
+    const { vsHourAvg } = await import("@/lib/speeds");
+    expect(vsHourAvg(9, 8, [{ hour: 8, speed: 12 }])).toBeCloseTo(-25);
+    expect(vsHourAvg(9, 3, [{ hour: 8, speed: 12 }])).toBeNull();
   });
 });

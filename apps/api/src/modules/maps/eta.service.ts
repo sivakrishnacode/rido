@@ -3,7 +3,7 @@ import { cellToLatLng } from 'h3-js';
 
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { VehicleKind } from '../../generated/prisma/enums.js';
-import { haversineMeters } from '../fares/fare-engine.js';
+import { etaMinutes, FALLBACK_KMH, roadKm } from '../geo/eta-model.js';
 import { cellAt } from '../geo/h3.util.js';
 import { HexStatsService, istHour } from '../geo/hex-stats.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -11,14 +11,11 @@ import { MapsService } from './maps.service.js';
 
 const ETA_RES = 8;
 const ETA_TTL_S = 600;
-/** City approach speed when no road ETA is available. */
-const FALLBACK_KMH = 20;
-const ROAD_FACTOR = 1.3;
 
 /**
- * ETA between two points: learned hex-pair speed (HexStatsService) → Google road ETA → estimate;
- * cached per H3 cell pair: every driver in the same hexagon
- * shares one lookup for 10 minutes, which keeps Routes API calls (and cost) low.
+ * ETA between two points: learned hex-pair speed (HexStatsService, from the exact points: in memory, free)
+ * → Google road ETA → estimate. Road ETAs and estimates are cached per res-8 cell pair: every driver in the
+ * same hexagon shares one lookup for 10 minutes, which keeps Routes API calls (and cost) low.
  */
 @Injectable()
 export class EtaService {
@@ -33,6 +30,10 @@ export class EtaService {
     const a = cellAt(params.from.lat, params.from.lng, ETA_RES);
     const b = cellAt(params.to.lat, params.to.lng, ETA_RES);
     if (a === b) return 1;
+    // 1. Learned speed for this hex pair and hour (finest resolution with enough completed trips).
+    const minTrips = await this.settings.get('historicalEtaMinTrips');
+    const learned = minTrips > 0 ? this.hexStats.speedKmh({ from: params.from, to: params.to, hour: istHour(new Date()), minTrips }) : null;
+    if (learned) return etaMinutes(roadKm(params.from, params.to), learned.speed);
     const key = `eta:${params.useRoad ? 'road' : 'est'}:${a}:${b}`;
     const hit = await this.redis.get(key);
     if (hit) return Number(hit);
@@ -46,18 +47,11 @@ export class EtaService {
     const [bLat, bLng] = cellToLatLng(b);
     const from = { lat: aLat, lng: aLng };
     const to = { lat: bLat, lng: bLng };
-    // 1. Learned speed for this hex pair and hour (from completed trips), when there is enough data.
-    const minTrips = await this.settings.get('historicalEtaMinTrips');
-    const learned = minTrips > 0 ? this.hexStats.speedKmh({ from: a, to: b, hour: istHour(new Date()), minTrips }) : null;
-    if (learned) {
-      const km = (haversineMeters(from, to) / 1000) * ROAD_FACTOR;
-      return Math.max(1, Math.round((km / learned.speed) * 60));
-    }
+    // 2. Road ETA, 3. straight-line estimate.
     if (params.useRoad && this.maps.isGoogleEnabled) {
       const road = await this.maps.route({ from, to, vehicleKind: params.vehicleKind });
       if (road) return Math.max(1, road.durationMin);
     }
-    const km = (haversineMeters(from, to) / 1000) * ROAD_FACTOR;
-    return Math.max(1, Math.round((km / FALLBACK_KMH) * 60));
+    return etaMinutes(roadKm(from, to), FALLBACK_KMH);
   }
 }

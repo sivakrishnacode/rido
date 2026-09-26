@@ -78,6 +78,7 @@ turbo.json            task pipeline
 | `npm run start:dev -w @rido/api` | API with watch mode (needs Postgres + Redis) |
 | `npm run test:e2e -w @rido/api` | API end-to-end tests on an isolated `rido_test` database + Redis DB 1 (migrated and seeded each run; dev data untouched) |
 | `npm run seed:demo-trips -w @rido/api [-- --clear]` | Add (or remove) ~2,000 demo trips for heatmaps and dashboards |
+| `npm run seed:demo-people -w @rido/api [-- --clear]` | Add (or remove) 40 passengers, 32 drivers (KYC, subscriptions, payments) and 12 tickets; run after demo trips, which it spreads across them |
 | `npm run prisma:migrate -w @rido/api` | Create/apply a migration in development |
 | `npm run prisma:deploy -w @rido/api` | Apply migrations (CI / production) |
 | `npm run prisma:seed -w @rido/api` | Seed places and plan prices (idempotent) |
@@ -272,10 +273,15 @@ Never commit real `.env` files.
   formula and a live example: ratio 3 → 1 + 0.1 × 2 = 1.2×), "Dispatch & ETA" (batchWindowMs, useRoadEta,
   historicalEtaMinTrips, searchRadiusKm, offerSeconds, maxCandidates), Driver plans, Support, and any new key in
   "Other" (typed from the API value). Only changed keys are sent; values are validated client + server side.
-- **Travel speeds (`/travel-speeds`, System):** `GET /v1/admin/hex-stats` summary (rows, last rebuilt), "Rebuild now"
-  (`POST /v1/admin/hex-stats/rebuild`), top hex pairs (from → to with place names via cached reverse geocode, IST hour,
-  trips, avg km/h, avg minutes; "used" when trips ≥ historicalEtaMinTrips), a map of the selected pair's two res-7 hexes
-  and a trip-weighted average-speed-by-hour chart.
+- **Travel speeds (`/travel-speeds`, System):** `GET /v1/admin/hex-stats?res=9|8|7&hour=&sort=busiest|slowest|fastest&used=true`.
+  Tabs for hex size (street res 9 / neighbourhood res 8, default / district res 7, with row counts); filters for IST hour,
+  sort and "only pairs used for ETAs". KPIs: **ETA error** (recent 14 days of finished trips replayed through the learned
+  speeds: MAPE, ± minutes, bias; in-sample, so an upper bound), **trips with a learned ETA** (coverage), **rush-hour
+  slowdown** (8–10 am / 5–8 pm vs rest, time-weighted), rows at this size + "Rebuild now". Speed-by-hour chart over all
+  rows at the size (rush hours darker, trips line, whole-day average), a "Where ETAs come from" table (street / neighbourhood /
+  district pair, all-day average, fallback: share, ± min, % error), top 50 pairs (place names for every hex via cached reverse
+  geocode; "rush", "used", **vs hour avg** %), and a map with two modes: selected pair, or **slow areas** (speed of trips
+  leaving each hex on the heat ramp, hour filter applies).
 - **Heatmap (`/heatmap`):** H3 choropleth of `GET /v1/admin/heatmap` (metric pickups / drops / unmet demand / fares ₹,
   date presets Today / 7 / 30 days / custom, hour-of-day range with Morning 7–10 and Evening 17–20 presets, ride/parcel,
   vehicle, resolution Street 8 / Area 7 / District 6), colour-blind-safe yellow → coral → deep red ramp at 0.65 opacity,
@@ -345,13 +351,50 @@ suggestion's name.
 
 ---
 
+## 9b. AWS deployment (single EC2, low cost)
+
+Everything (Postgres, Redis, API, admin) runs with Docker Compose on one EC2 instance. No domain yet, so it's plain HTTP on the IP.
+
+| Item | Value |
+|---|---|
+| Account / region | `786020471552` / ap-south-1 (Mumbai), AWS CLI profile `rido` (IAM user `rido-deployer`, `AmazonEC2FullAccess` only) |
+| Instance | `i-0f90806819ce574cd` (`rido-server`), t3.small (free-tier eligible), Ubuntu 24.04, 20 GB gp3, 2 GB swap |
+| Public IP | Elastic IP **65.0.233.253**: API `http://65.0.233.253:3000/v1`, admin `http://65.0.233.253:3001` |
+| Security group | `sg-0f4edf3e881efde00` (`rido-sg`): 22 from the owner's IP only, 3000–3001 public; Postgres/Redis not published |
+| SSH | `ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253` |
+| On server | `/opt/rido`: `docker-compose.yml`, `docker-compose.prod.yml` (removes DB/Redis host ports), `.env` (generated JWT secret + DB password, mode 600) |
+
+**Seed prod** (the image has no TS sources, so seeders run locally through an SSH tunnel; ids `demo_…`, removable with `--clear`):
+
+```bash
+PGIP=$(ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' rido-postgres-1")
+ssh -i ~/.ssh/rido-key.pem -f -N -L 15432:$PGIP:5432 ubuntu@65.0.233.253
+DATABASE_URL="postgresql://rido:<POSTGRES_PASSWORD from /opt/rido/.env>@127.0.0.1:15432/rido" npm run seed:demo-people -w @rido/api
+```
+
+Seeded 26 Sep 2026: 2,000 demo trips + demo people.
+
+**Redeploy** (images are built locally so the small instance never runs `next build`):
+
+```bash
+set -a; . ./.env; set +a
+docker build -f apps/api/Dockerfile -t rido-api:local .
+docker build -f apps/admin/Dockerfile --build-arg NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY="$GOOGLE_MAPS_BROWSER_KEY" -t rido-admin:local .
+docker save rido-api:local rido-admin:local | gzip -1 | ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'gunzip | docker load'
+ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'cd /opt/rido && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build'
+```
+
+If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new IP. An Elastic IP costs money while it isn't attached to a running instance, so release it if the server is terminated.
+
+---
+
 ## 10. Not done yet / next steps
 
 | Item | Notes |
 |---|---|
 | Apps → API | Apps still use mock repositories (`rido_data`); swap in HTTP repositories via Riverpod overrides |
 | CI | Add GitHub Actions: `npm ci`, `npm run check`, API e2e with service containers, APK build artifacts |
-| Hosting | AWS ap-south-1 (Mumbai): ECS Fargate or one EC2 + Docker, RDS Postgres, ElastiCache Redis |
+| Hosting | **Staging live (26 Sep 2026)**: see "9b. AWS deployment". Later: HTTPS + domain, RDS/ElastiCache when load needs it |
 | Secrets | AWS Secrets Manager / SSM for `JWT_SECRET`, Google keys, DB password |
 | Observability | Structured logs → CloudWatch; health checks already exposed |
 | Payments | Razorpay Subscriptions (UPI Autopay mandates) |
@@ -373,10 +416,11 @@ suggestion's name.
 |---|---|---|
 | Driver–passenger matching | **Done (25 Sep 2026):** drivers indexed at res 8; pickup hex then rings outward; ranked by road ETA per hex pair; batched assignment | Redis GEOSEARCH radius (removed) |
 | Demand zones and surge | **Done:** bookings counted per res-7 hex per minute (Redis `h3:req:<min>:<cell>`); every 60 s `DemandService` compares requests (last `demandWindowMin`) with free drivers in the hex → `surgeFor` (1 + sensitivity × (ratio − 1), ≤ maxMultiplier, floor 0.05) → **k-ring smoothing** (own × 0.6 + ring-1 mean × 0.4, avoids price cliffs at hex edges) → `h3:surge:<cell>` (3 min TTL). Fares use max(zone surge / default, live surge). Public `GET /v1/demand` for the driver app's "High demand" areas | Hard-coded demand circles |
-| ETA | **Done:** `HexStatsService` aggregates completed trips (60 days) into `HexStat` (res-7 from → to, IST hour, trips, avg speed, avg minutes); rebuilt daily (Redis lock) or `POST /v1/admin/hex-stats/rebuild`; kept in memory. `EtaService` order: learned speed (≥ `historicalEtaMinTrips`) → Google Routes → 20 km/h estimate; cached per res-8 cell pair 10 min | 18 km/h constant |
+| ETA | **Done (multi-resolution 26 Sep 2026):** `HexStatsService` aggregates completed trips (60 days, 3–80 km/h) into `HexStat` at **res 9, 8 and 7** (`res` column; from → to, IST hour, trips, speed = total km / total time, avg minutes); rebuilt daily (Redis lock) or `POST /v1/admin/hex-stats/rebuild`; kept in memory. Lookup backs off: exact hour at res 9 → 8 → 7, then the all-day average at res 9 → 8 → 7, first with ≥ `historicalEtaMinTrips`. `EtaService` order: learned speed from the exact points (in memory, free) → Google Routes → 20 km/h estimate (`geo/eta-model.ts`); road/estimate cached per res-8 cell pair 10 min | 18 km/h constant; res-7 only |
 
 Resolutions used: res 8 (≈0.74 km²) for service areas, zones, the driver index, trip cells and heatmaps; res 7
-(≈5 km², parent of 7 res-8 cells) for demand/supply, surge and learned speeds (enough trips per cell to be stable).
+(≈5 km², parent of 7 res-8 cells) for demand/supply and surge; learned speeds at res 9 (≈0.1 km²), 8 and 7 with
+back-off, so busy streets get street-level speeds while quiet areas still get a stable district average.
 Compaction: `GET /v1/cities/:id/service-area?compact=true` returns `compactCells` output (mixed resolutions) for
 small app payloads. Still optional: `h3_flutter` in the driver app to draw `/v1/demand` hexes (apps use mock data today).
 

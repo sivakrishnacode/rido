@@ -554,15 +554,46 @@ export interface HexStatRow {
   readonly toCell: string;
   /** IST hour 0–23. */
   readonly hour: number;
+  /** H3 resolution of both cells (9 street, 8 neighbourhood, 7 district). */
+  readonly res: HexStatRes;
   readonly trips: number;
   readonly avgSpeedKmh: number;
   readonly avgDurationMin: number;
   readonly updatedAt?: string;
 }
 
-/** GET /admin/hex-stats. */
+export const HEX_STAT_RES = [9, 8, 7] as const;
+export type HexStatRes = (typeof HEX_STAT_RES)[number];
+
+/** GET /admin/hex-stats?res=9|8|7. */
 export interface HexStats {
+  readonly res: HexStatRes;
+  /** Rows at [res]. */
   readonly rows: number;
+  readonly byRes: Record<HexStatRes, number>;
   readonly lastRun: string | null;
   readonly top: HexStatRow[];
+  /** All rows at res: speed per IST hour. */
+  readonly byHour: readonly { hour: number; speed: number; trips: number }[];
+  /** Speed of trips leaving each hex (hour filter applies). */
+  readonly areas: readonly { cell: string; speed: number; trips: number }[];
+  readonly accuracy: EtaAccuracy;
 }
+
+export type EtaSource = "res9" | "res8" | "res7" | "all-day" | "fallback";
+
+export interface EtaAccuracyStats {
+  readonly trips: number;
+  readonly maeMin: number;
+  readonly mapePct: number;
+  /** Mean (predicted − actual) minutes: positive = ETAs too long. */
+  readonly biasMin: number;
+}
+
+/** Recent trips replayed through the learned speeds. */
+export interface EtaAccuracy extends EtaAccuracyStats {
+  readonly days: number;
+  readonly sources: readonly (EtaAccuracyStats & { source: EtaSource })[];
+}
+
+export type HexStatsSort = "busiest" | "slowest" | "fastest";
