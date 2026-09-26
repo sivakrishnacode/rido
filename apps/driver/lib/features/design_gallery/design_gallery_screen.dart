@@ -44,6 +44,7 @@ class _DemoControlsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(isLiveApiProvider)) return const _LiveApiInfo();
     final s = ref.watch(demoSettingsProvider);
     void set(DemoSettings Function(DemoSettings s) change) => ref.read(demoSettingsProvider.notifier).update(change);
 
@@ -152,5 +153,64 @@ class _DemoControlsTab extends ConsumerWidget {
       ..invalidate(signupProvider)
       ..invalidate(earningsProvider);
     showRidoSnack(context, 'Seed data reset', success: true);
+  }
+}
+
+/// Demo controls with the live API: the switches drive the seed data and the trip simulator, which this
+/// build doesn't use, so they are hidden; the server and connection are shown instead.
+class _LiveApiInfo extends ConsumerWidget {
+  const _LiveApiInfo();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.type;
+    final api = ref.watch(apiClientProvider);
+    final realtime = ref.watch(realtimeProvider);
+    final session = ref.watch(driverSessionProvider);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.xxl),
+      children: [
+        DemoGroup(title: 'Live API', children: [
+          RidoListTile(
+            icon: Symbols.dns_rounded,
+            title: 'API base URL',
+            subtitle: api.baseUrl,
+            showChevron: false,
+          ),
+          StreamBuilder<bool>(
+            stream: realtime.connection,
+            initialData: realtime.isConnected,
+            builder: (context, snap) => RidoListTile(
+              icon: snap.data == true ? Symbols.wifi_rounded : Symbols.wifi_off_rounded,
+              title: 'Realtime (Socket.IO)',
+              subtitle: snap.data == true ? 'Connected to ${api.origin}/rt' : 'Not connected (connects when you go online)',
+              showChevron: false,
+            ),
+          ),
+          RidoListTile(
+            icon: Symbols.badge_rounded,
+            title: 'Driver ID',
+            subtitle: api.session.driverId ?? 'Not signed up yet',
+            showChevron: false,
+          ),
+          RidoListTile(
+            icon: Symbols.power_settings_new_rounded,
+            title: 'Session',
+            subtitle: session.onJob
+                ? 'On a job (${session.phase.name})'
+                : session.online
+                    ? (session.gpsLost ? 'Online · no GPS fix for 30 s' : 'Online · sharing GPS')
+                    : 'Offline',
+            showChevron: false,
+          ),
+        ]),
+        const SizedBox(height: RidoSpacing.m),
+        Text(
+          'Demo switches (plan status, reject KYC, fail payment, GPS lost…) only work in the seed-data build: '
+          'run with --dart-define=RIDO_LIVE_API=false. Here, approvals and plans are changed in the admin panel.',
+          style: t.bodySmall.copyWith(color: RidoColors.navy500),
+        ),
+      ],
+    );
   }
 }

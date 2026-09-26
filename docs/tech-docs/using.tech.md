@@ -168,6 +168,25 @@ Never commit real `.env` files.
 - **Public geo:** `GET /v1/cities`, `GET /v1/cities/:id/service-area` (cells + zones for the apps), `GET /v1/geo/check`,
   `GET /v1/announcements?audience=&cityId=`.
 - **API prefix:** `/v1` (health endpoints unprefixed). Endpoint list: see README "Backend".
+- **App APIs added 26 Sep 2026 (mobile go-live):**
+  - `GET /trips/active` (the caller's unfinished trip, to restore either app after a restart), `GET /trips/offer`
+    (driver: the request currently offered, for when the socket missed `trip.offer`).
+  - `GET|POST /trips/:id/messages` in-trip chat (Redis list `trip:chat:<id>`, 24 h, ≤ 200 messages; pushed as
+    `trip.message` on the trip room).
+  - Trips include `driver.user` and `passenger` (name, phone) for both sides; the **OTP is hidden from drivers** in
+    offers, trip reads and history.
+  - `trip.offer` payload: `{ trip, passenger: {name, phone}, pickupKm, pickupEtaMin, expiresInSeconds }`.
+  - `PATCH /drivers/me` (name, gender, work type, vehicle model/colour, plate, UPI), `GET /drivers/me/earnings?period=today|week|month`
+    (today in 2-hour buckets, 7 days, 4 weeks; commission saved = 30 % of fares; online hours from Redis
+    `driver:online_since:<id>` / `driver:online_secs:<id>:<IST day>`, 40 days).
+  - `POST /drivers/me/documents/:type` is **multipart** (`file`: JPG/PNG/WebP/PDF ≤ 8 MB) → **S3**
+    `s3://rido-uploads-786020471552/kyc/<uuid>.<ext>` when `S3_BUCKET` is set (production), else local disk
+    (`UPLOAD_DIR`, Docker volume `uploads`, dev) → `KycDocument.fileUrl` = file name. Admins read it via
+    `GET /v1/admin/files/:name` (streams from S3; files saved on disk before the switch are still found), proxied by
+    the admin panel at `/files/:name` (never public). `FileStorageService` in `core/storage`.
+  - `GET /subscriptions/me/payments`, `POST /subscriptions/me/autopay {upiApp}` (Autopay during the trial).
+  - Global JWT/roles guards now skip non-HTTP contexts: sockets authenticate on connect. (Before this, `trip:join` and
+    `driver:location` crashed in the guard, so live tracking never reached passengers.)
 - **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, Trip, Plan, Subscription,
   Payment, SupportTicket. Money in whole rupees (Int). Migrations in `apps/api/prisma/migrations`.
 - **Redis keys:**
@@ -182,7 +201,9 @@ Never commit real `.env` files.
 | `driver:alive:<driverId>` | Heartbeat; stale drivers are skipped | 90 s |
 | `driver:busy:<driverId>` | Active trip id | until trip ends |
 | `user:blocked:<userId>` | Blocked by an admin (checked on every request) | until unblocked |
-| `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer` | Nearest-driver queue, current 15 s offer | 10 min / 15 s |
+| `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer`, `dispatch:driver:<driverId>:offer` | Nearest-driver queue, current 15 s offer (both directions) | 10 min / 15 s |
+| `trip:chat:<tripId>` | In-trip chat messages | 24 h |
+| `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
 | `maps:ac:*`, `maps:pd:*`, `maps:rg:*`, `maps:rt:*` | Google response cache | 1 d / 30 d / 30 d / 6 h |
 
 - **Dispatch (Uber-style, see owner ref "How Uber finds your driver"):**
@@ -196,7 +217,8 @@ Never commit real `.env` files.
   5. The whole batch is assigned together (`assignBatch`: all trip–driver pairs by ETA, each driver to one rider),
      then each driver gets `offerSeconds` to accept; decline/timeout → next in that trip's queue → `NO_DRIVERS`.
 - **Realtime (`/rt`):** connect with `auth: { token }`; rooms `user:<id>`, `driver:<id>`, `trip:<id>`. Events:
-  `trip.offer`, `trip.updated`, `trip.location`, `trip.no_drivers`. Drivers stream `driver:location`.
+  `trip.offer`, `trip.updated`, `trip.location`, `trip.message`, `trip.no_drivers`. Drivers stream `driver:location`;
+  clients `trip:join {tripId}` (participants only).
 - **Fares:** same engine as the apps. Distance: measured demo routes, then Google Routes distance (cached), then
   haversine × 1.3; duration uses 18 km/h so prices stay predictable.
 - **Payments:** simulated (`Payment` rows with `providerRef sim_*`). Plug Razorpay Subscriptions / UPI Autopay into
@@ -327,6 +349,30 @@ suggestion's name.
 
 ---
 
+## 7b. Apps ↔ API (packages/rido_data/lib/src/api)
+
+- **Base URL:** `kApiBaseUrl` = `--dart-define=RIDO_API_URL` (default `http://65.0.233.253:3000/v1`, the AWS staging
+  server). `--dart-define=RIDO_LIVE_API=false` runs the apps on seed data + the trip simulator (widget tests and the
+  design gallery always do: they don't apply the overrides).
+- **Wiring:** each app's `main()` loads `ApiSession` (token + driver id in SharedPreferences), creates `ApiClient` and runs
+  `ProviderScope(overrides: liveApiOverrides(api))`, which swaps every repository provider for its `Api*Repository` and
+  sets `isLiveApiProvider`. Screens don't change; flow controllers branch on `isLiveApiProvider`.
+- **HTTP:** `ApiClient` (package:http, 20 s timeout). Network errors → `OfflineException` (screens' offline state); API
+  errors → `ApiException(status, message)` with the API's user-facing message; 401 clears the session and fires
+  `onUnauthorized` (apps go to sign-in).
+- **Realtime:** `RealtimeClient` (socket_io_client, websocket, auto-reconnect, re-joins trip rooms). `LiveTrips`
+  (passenger: book, status, driver GPS, chat, cancel, rate, restore) and `LiveJobs` (driver: online/offline, offers,
+  accept → arrived → start(OTP) → complete, GPS over the socket with an HTTP heartbeat fallback, chat, restore).
+- **Routes:** `RoadRouter.backend = backendRouter(api)` → `POST /v1/maps/route` (Google on the server, Redis-cached,
+  two-wheeler for bikes via `travelModeFor`), then OSRM. The apps no longer need the app-side Google web-services key
+  (key 3) in live mode; places search also goes through the API.
+- **Mapping:** `api_mappers.dart` (API enums `GOODS_BIKE` ↔ app `goodsBike`; NO_DRIVERS folds into cancelled; parcel
+  details stored as JSON on the trip; the ride OTP doubles as the parcel delivery OTP). Tests: `test/api_mappers_test.dart`.
+- **Android:** cleartext HTTP is allowed only for the staging IP (`res/xml/network_security_config.xml`); switch to
+  HTTPS and remove it once there's a domain.
+
+---
+
 ## 8. Testing and quality
 
 | Package | Checks |
@@ -362,7 +408,8 @@ Everything (Postgres, Redis, API, admin) runs with Docker Compose on one EC2 ins
 | Public IP | Elastic IP **65.0.233.253**: API `http://65.0.233.253:3000/v1`, admin `http://65.0.233.253:3001` |
 | Security group | `sg-0f4edf3e881efde00` (`rido-sg`): 22 from the owner's IP only, 3000–3001 public; Postgres/Redis not published |
 | SSH | `ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253` |
-| On server | `/opt/rido`: `docker-compose.yml`, `docker-compose.prod.yml` (removes DB/Redis host ports), `.env` (generated JWT secret + DB password, mode 600) |
+| On server | `/opt/rido`: `docker-compose.yml`, `docker-compose.prod.yml` (removes DB/Redis host ports), `.env` (generated JWT secret + DB password, `S3_BUCKET`, mode 600) |
+| Uploads (S3) | Bucket `rido-uploads-786020471552` (ap-south-1): all public access blocked, SSE-S3 default encryption, ACLs off. The instance role `rido-ec2-uploads` may only Put/Get `kyc/*` and List with prefix `kyc/` (no keys on the server). IMDSv2 required, hop limit 2 (so the API container can reach instance credentials) |
 
 **Seed prod** (the image has no TS sources, so seeders run locally through an SSH tunnel; ids `demo_…`, removable with `--clear`):
 

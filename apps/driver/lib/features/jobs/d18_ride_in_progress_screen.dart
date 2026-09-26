@@ -4,15 +4,18 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
+import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'widgets/job_common.dart';
 import 'widgets/job_map.dart';
 
 /// D-18 Ride in progress: turn-by-turn strip with ETA, route to the drop with the moving
 /// vehicle, SOS (→ D-18b) and "Swipe to end ride" (→ D-19). Back asks before leaving;
-/// the D-14b banner on Home reopens the trip.
+/// the D-14b banner on Home reopens the trip. Live API: the strip shows the drop (no turn-by-turn;
+/// the ETA follows the GPS along the route) and ending the ride completes the trip on the server.
 class D18RideInProgressScreen extends ConsumerStatefulWidget {
   const D18RideInProgressScreen({super.key, this.showcase = false});
 
@@ -25,10 +28,25 @@ class D18RideInProgressScreen extends ConsumerStatefulWidget {
 
 class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScreen> {
   late final RideRequest _job = ref.read(driverSessionProvider).job ?? Seed.rideRequest;
-  late final List<LatLng> _fallbackRoute = roadPath(_job.pickup.location, _job.drop.location);
+  late final List<LatLng> _fallbackRoute =
+      roadPath(_job.pickup.location, _job.drop.location, mode: travelModeFor(_job.vehicle));
+  late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
+  bool _busy = false;
 
-  void _endRide(bool live) {
-    if (live) ref.read(driverSessionProvider.notifier).endRide();
+  Future<void> _endRide(bool live) async {
+    if (_busy) return;
+    if (live) {
+      setState(() => _busy = true);
+      try {
+        await ref.read(driverSessionProvider.notifier).endRide();
+      } on Exception catch (e) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        showRidoSnack(context, userMessage(e));
+        return;
+      }
+      if (!mounted) return;
+    }
     if (widget.showcase) {
       context.push(Routes.collect);
     } else {
@@ -61,14 +79,14 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
                   width: 48,
                   height: 48,
                   decoration: const BoxDecoration(color: RidoColors.success, borderRadius: RidoRadii.cardRadius),
-                  child: const Icon(Symbols.turn_left_rounded, color: Colors.white, size: 30),
+                  child: Icon(_api ? Symbols.navigation_rounded : Symbols.turn_left_rounded, color: Colors.white, size: 30),
                 ),
                 const SizedBox(width: RidoSpacing.m),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(eta <= 1 ? 'Arriving at drop' : 'In 300 m, turn left',
+                    Text(eta <= 1 ? 'Arriving at drop' : (_api ? 'Going to drop' : 'In 300 m, turn left'),
                         style: t.h2.copyWith(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(eta <= 1 ? _job.drop.name : 'onto DB Road',
+                    Text(eta <= 1 || _api ? _job.drop.name : 'onto DB Road',
                         style: t.bodySmall.copyWith(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ]),
                 ),
@@ -92,6 +110,12 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
                     centerOnVehicle: false,
                   ),
                 ),
+                if (_api)
+                  Positioned(
+                    right: RidoSpacing.gutter,
+                    top: RidoSpacing.l,
+                    child: NavigatePill(onPressed: () => openNavigation(context, _job.drop.location)),
+                  ),
                 Positioned(
                   right: RidoSpacing.gutter,
                   bottom: RidoSpacing.xl,
@@ -118,7 +142,7 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
                   ]),
                 ]),
                 const SizedBox(height: RidoSpacing.l),
-                SwipeToConfirm(label: 'Swipe to end ride', onConfirmed: () => _endRide(live)),
+                SwipeToConfirm(label: 'Swipe to end ride', enabled: !_busy, onConfirmed: () => _endRide(live)),
               ]),
             ),
           ],

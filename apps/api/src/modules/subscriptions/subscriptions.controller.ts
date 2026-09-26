@@ -4,8 +4,9 @@ import type { AuthUser } from '../../core/auth/auth-user.js';
 import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Public } from '../../core/auth/public.decorator.js';
 import { Roles } from '../../core/auth/roles.decorator.js';
-import type { Plan, Subscription } from '../../generated/prisma/client.js';
+import type { Payment, Plan, Subscription } from '../../generated/prisma/client.js';
 import { Role, SubscriptionStatus, VehicleKind } from '../../generated/prisma/enums.js';
+import { AutopayDto } from './dto/autopay.dto.js';
 import { PurchasePlanDto } from './dto/purchase-plan.dto.js';
 import { SubscriptionsService } from './subscriptions.service.js';
 
@@ -27,9 +28,22 @@ export class SubscriptionsController {
   }
 
   @Roles(Role.DRIVER)
+  @Get('subscriptions/me/payments')
+  payments(@CurrentUser() user: AuthUser): Promise<Payment[]> {
+    return this.subs.payments(SubscriptionsController.driverId(user));
+  }
+
+  @Roles(Role.DRIVER)
   @Post('subscriptions')
   purchase(@CurrentUser() user: AuthUser, @Body() body: PurchasePlanDto): Promise<Subscription> {
     return this.subs.purchase({ driverId: SubscriptionsController.driverId(user), ...body });
+  }
+
+  @Roles(Role.DRIVER)
+  @Post('subscriptions/me/autopay')
+  @HttpCode(200)
+  autopay(@CurrentUser() user: AuthUser, @Body() body: AutopayDto): Promise<Subscription> {
+    return this.subs.setupAutopay(SubscriptionsController.driverId(user), body.upiApp);
   }
 
   @Roles(Role.DRIVER)

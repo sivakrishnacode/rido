@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../state/driver_account.dart';
+import '../../state/live_helpers.dart';
 
-/// D-08 Upload document (simulated camera). D-08a: card guide, Front / Back side,
-/// "Take photo". D-08b: a captured placeholder card with "Retake" and "Use photo"
-/// ("Use photo" marks the document Under review, then Verified after 3 s, and goes back).
+/// D-08 Upload document. D-08a: card guide, Front / Back side, "Take photo". D-08b: the captured
+/// photo with "Retake" and "Use photo".
+///
+/// Mock: a simulated camera and a placeholder card; "Use photo" marks the document Under review, then
+/// Verified after 3 s, and goes back. Live API: "Take photo" opens the camera and "Gallery" the photo
+/// picker; "Use photo" uploads the picture (JPG / PNG / WebP, up to 8 MB) and the document stays under
+/// review until an admin checks it.
 class D08UploadDocumentScreen extends ConsumerStatefulWidget {
   const D08UploadDocumentScreen({super.key, this.type = KycDocType.insurance, this.captured = false, this.showcase = false});
 
@@ -30,6 +36,14 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
   bool _flash = false;
   bool _submitting = false;
 
+  /// Live API: the picked photo.
+  Uint8List? _bytes;
+  String? _filename;
+
+  static const _maxBytes = 8 * 1024 * 1024;
+
+  bool get _live => !widget.showcase && ref.read(isLiveApiProvider);
+
   String get _noun => switch (widget.type) {
         KycDocType.drivingLicence => 'licence',
         KycDocType.aadhaar => 'Aadhaar card',
@@ -38,12 +52,63 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
         KycDocType.policeVerification => 'certificate',
       };
 
+  /// Live API: camera or gallery. JPEG at most 2000 px, so uploads stay well under the 8 MB limit.
+  Future<void> _pick(ImageSource source) async {
+    try {
+      final file = await ImagePicker().pickImage(source: source, maxWidth: 2000, maxHeight: 2000, imageQuality: 85);
+      if (file == null || !mounted) return;
+      final bytes = await file.readAsBytes();
+      final ext = file.name.contains('.') ? file.name.split('.').last.toLowerCase() : '';
+      final safeExt = const {'jpg', 'jpeg', 'png', 'webp'}.contains(ext) ? ext : 'jpg';
+      if (!mounted) return;
+      setState(() {
+        _bytes = bytes;
+        _filename = '${widget.type.name}-${_back ? 'back' : 'front'}.$safeExt';
+        _captured = true;
+      });
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      showRidoSnack(
+        context,
+        e.code.contains('access_denied') || e.code.contains('permission')
+            ? 'Allow camera and photo access for Rido Driver in Settings'
+            : "Couldn't open the ${source == ImageSource.camera ? 'camera' : 'gallery'}",
+      );
+    }
+  }
+
   Future<void> _use() async {
     if (_submitting) return;
+    if (_live) return _upload();
     setState(() => _submitting = true);
     await ref.read(kycProvider.notifier).upload(widget.type);
     if (!mounted) return;
     showRidoSnack(context, '${widget.type.label} uploaded. We\'re reviewing it.', success: true);
+    Navigator.of(context).maybePop();
+  }
+
+  Future<void> _upload() async {
+    final bytes = _bytes;
+    final name = _filename;
+    if (bytes == null || name == null) {
+      setState(() => _captured = false);
+      return;
+    }
+    if (bytes.length > _maxBytes) {
+      showRidoSnack(context, 'That photo is over 8 MB. Retake it or pick a smaller one.');
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await ref.read(kycProvider.notifier).uploadFile(widget.type, bytes, name);
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      showRidoSnack(context, userMessage(e));
+      return;
+    }
+    if (!mounted) return;
+    showRidoSnack(context, '${widget.type.label} uploaded. An admin will review it.', success: true);
     Navigator.of(context).maybePop();
   }
 
@@ -72,7 +137,7 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
                       child: Text(widget.type.label,
                           style: t.h1.copyWith(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
-                    IconButton(
+                    if (!_live) IconButton(
                       tooltip: _flash ? 'Flash on' : 'Flash off',
                       icon: Icon(_flash ? Symbols.flash_on_rounded : Symbols.flash_off_rounded, color: Colors.white),
                       onPressed: () => setState(() => _flash = !_flash),
@@ -107,7 +172,9 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
                                 height: h,
                                 color: _captured ? RidoColors.coral500 : Colors.white,
                                 child: _captured
-                                    ? _CapturedCard(type: widget.type, back: _back)
+                                    ? (_bytes != null
+                                        ? _PhotoPreview(bytes: _bytes!, label: widget.type.label, uploading: _submitting)
+                                        : _CapturedCard(type: widget.type, back: _back))
                                     : Container(
                                         decoration: BoxDecoration(
                                           color: RidoColors.navy700.withValues(alpha: 0.5),
@@ -130,7 +197,7 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
                                       const Icon(Symbols.check_circle_rounded, color: Colors.white, fill: 1, size: 20),
                                       const SizedBox(width: 8),
                                       Flexible(
-                                        child: Text('Looks clear · all corners visible',
+                                        child: Text(_bytes != null ? 'Check it is sharp · all corners visible' : 'Looks clear · all corners visible',
                                             style: t.bodySmallMedium.copyWith(color: Colors.white)),
                                       ),
                                     ],
@@ -138,7 +205,10 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
                                 ),
                                 const SizedBox(height: RidoSpacing.m),
                                 Text(
-                                  _back ? 'Back side captured.' : 'Now: front side. Add the back side if it has details.',
+                                  _bytes != null
+                                      // The API keeps one file per document: the side with the details.
+                                      ? 'We keep one photo per document. Use the side with your name and number.'
+                                      : (_back ? 'Back side captured.' : 'Now: front side. Add the back side if it has details.'),
                                   textAlign: TextAlign.center,
                                   style: t.body.copyWith(color: RidoColors.navy300),
                                 ),
@@ -216,10 +286,12 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
           seg('Front side', !_back, () => setState(() {
                 _back = false;
                 _captured = false;
+                _bytes = null;
               })),
           seg('Back side', _back, () => setState(() {
                 _back = true;
                 _captured = false;
+                _bytes = null;
               })),
         ],
       ),
@@ -241,6 +313,10 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
                   child: InkWell(
                     borderRadius: RidoRadii.cardRadius,
                     onTap: () {
+                      if (_live) {
+                        _pick(ImageSource.gallery);
+                        return;
+                      }
                       setState(() => _captured = true);
                       showRidoSnack(context, 'Photo picked from gallery');
                     },
@@ -267,7 +343,7 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
               excludeSemantics: true,
               child: InkWell(
                 customBorder: const CircleBorder(),
-                onTap: () => setState(() => _captured = true),
+                onTap: () => _live ? _pick(ImageSource.camera) : setState(() => _captured = true),
                 child: Container(
                   width: 80,
                   height: 80,
@@ -300,7 +376,12 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
                 shape: const StadiumBorder(side: BorderSide(color: Colors.white, width: 1.5)),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
-                  onTap: _submitting ? null : () => setState(() => _captured = false),
+                  onTap: _submitting
+                      ? null
+                      : () => setState(() {
+                            _captured = false;
+                            _bytes = null;
+                          }),
                   child: SizedBox(
                     height: 52,
                     child: Row(
@@ -319,6 +400,37 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
             Expanded(child: RidoButton(label: 'Use photo', loading: _submitting, onPressed: _use)),
           ],
         ),
+      );
+}
+
+/// Live API: the picked photo, dimmed with a spinner while it uploads.
+class _PhotoPreview extends StatelessWidget {
+  const _PhotoPreview({required this.bytes, required this.label, required this.uploading});
+  final Uint8List bytes;
+  final String label;
+  final bool uploading;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: RidoRadii.cardRadius,
+        child: Stack(fit: StackFit.expand, children: [
+          Image.memory(bytes, fit: BoxFit.cover, semanticLabel: 'Photo of your $label', gaplessPlayback: true),
+          if (uploading)
+            ColoredBox(
+              color: Colors.black54,
+              child: Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                  ),
+                  const SizedBox(height: RidoSpacing.s),
+                  Text('Uploading…', style: context.type.bodySemibold.copyWith(color: Colors.white)),
+                ]),
+              ),
+            ),
+        ]),
       );
 }
 

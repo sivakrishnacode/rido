@@ -287,6 +287,7 @@ class _GoogleRidoMapState extends State<_GoogleRidoMap> {
                 Positioned.fill(
                   child: gm.GoogleMap(
                     initialCameraPosition: initial,
+                    padding: m.mapPadding,
                     style: ridoGoogleMapStyle,
                     onMapCreated: _onCreated,
                     onCameraMove: _onCameraMove,

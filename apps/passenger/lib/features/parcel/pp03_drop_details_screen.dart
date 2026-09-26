@@ -44,7 +44,8 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
     _drop = s.drop;
     _name = TextEditingController(text: s.details.receiverName);
     _phone = TextEditingController(text: localPhone(s.details.receiverPhone));
-    _note = TextEditingController(text: s.details.dropNote.isEmpty ? _sampleDropNote : s.details.dropNote);
+    final live = ref.read(isLiveApiProvider);
+    _note = TextEditingController(text: s.details.dropNote.isEmpty && !live ? _sampleDropNote : s.details.dropNote);
   }
 
   @override
@@ -158,11 +159,14 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
                     onChanged: (_) {
                       if (_phoneError != null) setState(() => _phoneError = null);
                     },
-                    suffix: IconButton(
-                      tooltip: 'Choose from contacts',
-                      onPressed: _pickContact,
-                      icon: const Icon(Symbols.contact_page_rounded, color: RidoColors.coral600),
-                    ),
+                    // The contact list is seeded demo data; the live app has no contacts permission.
+                    suffix: ref.watch(isLiveApiProvider)
+                        ? null
+                        : IconButton(
+                            tooltip: 'Choose from contacts',
+                            onPressed: _pickContact,
+                            icon: const Icon(Symbols.contact_page_rounded, color: RidoColors.coral600),
+                          ),
                   ),
                   const SizedBox(height: 6),
                   Text('$firstName gets the delivery OTP and a tracking link by SMS',

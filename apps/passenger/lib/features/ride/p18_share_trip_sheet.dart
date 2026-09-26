@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
 import 'widgets/trip_widgets.dart';
@@ -34,6 +35,13 @@ class P18ShareTripSheet extends ConsumerWidget {
     return b.toString();
   }
 
+  /// Opens another app with the trip text, then closes the sheet.
+  void _open(BuildContext context, Future<void> launching) {
+    if (showcase) return;
+    final navigator = Navigator.of(context);
+    launching.whenComplete(() => navigator.maybePop());
+  }
+
   void _done(BuildContext context, String message) {
     showRidoSnack(context, message);
     if (!showcase) Navigator.of(context).maybePop();
@@ -43,18 +51,32 @@ class P18ShareTripSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final ride = ref.watch(rideFlowProvider);
-    final firstName = ref.watch(passengerProfileProvider).value?.firstName ?? Seed.priya.firstName;
+    final firstName = ref.watch(currentProfileProvider).firstName;
     final route = ride.routeOrDefault;
     final fix = showcase ? null : ref.read(rideFlowProvider.notifier).vehicle.value;
     final inTrip = ride.phase == RidePhase.inProgress;
     final vehiclePos = fix?.position ?? pointAlong(route, 0.62);
     final arrival = showcase ? DateTime(2026, 9, 24, 15, 42) : RidoClock.now().add(Duration(minutes: ride.etaMin));
-    final link = 'rido.in/t/${codeFor(ride.tripId)}';
+    final live = !showcase && ref.watch(isLiveApiProvider);
+    // Live API: there is no tracking page yet, so share where the vehicle is now (a Google Maps link).
+    final at = fix?.position ?? ride.pickup.location;
+    final link = live
+        ? 'maps.google.com/?q=${at.latitude.toStringAsFixed(5)},${at.longitude.toStringAsFixed(5)}'
+        : 'rido.in/t/${codeFor(ride.tripId)}';
     final status = showcase || inTrip
         ? 'arriving ${formatTime(arrival)}'
         : ride.phase == RidePhase.assigned
             ? 'driver ${ride.etaMin} min away'
             : 'live until the ride ends';
+
+    final text = tripShareText(
+      riderName: firstName,
+      driver: ride.driver,
+      vehicleLabel: ride.vehicle.label,
+      drop: ride.drop,
+      vehicleAt: live ? at : null,
+      status: live ? null : 'Track live: https://$link',
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -145,9 +167,9 @@ class P18ShareTripSheet extends ConsumerWidget {
               label: 'WhatsApp',
               background: RidoColors.successTint,
               foreground: RidoColors.successText,
-              onTap: () => _done(context, 'Opening WhatsApp'),
+              onTap: () => _open(context, openWhatsApp(context, text)),
             ),
-            _ShareOption(icon: Symbols.sms_rounded, label: 'SMS', onTap: () => _done(context, 'Opening messages')),
+            _ShareOption(icon: Symbols.sms_rounded, label: 'SMS', onTap: () => _open(context, openSms(context, text))),
             _ShareOption(
               icon: Symbols.content_copy_rounded,
               label: 'Copy link',
@@ -156,7 +178,11 @@ class P18ShareTripSheet extends ConsumerWidget {
                 _done(context, 'Link copied');
               },
             ),
-            _ShareOption(icon: Symbols.share_rounded, label: 'More', onTap: () => _done(context, 'Opening share options')),
+            _ShareOption(
+              icon: Symbols.share_rounded,
+              label: 'More',
+              onTap: () => _open(context, shareText(context, text, subject: 'My Rido trip')),
+            ),
           ],
         ),
         const SizedBox(height: 20),

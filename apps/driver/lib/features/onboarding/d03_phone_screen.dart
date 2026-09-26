@@ -6,6 +6,7 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/signup_widgets.dart';
 
 /// D-03a Phone number: +91 input; "Send OTP" (enabled at 10 digits) → D-03b.
@@ -38,11 +39,12 @@ class _D03PhoneScreenState extends ConsumerState<D03PhoneScreen> {
     final formatted = '${_digits.substring(0, 5)} ${_digits.substring(5)}';
     setState(() => _sending = true);
     try {
-      await ref.read(driverRepositoryProvider).sendOtp(formatted);
-    } on OfflineException {
+      // The API wants +91 and 10 digits; the seed repository takes the formatted number.
+      await ref.read(driverRepositoryProvider).sendOtp(ref.read(isLiveApiProvider) ? apiPhone(formatted) : formatted);
+    } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _sending = false);
-      showRidoSnack(context, "You're offline. Check your connection and try again.");
+      showRidoSnack(context, userMessage(e));
       return;
     }
     if (!mounted) return;

@@ -31,9 +31,15 @@ class D26AccountScreen extends ConsumerWidget {
       icon: Symbols.logout_rounded,
     );
     if (!ok || !context.mounted) return;
-    ref.read(driverSessionProvider.notifier).goOffline();
+    await ref.read(driverSessionProvider.notifier).goOffline();
     await ref.read(driverRepositoryProvider).logout();
-    if (context.mounted) context.go(Routes.welcome);
+    if (!context.mounted) return;
+    if (ref.read(isLiveApiProvider)) {
+      ref.read(realtimeProvider).disconnect();
+      resetDriverData(ref);
+      ref.invalidate(signupProvider);
+    }
+    context.go(Routes.welcome);
   }
 
   @override
@@ -125,7 +131,13 @@ class D26AccountScreen extends ConsumerWidget {
                 RidoListTile(
                   icon: Symbols.contact_emergency_rounded,
                   title: 'Emergency contact',
-                  subtitle: contact == null ? 'Loading…' : '${contact.name.split(' ').first} (${contact.relation})',
+                  subtitle: contact == null
+                      ? 'Loading…'
+                      : contact.name.isEmpty
+                          ? 'Add someone to alert in an emergency'
+                          : contact.relation.isEmpty
+                              ? contact.name.split(' ').first
+                              : '${contact.name.split(' ').first} (${contact.relation})',
                   onTap: () => context.push(Routes.emergencyContact),
                 ),
                 RidoListTile(

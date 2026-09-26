@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
@@ -19,7 +18,7 @@ class SafetyPreferencesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
-    final p = ref.watch(passengerProfileProvider).value ?? Seed.priya;
+    final p = ref.watch(currentProfileProvider);
     final profile = ref.read(passengerProfileProvider.notifier);
     final contacts = p.emergencyContacts.map((c) => c.name).join(', ');
 

@@ -10,7 +10,8 @@ import 'widgets/signup_widgets.dart';
 
 /// D-07 Documents / KYC checklist: "3 of 5 done", a row per document with its status and
 /// an Upload button. Continue (all 5 uploaded) → D-09 selfie.
-/// [readOnly] (Account → Documents) shows every document as verified, with no actions.
+/// [readOnly] (Account → Documents) shows every document as verified, with no actions (live API: the
+/// real statuses, with Re-upload for a rejected document).
 class D07DocumentsScreen extends ConsumerWidget {
   const D07DocumentsScreen({super.key, this.readOnly = false, this.showcase = false});
 
@@ -22,15 +23,21 @@ class D07DocumentsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
-    final docs = readOnly
+    final live = !showcase && ref.watch(isLiveApiProvider);
+    final docs = readOnly && !live
         ? Seed.kycAllVerified
         : showcase
             ? Seed.kycFresh
             : (ref.watch(kycProvider).value ?? Seed.kycFresh);
     final signup = ref.watch(signupProvider);
     final done = docs.where((d) => d.status == KycStatus.verified || d.status == KycStatus.underReview).length;
+    final verified = docs.where((d) => d.status == KycStatus.verified).length;
     final allDone = done == docs.length;
-    final vehicle = signup.vehicle == VehicleKind.truck ? 'Truck' : signup.vehicle.label;
+    // Live API: after a restart the sign-up draft is empty, so the vehicle comes from the driver profile.
+    final profile = live ? ref.watch(driverProfileProvider).value : null;
+    final kind = profile?.vehicleKind ?? signup.vehicle;
+    final vehicle = kind == VehicleKind.truck ? 'Truck' : kind.label;
+    final work = (profile != null ? !profile.vehicleKind.isGoods : signup.workType == WorkType.rides) ? 'Rides' : 'Deliveries';
 
     return Scaffold(
       backgroundColor: RidoColors.background,
@@ -40,9 +47,9 @@ class D07DocumentsScreen extends ConsumerWidget {
           DocsHeader(
             title: 'Documents',
             step: readOnly ? null : 4,
-            summary: readOnly ? '${docs.length} of ${docs.length} verified' : '$done of ${docs.length} done',
-            trailing: readOnly ? null : '$vehicle · ${signup.workType == WorkType.rides ? 'Rides' : 'Deliveries'}',
-            segments: [(done / docs.length, readOnly ? RidoColors.success : RidoColors.coral500)],
+            summary: readOnly ? '$verified of ${docs.length} verified' : '$done of ${docs.length} done',
+            trailing: readOnly ? null : '$vehicle · $work',
+            segments: [((readOnly ? verified : done) / docs.length, readOnly ? RidoColors.success : RidoColors.coral500)],
             onBack: readOnly ? null : backOr(context, Routes.personalDetails),
           ),
           Expanded(
@@ -64,7 +71,9 @@ class D07DocumentsScreen extends ConsumerWidget {
                           if (i > 0) const Divider(height: 1),
                           _DocRow(
                             doc: docs[i],
-                            readOnly: readOnly,
+                            // Live: a rejected document can be re-uploaded from Account too.
+                            readOnly: readOnly && !(live && docs[i].status == KycStatus.rejected),
+                            live: live,
                             onUpload: () => context.push(Routes.uploadDocument(docs[i].type.name)),
                           ),
                         ],
@@ -73,7 +82,10 @@ class D07DocumentsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: RidoSpacing.l),
                   if (readOnly)
-                    Text('All your documents are verified. Contact support if something changes, like a new RC.',
+                    Text(
+                        verified == docs.length
+                            ? 'All your documents are verified. Contact support if something changes, like a new RC.'
+                            : 'An admin checks each document, usually within 24 hours. Contact support if you need help.',
                         style: t.bodySmall.copyWith(color: RidoColors.navy500))
                   else
                     Container(
@@ -128,11 +140,14 @@ class D07DocumentsScreen extends ConsumerWidget {
     };
 
 class _DocRow extends StatelessWidget {
-  const _DocRow({required this.doc, required this.readOnly, required this.onUpload});
+  const _DocRow({required this.doc, required this.readOnly, required this.onUpload, this.live = false});
 
   final KycDocument doc;
   final bool readOnly;
   final VoidCallback onUpload;
+
+  /// Real statuses: no sample document numbers or upload times.
+  final bool live;
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +160,8 @@ class _DocRow extends StatelessWidget {
       KycStatus.notUploaded => (RidoColors.inputBg, RidoColors.navy700),
     };
     final subtitle = switch (doc.status) {
-      KycStatus.verified => verifiedLine,
+      KycStatus.verified => live ? 'Verified by Rido' : verifiedLine,
+      KycStatus.underReview when live => 'Uploaded · an admin is checking it',
       KycStatus.underReview => doc.type == KycDocType.vehicleRc ? 'Uploaded 10:08 AM' : 'Uploaded just now',
       KycStatus.rejected => doc.rejectReason ?? Seed.kycRejectReason,
       KycStatus.notUploaded => hint,
@@ -191,7 +207,7 @@ class _DocRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: RidoSpacing.s),
-          if (readOnly)
+          if (readOnly && !live)
             const IconPill(
                 label: 'Verified', icon: Symbols.check_circle_rounded, bg: RidoColors.successTint, fg: RidoColors.successText)
           else

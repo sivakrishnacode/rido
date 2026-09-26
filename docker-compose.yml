@@ -59,6 +59,15 @@ services:
       # Server key for Places / Geocoding / Routes (restrict by IP). Empty = local fallback.
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       ADMIN_PHONES: ${ADMIN_PHONES:-}
+      UPLOAD_DIR: /data/uploads
+      # Private bucket for KYC documents / images (credentials from the EC2 instance role). Empty = the uploads volume.
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-ap-south-1}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    volumes:
+      - uploads:/data/uploads
     ports:
       - "${API_PORT:-3000}:3000"
 
@@ -101,6 +110,7 @@ services:
       - redis-insight-data:/data
 
 volumes:
+  uploads:
   postgres-data:
   redis-data:
   redis-insight-data:

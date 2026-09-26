@@ -5,9 +5,12 @@ import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../common/job_routes.dart';
+import '../../common/measure_size.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
+import '../../state/driver_location.dart';
 import '../../state/driver_session.dart';
+import '../../state/live_helpers.dart';
 import '../jobs/widgets/job_map.dart';
 import '../states/s11_missed_request_banner.dart';
 import '../states/s16_gps_weak_banner.dart';
@@ -20,6 +23,8 @@ enum HomeVariant { live, offline, online, tripBanner, grace, expired, missedRequ
 /// D-13 Home. One screen for D-13 (offline), D-14 (online), D-14b (trip-in-progress banner),
 /// D-25a / D-25b (plan grace / expired), S-11 (missed request), S-12 (online, quiet) and
 /// S-16 (GPS lost). [HomeVariant.live] follows the real session; other variants force a look.
+/// Live API: opening Home restores the session ([DriverSessionController.attach]); GPS lost, today's
+/// figures and the plan come from the phone and the API instead of the demo controls.
 class D13HomeScreen extends ConsumerStatefulWidget {
   const D13HomeScreen({super.key, this.variant = HomeVariant.live, this.showcase = false});
 
@@ -37,9 +42,23 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
   /// Showcase S-11: OK hides the toast locally.
   bool _missedDismissed = false;
 
+  /// Height of the panels over the map (Google logo padding).
+  double _panelHeight = 0;
+
   HomeVariant get _v => widget.variant;
   bool get _live => _v == HomeVariant.live;
   bool get _showcase => widget.showcase || !_live;
+  bool get _api => !_showcase && ref.read(isLiveApiProvider);
+
+  @override
+  void initState() {
+    super.initState();
+    if (_api) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(driverSessionProvider.notifier).attach();
+      });
+    }
+  }
 
   String _greeting() {
     final h = RidoClock.now().hour;
@@ -48,9 +67,9 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     return 'Good evening';
   }
 
-  void _goOnline() {
+  Future<void> _goOnline() async {
     final demo = ref.read(demoSettingsProvider);
-    if (demo.accountOnHold) {
+    if (!_api && demo.accountOnHold) {
       context.push(Routes.accountOnHold);
       return;
     }
@@ -58,7 +77,27 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       context.push(Routes.selfieCheck);
       return;
     }
-    ref.read(driverSessionProvider.notifier).goOnline();
+    try {
+      await ref.read(driverSessionProvider.notifier).goOnline();
+    } on LocationProblem catch (e) {
+      if (!mounted) return;
+      showRidoSnack(
+        context,
+        e.message,
+        actionLabel: e.fix == LocationFix.none ? null : 'Settings',
+        onAction: () => ref.read(driverLocatorProvider).openSettings(e.fix),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      // An admin put the account on hold ("Account is on_hold"): S-10 explains it.
+      if (e.status == 403 && e.message.contains('on_hold')) {
+        context.push(Routes.accountOnHold);
+      } else {
+        showRidoSnack(context, e.message);
+      }
+    } on Exception catch (e) {
+      if (mounted) showRidoSnack(context, userMessage(e));
+    }
   }
 
   void _goOffline() {
@@ -106,12 +145,12 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
             _ => PlanStatus.active,
           };
     final job = _live ? (session.onJob ? session.job : null) : (_v == HomeVariant.tripBanner ? Seed.rideRequest : null);
-    final gpsLost = _live ? demo.gpsLost && online : _v == HomeVariant.gpsLost;
+    final gpsLost = _live ? (_api ? session.gpsLost : demo.gpsLost) && online : _v == HomeVariant.gpsLost;
     final missed = _live
         ? session.missedRequest && online && job == null
         : _v == HomeVariant.missedRequest && !_missedDismissed;
     final quiet = _v == HomeVariant.quiet;
-    final delivery = _live ? demo.workType == WorkType.deliveries : false;
+    final delivery = _live ? (_api ? profile.vehicleKind.isGoods : demo.workType == WorkType.deliveries) : false;
     final earnings = _v == HomeVariant.offline ? 0 : (_live ? session.todayEarnings : Seed.todayEarnings);
     final rides = _v == HomeVariant.offline ? 0 : (_live ? session.todayRides : Seed.todayRides);
     final eta = _live ? session.etaMin : 9;
@@ -183,7 +222,8 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     }
 
     // ------------------------------------------------------------------ map
-    final zones = !online || gpsLost || job != null
+    // The seeded demand zones are for the demo; the live app shows no made-up hotspots.
+    final zones = !online || gpsLost || job != null || _api
         ? const <MapZone>[]
         : quiet
             ? demandZones(labelled: const {'Gandhipuram', 'Peelamedu'})
@@ -196,6 +236,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       gpsLost: gpsLost,
       zones: zones,
       zoom: quiet ? 13.4 : 14.6,
+      mapPadding: EdgeInsets.only(bottom: _panelHeight),
     );
 
     // ---------------------------------------------------------- bottom panel
@@ -214,7 +255,9 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       panel = Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
         OnlineStatusRow(
           title: "You're online",
-          subtitle: missed ? 'Keep the app open and volume up.' : 'Move towards Gandhipuram for faster requests.',
+          subtitle: missed
+              ? 'Keep the app open and volume up.'
+              : (_api ? 'Keep the app open. Requests pop up here.' : 'Move towards Gandhipuram for faster requests.'),
         ),
         const SizedBox(height: RidoSpacing.l),
         RidoButton.secondary(label: 'Go offline', onPressed: _goOfflineOrShowcase),
@@ -228,6 +271,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         graceDays: plan?.graceDaysLeft ?? 2,
         price: price,
         onGoOnline: _goOnline,
+        goingOnline: session.goingOnline,
         onRenew: () => context.push(Routes.autopay(purpose: 'pay')),
         onResume: _resumePlan,
         onPlan: () => context.go(Routes.plan),
@@ -255,7 +299,10 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
                 if (route != null) context.push(route);
               },
             ),
-          if (gpsLost) const S16GpsWeakBanner(),
+          if (gpsLost)
+            S16GpsWeakBanner(
+              onFix: _api ? () => ref.read(driverLocatorProvider).openSettings(LocationFix.locationSettings) : null,
+            ),
           Expanded(
             child: Stack(
               children: [
@@ -264,21 +311,26 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
                   Positioned(left: RidoSpacing.gutter, right: RidoSpacing.gutter, top: RidoSpacing.l, child: topCard),
                 Align(
                   alignment: Alignment.bottomCenter,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (missed)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.l),
-                          child: S11MissedRequestBanner(
-                            showcase: _showcase,
-                            delivery: delivery,
-                            onDismiss: _live ? null : () => setState(() => _missedDismissed = true),
+                  child: MeasureSize(
+                    onChange: (size) {
+                      if (mounted && size.height != _panelHeight) setState(() => _panelHeight = size.height);
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (missed)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.l),
+                            child: S11MissedRequestBanner(
+                              showcase: _showcase,
+                              delivery: delivery,
+                              onDismiss: _live ? null : () => setState(() => _missedDismissed = true),
+                            ),
                           ),
-                        ),
-                      BottomPanel(child: panel),
-                    ],
+                        BottomPanel(child: panel),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -307,6 +359,7 @@ class _OfflinePanel extends StatelessWidget {
     required this.graceDays,
     required this.price,
     required this.onGoOnline,
+    this.goingOnline = false,
     required this.onRenew,
     required this.onResume,
     required this.onPlan,
@@ -319,6 +372,7 @@ class _OfflinePanel extends StatelessWidget {
   final int graceDays;
   final int price;
   final VoidCallback onGoOnline;
+  final bool goingOnline;
   final VoidCallback onRenew;
   final VoidCallback onResume;
   final VoidCallback onPlan;
@@ -342,7 +396,7 @@ class _OfflinePanel extends StatelessWidget {
         ]);
       case PlanStatus.grace:
         children.addAll([
-          GoOnlineButton(onPressed: onGoOnline),
+          GoOnlineButton(onPressed: onGoOnline, loading: goingOnline),
           const SizedBox(height: RidoSpacing.xl),
           PlanStrip(
             warning: true,
@@ -358,7 +412,7 @@ class _OfflinePanel extends StatelessWidget {
             style: t.body.copyWith(color: RidoColors.navy700),
           ),
           const SizedBox(height: RidoSpacing.l),
-          GoOnlineButton(onPressed: onGoOnline),
+          GoOnlineButton(onPressed: onGoOnline, loading: goingOnline),
           const SizedBox(height: RidoSpacing.l),
           PlanStrip(
             text: status == PlanStatus.cancelled

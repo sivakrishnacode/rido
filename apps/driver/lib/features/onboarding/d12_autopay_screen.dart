@@ -86,6 +86,10 @@ class _D12AutopayScreenState extends ConsumerState<D12AutopayScreen> {
       if (!mounted) return;
       setState(() => _processing = false);
       showRidoSnack(context, "You're offline. Check your connection and try again.");
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _processing = false);
+      showRidoSnack(context, e.message);
     }
   }
 

@@ -25,6 +25,7 @@ class LiveVehicleMap extends ConsumerWidget {
     this.zoom = 14.5,
     this.gpsLost = false,
     this.centerOnVehicle = true,
+    this.mapPadding = EdgeInsets.zero,
   });
 
   final MapVehicleType vehicleType;
@@ -44,6 +45,9 @@ class LiveVehicleMap extends ConsumerWidget {
   final bool gpsLost;
   final bool centerOnVehicle;
 
+  /// Google engine: keeps the logo clear of panels drawn over the map (Maps terms).
+  final EdgeInsets mapPadding;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (fixedPosition != null) return _map(fixedPosition!, 0);
@@ -62,6 +66,7 @@ class LiveVehicleMap extends ConsumerWidget {
         route: route,
         fitPoints: fitPoints,
         fitPadding: fitPadding,
+        mapPadding: mapPadding,
         pulseAt: pulse && !gpsLost ? pos : null,
         pulseColor: RidoColors.success,
         zones: zones,

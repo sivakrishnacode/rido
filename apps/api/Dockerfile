@@ -31,6 +31,9 @@ COPY --from=build /repo/apps/api/src/generated ./apps/api/src/generated
 COPY --from=build /repo/apps/api/src/modules/subscriptions/plan-prices.ts ./apps/api/src/modules/subscriptions/plan-prices.ts
 COPY --from=build /repo/apps/api/src/modules/geo/h3.util.ts ./apps/api/src/modules/geo/h3.util.ts
 COPY apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
+# KYC uploads (a named volume in docker-compose; the directory must exist so the volume inherits the owner).
+RUN mkdir -p /data/uploads && chown rido:rido /data/uploads
+ENV UPLOAD_DIR=/data/uploads
 WORKDIR /repo/apps/api
 USER rido
 EXPOSE 3000

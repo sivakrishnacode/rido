@@ -7,14 +7,19 @@ import 'package:latlong2/latlong.dart';
 import '../maps/google_http.dart';
 import '../maps/google_maps_config.dart';
 import '../maps/polyline_codec.dart';
+import '../models/vehicle.dart';
 import '../seed.dart';
 import 'trip_simulator.dart';
 
 /// How the Routes API should route a leg (bikes may use two-wheeler shortcuts).
 enum RouteTravelMode { drive, twoWheeler }
 
-/// Road-following routes, cached in memory: Google Routes API when a key is configured
-/// ([isGoogleMapsEnabled]), else the free public OSRM router, else null (curved stand-in).
+/// A router on the Rido backend (`POST /maps/route`): Google Routes with a server key and Redis cache.
+typedef BackendRouter = Future<List<LatLng>?> Function(LatLng from, LatLng to, RouteTravelMode mode);
+
+/// Road-following routes, cached in memory: the Rido backend when [backend] is set (live API: no Google key in
+/// the app), else Google Routes API when an app key is configured ([isGoogleMapsEnabled]), else the free public
+/// OSRM router, else null (curved stand-in).
 ///
 /// Cost rules: each leg (from → to) is computed **once** per app session and then only read
 /// from the cache (the trip simulator animates along it locally); concurrent requests for the
@@ -26,6 +31,9 @@ enum RouteTravelMode { drive, twoWheeler }
 /// Offline (or in tests, where [enabled] is false) the curved line is used.
 abstract final class RoadRouter {
   static bool enabled = true;
+
+  /// Set by the apps with the live API ([backendRouter]).
+  static BackendRouter? backend;
   static const _osrmBase = 'https://router.project-osrm.org/route/v1/driving';
   static const googleRoutesUrl = 'https://routes.googleapis.com/directions/v2:computeRoutes';
   static const googleFieldMask = 'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline';
@@ -70,6 +78,16 @@ abstract final class RoadRouter {
   }
 
   static Future<List<LatLng>?> _get(LatLng a, LatLng b, RouteTravelMode mode, bool useGoogle) async {
+    final viaBackend = backend;
+    if (useGoogle && viaBackend != null) {
+      try {
+        final p = await viaBackend(a, b, mode);
+        if (p != null && p.length >= 2) return p;
+      } catch (_) {
+        // Fall through to OSRM.
+      }
+      return _osrm(a, b);
+    }
     if (useGoogle && isGoogleMapsEnabled && !_googleBroken) {
       final g = await _google(a, b, mode);
       if (g != null) return g;
@@ -172,3 +190,7 @@ List<LatLng> roadPath(
   unawaited(RoadRouter.fetch(from, to, mode: mode));
   return curvedPath(from, to, segments: segments, bend: bend);
 }
+
+/// Bikes (rides and goods) may take two-wheeler shortcuts; everything else drives.
+RouteTravelMode travelModeFor(VehicleKind kind) =>
+    kind == VehicleKind.bike || kind == VehicleKind.goodsBike ? RouteTravelMode.twoWheeler : RouteTravelMode.drive;

@@ -9,7 +9,8 @@ import '../../state/driver_account.dart';
 import 'widgets/signup_widgets.dart';
 
 /// D-05 Choose vehicle: the vehicle types for the chosen work type with their monthly plan
-/// price and a "1st month free" tag. Pickup / truck show "₹—" and "Contact us".
+/// price and a "1st month free" tag. Pickup / truck show "₹—" and "Contact us". Live API: prices from
+/// the API's monthly plans.
 class D05ChooseVehicleScreen extends ConsumerStatefulWidget {
   const D05ChooseVehicleScreen({super.key, this.showcase = false});
 
@@ -34,8 +35,12 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
           VehicleKind.truck,
         ];
 
+  int? _price(VehicleKind k) => widget.showcase
+      ? Seed.vehicle(k).subscriptionPrice
+      : (ref.read(monthlyPlanPricesProvider).value ?? const {})[k] ?? Seed.vehicle(k).subscriptionPrice;
+
   void _tap(VehicleKind k) {
-    if (Seed.vehicle(k).subscriptionPrice == null) {
+    if (_price(k) == null) {
       showRidoSnack(context, "We'll call you about pricing");
       return;
     }
@@ -50,6 +55,7 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
   @override
   Widget build(BuildContext context) {
     final t = context.type;
+    if (!widget.showcase) ref.watch(monthlyPlanPricesProvider);
     final options = _options;
     final rides = _draft.workType == WorkType.rides;
     final rows = <List<VehicleKind>>[
@@ -82,6 +88,7 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
                             Expanded(
                               child: _VehicleCard(
                                 kind: row[i],
+                                price: _price(row[i]),
                                 selected: _selected == row[i],
                                 onTap: () => _tap(row[i]),
                               ),
@@ -104,16 +111,17 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
 }
 
 class _VehicleCard extends StatelessWidget {
-  const _VehicleCard({required this.kind, required this.selected, required this.onTap});
+  const _VehicleCard({required this.kind, required this.price, required this.selected, required this.onTap});
 
   final VehicleKind kind;
+  final int? price;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final price = Seed.vehicle(kind).subscriptionPrice;
+    final price = this.price;
     final name = kind == VehicleKind.truck ? 'Truck 14ft / 17ft' : kind.label;
     return Semantics(
       selected: selected,

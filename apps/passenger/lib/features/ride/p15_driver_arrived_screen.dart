@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
+import '../../common/map_insets.dart';
+import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 import 'widgets/trip_widgets.dart';
@@ -56,16 +59,19 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
   @override
   Widget build(BuildContext context) {
     ref.listen(rideFlowProvider.select((s) => s.phase), (prev, next) {
-      if (widget.showcase) return;
-      if (next == RidePhase.inProgress) context.go(Routes.rideInProgress);
-      if (next == RidePhase.completed) context.go(Routes.rideCompleted);
+      if (widget.showcase || next == RidePhase.arrived) return;
+      final route = routeForRidePhase(next);
+      if (route != null) context.go(route);
     });
 
     final t = context.type;
     final ride = ref.watch(rideFlowProvider);
     final driver = ride.driver;
     final pickup = ride.pickup.location;
-    final vehiclePos = offsetPoint(pickup, 70, 60);
+    final otp = widget.showcase ? Seed.rideOtp : ride.otp;
+    // Live API: the driver's last GPS fix; otherwise parked just beside the pickup.
+    final fix = widget.showcase ? null : ref.read(rideFlowProvider.notifier).vehicle.value;
+    final vehiclePos = fix?.position ?? offsetPoint(pickup, 70, 60);
     final waitingStarted = _left <= Duration.zero;
 
     return PopScope(
@@ -75,15 +81,21 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
       },
       child: TripSheetScaffold(
         maxSheetFraction: 0.72,
-        map: (context, h) => RidoMap(
-          center: pickup,
-          pickup: pickup,
-          zoom: 16,
-          vehicles: [MapVehicle(position: vehiclePos, type: ride.vehicle.mapType, heading: 250, large: true)],
-          fitPoints: [offsetPoint(pickup, 300, 0), offsetPoint(pickup, 300, 180)],
-          fitPadding: EdgeInsets.fromLTRB(48, 96, 48, h * 0.62),
-          attributionAlignment: Alignment.topCenter,
-        ),
+        map: (context, h) {
+          final insets = sheetMapInsets(EdgeInsets.fromLTRB(48, 96, 48, h * 0.62), h * 0.62);
+          return RidoMap(
+            center: pickup,
+            pickup: pickup,
+            zoom: 16,
+            vehicles: [
+              MapVehicle(position: vehiclePos, type: ride.vehicle.mapType, heading: fix?.heading ?? 250, large: true),
+            ],
+            fitPoints: [offsetPoint(pickup, 300, 0), offsetPoint(pickup, 300, 180)],
+            fitPadding: insets.fit,
+            mapPadding: insets.map,
+            attributionAlignment: Alignment.topCenter,
+          );
+        },
         overlays: [TripMapTopBar(onBack: _back, onSos: () => context.push(Routes.sos))],
         sheet: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -114,7 +126,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
             ),
             const SizedBox(height: 14),
             Semantics(
-              label: 'Tell ${driver.firstName} this OTP: ${Seed.rideOtp.split('').join(' ')}',
+              label: 'Tell ${driver.firstName} this OTP: ${otp.split('').join(' ')}',
               excludeSemantics: true,
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
@@ -131,7 +143,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        for (final d in Seed.rideOtp.split(''))
+                        for (final d in otp.split(''))
                           Flexible(
                             child: Container(
                               margin: const EdgeInsets.symmetric(horizontal: 5),
@@ -168,7 +180,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
                     tooltip: 'Call ${driver.firstName}',
                     background: RidoColors.coral600,
                     foreground: Colors.white,
-                    onPressed: () => showRidoSnack(context, 'Calling ${driver.firstName} (number hidden)'),
+                    onPressed: () => callNumber(context, driver.phone, name: driver.firstName),
                   ),
                 ],
               ),

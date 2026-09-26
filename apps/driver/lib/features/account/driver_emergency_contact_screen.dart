@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../state/live_helpers.dart';
 import 'account_providers.dart';
 import 'widgets/edit_form_scaffold.dart';
 
@@ -31,12 +32,20 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
     super.initState();
     ref.read(driverRepositoryProvider).emergencyContact().then((c) {
       if (!mounted) return;
+      if (c.name.isEmpty && c.phone.isEmpty) {
+        setState(() => _contact = c);
+        return;
+      }
       setState(() {
         _contact = c;
         _name.text = c.name;
         _relation.text = c.relation;
-        _phone.text = c.phone.replaceFirst('+91 ', '');
+        _phone.text = c.phone.replaceFirst(RegExp(r'^\+91\s?'), '');
       });
+    }, onError: (Object e) {
+      if (!mounted) return;
+      setState(() => _contact = const EmergencyContact(id: '', name: '', relation: '', phone: ''));
+      if (e is Exception) showRidoSnack(context, userMessage(e));
     });
   }
 
@@ -55,12 +64,21 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
     if (_name.text.trim().isEmpty || !_phoneOk) return;
     setState(() => _saving = true);
     final digits = _phone.text.replaceAll(RegExp(r'\D'), '');
+    final live = ref.read(isLiveApiProvider);
     final updated = (_contact ?? const EmergencyContact(id: 'dec-1', name: '', relation: '', phone: '')).copyWith(
       name: _name.text.trim(),
-      relation: _relation.text.trim(),
-      phone: '+91 ${digits.substring(0, 5)} ${digits.substring(5)}',
+      // The API needs a relation and a phone without spaces.
+      relation: _relation.text.trim().isEmpty && live ? 'Family' : _relation.text.trim(),
+      phone: live ? apiPhone(digits) : '+91 ${digits.substring(0, 5)} ${digits.substring(5)}',
     );
-    await ref.read(driverRepositoryProvider).updateEmergencyContact(updated);
+    try {
+      await ref.read(driverRepositoryProvider).updateEmergencyContact(updated);
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      showRidoSnack(context, userMessage(e));
+      return;
+    }
     ref.invalidate(driverEmergencyContactProvider);
     if (!mounted) return;
     showRidoSnack(context, 'Emergency contact saved', success: true);

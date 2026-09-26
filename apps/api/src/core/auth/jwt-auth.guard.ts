@@ -6,7 +6,7 @@ import { RedisService } from '../redis/redis.service.js';
 import type { AuthUser, JwtPayload } from './auth-user.js';
 import { IS_PUBLIC_KEY } from './public.decorator.js';
 
-/** Global guard: every route needs a valid Bearer JWT unless marked `@Public()`. */
+/** Global guard: every HTTP route needs a valid Bearer JWT unless marked `@Public()`. */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
@@ -16,6 +16,8 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    // Socket.IO messages are authenticated once, on connect (RealtimeGateway.handleConnection).
+    if (ctx.getType() !== 'http') return true;
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [ctx.getHandler(), ctx.getClass()]);
     if (isPublic) return true;
     const req = ctx.switchToHttp().getRequest<{ headers: Record<string, string | undefined>; user?: AuthUser }>();

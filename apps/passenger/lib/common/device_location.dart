@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:rido_data/rido_data.dart';
 
+import '../state/parcel_flow.dart';
 import '../state/ride_flow.dart';
 
 /// Outcome of asking for the phone's location.
@@ -47,11 +48,17 @@ class DeviceLocationController extends Notifier<LatLng?> {
       final point = LatLng(pos.latitude, pos.longitude);
       state = point;
       final places = ref.read(placesRepositoryProvider);
+      final live = places is ApiPlacesRepository;
+      // Live API: reverse geocode first; the API's answer also says whether the point is in the service area.
+      final geocoded = live ? await places.reverseGeocode(point) : null;
       if (!places.isInServiceArea(point)) return LocateResult.outsideArea;
-      final place = await places.reverseGeocode(point);
-      ref
-          .read(rideFlowProvider.notifier)
-          .setPickup(place.copyWith(id: 'current', name: 'Current location', address: place.fullAddress));
+      final place = geocoded ?? await places.reverseGeocode(point);
+      final here = place.copyWith(id: 'current', name: 'Current location', address: place.fullAddress);
+      // Default pickup everywhere (P-08 "Use current location", new parcel bookings) is the real location.
+      if (places is ApiPlacesRepository) places.currentLocation = here;
+      final ride = ref.read(rideFlowProvider);
+      if (!ride.isActive) ref.read(rideFlowProvider.notifier).setPickup(here);
+      if (live) ref.read(parcelFlowProvider.notifier).useDeviceLocation(here);
       return LocateResult.inArea;
     } catch (e) {
       debugPrint('Location unavailable: $e');
@@ -59,10 +66,15 @@ class DeviceLocationController extends Notifier<LatLng?> {
     }
   }
 
-  /// Opens the app's system settings (S-05 "Open settings").
+  /// S-05 "Open settings": the phone's location settings when location is switched off, else this app's
+  /// settings (to allow the permission after "Don't allow").
   Future<void> openSettings() async {
     try {
-      await Geolocator.openAppSettings();
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        await Geolocator.openLocationSettings();
+      } else {
+        await Geolocator.openAppSettings();
+      }
     } catch (_) {}
   }
 }

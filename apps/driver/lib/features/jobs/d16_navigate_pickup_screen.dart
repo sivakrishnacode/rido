@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
+import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'widgets/job_common.dart';
 import 'widgets/job_map.dart';
@@ -13,6 +15,8 @@ import 'widgets/job_map.dart';
 /// D-16 Navigate to pickup: route to the pickup with the moving vehicle, Navigate, passenger
 /// call / chat, pickup address card and the "Arrived at pickup" swipe (→ D-17).
 /// The overflow menu has Help and Cancel ride (reason dialog → D-14).
+/// Live API: the route starts at the phone's GPS position, Navigate opens Google Maps, Call dials the
+/// passenger, and "Arrived" / "Cancel" are API calls.
 class D16NavigateToPickupScreen extends ConsumerStatefulWidget {
   const D16NavigateToPickupScreen({super.key, this.showcase = false});
 
@@ -33,12 +37,27 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
   ];
 
   late final RideRequest _job = ref.read(driverSessionProvider).job ?? Seed.rideRequest;
-  late final List<LatLng> _fallbackRoute = roadPath(Seed.driverHome, _job.pickup.location, bend: -0.2);
+  late final List<LatLng> _fallbackRoute =
+      roadPath(Seed.driverHome, _job.pickup.location, bend: -0.2, mode: travelModeFor(_job.vehicle));
+  late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
+  bool _busy = false;
 
   bool get _live => !widget.showcase && ref.read(driverSessionProvider).job != null;
 
-  void _arrived() {
-    if (_live) ref.read(driverSessionProvider.notifier).arrivedAtPickup();
+  Future<void> _arrived() async {
+    if (_busy) return;
+    if (_live) {
+      setState(() => _busy = true);
+      try {
+        await ref.read(driverSessionProvider.notifier).arrivedAtPickup();
+      } on Exception catch (e) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        showRidoSnack(context, userMessage(e));
+        return;
+      }
+      if (!mounted) return;
+    }
     if (widget.showcase) {
       context.push(Routes.rideOtp);
     } else {
@@ -49,10 +68,22 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
   Future<void> _cancel() async {
     final reason = await showDialog<String>(context: context, builder: (_) => const _CancelReasonDialog(reasons: _cancelReasons));
     if (reason == null || !mounted) return;
-    if (_live) ref.read(driverSessionProvider.notifier).cancelJob();
+    if (_live) {
+      try {
+        await ref.read(driverSessionProvider.notifier).cancelJob(reason: reason);
+      } on Exception catch (e) {
+        if (mounted) showRidoSnack(context, userMessage(e));
+        return;
+      }
+      if (!mounted) return;
+    }
     showRidoSnack(context, 'Ride cancelled · $reason');
     context.go(Routes.home);
   }
+
+  void _call() => _api
+      ? dialNumber(context, _job.customerPhone, name: _job.customerName)
+      : showRidoSnack(context, 'Calling ${_job.customerName} (number hidden)');
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +92,11 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
     final live = !widget.showcase && session.job != null;
     final route = live && session.route.isNotEmpty ? session.route : _fallbackRoute;
     final eta = live ? session.etaMin : _job.pickupEtaMin;
-    final km = _job.pickupEtaMin == 0 ? 0.0 : _job.pickupDistanceKm * eta / _job.pickupEtaMin;
+    final gps = ref.read(driverSessionProvider.notifier).position;
+    // Live API: distance left along the route from the GPS position.
+    final km = _api && live && gps != null
+        ? routeKm(route) * remainingFraction(route, gps)
+        : (_job.pickupEtaMin == 0 ? 0.0 : _job.pickupDistanceKm * eta / _job.pickupEtaMin);
 
     return PopScope(
       canPop: widget.showcase || !live,
@@ -136,7 +171,11 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                 Positioned(
                   right: RidoSpacing.gutter,
                   bottom: RidoSpacing.xl,
-                  child: NavigatePill(onPressed: () => showRidoSnack(context, 'Opening Google Maps')),
+                  child: NavigatePill(
+                    onPressed: () => _api
+                        ? openNavigation(context, _job.pickup.location)
+                        : showRidoSnack(context, 'Opening Google Maps'),
+                  ),
                 ),
               ]),
             ),
@@ -170,7 +209,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                     tooltip: 'Call ${_job.customerName}',
                     background: RidoColors.coral600,
                     foreground: Colors.white,
-                    onPressed: () => showRidoSnack(context, 'Calling ${_job.customerName} (number hidden)'),
+                    onPressed: _call,
                   ),
                 ]),
                 const SizedBox(height: RidoSpacing.l),
@@ -187,7 +226,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                   ]),
                 ),
                 const SizedBox(height: RidoSpacing.l),
-                SwipeToConfirm(label: 'Arrived at pickup', onConfirmed: _arrived),
+                SwipeToConfirm(label: 'Arrived at pickup', enabled: !_busy, onConfirmed: _arrived),
               ]),
             ),
           ],

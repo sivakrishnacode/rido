@@ -19,6 +19,12 @@ import { canTransition, isFinished } from './trip-transitions.js';
 /** H3 resolution stored on trips for heatmaps. */
 const HEAT_RES = 8;
 
+/** Both sides see who they're riding with: the driver (with name / phone) and the passenger's name / phone. */
+const TRIP_INCLUDE = {
+  driver: { include: { user: { select: { id: true, name: true, phone: true, gender: true } } } },
+  passenger: { select: { id: true, name: true, phone: true } },
+} as const;
+
 /** Rides and parcels: booking, the status lifecycle, cancel and rating. */
 @Injectable()
 export class TripsService {
@@ -69,14 +75,24 @@ export class TripsService {
     return trip;
   }
 
-  history(user: AuthUser): Promise<Trip[]> {
+  async history(user: AuthUser): Promise<Trip[]> {
     const where = user.driverId ? { driverId: user.driverId } : { passengerId: user.userId };
-    return this.prisma.trip.findMany({ where, orderBy: { createdAt: 'desc' }, take: 50 });
+    const trips = await this.prisma.trip.findMany({ where, orderBy: { createdAt: 'desc' }, take: 50, include: TRIP_INCLUDE });
+    return user.driverId ? trips.map((t) => ({ ...t, otp: '' })) : trips;
+  }
+
+  /** The caller's unfinished trip (searching or on the way), to restore the app after a restart. */
+  async active(user: AuthUser): Promise<Trip | null> {
+    const unfinished = { notIn: [TripStatus.COMPLETED, TripStatus.DELIVERED, TripStatus.CANCELLED, TripStatus.NO_DRIVERS] };
+    const where = user.driverId ? { driverId: user.driverId, status: unfinished } : { passengerId: user.userId, status: unfinished };
+    const trip = await this.prisma.trip.findFirst({ where, orderBy: { createdAt: 'desc' }, include: TRIP_INCLUDE });
+    if (!trip) return null;
+    return user.driverId && trip.driverId === user.driverId ? { ...trip, otp: '' } : trip;
   }
 
   /** A trip the caller takes part in. The OTP is hidden from drivers. */
   async get(user: AuthUser, id: string): Promise<Trip> {
-    const trip = await this.prisma.trip.findUnique({ where: { id }, include: { driver: { include: { user: true } } } });
+    const trip = await this.prisma.trip.findUnique({ where: { id }, include: TRIP_INCLUDE });
     if (!trip) throw new NotFoundException('Trip not found');
     const isPassenger = trip.passengerId === user.userId;
     if (!isPassenger && trip.driverId !== user.driverId) throw new ForbiddenException();
@@ -164,7 +180,7 @@ export class TripsService {
 
   /** Emits the fresh trip to both sides and returns it. */
   private async publish(tripId: string): Promise<Trip> {
-    const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: { driver: { include: { user: true } } } });
+    const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE });
     this.events.toTrip(tripId, 'trip.updated', { ...trip, otp: '' });
     this.events.toUser(trip.passengerId, 'trip.updated', trip);
     return trip;

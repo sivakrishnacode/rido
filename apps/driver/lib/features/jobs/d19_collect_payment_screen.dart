@@ -51,8 +51,10 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
   Widget build(BuildContext context) {
     final t = context.type;
     final profile = ref.watch(driverProfileProvider).value ?? Seed.karthik;
-    final upi = _isDelivery && !profile.vehicleKind.isGoods ? Seed.selvam.upiId : profile.upiId;
-    final payee = _isDelivery && !profile.vehicleKind.isGoods ? Seed.selvam.name : profile.name;
+    // Demo: a delivery shown with the bike driver's profile pays the seed goods driver. Live: always you.
+    final demoGoods = !ref.watch(isLiveApiProvider) && _isDelivery && !profile.vehicleKind.isGoods;
+    final upi = demoGoods ? Seed.selvam.upiId : profile.upiId;
+    final payee = demoGoods ? Seed.selvam.name : profile.name;
     final qrData = 'upi://pay?pa=$upi&pn=${Uri.encodeComponent(payee)}&am=${_job.fare}&cu=INR';
     final fromReceiver = _job.parcel?.payer != ParcelPayer.sender;
     final live = !widget.showcase && ref.watch(driverSessionProvider.select((s) => s.job)) != null;

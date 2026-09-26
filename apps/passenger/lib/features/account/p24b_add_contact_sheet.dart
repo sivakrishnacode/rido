@@ -46,10 +46,14 @@ class _P24bAddContactSheetState extends ConsumerState<P24bAddContactSheet> {
       id: 'ec-${DateTime.now().microsecondsSinceEpoch}',
       name: _name.text.trim(),
       relation: _relation!,
-      phone: '+91 ${d.substring(0, 5)} ${d.substring(5)}',
+      phone: apiPhone(d),
     );
-    await ref.read(passengerProfileProvider.notifier).addContact(contact);
+    final saved = await ref.read(passengerProfileProvider.notifier).addContact(contact);
     if (!mounted) return;
+    if (!saved) {
+      setState(() => _saving = false);
+      return;
+    }
     if (widget.showcase) {
       setState(() => _saving = false);
       showRidoSnack(context, '${contact.name} added', success: true);
@@ -61,7 +65,7 @@ class _P24bAddContactSheetState extends ConsumerState<P24bAddContactSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final count = (ref.watch(passengerProfileProvider).value ?? Seed.priya).emergencyContacts.length;
+    final count = ref.watch(currentProfileProvider).emergencyContacts.length;
     final position = count + 1;
     final note = switch (position) {
       >= 3 => 'This is your 3rd and last contact',

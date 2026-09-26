@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
 import 'widgets/parcel_widgets.dart';
@@ -26,13 +27,13 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
     final s = ref.watch(parcelFlowProvider);
     final ctrl = ref.read(parcelFlowProvider.notifier);
     final driver = s.driver;
-    final receiverFirst = s.details.receiverName.split(' ').first;
     final route = s.routeOrDefault;
     final now = RidoClock.now();
     final eta = s.phase == ParcelPhase.inTransit && !showcase ? s.etaMin : 15;
     final arriving = now.add(Duration(minutes: eta));
     final pickedUpAt = now.subtract(Duration(minutes: (s.estimate.durationMin - eta).clamp(1, 120)));
     final live = !showcase && s.phase == ParcelPhase.inTransit;
+    final liveApi = !showcase && ref.watch(isLiveApiProvider);
 
     return PopScope(
       canPop: false,
@@ -78,7 +79,8 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
                     child: ValueListenableBuilder<VehicleFix?>(
                       valueListenable: ctrl.vehicle,
                       builder: (context, fix, _) {
-                        final progress = live && fix != null ? fix.progress : 0.3;
+                        // Before the first live fix the parcel is at the pickup (the demo shows it 30% along).
+                        final progress = live && fix != null ? fix.progress : (liveApi ? 0.0 : 0.3);
                         final pos = live && fix != null ? fix.position : pointAlong(route, progress);
                         final i = (progress * (route.length - 1)).floor().clamp(0, route.length - 2);
                         final heading = live && fix != null ? fix.heading : headingBetween(route[i], route[i + 1]);
@@ -152,7 +154,7 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
                           shape: const CircleBorder(),
                           child: IconButton(
                             tooltip: 'Call ${driver.firstName}',
-                            onPressed: () => showRidoSnack(context, 'Calling ${driver.firstName} (number hidden)'),
+                            onPressed: () => callNumber(context, driver.phone, name: driver.firstName),
                             icon: const Icon(Symbols.call_rounded, fill: 1, color: RidoColors.surface),
                           ),
                         ),
@@ -162,7 +164,7 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
                     RidoButton.secondary(
                       label: 'Share tracking with receiver',
                       icon: Symbols.share_location_rounded,
-                      onPressed: () => showRidoSnack(context, 'Tracking link shared with $receiverFirst', success: true),
+                      onPressed: () => shareParcelWithReceiver(context, s, ctrl.vehicle.value?.position),
                     ),
                   ],
                 ),

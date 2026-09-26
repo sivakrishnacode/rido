@@ -1,6 +1,8 @@
-import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseBoolPipe, Patch, Post, Put, Query, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseBoolPipe, Patch, Post, Put, Query, Res, StreamableFile, UseInterceptors } from '@nestjs/common';
+import type { Response } from 'express';
 
 import { Roles } from '../../core/auth/roles.decorator.js';
+import { FileStorageService } from '../../core/storage/file-storage.service.js';
 import type { Announcement, AuditLog, Payment } from '../../generated/prisma/client.js';
 import { Role } from '../../generated/prisma/enums.js';
 import { DemandService, DemandSnapshot } from '../geo/demand.service.js';
@@ -24,6 +26,7 @@ export class AdminOpsController {
   constructor(
     private readonly ops: AdminOpsService,
     private readonly settings: SettingsService,
+    private readonly files: FileStorageService,
     private readonly heat: AdminHeatmapService,
     private readonly demand: DemandService,
     private readonly hexStats: HexStatsService,
@@ -66,6 +69,14 @@ export class AdminOpsController {
   @HttpCode(200)
   rebuildHexStats(): Promise<{ pairs: number; trips: number }> {
     return this.hexStats.rebuild();
+  }
+
+  /** Uploaded KYC documents (admin panel proxies this at /files/:name). */
+  @Get('files/:name')
+  async file(@Param('name') name: string, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
+    const f = await this.files.open(name);
+    res.setHeader('cache-control', 'private, no-store');
+    return new StreamableFile(f.stream, { type: f.type, length: f.size || undefined, disposition: 'inline' });
   }
 
   @Get('payments')

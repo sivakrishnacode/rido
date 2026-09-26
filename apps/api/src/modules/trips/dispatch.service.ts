@@ -5,6 +5,7 @@ import { RedisService } from '../../core/redis/redis.service.js';
 import type { Trip } from '../../generated/prisma/client.js';
 import { TripStatus } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
+import { roadKm } from '../geo/eta-model.js';
 import { EtaService } from '../maps/eta.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -58,9 +59,25 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     return this.redis.get(`dispatch:${tripId}:offer`);
   }
 
+  /** The trip currently offered to [driverId] (lets the app recover an offer it missed on the socket). */
+  async currentOffer(driverId: string): Promise<(OfferDetails & { expiresInSeconds: number }) | null> {
+    const tripId = await this.redis.get(`dispatch:driver:${driverId}:offer`);
+    if (!tripId || (await this.offeredTo(tripId)) !== driverId) return null;
+    const trip = await this.prisma.trip.findUnique({ where: { id: tripId } });
+    if (!trip || trip.status !== TripStatus.SEARCHING) return null;
+    const ttl = await this.redis.ttl(`dispatch:${tripId}:offer`);
+    return { ...(await this.offerDetails(trip, driverId)), expiresInSeconds: Math.max(1, ttl) };
+  }
+
+  private async clearOffer(tripId: string): Promise<void> {
+    const driverId = await this.offeredTo(tripId);
+    if (driverId) await this.redis.del(`dispatch:driver:${driverId}:offer`);
+    await this.redis.del(`dispatch:${tripId}:offer`);
+  }
+
   /** Driver declined or the offer timed out: try the next candidate. */
   async next(tripId: string): Promise<void> {
-    await this.redis.del(`dispatch:${tripId}:offer`);
+    await this.clearOffer(tripId);
     await this.offerNext(tripId);
   }
 
@@ -69,7 +86,8 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     clearTimeout(this.timers.get(tripId));
     this.timers.delete(tripId);
     await this.redis.srem(PENDING_KEY, tripId);
-    await this.redis.del(`dispatch:${tripId}:offer`, `dispatch:${tripId}:queue`);
+    await this.clearOffer(tripId);
+    await this.redis.del(`dispatch:${tripId}:queue`);
   }
 
   /** Runs one batch: takes all pending bookings, ranks candidates by ETA, assigns across the batch. */
@@ -131,9 +149,26 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     }
     const offerSeconds = await this.settings.get('offerSeconds');
     await this.redis.set(`dispatch:${tripId}:offer`, driverId, 'EX', offerSeconds);
-    this.events.toDriver(driverId, 'trip.offer', { trip, expiresInSeconds: offerSeconds });
+    await this.redis.set(`dispatch:driver:${driverId}:offer`, tripId, 'EX', offerSeconds);
+    this.events.toDriver(driverId, 'trip.offer', { ...(await this.offerDetails(trip, driverId)), expiresInSeconds: offerSeconds });
     clearTimeout(this.timers.get(tripId));
     this.timers.set(tripId, setTimeout(() => void this.onTimeout(tripId, driverId), offerSeconds * 1000));
+  }
+
+  /** What the driver sees on the request card: the trip (without the OTP), the customer and the pickup distance. */
+  async offerDetails(trip: Trip, driverId: string): Promise<OfferDetails> {
+    const pickup = { lat: trip.pickupLat, lng: trip.pickupLng };
+    const [passenger, at, useRoad] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: trip.passengerId }, select: { name: true, phone: true } }),
+      this.location.position(driverId),
+      this.settings.get('useRoadEta'),
+    ]);
+    return {
+      trip: { ...trip, otp: '' },
+      passenger: { name: passenger?.name ?? 'Rido customer', phone: passenger?.phone ?? '' },
+      pickupKm: at ? Math.round(roadKm(at, pickup) * 10) / 10 : null,
+      pickupEtaMin: at ? await this.eta.minutes({ from: at, to: pickup, vehicleKind: trip.vehicleKind, useRoad }) : null,
+    };
   }
 
   private async onTimeout(tripId: string, driverId: string): Promise<void> {
@@ -142,4 +177,11 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     this.logger.debug(`Offer for ${tripId} to ${driverId} timed out`);
     await this.next(tripId);
   }
+}
+
+export interface OfferDetails {
+  trip: Trip;
+  passenger: { name: string; phone: string };
+  pickupKm: number | null;
+  pickupEtaMin: number | null;
 }

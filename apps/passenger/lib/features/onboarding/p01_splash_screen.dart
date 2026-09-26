@@ -8,6 +8,7 @@ import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
+import '../../state/session_actions.dart';
 import 'widgets/font_safe_wordmark.dart';
 
 /// P-01 Splash: coral background, white "rido" wordmark and the tagline.
@@ -33,14 +34,38 @@ class _P01SplashScreenState extends ConsumerState<P01SplashScreen> {
     }
   }
 
-  void _next() {
+  Future<void> _next() async {
     if (!mounted) return;
     final auth = ref.read(authRepositoryProvider);
     if (!auth.hasSeenOnboarding) {
       context.go(Routes.onboarding);
-    } else {
-      context.go(auth.isLoggedIn ? Routes.ride : Routes.login);
+      return;
     }
+    if (!auth.isLoggedIn) {
+      context.go(Routes.login);
+      return;
+    }
+    if (!ref.read(isLiveApiProvider)) {
+      context.go(Routes.ride);
+      return;
+    }
+    // Live API: finish sign-up if the name was never set, then reopen an unfinished trip.
+    try {
+      final profile = await auth.profile();
+      if (!mounted) return;
+      if (profile.name.trim().isEmpty) {
+        context.go(Routes.profileSetup);
+        return;
+      }
+    } on ApiException {
+      // Signed out by a 401 (the app root shows the login screen) or a server error: carry on to Home.
+    } on OfflineException {
+      // Home shows its offline states.
+    }
+    if (!mounted || !auth.isLoggedIn) return;
+    final trip = await restoreActiveTrip(ref);
+    if (!mounted) return;
+    context.go(trip ?? Routes.ride);
   }
 
   @override

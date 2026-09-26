@@ -86,18 +86,21 @@ class OfflineHeaderPill extends StatelessWidget {
 
 /// Big coral round "GO ONLINE" button (disabled shows a lock).
 class GoOnlineButton extends StatelessWidget {
-  const GoOnlineButton({super.key, required this.onPressed});
+  const GoOnlineButton({super.key, required this.onPressed, this.loading = false});
 
   final VoidCallback? onPressed;
 
+  /// Live API: getting a GPS fix and going online.
+  final bool loading;
+
   @override
   Widget build(BuildContext context) {
-    final enabled = onPressed != null;
+    final enabled = onPressed != null || loading;
     final fg = enabled ? Colors.white : RidoColors.navy500;
     return Semantics(
       button: true,
       enabled: enabled,
-      label: enabled ? 'Go online' : 'Go online, locked',
+      label: loading ? 'Going online' : (enabled ? 'Go online' : 'Go online, locked'),
       excludeSemantics: true,
       child: Material(
         color: enabled ? RidoColors.coral600 : RidoColors.divider,
@@ -106,15 +109,22 @@ class GoOnlineButton extends StatelessWidget {
         shadowColor: RidoColors.shadow,
         child: InkWell(
           customBorder: const StadiumBorder(),
-          onTap: onPressed,
+          onTap: loading ? null : onPressed,
           child: SizedBox(
             height: 64,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(enabled ? Symbols.power_settings_new_rounded : Symbols.lock_rounded, color: fg, size: 28, weight: 600),
+                if (loading)
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                  )
+                else
+                  Icon(enabled ? Symbols.power_settings_new_rounded : Symbols.lock_rounded, color: fg, size: 28, weight: 600),
                 const SizedBox(width: RidoSpacing.m),
-                Text('GO ONLINE',
+                Text(loading ? 'GOING ONLINE…' : 'GO ONLINE',
                     style: context.type.h2.copyWith(color: fg, letterSpacing: 2, fontWeight: FontWeight.w700)),
               ],
             ),

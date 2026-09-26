@@ -15,6 +15,13 @@ export interface Env {
   readonly googleMapsApiKey: string;
   /** Phones (+91…) that sign in as ADMIN (admin panel). */
   readonly adminPhones: readonly string[];
+  /** Local fallback for uploaded files when no S3 bucket is configured (dev). */
+  readonly uploadDir: string;
+  /** Private S3 bucket for KYC documents and images. Empty = local disk ([uploadDir]). */
+  readonly s3Bucket: string;
+  readonly s3Region: string;
+  /** Only for S3-compatible servers in dev (e.g. MinIO); empty = AWS. */
+  readonly s3Endpoint: string;
 }
 
 function required(name: string): string {
@@ -47,5 +54,9 @@ export function loadEnv(): Env {
       .map((p) => p.trim())
       .filter(Boolean)
       .map((p) => `+91${p.replace(/^\+91/, '')}`),
+    uploadDir: process.env.UPLOAD_DIR ?? './uploads',
+    s3Bucket: process.env.S3_BUCKET ?? '',
+    s3Region: process.env.S3_REGION ?? process.env.AWS_REGION ?? 'ap-south-1',
+    s3Endpoint: process.env.S3_ENDPOINT ?? '',
   };
 }

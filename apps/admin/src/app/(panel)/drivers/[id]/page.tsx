@@ -8,7 +8,7 @@ import { TripRouteCell } from "@/components/common/trip-bits";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { adminApi } from "@/lib/api";
+import { adminApi, docFileHref } from "@/lib/api";
 import {
   displayName,
   docLabel,
@@ -172,7 +172,7 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
                       <>
                         {" · "}
                         <a
-                          href={doc.fileUrl}
+                          href={docFileHref(doc.fileUrl)}
                           target="_blank"
                           rel="noreferrer noopener"
                           className="inline-flex items-center gap-0.5 text-coral-600 hover:underline"

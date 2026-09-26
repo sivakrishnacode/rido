@@ -276,3 +276,8 @@ export const authApi = {
     apiFetch<LoginResult>("/auth/verify", { method: "POST", body: { phone, code, app: "ADMIN" }, auth: false }),
 };
 
+
+/** Link for a KYC document: uploaded files go through the admin-only `/files/:name` proxy; full URLs open as they are. */
+export function docFileHref(fileUrl: string): string {
+  return /^https?:\/\//.test(fileUrl) ? fileUrl : `/files/${encodeURIComponent(fileUrl)}`;
+}

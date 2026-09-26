@@ -9,13 +9,14 @@ import '../../state/driver_account.dart';
 import '../onboarding/widgets/signup_widgets.dart';
 
 /// S-09 KYC rejected: Vehicle RC rejected ("Photo is blurry…") with "Re-upload" → D-08.
+/// Live API: whichever document the admin rejected, with the admin's reason and the others' real status.
 class S09KycRejectedScreen extends ConsumerWidget {
   const S09KycRejectedScreen({super.key, this.showcase = false});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
 
-  void _reupload(BuildContext context, WidgetRef ref) {
+  void _reupload(BuildContext context, WidgetRef ref, KycDocType type) {
     ref.read(demoSettingsProvider.notifier).update((s) => s.copyWith(rejectKyc: false));
     final router = GoRouter.of(context);
     // Push the camera as soon as the documents route is in place.
@@ -23,7 +24,7 @@ class S09KycRejectedScreen extends ConsumerWidget {
     void onChange() {
       if (delegate.currentConfiguration.uri.path != Routes.documents) return;
       delegate.removeListener(onChange);
-      router.push(Routes.uploadDocument(KycDocType.vehicleRc.name));
+      router.push(Routes.uploadDocument(type.name));
     }
 
     delegate.addListener(onChange);
@@ -34,9 +35,17 @@ class S09KycRejectedScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final docs = showcase ? null : ref.watch(kycProvider).value;
-    final rc = docs?.where((d) => d.type == KycDocType.vehicleRc).firstOrNull;
-    final reason = rc?.rejectReason ?? Seed.kycRejectReason;
-    final others = KycDocType.values.where((d) => d != KycDocType.vehicleRc).toList();
+    final rejected = docs?.where((d) => d.status == KycStatus.rejected).firstOrNull ??
+        docs?.where((d) => d.type == KycDocType.vehicleRc).firstOrNull;
+    final rejectedType = rejected?.type ?? KycDocType.vehicleRc;
+    final reason = rejected?.rejectReason ?? Seed.kycRejectReason;
+    final others = [
+      for (final type in KycDocType.values)
+        if (type != rejectedType)
+          docs?.where((d) => d.type == type).firstOrNull ?? KycDocument(type: type, status: KycStatus.verified),
+    ];
+    final verified = others.where((d) => d.status == KycStatus.verified).length;
+    final total = KycDocType.values.length;
 
     return Scaffold(
       backgroundColor: RidoColors.background,
@@ -45,10 +54,10 @@ class S09KycRejectedScreen extends ConsumerWidget {
         children: [
           DocsHeader(
             title: 'Documents',
-            summary: '4 of 5 verified',
+            summary: '$verified of $total verified',
             trailing: '1 needs action',
             trailingColor: RidoColors.coral100,
-            segments: const [(0.8, RidoColors.success), (0.2, RidoColors.sos)],
+            segments: [(verified / total, RidoColors.success), (1 / total, RidoColors.sos)],
             onBack: backOr(context, Routes.documents),
           ),
           Expanded(
@@ -79,7 +88,7 @@ class S09KycRejectedScreen extends ConsumerWidget {
                                 child: const Icon(Symbols.description_rounded, color: RidoColors.error, size: 22),
                               ),
                               const SizedBox(width: RidoSpacing.m),
-                              Expanded(child: Text(KycDocType.vehicleRc.label, style: t.bodySemibold)),
+                              Expanded(child: Text(rejectedType.label, style: t.bodySemibold)),
                               const IconPill(
                                 label: 'Rejected',
                                 icon: Symbols.cancel_rounded,
@@ -99,7 +108,7 @@ class S09KycRejectedScreen extends ConsumerWidget {
                                 children: [
                                   Semantics(
                                     image: true,
-                                    label: 'Your blurry RC photo',
+                                    label: 'Your rejected ${rejectedType.label} photo',
                                     child: Container(
                                       width: 72,
                                       height: 48,
@@ -117,7 +126,7 @@ class S09KycRejectedScreen extends ConsumerWidget {
                               RidoButton(
                                 label: 'Re-upload',
                                 icon: Symbols.photo_camera_rounded,
-                                onPressed: () => _reupload(context, ref),
+                                onPressed: () => _reupload(context, ref, rejectedType),
                               ),
                             ],
                           ),
@@ -142,13 +151,26 @@ class S09KycRejectedScreen extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l),
                               child: Row(
                                 children: [
-                                  const Icon(Symbols.check_circle_rounded, color: RidoColors.success, fill: 1),
+                                  others[i].status == KycStatus.verified
+                                      ? const Icon(Symbols.check_circle_rounded, color: RidoColors.success, fill: 1)
+                                      : const Icon(Symbols.schedule_rounded, color: RidoColors.warning, fill: 1),
                                   const SizedBox(width: RidoSpacing.m),
                                   Expanded(
-                                    child: Text(others[i].label,
+                                    child: Text(others[i].type.label,
                                         style: t.body, maxLines: 1, overflow: TextOverflow.ellipsis),
                                   ),
-                                  Text('Verified', style: t.bodySmallMedium.copyWith(color: RidoColors.successText)),
+                                  Text(
+                                    switch (others[i].status) {
+                                      KycStatus.verified => 'Verified',
+                                      KycStatus.underReview => 'Under review',
+                                      KycStatus.rejected => 'Rejected',
+                                      KycStatus.notUploaded => 'Not uploaded',
+                                    },
+                                    style: t.bodySmallMedium.copyWith(
+                                        color: others[i].status == KycStatus.verified
+                                            ? RidoColors.successText
+                                            : RidoColors.warningText),
+                                  ),
                                 ],
                               ),
                             ),

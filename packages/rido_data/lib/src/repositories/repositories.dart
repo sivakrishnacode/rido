@@ -21,6 +21,13 @@ class PaymentFailedException implements Exception {
   String toString() => 'Your ₹$amount payment didn\'t go through';
 }
 
+/// The driver's application is still being reviewed (D-10 "Check status" before an admin has decided).
+class StillUnderReviewException implements Exception {
+  const StillUnderReviewException();
+  @override
+  String toString() => 'Your documents are still being reviewed';
+}
+
 enum OtpResult { newUser, existingUser, incorrect }
 
 /// Phone + OTP sign-in and the signed-in passenger's profile.
@@ -89,10 +96,17 @@ abstract interface class DriverRepository {
 
   Future<DriverProfile> profile();
   Future<DriverProfile> updateProfile(DriverProfile profile);
+
+  /// Sign-up (D-04 … D-06): creates the driver with a free trial. Throws [ApiException] on invalid details.
+  Future<DriverProfile> register(DriverProfile profile, WorkType workType);
   Future<List<KycDocument>> kycDocuments();
   Future<List<KycDocument>> setKycStatus(KycDocType type, KycStatus status, {String? reason});
 
-  /// True when the application is approved; false when rejected (Demo control "Reject KYC").
+  /// D-08: uploads a photo / PDF of [type]; the document goes under review.
+  Future<List<KycDocument>> uploadKyc(KycDocType type, List<int> bytes, String filename);
+
+  /// True when approved; false when rejected (Demo control "Reject KYC"). Throws [StillUnderReviewException]
+  /// while an admin hasn't decided yet.
   Future<bool> checkApplication();
   Future<EarningsSummary> earnings(EarningsPeriod period);
   Future<void> recordCompletedJob(EarningsTrip trip);

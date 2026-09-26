@@ -19,6 +19,7 @@ class RequestTakeover extends StatelessWidget {
     required this.details,
     required this.onAccept,
     required this.onDecline,
+    this.accepting = false,
   });
 
   final String title;
@@ -34,6 +35,9 @@ class RequestTakeover extends StatelessWidget {
   final List<Widget> details;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
+
+  /// Live API: waiting for the accept call.
+  final bool accepting;
 
   @override
   Widget build(BuildContext context) {
@@ -93,10 +97,10 @@ class RequestTakeover extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.s),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                RidoButton(label: 'Accept', height: 64, onPressed: onAccept),
+                RidoButton(label: 'Accept', height: 64, loading: accepting, onPressed: onAccept),
                 const SizedBox(height: RidoSpacing.s),
                 TextButton(
-                  onPressed: onDecline,
+                  onPressed: accepting ? null : onDecline,
                   style: TextButton.styleFrom(foregroundColor: RidoColors.navy700, minimumSize: const Size(160, 48)),
                   child: const Text('Decline'),
                 ),

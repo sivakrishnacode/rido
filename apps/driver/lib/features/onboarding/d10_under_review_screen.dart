@@ -7,12 +7,16 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/start_route.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/signup_widgets.dart';
 
 /// D-10 Application under review. Checks automatically after 4 s (or on "Check status"):
 /// approved → D-11 Choose plan; rejected (Demo control "Reject KYC") → S-09.
+/// Live API: an admin reviews the documents, so the screen checks quietly every 30 s and "Check status"
+/// says so while the review is pending.
 class D10UnderReviewScreen extends ConsumerStatefulWidget {
   const D10UnderReviewScreen({super.key, this.showcase = false});
 
@@ -25,41 +29,70 @@ class D10UnderReviewScreen extends ConsumerStatefulWidget {
 
 class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
   Timer? _timer;
+  Timer? _poll;
   bool _checking = false;
+  late final bool _live = !widget.showcase && ref.read(isLiveApiProvider);
 
   @override
   void initState() {
     super.initState();
     if (widget.showcase) return;
+    if (_live) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _check(silent: true));
+      _poll = Timer.periodic(const Duration(seconds: 30), (_) => _check(silent: true));
+      return;
+    }
     _timer = Timer(ref.read(simTimingProvider)(SimTimings.applicationReview), _check);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _poll?.cancel();
     super.dispose();
   }
 
-  Future<void> _check() async {
+  /// [silent]: the live API's background check (no spinner, no "still under review" snack).
+  Future<void> _check({bool silent = false}) async {
     _timer?.cancel();
     if (_checking || !mounted) return;
-    setState(() => _checking = true);
-    bool ok;
+    if (!silent) setState(() => _checking = true);
+    bool? ok;
     try {
       ok = await ref.read(kycProvider.notifier).checkApplication();
-    } on OfflineException {
+    } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _checking = false);
-      showRidoSnack(context, "You're offline. We'll check again when you're back.");
+      if (!silent) {
+        showRidoSnack(
+            context, e is OfflineException ? "You're offline. We'll check again when you're back." : userMessage(e));
+      }
       return;
     }
     if (!mounted) return;
     setState(() => _checking = false);
     if (widget.showcase) {
-      showRidoSnack(context, ok ? 'Approved! Your documents are verified.' : 'Vehicle RC needs a clearer photo.');
+      showRidoSnack(context, ok == true ? 'Approved! Your documents are verified.' : 'Vehicle RC needs a clearer photo.');
       return;
     }
-    context.go(ok ? Routes.choosePlan : Routes.kycRejected);
+    if (!_live) {
+      context.go(ok == true ? Routes.choosePlan : Routes.kycRejected);
+      return;
+    }
+    if (ok == true) {
+      _poll?.cancel();
+      context.go(Routes.choosePlan);
+      return;
+    }
+    final route = applicationRoute(approved: ok, docs: ref.read(kycProvider).value ?? const []);
+    if (route == Routes.underReview) {
+      if (!silent) {
+        showRidoSnack(context, "Still under review. We'll let you know as soon as an admin approves your documents.");
+      }
+      return;
+    }
+    _poll?.cancel();
+    context.go(route);
   }
 
   @override
@@ -141,9 +174,9 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
                               label: d.type == KycDocType.policeVerification ? 'Police verification' : d.type.label,
                               status: d.status,
                             ),
-                            const Divider(height: 1),
+                            if (!_live || d != docs.last) const Divider(height: 1),
                           ],
-                          const _CheckRow(label: 'Selfie', status: KycStatus.underReview),
+                          if (!_live) const _CheckRow(label: 'Selfie', status: KycStatus.underReview),
                         ],
                       ),
                     ),

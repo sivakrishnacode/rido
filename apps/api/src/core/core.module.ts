@@ -9,10 +9,11 @@ import { EnvModule } from './config/env.module.js';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { RedisModule } from './redis/redis.module.js';
+import { FileStorageService } from './storage/file-storage.service.js';
 
 const env = loadEnv();
 
-/** Cross-cutting setup: config, database, Redis, JWT, global guards, validation and error filter. */
+/** Cross-cutting setup: config, database, Redis, JWT, file storage, global guards, validation and error filter. */
 @Global()
 @Module({
   imports: [
@@ -26,7 +27,8 @@ const env = loadEnv();
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }) },
+    FileStorageService,
   ],
-  exports: [EnvModule],
+  exports: [EnvModule, FileStorageService],
 })
 export class CoreModule {}

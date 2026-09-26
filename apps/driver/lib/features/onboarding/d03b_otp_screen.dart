@@ -6,11 +6,16 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/start_route.dart';
 import '../../router/routes.dart';
+import '../../state/driver_account.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/signup_widgets.dart';
 
 /// D-03b OTP verification: 6 boxes, a 30 s resend countdown and "Verify".
 /// 000000 → "Incorrect OTP" + shake. Sign-up → D-04; log-in → Home as Karthik.
+/// Live API: a phone that is already a driver goes where the application stands (Home, D-07, D-10 or
+/// S-09) from either entry; a new phone continues to sign-up (D-04).
 class D03bOtpScreen extends ConsumerStatefulWidget {
   const D03bOtpScreen({super.key, this.phone = '98430 12345', this.signup = true, this.showcase = false});
 
@@ -56,13 +61,16 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
     super.dispose();
   }
 
+  bool get _live => ref.read(isLiveApiProvider);
+  String get _apiPhone => _live ? apiPhone(widget.phone) : widget.phone;
+
   Future<void> _resend() async {
     _startCountdown();
     try {
-      await ref.read(driverRepositoryProvider).sendOtp(widget.phone);
+      await ref.read(driverRepositoryProvider).sendOtp(_apiPhone);
       if (mounted) showRidoSnack(context, 'OTP resent');
-    } on OfflineException {
-      if (mounted) showRidoSnack(context, "You're offline. Check your connection and try again.");
+    } on Exception catch (e) {
+      if (mounted) showRidoSnack(context, userMessage(e));
     }
   }
 
@@ -71,11 +79,11 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
     setState(() => _verifying = true);
     OtpResult result;
     try {
-      result = await ref.read(driverRepositoryProvider).verifyOtp(widget.phone, _code);
-    } on OfflineException {
+      result = await ref.read(driverRepositoryProvider).verifyOtp(_apiPhone, _code);
+    } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _verifying = false);
-      showRidoSnack(context, "You're offline. Check your connection and try again.");
+      showRidoSnack(context, userMessage(e));
       return;
     }
     if (!mounted) return;
@@ -87,8 +95,29 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
       });
       return;
     }
+    if (!_live) {
+      setState(() => _verifying = false);
+      context.go(widget.signup ? Routes.workType : Routes.home);
+      return;
+    }
+    resetDriverData(ref);
+    if (result == OtpResult.newUser) {
+      ref.read(signupProvider.notifier).update((d) => d.copyWith(phone: widget.phone));
+      setState(() => _verifying = false);
+      if (!widget.signup) showRidoSnack(context, "This number isn't registered yet. Let's sign you up.");
+      context.go(Routes.workType);
+      return;
+    }
+    String route;
+    try {
+      route = await driverStartRoute(ref.read(driverRepositoryProvider));
+    } on Exception {
+      route = Routes.home;
+    }
+    if (!mounted) return;
     setState(() => _verifying = false);
-    context.go(widget.signup ? Routes.workType : Routes.home);
+    if (widget.signup) showRidoSnack(context, 'Welcome back! You already have a Rido Driver account.');
+    context.go(route);
   }
 
   @override

@@ -6,6 +6,7 @@ import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
+import '../../state/live_trip.dart';
 
 /// P-03 Phone number: +91 input, "Send OTP" (enabled at 10 digits), Terms & Privacy links.
 class P03PhoneScreen extends ConsumerStatefulWidget {
@@ -19,7 +20,8 @@ class P03PhoneScreen extends ConsumerStatefulWidget {
 }
 
 class _P03PhoneScreenState extends ConsumerState<P03PhoneScreen> {
-  final _controller = TextEditingController(text: '98765 43210');
+  /// Mock mode pre-fills the demo number; with the live API the passenger types their own.
+  late final _controller = TextEditingController(text: ref.read(isLiveApiProvider) ? '' : '98765 43210');
   late final TapGestureRecognizer _terms = TapGestureRecognizer()..onTap = () => context.push(Routes.legal('terms'));
   late final TapGestureRecognizer _privacy = TapGestureRecognizer()
     ..onTap = () => context.push(Routes.legal('privacy'));
@@ -41,11 +43,17 @@ class _P03PhoneScreenState extends ConsumerState<P03PhoneScreen> {
     setState(() => _sending = true);
     final formatted = '${_digits.substring(0, 5)} ${_digits.substring(5)}';
     try {
-      await ref.read(authRepositoryProvider).sendOtp(formatted);
-    } finally {
-      if (mounted) setState(() => _sending = false);
+      // The API takes digits only; the OTP screen shows the formatted number.
+      await ref.read(authRepositoryProvider).sendOtp(_digits);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _sending = false);
+        showRidoSnack(context, apiErrorMessage(e));
+      }
+      return;
     }
     if (!mounted) return;
+    setState(() => _sending = false);
     context.push('${Routes.otp}?phone=${Uri.encodeQueryComponent(formatted)}');
   }
 

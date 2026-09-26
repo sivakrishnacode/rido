@@ -5,6 +5,7 @@ import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../state/driver_account.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/edit_form_scaffold.dart';
 
 /// Account › UPI ID: where passengers pay you (shown on the D-19 QR). Save → back.
@@ -36,7 +37,14 @@ class _UpiIdScreenState extends ConsumerState<UpiIdScreen> {
     if (!_ok) return;
     setState(() => _saving = true);
     final p = ref.read(driverProfileProvider).value ?? Seed.karthik;
-    await ref.read(driverProfileProvider.notifier).save(p.copyWith(upiId: _upi.text.trim()));
+    try {
+      await ref.read(driverProfileProvider.notifier).save(p.copyWith(upiId: _upi.text.trim()));
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      showRidoSnack(context, userMessage(e));
+      return;
+    }
     if (!mounted) return;
     showRidoSnack(context, 'UPI ID updated', success: true);
     context.pop();

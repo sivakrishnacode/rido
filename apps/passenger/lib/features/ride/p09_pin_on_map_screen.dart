@@ -57,7 +57,14 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
 
   Future<void> _geocode() async {
     final id = ++_request;
-    final place = await ref.read(placesRepositoryProvider).reverseGeocode(_centre);
+    final centre = _centre;
+    Place place;
+    try {
+      place = await ref.read(placesRepositoryProvider).reverseGeocode(centre);
+    } catch (_) {
+      // Offline / API error: keep the exact pin without an address.
+      place = Place(id: 'pin-${centre.latitude},${centre.longitude}', name: 'Pinned location', address: '', location: centre);
+    }
     if (!mounted || id != _request) return;
     setState(() {
       _place = place;

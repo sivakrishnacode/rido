@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 /// S-16 GPS weak / location off while online: red full-width strip under the header,
-/// "GPS signal lost. Riders can't see you" with "Fix now".
+/// "GPS signal lost. Riders can't see you" with "Fix now" ([onFix]: the live app opens location settings).
 class S16GpsWeakBanner extends StatelessWidget {
-  const S16GpsWeakBanner({super.key, this.showcase = false});
+  const S16GpsWeakBanner({super.key, this.showcase = false, this.onFix});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
+  final VoidCallback? onFix;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +29,7 @@ class S16GpsWeakBanner extends StatelessWidget {
               ),
               const SizedBox(width: RidoSpacing.s),
               FilledButton(
-                onPressed: () => showRidoSnack(context, 'Opening location settings'),
+                onPressed: onFix ?? () => showRidoSnack(context, 'Opening location settings'),
                 style: FilledButton.styleFrom(
                   backgroundColor: RidoColors.surface,
                   foregroundColor: RidoColors.error,

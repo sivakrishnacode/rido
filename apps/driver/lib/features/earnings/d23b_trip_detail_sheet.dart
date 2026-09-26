@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
+import '../../state/driver_account.dart';
 
 /// D-23b Trip detail sheet: route, time and trip id, fare breakdown, "You kept ₹38 ·
 /// commission ₹0", the passenger and Help (→ support).
-class D23bTripDetailSheet extends StatelessWidget {
+class D23bTripDetailSheet extends ConsumerWidget {
   const D23bTripDetailSheet({super.key, this.trip, this.showcase = false});
 
   final EarningsTrip? trip;
@@ -31,16 +33,18 @@ class D23bTripDetailSheet extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final trip = this.trip ?? Seed.todayTrips().first;
     final start = trip.time.subtract(Duration(minutes: trip.durationMin));
-    final vehicle = trip.isDelivery ? Seed.threeWheeler : Seed.bike;
+    // The driver's own vehicle (the breakdown only shows when it adds up to the fare).
+    final kind = showcase ? null : ref.watch(driverProfileProvider).value?.vehicleKind;
+    final vehicle = kind != null ? Seed.vehicle(kind) : (trip.isDelivery ? Seed.threeWheeler : Seed.bike);
     final quote = trip.distanceKm > 0
         ? FareEngine.quote(vehicle, RouteEstimate(distanceKm: trip.distanceKm, durationMin: trip.durationMin))
         : null;
     final useQuote = quote != null && quote.total == trip.fare;
-    final kindLabel = trip.isDelivery ? 'Delivery' : 'Bike ride';
+    final kindLabel = trip.isDelivery ? 'Delivery' : '${vehicle.kind.label} ride';
     final paid = trip.paymentMode == PaymentMode.upi ? 'paid on UPI' : 'paid in cash';
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [

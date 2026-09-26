@@ -2,8 +2,11 @@ import { IsEnum, IsOptional, Matches } from 'class-validator';
 
 import { Role } from '../../../generated/prisma/enums.js';
 
+import { NormalizePhone } from '../../../core/validation/normalize-phone.js';
+
 /** POST /auth/verify body. */
 export class VerifyOtpDto {
+  @NormalizePhone()
   @Matches(/^(\+91)?[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' })
   phone: string;
 

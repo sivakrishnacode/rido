@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/phone.dart';
 import '../../state/passenger_session.dart';
 import 'p24b_add_contact_sheet.dart';
 
@@ -18,8 +19,8 @@ class P24EmergencyContactsScreen extends ConsumerWidget {
 
   Future<void> _remove(BuildContext context, WidgetRef ref, EmergencyContact c) async {
     final profile = ref.read(passengerProfileProvider.notifier);
-    await profile.removeContact(c.id);
-    if (!context.mounted) return;
+    final removed = await profile.removeContact(c.id);
+    if (!context.mounted || !removed) return;
     showRidoSnack(context, '${c.name} removed', actionLabel: 'Undo', onAction: () => profile.addContact(c));
   }
 
@@ -31,7 +32,7 @@ class P24EmergencyContactsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
-    final p = ref.watch(passengerProfileProvider).value ?? Seed.priya;
+    final p = ref.watch(currentProfileProvider);
     final contacts = p.emergencyContacts;
     final left = maxContacts - contacts.length;
 
@@ -153,7 +154,7 @@ class _ContactTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(contact.phone, style: RidoTextStyles.tabular(t.body.copyWith(color: RidoColors.navy500))),
+                Text(displayPhone(contact.phone), style: RidoTextStyles.tabular(t.body.copyWith(color: RidoColors.navy500))),
               ],
             ),
           ),

@@ -44,3 +44,11 @@ apps/api/src/generated/
 # Credentials kept alongside the tech docs (never commit)
 docs/tech-docs/credentials*
 !docs/tech-docs/credentials.example.md
+
+# KYC uploads (local dev)
+apps/api/uploads/
+
+# Firebase config (per machine) and service-account keys: never commit
+**/google-services.json
+*firebase-adminsdk*.json
+firebase-sa.json

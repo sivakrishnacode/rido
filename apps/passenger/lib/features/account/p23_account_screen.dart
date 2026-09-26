@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/phone.dart';
 import '../../common/flags.dart';
 import '../../router/routes.dart';
+import '../../state/session_actions.dart';
 import '../../state/passenger_session.dart';
 
 /// P-23 Account: profile header with Edit, saved places, emergency contacts, safety
@@ -29,14 +30,14 @@ class P23AccountScreen extends ConsumerWidget {
       destructive: true,
     );
     if (!ok || !context.mounted) return;
-    await ref.read(authRepositoryProvider).logout();
+    await signOut(ref);
     if (context.mounted) context.go(Routes.login);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
-    final p = ref.watch(passengerProfileProvider).value ?? Seed.priya;
+    final p = ref.watch(currentProfileProvider);
     String onOff(bool v) => v ? 'On' : 'Off';
     final places = p.savedPlaces.map((s) => s.label).join(', ');
     final contacts = p.emergencyContacts.map((c) => c.name).join(', ');
@@ -60,7 +61,7 @@ class P23AccountScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(p.name, style: t.h1, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text(p.phone, style: RidoTextStyles.tabular(t.body.copyWith(color: RidoColors.navy700))),
+                          Text(displayPhone(p.phone), style: RidoTextStyles.tabular(t.body.copyWith(color: RidoColors.navy700))),
                         ],
                       ),
                     ),

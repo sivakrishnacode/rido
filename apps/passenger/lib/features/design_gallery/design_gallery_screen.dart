@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
@@ -45,10 +46,37 @@ class _DemoControlsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(demoSettingsProvider);
     void set(DemoSettings Function(DemoSettings s) change) => ref.read(demoSettingsProvider.notifier).update(change);
+    // Live API: switches that only drive the seed data / simulator do nothing, so they are hidden.
+    final live = ref.watch(isLiveApiProvider);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.xxl),
       children: [
+        if (live) ...[
+          DemoGroup(title: 'Live backend', children: [
+            RidoListTile(
+              icon: Symbols.dns_rounded,
+              title: 'API',
+              subtitle: kApiBaseUrl,
+              showChevron: false,
+              onTap: () {
+                Clipboard.setData(const ClipboardData(text: kApiBaseUrl));
+                showRidoSnack(context, 'API address copied');
+              },
+            ),
+            const _RealtimeTile(),
+          ]),
+          Padding(
+            padding: const EdgeInsets.only(top: RidoSpacing.s),
+            child: Text(
+              'Trips, drivers, fares and data come from the server. Seed-data switches (no drivers, driver cancels, '
+              'offline, empty activity, slow loading, fast mode, reset) only work in a mock build '
+              '(--dart-define=RIDO_LIVE_API=false).',
+              style: context.type.bodySmall.copyWith(color: RidoColors.navy500),
+            ),
+          ),
+        ],
+        if (!live)
         DemoGroup(title: 'Booking', children: [
           DemoSwitchTile(
             icon: Symbols.person_search_rounded,
@@ -66,6 +94,7 @@ class _DemoControlsTab extends ConsumerWidget {
           ),
         ]),
         DemoGroup(title: 'Device and data', children: [
+          if (!live)
           DemoSwitchTile(
             icon: Symbols.wifi_off_rounded,
             title: 'Offline mode',
@@ -87,6 +116,7 @@ class _DemoControlsTab extends ConsumerWidget {
             value: s.outsideServiceArea,
             onChanged: (v) => set((s) => s.copyWith(outsideServiceArea: v)),
           ),
+          if (!live) ...[
           DemoSwitchTile(
             icon: Symbols.history_rounded,
             title: 'Empty activity',
@@ -101,7 +131,9 @@ class _DemoControlsTab extends ConsumerWidget {
             value: s.slowLoading,
             onChanged: (v) => set((s) => s.copyWith(slowLoading: v)),
           ),
+          ],
         ]),
+        if (!live)
         DemoGroup(title: 'Simulation', children: [
           DemoSwitchTile(
             icon: Symbols.fast_forward_rounded,
@@ -141,5 +173,32 @@ class _DemoControlsTab extends ConsumerWidget {
       ..invalidate(passengerProfileProvider)
       ..invalidate(tripHistoryProvider);
     showRidoSnack(context, 'Seed data reset', success: true);
+  }
+}
+
+/// Live API: whether the Socket.IO connection (trip status, driver GPS, chat) is up.
+class _RealtimeTile extends ConsumerWidget {
+  const _RealtimeTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final realtime = ref.watch(realtimeProvider);
+    return StreamBuilder<bool>(
+      stream: realtime.connection,
+      initialData: realtime.isConnected,
+      builder: (context, snap) {
+        final up = snap.data ?? false;
+        return RidoListTile(
+          icon: up ? Symbols.cloud_done_rounded : Symbols.cloud_off_rounded,
+          title: 'Live updates',
+          subtitle: up ? 'Connected' : 'Not connected (connects when a trip starts; the app polls meanwhile)',
+          showChevron: false,
+          onTap: () {
+            realtime.connect();
+            showRidoSnack(context, 'Connecting…');
+          },
+        );
+      },
+    );
   }
 }

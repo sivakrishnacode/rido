@@ -7,6 +7,7 @@ import 'package:rido_ui/rido_ui.dart';
 import '../../common/async_view.dart';
 import '../../common/trip_routes.dart';
 import '../../common/device_location.dart';
+import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
 import '../../state/passenger_session.dart';
@@ -38,10 +39,15 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
   final _map = RidoMapController();
 
+  /// Re-reads the location when the passenger comes back (e.g. from the system settings after S-05).
+  AppLifecycleListener? _lifecycle;
+
   static final LatLng _pickup = Seed.gandhipuram.location;
 
-  /// Camera centre sits south of the pickup so the pickup shows above the sheet.
-  static final LatLng _camera = offsetPoint(_pickup, 950, 180);
+  /// Camera centre sits south of the pickup so the pickup shows above the sheet. On the Google engine the
+  /// map is padded by the sheet instead (keeps the Google logo visible), so it centres on the pickup itself.
+  static LatLng _cameraFor(LatLng pickup) => RidoMap.usesGoogle ? pickup : offsetPoint(pickup, 950, 180);
+  static final LatLng _camera = _cameraFor(_pickup);
   static const double _zoom = 15;
 
   /// Seeded nearby vehicles (bike, auto, car) at various headings, placed around [p]
@@ -56,6 +62,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
     _sheetExtent.dispose();
     _map.dispose();
     super.dispose();
@@ -66,10 +73,14 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
     super.initState();
     // Use the phone's location if permission was already given (no prompt here).
     if (!widget.showcase) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => ref.read(deviceLocationProvider.notifier).locate(askPermission: false).then(_moveToPickup),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) => _locateQuietly());
+      _lifecycle = AppLifecycleListener(onResume: _locateQuietly);
     }
+  }
+
+  void _locateQuietly() {
+    if (!mounted || ref.read(rideFlowProvider).isActive) return;
+    ref.read(deviceLocationProvider.notifier).locate(askPermission: false).then(_moveToPickup);
   }
 
   void _moveTo(LatLng centre) {
@@ -78,7 +89,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
   void _moveToPickup(LocateResult r) {
     if (!mounted) return;
-    if (r == LocateResult.inArea) _moveTo(offsetPoint(ref.read(rideFlowProvider).pickup.location, 950, 180));
+    if (r == LocateResult.inArea) _moveTo(_cameraFor(ref.read(rideFlowProvider).pickup.location));
   }
 
   /// Locate me: asks for permission if needed, then centres on the phone's location.
@@ -90,7 +101,12 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
         _moveToPickup(r);
       case LocateResult.outsideArea:
         _moveTo(_camera);
-        showRidoSnack(context, "You're outside Coimbatore. The demo keeps Gandhipuram as pickup.");
+        showRidoSnack(
+          context,
+          ref.read(isLiveApiProvider)
+              ? "Rido isn't in your area yet. Choose a pickup in Coimbatore."
+              : "You're outside Coimbatore. The demo keeps Gandhipuram as pickup.",
+        );
       case LocateResult.denied:
         context.push(Routes.locationDenied);
       case LocateResult.unavailable:
@@ -116,7 +132,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
     final demo = ref.watch(demoSettingsProvider);
     final ride = ref.watch(rideFlowProvider);
     final parcel = ref.watch(parcelFlowProvider);
-    final profile = ref.watch(passengerProfileProvider).value ?? Seed.priya;
+    final profile = ref.watch(currentProfileProvider);
 
     if (!widget.showcase && demo.outsideServiceArea) {
       return const Scaffold(backgroundColor: RidoColors.surface, body: S08ServiceUnavailableView());
@@ -130,6 +146,8 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
     final tripActive = widget.showTripBanner || ride.isActive || parcel.isActive;
     final sheetSize = tripActive ? 0.42 : 0.58;
+    // Decorative nearby vehicles in the seeded demo only; the live app has no feed of idle drivers.
+    final showNearby = !tripActive && (widget.showcase || !ref.watch(isLiveApiProvider));
 
     return Scaffold(
       backgroundColor: RidoColors.surface,
@@ -141,10 +159,13 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
               Positioned.fill(
                 child: RidoMap(
                   controller: _map,
-                  center: tripActive ? offsetPoint(_pickup, 600, 180) : _camera,
+                  center: tripActive
+                      ? (RidoMap.usesGoogle ? ride.pickup.location : offsetPoint(ride.pickup.location, 600, 180))
+                      : _cameraFor(ride.pickup.location),
                   zoom: _zoom,
+                  mapPadding: sheetMapPadding(c.maxHeight * sheetSize),
                   pickup: ref.watch(rideFlowProvider.select((r) => r.pickup.location)),
-                  vehicles: tripActive ? const [] : _nearbyAround(ref.watch(rideFlowProvider.select((r) => r.pickup.location))),
+                  vehicles: showNearby ? _nearbyAround(ref.watch(rideFlowProvider.select((r) => r.pickup.location))) : const [],
                   attributionAlignment: Alignment.topRight,
                   showAttribution: true,
                 ),

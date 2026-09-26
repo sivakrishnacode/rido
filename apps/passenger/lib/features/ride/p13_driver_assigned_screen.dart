@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
+import '../../common/map_insets.dart';
+import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 import '../states/s03_cancel_ride_dialog.dart';
@@ -31,8 +34,12 @@ class P13DriverAssignedScreen extends ConsumerWidget {
   Future<void> _cancel(BuildContext context, WidgetRef ref) async {
     final reason = await S03CancelRideDialog.show(context);
     if (reason == null || !context.mounted) return;
-    await ref.read(rideFlowProvider.notifier).cancelRide(reason: reason);
+    final error = await ref.read(rideFlowProvider.notifier).cancelRide(reason: reason);
     if (!context.mounted) return;
+    if (error != null) {
+      showRidoSnack(context, error);
+      return;
+    }
     showRidoSnack(context, 'Ride cancelled');
     context.go(Routes.ride);
   }
@@ -41,22 +48,18 @@ class P13DriverAssignedScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen(rideFlowProvider.select((s) => s.phase), (prev, next) {
       if (showcase) return;
-      switch (next) {
-        case RidePhase.arrived:
-          context.go(Routes.driverArrived);
-        case RidePhase.driverCancelled:
-          context.go(Routes.driverCancelled);
-        case RidePhase.inProgress:
-          context.go(Routes.rideInProgress);
-        default:
-          break;
-      }
+      // Arrived, driver cancelled (S-02), or further along when a poll skipped steps.
+      if (next == RidePhase.assigned) return;
+      final route = routeForRidePhase(next);
+      if (route != null) context.go(route);
     });
 
     final t = context.type;
     final ride = ref.watch(rideFlowProvider);
     final driver = ride.driver;
     final eta = showcase ? 3 : ride.etaMin.clamp(1, 99);
+    // Live API: until the driver's first GPS fix there is no leg to draw (no made-up start point).
+    final waitingForGps = !showcase && ride.approach.isEmpty && ref.watch(isLiveApiProvider);
     final approach = ride.approach.isNotEmpty ? ride.approach : fallbackApproach(ride.pickup);
     final vehicle = ref.read(rideFlowProvider.notifier).vehicle;
 
@@ -72,6 +75,17 @@ class P13DriverAssignedScreen extends ConsumerWidget {
           builder: (context, live, _) {
             final fix = showcase ? null : live;
             final pos = fix?.position ?? approach.first;
+            final insets = sheetMapInsets(EdgeInsets.fromLTRB(56, 96, 56, h * 0.66), h * 0.66);
+            if (waitingForGps) {
+              return RidoMap(
+                pickup: ride.pickup.location,
+                pulseAt: ride.pickup.location,
+                fitPoints: [offsetPoint(ride.pickup.location, 600, 0), offsetPoint(ride.pickup.location, 600, 180)],
+                fitPadding: insets.fit,
+                mapPadding: insets.map,
+                attributionAlignment: Alignment.topCenter,
+              );
+            }
             return RidoMap(
               pickup: ride.pickup.location,
               route: remainingPath(approach, pos, fix?.progress ?? 0),
@@ -79,12 +93,13 @@ class P13DriverAssignedScreen extends ConsumerWidget {
                 MapVehicle(
                   position: pos,
                   type: ride.vehicle.mapType,
-                  heading: fix?.heading ?? headingBetween(approach.first, approach[1]),
+                  heading: fix?.heading ?? (approach.length > 1 ? headingBetween(approach.first, approach[1]) : 0),
                   large: true,
                 ),
               ],
               fitPoints: [...approach, offsetPoint(ride.pickup.location, 250, 0)],
-              fitPadding: EdgeInsets.fromLTRB(56, 96, 56, h * 0.66),
+              fitPadding: insets.fit,
+              mapPadding: insets.map,
               attributionAlignment: Alignment.topCenter,
               extraMarkers: [
                 Marker(
@@ -112,8 +127,8 @@ class P13DriverAssignedScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             TripDriverRow(driver: driver),
             const SizedBox(height: 16),
-            const RideOtpCard(
-              code: Seed.rideOtp,
+            RideOtpCard(
+              code: showcase ? Seed.rideOtp : ride.otp,
               caption: 'Share this with your driver to start the ride',
             ),
             const SizedBox(height: 12),
@@ -124,10 +139,9 @@ class P13DriverAssignedScreen extends ConsumerWidget {
                   child: TripActionButton(
                     icon: Symbols.call_rounded,
                     label: 'Call',
-                    caption: 'Masked',
                     background: RidoColors.coral600,
                     foreground: Colors.white,
-                    onPressed: () => showRidoSnack(context, 'Calling ${driver.firstName} (number hidden)'),
+                    onPressed: () => callNumber(context, driver.phone, name: driver.firstName),
                   ),
                 ),
                 Expanded(

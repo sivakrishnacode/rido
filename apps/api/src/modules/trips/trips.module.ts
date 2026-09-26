@@ -5,6 +5,7 @@ import { FaresModule } from '../fares/fares.module.js';
 import { MapsModule } from '../maps/maps.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
 import { DispatchService } from './dispatch.service.js';
+import { TripChatService } from './trip-chat.service.js';
 import { TripsController } from './trips.controller.js';
 import { TripsService } from './trips.service.js';
 
@@ -12,6 +13,6 @@ import { TripsService } from './trips.service.js';
 @Module({
   imports: [FaresModule, DriversModule, RealtimeModule, MapsModule],
   controllers: [TripsController],
-  providers: [TripsService, DispatchService],
+  providers: [TripsService, DispatchService, TripChatService],
 })
 export class TripsModule {}

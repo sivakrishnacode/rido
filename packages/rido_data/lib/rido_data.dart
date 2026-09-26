@@ -1,8 +1,14 @@
-/// Rido models, seed data, fare engine, mock repositories and the trip simulator.
+/// Rido models, the API client and repositories, seed data, fare engine, mock repositories and the trip simulator.
 library;
 
 export 'package:latlong2/latlong.dart' show LatLng;
 
+export 'src/api/api_client.dart';
+export 'src/api/api_config.dart';
+export 'src/api/api_mappers.dart' show apiPhone, enumToApi, rideRequestFromTrip, tripFromJson, vehicleKindFromApi;
+export 'src/api/api_repositories.dart';
+export 'src/api/live_services.dart';
+export 'src/api/realtime_client.dart';
 export 'src/demo_settings.dart';
 export 'src/fare_engine.dart';
 export 'src/maps/google_http.dart' show GoogleApiException;

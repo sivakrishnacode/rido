@@ -100,6 +100,7 @@ class RidoMap extends StatelessWidget {
     this.extraMarkers = const [],
     this.showAttribution = true,
     this.attributionAlignment = Alignment.bottomLeft,
+    this.mapPadding = EdgeInsets.zero,
   });
 
   /// Global switch; tests set this to false so no network tiles are requested and no Google
@@ -134,6 +135,10 @@ class RidoMap extends StatelessWidget {
   final List<Marker> extraMarkers;
   final bool showAttribution;
   final Alignment attributionAlignment;
+
+  /// Google engine: insets for the logo / attribution and controls (`GoogleMap.padding`). Screens with a bottom
+  /// sheet over the map pass the sheet height so the Google logo stays visible (required by the Maps terms).
+  final EdgeInsets mapPadding;
 
   @override
   Widget build(BuildContext context) {

@@ -6,11 +6,13 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/job_common.dart';
 import 'widgets/otp_step.dart';
 
 /// D-17 Enter ride OTP: "Ask Priya for the 4-digit OTP". 4829 → Start ride → D-18;
 /// anything else shakes and shows "Wrong OTP, please try again" (D-17-error).
+/// Live API: the server checks the code when the ride starts and its message shows as the error.
 class D17RideOtpScreen extends ConsumerStatefulWidget {
   const D17RideOtpScreen({super.key, this.showError = false, this.showcase = false});
 
@@ -26,26 +28,51 @@ class D17RideOtpScreen extends ConsumerStatefulWidget {
 
 class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
   late final RideRequest _job = ref.read(driverSessionProvider).job ?? Seed.rideRequest;
-  // Prefilled with the passenger's OTP for demos; the error frame shows a wrong code.
-  late String _code = widget.showError ? '4826' : (_job.otp.isNotEmpty ? _job.otp : Seed.rideOtp);
-  late bool _error = widget.showError;
+  late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
+  // Prefilled with the passenger's OTP for demos; the error frame shows a wrong code. The live app
+  // never knows the OTP: the passenger reads it out.
+  late String _code = widget.showError ? '4826' : (_api ? '' : (_job.otp.isNotEmpty ? _job.otp : Seed.rideOtp));
+  late String? _errorText = widget.showError ? _wrongOtp : null;
   int _shake = 0;
+  bool _busy = false;
 
-  void _start() {
-    final session = ref.read(driverSessionProvider.notifier);
-    if (!session.verifyRideOtp(_code)) {
-      setState(() {
-        _error = true;
+  static const _wrongOtp = 'Wrong OTP, please try again';
+
+  void _fail(String message) => setState(() {
+        _busy = false;
+        _errorText = message;
         _shake++;
       });
+
+  Future<void> _start() async {
+    if (_busy) return;
+    final session = ref.read(driverSessionProvider.notifier);
+    if (_api) {
+      setState(() => _busy = true);
+      try {
+        await session.startTrip(otp: _code);
+      } on ApiException catch (e) {
+        if (mounted) _fail(e.message);
+        return;
+      } on Exception catch (e) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        showRidoSnack(context, userMessage(e));
+        return;
+      }
+      if (mounted) context.pushReplacement(Routes.trip);
+      return;
+    }
+    if (!session.verifyRideOtp(_code)) {
+      _fail(_wrongOtp);
       return;
     }
     if (widget.showcase) {
       context.push(Routes.trip);
       return;
     }
-    session.startTrip();
-    context.pushReplacement(Routes.trip);
+    await session.startTrip();
+    if (mounted) context.pushReplacement(Routes.trip);
   }
 
   @override
@@ -60,14 +87,14 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
         boxSize: 80,
         autofocus: !widget.showcase && !widget.showError,
         initialValue: _code,
-        hasError: _error,
+        hasError: _errorText != null,
         shakeTrigger: _shake,
         onChanged: (v) => setState(() {
           _code = v;
-          _error = false;
+          _errorText = null;
         }),
       ),
-      error: _error ? 'Wrong OTP, please try again' : null,
+      error: _errorText,
       extra: Container(
         padding: const EdgeInsets.all(RidoSpacing.l),
         decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.cardRadius),
@@ -85,6 +112,7 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
         ]),
       ),
       buttonLabel: 'Start ride',
+      busy: _busy,
       onSubmit: _code.length == 4 ? _start : null,
     );
   }

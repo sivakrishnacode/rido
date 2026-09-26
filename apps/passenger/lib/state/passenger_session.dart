@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rido_data/rido_data.dart';
 
+import 'app_notice.dart';
+import 'live_trip.dart';
+
 /// Activity list (rides + parcels), newest first. Invalidate after adding a trip.
 final tripHistoryProvider = FutureProvider<List<Trip>>((ref) {
   ref.watch(mockDatabaseProvider);
@@ -35,41 +38,101 @@ final ticketsProvider = FutureProvider<List<SupportTicket>>((ref) {
 /// The signed-in passenger. Mutations write through the AuthRepository.
 class PassengerProfileController extends AsyncNotifier<PassengerProfile> {
   @override
-  Future<PassengerProfile> build() {
+  Future<PassengerProfile> build() async {
     ref.watch(mockDatabaseProvider);
-    return ref.read(authRepositoryProvider).profile();
+    final p = await ref.read(authRepositoryProvider).profile();
+    // A signed-in account that never finished P-05 has no name yet; initials need one.
+    return p.name.trim().isEmpty ? p.copyWith(name: kPlaceholderName) : p;
   }
 
-  PassengerProfile get _p => state.value ?? Seed.priya;
+  /// The loaded profile (waits for it; never saves over the server with a placeholder).
+  Future<PassengerProfile?> _current() async {
+    final v = state.value;
+    if (v != null) return v;
+    try {
+      return await future;
+    } catch (e) {
+      _fail(e);
+      return null;
+    }
+  }
 
-  Future<void> save(PassengerProfile p) async {
+  void _fail(Object e) => ref.read(appNoticeProvider.notifier).show("Couldn't save. ${apiErrorMessage(e)}");
+
+  /// Saves through the AuthRepository and keeps what it returns (server ids for new contacts).
+  /// Shows a notice and restores the previous profile on failure. True when saved.
+  Future<bool> save(PassengerProfile p) async {
+    final before = state;
     state = AsyncData(p);
-    await ref.read(authRepositoryProvider).updateProfile(p);
+    try {
+      final saved = await ref.read(authRepositoryProvider).updateProfile(p);
+      state = AsyncData(saved.name.trim().isEmpty ? saved.copyWith(name: kPlaceholderName) : saved);
+      return true;
+    } catch (e) {
+      state = before;
+      _fail(e);
+      return false;
+    }
   }
 
-  Future<void> setBasics({required String name, String? email, Gender? gender}) =>
-      save(_p.copyWith(name: name, email: email, gender: gender));
-
-  Future<void> addContact(EmergencyContact c) =>
-      save(_p.copyWith(emergencyContacts: [..._p.emergencyContacts, c].take(3).toList()));
-
-  Future<void> removeContact(String id) =>
-      save(_p.copyWith(emergencyContacts: _p.emergencyContacts.where((c) => c.id != id).toList()));
-
-  Future<void> setAutoShare(bool v) => save(_p.copyWith(autoShareTrips: v));
-
-  Future<void> setPreferWomenDriver(bool v) => save(_p.copyWith(preferWomenDriver: v));
-
-  Future<void> saveSavedPlace(SavedPlace place) async {
-    final list = await ref.read(placesRepositoryProvider).saveSavedPlace(place);
-    state = AsyncData(_p.copyWith(savedPlaces: list));
+  Future<bool> _update(PassengerProfile Function(PassengerProfile p) change) async {
+    final p = await _current();
+    return p != null && await save(change(p));
   }
 
-  Future<void> removeSavedPlace(String id) async {
-    final list = await ref.read(placesRepositoryProvider).removeSavedPlace(id);
-    state = AsyncData(_p.copyWith(savedPlaces: list));
+  Future<bool> setBasics({required String name, String? email, Gender? gender}) =>
+      _update((p) => p.copyWith(name: name, email: email, gender: gender));
+
+  Future<bool> addContact(EmergencyContact c) =>
+      _update((p) => p.copyWith(emergencyContacts: [...p.emergencyContacts, c].take(3).toList()));
+
+  Future<bool> removeContact(String id) =>
+      _update((p) => p.copyWith(emergencyContacts: p.emergencyContacts.where((c) => c.id != id).toList()));
+
+  Future<bool> setAutoShare(bool v) => _update((p) => p.copyWith(autoShareTrips: v));
+
+  Future<bool> setPreferWomenDriver(bool v) => _update((p) => p.copyWith(preferWomenDriver: v));
+
+  Future<bool> saveSavedPlace(SavedPlace place) async {
+    final p = await _current();
+    if (p == null) return false;
+    try {
+      final list = await ref.read(placesRepositoryProvider).saveSavedPlace(place);
+      state = AsyncData((state.value ?? p).copyWith(savedPlaces: list));
+      return true;
+    } catch (e) {
+      _fail(e);
+      return false;
+    }
+  }
+
+  Future<bool> removeSavedPlace(String id) async {
+    final p = await _current();
+    if (p == null) return false;
+    try {
+      final list = await ref.read(placesRepositoryProvider).removeSavedPlace(id);
+      state = AsyncData((state.value ?? p).copyWith(savedPlaces: list));
+      return true;
+    } catch (e) {
+      _fail(e);
+      return false;
+    }
   }
 }
 
-final passengerProfileProvider =
-    AsyncNotifierProvider<PassengerProfileController, PassengerProfile>(PassengerProfileController.new);
+final passengerProfileProvider = AsyncNotifierProvider<PassengerProfileController, PassengerProfile>(
+  PassengerProfileController.new,
+);
+
+/// Name shown before the passenger has set one (and while the profile loads with the live API).
+const kPlaceholderName = 'Rider';
+
+/// Stand-in while the real profile loads (live API); mock mode keeps the seeded passenger.
+const kLoadingProfile = PassengerProfile(name: kPlaceholderName, phone: '', gender: Gender.preferNotToSay);
+
+/// The signed-in passenger for display: the loaded profile, or a placeholder while it loads.
+final currentProfileProvider = Provider<PassengerProfile>((ref) {
+  final loaded = ref.watch(passengerProfileProvider).value;
+  if (loaded != null) return loaded;
+  return ref.watch(isLiveApiProvider) ? kLoadingProfile : Seed.priya;
+});

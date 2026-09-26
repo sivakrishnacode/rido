@@ -8,7 +8,7 @@ import { Pager } from "@/components/common/pager";
 import { PlateBadge, StatusBadge } from "@/components/common/status";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { adminApi } from "@/lib/api";
+import { adminApi, docFileHref } from "@/lib/api";
 import { displayName, docLabel, formatCount, formatDateTime, formatPhone, humanize, vehicleLabel } from "@/lib/format";
 import { DEFAULT_PAGE_SIZE, param, parsePage, withQuery } from "@/lib/paging";
 import { KYC_STATUSES, type KycStatus } from "@/lib/types";
@@ -94,7 +94,7 @@ export default async function KycPage({ searchParams }: PageProps<"/kyc">) {
                     </span>
                     {doc.fileUrl && (
                       <a
-                        href={doc.fileUrl}
+                        href={docFileHref(doc.fileUrl)}
                         target="_blank"
                         rel="noreferrer noopener"
                         className="mt-0.5 inline-flex items-center gap-0.5 text-xs text-coral-600 hover:underline"

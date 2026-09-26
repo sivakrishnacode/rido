@@ -1,9 +1,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Rido API (HTTP + Socket.IO) and connectivity checks. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- GPS while online (while-in-use only; no background location permission). -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Keeps GPS flowing during a job with the app in the background (geolocator's location foreground service). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Android 13+: the "You're online" notification of that service (asked at runtime when going online). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- KYC document photos (image_picker camera). -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <application
         android:label="Rido Driver"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:networkSecurityConfig="@xml/network_security_config">
         <!-- Impeller on OpenGL ES: the Vulkan backend lags frames on some Mali GPUs (e.g. MediaTek). -->
         <meta-data android:name="io.flutter.embedding.android.ImpellerBackend" android:value="opengles" />
         <!-- Google Maps SDK key, injected from MAPS_API_KEY (android/local.properties or env); never commit it. -->
@@ -46,6 +60,20 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- url_launcher: call the customer / emergency contact / 112. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <!-- url_launcher: Navigate opens Google Maps (or the browser). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <!-- image_picker: camera for KYC photos. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
         </intent>
     </queries>
 </manifest>

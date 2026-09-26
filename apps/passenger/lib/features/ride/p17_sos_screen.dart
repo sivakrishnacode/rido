@@ -7,6 +7,8 @@ import 'package:latlong2/latlong.dart' show Distance;
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
+import '../../common/phone.dart';
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
@@ -35,6 +37,8 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
       _sent = _maxContacts;
       return;
     }
+    // Live API: nothing is sent automatically (there is no SOS service yet); the passenger texts contacts.
+    if (ref.read(isLiveApiProvider)) return;
     final stagger = ref.read(simTimingProvider)(SimTimings.sosContactStagger);
     _timer = Timer.periodic(stagger, (t) {
       if (!mounted) return;
@@ -67,7 +71,17 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
       cancelLabel: 'Cancel',
       destructive: true,
     );
-    if (ok && mounted) showRidoSnack(context, 'Calling 112');
+    if (ok && mounted) await callNumber(context, '112');
+  }
+
+  /// Live API: opens the SMS app to [contacts] with the trip details and a map link to the vehicle.
+  Future<void> _textContacts(List<EmergencyContact> contacts, RideFlowState ride) async {
+    final pos = ref.read(rideFlowProvider.notifier).vehicle.value?.position ?? ride.pickup.location;
+    final me = ref.read(currentProfileProvider).firstName;
+    final body = ride.isActive
+        ? 'SOS from $me. ${tripShareText(riderName: me, driver: ride.driver, vehicleLabel: ride.vehicle.label, drop: ride.drop, vehicleAt: pos)}'
+        : 'SOS from $me. I need help. My location: https://maps.google.com/?q=${pos.latitude.toStringAsFixed(5)},${pos.longitude.toStringAsFixed(5)}';
+    await openSms(context, body, to: contacts.map((c) => apiPhone(c.phone)).join(','));
   }
 
   /// Nearest named place to the vehicle, for "Now at".
@@ -75,6 +89,8 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
     if (widget.showcase) return 'DB Road, RS Puram';
     final pos = ref.read(rideFlowProvider.notifier).vehicle.value?.position;
     if (pos == null || !ride.isActive) return ride.pickup.name;
+    // Live API: coordinates, not the nearest demo landmark (which may be kilometres away).
+    if (ref.read(isLiveApiProvider)) return '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
     const d = Distance();
     final nearest = Seed.places.reduce((a, b) => d(a.location, pos) <= d(b.location, pos) ? a : b);
     return nearest.address;
@@ -84,9 +100,10 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
   Widget build(BuildContext context) {
     final t = context.type;
     final ride = ref.watch(rideFlowProvider);
-    final contacts = ref.watch(passengerProfileProvider).value?.emergencyContacts ?? Seed.priya.emergencyContacts;
+    final contacts = ref.watch(currentProfileProvider).emergencyContacts;
     final showTrip = widget.showcase || ride.isActive;
     final driver = ride.driver;
+    final live = !widget.showcase && ref.watch(isLiveApiProvider);
 
     return Scaffold(
       backgroundColor: RidoColors.surface,
@@ -165,12 +182,32 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
                       const Icon(Symbols.chevron_right_rounded, color: RidoColors.navy500),
                     ]),
                   )
-                else
+                else ...[
                   for (var i = 0; i < contacts.length; i++) ...[
                     if (i > 0) const Divider(height: 1),
-                    _ContactRow(contact: contacts[i], sent: i < _sent),
+                    _ContactRow(contact: contacts[i], sent: i < _sent, manual: live),
                   ],
+                  if (live) ...[
+                    const SizedBox(height: 8),
+                    RidoButton.secondary(
+                      label: 'Text my location to ${contacts.length == 1 ? contacts.first.name.split(' ').first : 'all'}',
+                      icon: Symbols.sms_rounded,
+                      onPressed: () => _textContacts(contacts, ride),
+                    ),
+                  ],
+                ],
                 const SizedBox(height: 20),
+                if (live)
+                  RidoCard(
+                    onTap: () => context.push(Routes.newTicket(topic: 'Safety concern', tripId: ride.isActive ? ride.tripId : null)),
+                    child: Row(children: [
+                      const Icon(Symbols.support_agent_rounded, color: RidoColors.coral600),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text('Report this to the Rido safety team', style: t.bodyMedium)),
+                      const Icon(Symbols.chevron_right_rounded, color: RidoColors.navy500),
+                    ]),
+                  )
+                else
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -226,9 +263,12 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
 }
 
 class _ContactRow extends StatelessWidget {
-  const _ContactRow({required this.contact, required this.sent});
+  const _ContactRow({required this.contact, required this.sent, this.manual = false});
   final EmergencyContact contact;
   final bool sent;
+
+  /// Live API: no automatic alert; shows the relation and phone instead of a sending state.
+  final bool manual;
 
   @override
   Widget build(BuildContext context) {
@@ -244,6 +284,9 @@ class _ContactRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(contact.name, style: t.bodySemibold.copyWith(fontSize: 17)),
+                if (manual)
+                  Text('${contact.relation} · ${displayPhone(contact.phone)}', style: t.bodySmall.copyWith(color: RidoColors.navy500))
+                else
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
                   child: sent
@@ -284,7 +327,7 @@ class _ContactRow extends StatelessWidget {
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),
-                onTap: () => showRidoSnack(context, 'Calling ${contact.name}'),
+                onTap: () => callNumber(context, contact.phone, name: contact.name),
                 child: const SizedBox(
                   width: 48,
                   height: 48,

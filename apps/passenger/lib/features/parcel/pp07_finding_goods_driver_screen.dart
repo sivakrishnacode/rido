@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/phone.dart';
+import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
 import 'widgets/parcel_widgets.dart';
@@ -41,21 +43,34 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
     super.dispose();
   }
 
-  void _cancel() {
-    ref.read(parcelFlowProvider.notifier).cancel();
+  Future<void> _cancel() async {
+    final error = await ref.read(parcelFlowProvider.notifier).cancel();
+    if (!mounted) return;
+    if (error != null) {
+      showRidoSnack(context, error);
+      return;
+    }
     context.go(Routes.parcel);
   }
 
-  void _retry() {
-    ref.read(parcelFlowProvider.notifier).book();
+  /// Books again (a new request when live).
+  Future<void> _retry() async {
+    final error = await ref.read(parcelFlowProvider.notifier).book();
+    if (!mounted) return;
+    if (error != null) {
+      showRidoSnack(context, error);
+      return;
+    }
     _progress.forward(from: 0);
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen(parcelFlowProvider.select((s) => s.phase), (prev, next) {
-      if (widget.showcase) return;
-      if (next == ParcelPhase.assigned || next == ParcelPhase.atPickup) context.go(Routes.parcelAssigned);
+      if (widget.showcase || next == ParcelPhase.searching || next == ParcelPhase.noDrivers) return;
+      // Assigned, or further along when a poll skipped steps.
+      final route = routeForParcelPhase(next);
+      if (route != null) context.go(route);
     });
     final s = ref.watch(parcelFlowProvider);
     final noDrivers = !widget.showcase && s.phase == ParcelPhase.noDrivers;
@@ -161,7 +176,7 @@ class _SummaryCard extends StatelessWidget {
     final d = state.details;
     final sender = d.senderName.split(' ').first;
     final pickupSub = d.pickupNote.isEmpty ? sender : '$sender · ${d.pickupNote}';
-    final dropSub = '${d.receiverName} · ${d.receiverPhone}';
+    final dropSub = '${d.receiverName} · ${displayPhone(d.receiverPhone)}';
     return RidoCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

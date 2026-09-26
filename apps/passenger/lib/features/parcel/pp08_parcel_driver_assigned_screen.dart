@@ -4,8 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
+import '../../common/map_insets.dart';
+import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
+import '../ride/widgets/trip_widgets.dart' show remainingPath;
 import 'widgets/parcel_widgets.dart';
 
 /// PP-08 Driver assigned / picking up: the goods vehicle drives to the pickup,
@@ -28,7 +32,12 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
       icon: Symbols.cancel_rounded,
     );
     if (!ok || !context.mounted) return;
-    ref.read(parcelFlowProvider.notifier).cancel();
+    final error = await ref.read(parcelFlowProvider.notifier).cancel();
+    if (!context.mounted) return;
+    if (error != null) {
+      showRidoSnack(context, error);
+      return;
+    }
     showRidoSnack(context, 'Delivery cancelled');
     context.go(Routes.parcel);
   }
@@ -36,8 +45,10 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.listen(parcelFlowProvider.select((s) => s.phase), (prev, next) {
-      if (showcase) return;
-      if (next == ParcelPhase.inTransit) context.go(Routes.parcelInTransit);
+      if (showcase || next == ParcelPhase.assigned || next == ParcelPhase.atPickup) return;
+      // Picked up / delivered, or back to searching when the driver cancelled.
+      final route = routeForParcelPhase(next);
+      if (route != null) context.go(route);
     });
     final t = context.type;
     final s = ref.watch(parcelFlowProvider);
@@ -45,8 +56,10 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
     final atPickup = !showcase && s.phase == ParcelPhase.atPickup;
     final driver = s.driver;
     final receiverFirst = s.details.receiverName.split(' ').first;
-    final start = offsetPoint(s.pickup.location, 1100, 210);
-    final approach = roadPath(start, s.pickup.location, bend: 0.2);
+    final liveApi = !showcase && ref.watch(isLiveApiProvider);
+    // Live API: the leg from the driver's first GPS fix (empty until it arrives); mock: a seeded start.
+    final approach = liveApi ? s.approach : roadPath(offsetPoint(s.pickup.location, 1100, 210), s.pickup.location, bend: 0.2);
+    final start = approach.isNotEmpty ? approach.first : s.pickup.location;
     final eta = s.phase == ParcelPhase.assigned && !showcase ? s.etaMin : 5;
     final height = MediaQuery.sizeOf(context).height;
     final top = MediaQuery.paddingOf(context).top;
@@ -66,13 +79,26 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                 builder: (context, fix, _) {
                   final live = !showcase && (s.phase == ParcelPhase.assigned || s.phase == ParcelPhase.atPickup);
                   final pos = atPickup ? s.pickup.location : (live && fix != null ? fix.position : start);
-                  final heading = live && fix != null ? fix.heading : headingBetween(start, approach[1]);
+                  final heading = live && fix != null
+                      ? fix.heading
+                      : (approach.length > 1 ? headingBetween(start, approach[1]) : 0.0);
+                  final noVehicleYet = liveApi && fix == null && !atPickup;
+                  final insets = sheetMapInsets(
+                    EdgeInsets.fromLTRB(64, top + 80, 64, height * 0.62 + 32),
+                    height * 0.62,
+                  );
                   return RidoMap(
                     pickup: s.pickup.location,
-                    route: atPickup ? const [] : approach,
-                    fitPoints: [start, s.pickup.location],
-                    fitPadding: EdgeInsets.fromLTRB(64, top + 80, 64, height * 0.62 + 32),
-                    vehicles: [MapVehicle(position: pos, type: s.vehicle.mapType, heading: heading, large: true)],
+                    pulseAt: noVehicleYet ? s.pickup.location : null,
+                    route: atPickup || approach.length < 2 ? const [] : remainingPath(approach, pos, fix?.progress ?? 0),
+                    fitPoints: approach.length < 2
+                        ? [offsetPoint(s.pickup.location, 600, 0), offsetPoint(s.pickup.location, 600, 180)]
+                        : [start, s.pickup.location],
+                    fitPadding: insets.fit,
+                    mapPadding: insets.map,
+                    vehicles: noVehicleYet
+                        ? const []
+                        : [MapVehicle(position: pos, type: s.vehicle.mapType, heading: heading, large: true)],
                     attributionAlignment: Alignment.bottomRight,
                   );
                 },
@@ -131,7 +157,9 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                       OtpDisplay(
                         label: 'DELIVERY OTP',
                         code: s.details.deliveryOtp,
-                        caption: 'Sent to $receiverFirst by SMS. The driver needs it at drop-off.',
+                        caption: liveApi
+                            ? 'Share it with $receiverFirst. The driver needs it at drop-off.'
+                            : 'Sent to $receiverFirst by SMS. The driver needs it at drop-off.',
                       ),
                       const SizedBox(height: 16),
                       Row(
@@ -142,7 +170,7 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                               label: 'Call',
                               bg: RidoColors.coral600,
                               fg: RidoColors.surface,
-                              onTap: () => showRidoSnack(context, 'Calling ${driver.firstName} (number hidden)'),
+                              onTap: () => callNumber(context, driver.phone, name: driver.firstName),
                             ),
                           ),
                           Expanded(
@@ -161,7 +189,7 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                               label: 'Share tracking',
                               bg: RidoColors.inputBg,
                               fg: RidoColors.navy900,
-                              onTap: () => showRidoSnack(context, 'Tracking link shared with $receiverFirst', success: true),
+                              onTap: () => shareParcelWithReceiver(context, s, ctrl.vehicle.value?.position),
                             ),
                           ),
                           Expanded(

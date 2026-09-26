@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
@@ -6,6 +7,7 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/job_common.dart';
 import 'widgets/request_layout.dart';
 
@@ -25,15 +27,33 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
   late final RideRequest _r = ref.read(driverSessionProvider).incoming ?? Seed.deliveryRequest;
   bool _handled = false;
 
-  void _accept() {
+  late final Duration _countdown = ref.read(driverSessionProvider.notifier).incomingCountdown;
+  bool _accepting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.showcase && ref.read(isLiveApiProvider)) HapticFeedback.heavyImpact();
+  }
+
+  /// Live API: accepting can fail when the offer went to someone else; the card closes with the reason.
+  Future<void> _accept() async {
     if (_handled) return;
     if (widget.showcase) {
       context.push(Routes.delivery);
       return;
     }
     _handled = true;
-    ref.read(driverSessionProvider.notifier).acceptRequest();
-    context.pushReplacement(Routes.delivery);
+    setState(() => _accepting = true);
+    try {
+      await ref.read(driverSessionProvider.notifier).acceptRequest();
+    } on Exception catch (e) {
+      if (!mounted) return;
+      showRidoSnack(context, userMessage(e));
+      popOrHome(context);
+      return;
+    }
+    if (mounted) context.pushReplacement(Routes.delivery);
   }
 
   void _decline() {
@@ -63,6 +83,15 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
   @override
   Widget build(BuildContext context) {
     final t = context.type;
+    if (!widget.showcase) {
+      // Closed from elsewhere (went offline, the request was withdrawn): leave the card.
+      ref.listen(driverSessionProvider.select((s) => s.incoming?.id), (prev, next) {
+        if (next == null && !_handled && mounted) {
+          _handled = true;
+          popOrHome(context);
+        }
+      });
+    }
     final parcel = _r.parcel;
     final payer = parcel?.payer == ParcelPayer.receiver ? 'Receiver' : 'Sender';
     return PopScope(
@@ -75,8 +104,8 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
         tag: RequestVehicleTag(vehicle: _r.vehicle, showIcon: false),
         fare: _r.fare,
         fareCaption: '${_r.vehicle.label} delivery',
-        countdown: ref.read(simTimingProvider)(SimTimings.requestCountdown),
-        running: !widget.showcase,
+        countdown: widget.showcase ? ref.read(simTimingProvider)(SimTimings.requestCountdown) : _countdown,
+        running: !widget.showcase && !_accepting,
         onTimeout: _timeout,
         below: Container(
           padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.s),
@@ -111,6 +140,7 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
           ]),
         ],
         onAccept: _accept,
+        accepting: _accepting,
         onDecline: _decline,
       ),
     );

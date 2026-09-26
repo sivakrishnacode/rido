@@ -6,6 +6,7 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
+import '../../state/driver_session.dart';
 import '../home/widgets/navy_header.dart';
 
 /// D-24 Plan (subscription), with D-24b (paused) and D-24c (cancelled): status card, savings
@@ -26,6 +27,8 @@ class D24PlanScreen extends ConsumerWidget {
       if (context.mounted) showRidoSnack(context, done, success: true);
     } on OfflineException {
       if (context.mounted) showRidoSnack(context, "You're offline. Try again.");
+    } on ApiException catch (e) {
+      if (context.mounted) showRidoSnack(context, e.message);
     }
   }
 
@@ -34,6 +37,9 @@ class D24PlanScreen extends ConsumerWidget {
     final t = context.type;
     final plan = ref.watch(planProvider).value;
     final payments = ref.watch(paymentsProvider).value;
+    // Live API: the month's commission saved from the earnings endpoint (no lifetime figure yet).
+    final live = !showcase && ref.watch(isLiveApiProvider);
+    final monthSaved = live ? ref.watch(earningsProvider(EarningsPeriod.month)).value?.commissionSaved : null;
     final notifier = ref.read(planProvider.notifier);
 
     if (plan == null) {
@@ -164,7 +170,10 @@ class D24PlanScreen extends ConsumerWidget {
         const Icon(Symbols.savings_rounded, color: RidoColors.coral600, fill: 1, size: 32),
         const SizedBox(width: RidoSpacing.m),
         Expanded(
-          child: Text('Since joining, you saved ~${formatInr(Seed.lifetimeCommissionSaved)} in commission',
+          child: Text(
+              live
+                  ? 'This month you saved ~${formatInr(monthSaved ?? 0)} in commission'
+                  : 'Since joining, you saved ~${formatInr(Seed.lifetimeCommissionSaved)} in commission',
               style: RidoTextStyles.tabular(t.bodySemibold)),
         ),
       ]),

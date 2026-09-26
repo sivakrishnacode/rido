@@ -24,7 +24,7 @@ class D11ChoosePlanScreen extends ConsumerWidget {
     final t = context.type;
     final signup = ref.watch(signupProvider);
     final plan = showcase ? Seed.plan() : (ref.watch(planProvider).value ?? Seed.plan(vehicle: signup.vehicle));
-    final name = showcase ? Seed.karthik.firstName : (ref.watch(driverProfileProvider).value?.firstName ?? 'Karthik');
+    final name = showcase ? Seed.karthik.firstName : (ref.watch(driverProfileProvider).value?.firstName ?? '');
     final price = plan.monthlyPrice;
     final priceText = price == null ? '₹—' : formatInr(price);
     final vehicleName = plan.vehicle == VehicleKind.truck ? 'Truck' : plan.vehicle.label;
@@ -55,7 +55,7 @@ class D11ChoosePlanScreen extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: RidoSpacing.xs),
-                        Text('Start earning, $name', style: t.display.copyWith(color: Colors.white)),
+                        Text(name.isEmpty ? 'Start earning' : 'Start earning, $name', style: t.display.copyWith(color: Colors.white)),
                         const SizedBox(height: RidoSpacing.l),
                         _planCard(context, vehicleName, priceText, deliveries, plan.vehicle),
                         const SizedBox(height: RidoSpacing.l),

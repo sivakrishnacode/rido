@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../common/device_location.dart';
@@ -62,7 +63,12 @@ class P06LocationPermissionScreen extends ConsumerWidget {
                         return;
                       }
                       if (r == LocateResult.outsideArea) {
-                        showRidoSnack(context, "You're outside Coimbatore, so the demo uses Gandhipuram as pickup.");
+                        showRidoSnack(
+                          context,
+                          ref.read(isLiveApiProvider)
+                              ? "Rido isn't in your area yet. Choose a pickup in Coimbatore."
+                              : "You're outside Coimbatore, so the demo uses Gandhipuram as pickup.",
+                        );
                       }
                       context.go(Routes.ride);
                     },

@@ -5,6 +5,7 @@ import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../state/driver_account.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/edit_form_scaffold.dart';
 
 /// Account › Vehicle details: model, colour and number plate (prefilled), Save → back.
@@ -34,18 +35,25 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
     super.dispose();
   }
 
-  bool get _plateOk => RegExp(r'^[A-Z]{2}\s?\d{1,2}\s?[A-Z]{0,3}\s?\d{3,4}$').hasMatch(_plate.text.trim().toUpperCase());
+  bool get _plateOk => kPlatePattern.hasMatch(_plate.text.trim());
 
   Future<void> _save() async {
     setState(() => _tried = true);
     if (_model.text.trim().isEmpty || !_plateOk) return;
     setState(() => _saving = true);
     final current = ref.read(driverProfileProvider).value ?? _p;
-    await ref.read(driverProfileProvider.notifier).save(current.copyWith(
-          vehicleModel: _model.text.trim(),
-          vehicleColor: _color.text.trim(),
-          plate: _plate.text.trim().toUpperCase(),
-        ));
+    try {
+      await ref.read(driverProfileProvider.notifier).save(current.copyWith(
+            vehicleModel: _model.text.trim(),
+            vehicleColor: _color.text.trim(),
+            plate: _plate.text.trim().toUpperCase(),
+          ));
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      showRidoSnack(context, userMessage(e));
+      return;
+    }
     if (!mounted) return;
     showRidoSnack(context, 'Vehicle details saved', success: true);
     context.pop();

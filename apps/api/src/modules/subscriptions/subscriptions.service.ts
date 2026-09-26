@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
-import type { Plan, Subscription } from '../../generated/prisma/client.js';
+import type { Payment, Plan, Subscription } from '../../generated/prisma/client.js';
 import { PlanPeriod, SubscriptionStatus, VehicleKind } from '../../generated/prisma/enums.js';
 import { GRACE_DAYS, PERIOD_DAYS, TRIAL_DAYS } from './plan-prices.js';
 
@@ -71,6 +71,24 @@ export class SubscriptionsService {
       },
       include: { plan: true },
     });
+  }
+
+  /** Payment history across the driver's plans, newest first (D-24). */
+  payments(driverId: string): Promise<(Payment & { subscription: { plan: Plan; status: SubscriptionStatus } })[]> {
+    return this.prisma.payment.findMany({
+      where: { subscription: { driverId } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { subscription: { select: { status: true, plan: true } } },
+    });
+  }
+
+  /** Turns on UPI Autopay with [upiApp] for the current plan (charged when it renews). */
+  async setupAutopay(driverId: string, upiApp: string): Promise<SubscriptionWithPlan> {
+    const current = await this.current(driverId);
+    if (!current) throw new BadRequestException('No plan to set up Autopay for');
+    const updated = await this.prisma.subscription.update({ where: { id: current.id }, data: { upiApp, autopay: true }, include: { plan: true } });
+    return { ...updated, status: current.status };
   }
 
   async setStatus(driverId: string, status: SubscriptionStatus): Promise<SubscriptionWithPlan> {

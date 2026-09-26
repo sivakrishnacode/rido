@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
+import '../../state/passenger_session.dart';
 import 'widgets/parcel_widgets.dart';
 
 /// Sample building / floor / landmark shown on PP-02.
@@ -32,9 +34,13 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
   void initState() {
     super.initState();
     final d = ref.read(parcelFlowProvider).details;
-    _name = TextEditingController(text: d.senderName);
-    _phone = TextEditingController(text: localPhone(d.senderPhone));
-    _note = TextEditingController(text: d.pickupNote.isEmpty ? _samplePickupNote : d.pickupNote);
+    final live = ref.read(isLiveApiProvider);
+    // Live API: the sender is the signed-in passenger unless they typed someone else.
+    final me = ref.read(currentProfileProvider);
+    final useMe = live && d.senderName.isEmpty && me.name != kPlaceholderName;
+    _name = TextEditingController(text: useMe ? me.name : d.senderName);
+    _phone = TextEditingController(text: localPhone(useMe ? me.phone : d.senderPhone));
+    _note = TextEditingController(text: d.pickupNote.isEmpty && !live ? _samplePickupNote : d.pickupNote);
   }
 
   @override

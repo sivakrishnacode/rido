@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 import 'p18_share_trip_sheet.dart';
@@ -124,6 +125,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
             final progress = fix?.progress ?? (widget.showcase ? 0.35 : 0.0);
             final pos = fix?.position ?? pointAlong(route, progress);
             final ahead = pointAlong(route, (progress + 0.02).clamp(0.0, 1.0));
+            final insets = sheetMapInsets(EdgeInsets.fromLTRB(40, 88, 40, h * 0.34), h * 0.34);
             return RidoMap(
               drop: ride.drop.location,
               route: remainingPath(route, pos, progress),
@@ -136,7 +138,8 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
                 ),
               ],
               fitPoints: route,
-              fitPadding: EdgeInsets.fromLTRB(40, 88, 40, h * 0.34),
+              fitPadding: insets.fit,
+              mapPadding: insets.map,
               attributionAlignment: Alignment.topRight,
             );
           },

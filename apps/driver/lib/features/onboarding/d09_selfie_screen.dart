@@ -8,6 +8,7 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/signup_widgets.dart';
 
 /// D-09 Selfie verification: circular face guide and "Take selfie".
@@ -43,15 +44,27 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
       if (!mounted) return;
       setState(() => _capturing = false);
       if (widget.dailyCheck) {
-        final session = ref.read(driverSessionProvider.notifier);
-        session.markSelfieDone();
-        session.goOnline();
-        showRidoSnack(context, "Selfie verified. You're online", success: true);
-        context.go(Routes.home);
+        _goOnline();
       } else {
         context.push(Routes.underReview);
       }
     });
+  }
+
+  /// S-13 daily check done → online. Live API: going online can still fail (GPS off, plan expired);
+  /// the reason shows on Home.
+  Future<void> _goOnline() async {
+    final session = ref.read(driverSessionProvider.notifier);
+    session.markSelfieDone();
+    String? error;
+    try {
+      await session.goOnline();
+    } on Exception catch (e) {
+      error = userMessage(e);
+    }
+    if (!mounted) return;
+    context.go(Routes.home);
+    showRidoSnack(context, error ?? "Selfie verified. You're online", success: error == null);
   }
 
   @override

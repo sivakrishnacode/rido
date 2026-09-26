@@ -10,6 +10,9 @@ import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 import '../states/s04_no_internet_screen.dart';
 
+/// Id prefix of live-API search suggestions (`kApiPlacePrefix` in rido_data, not exported).
+const _suggestionPrefix = 'api:';
+
 /// P-08 Search pickup and drop: connected pickup ("Current location, Gandhipuram") and
 /// drop fields, live suggestions, "Set on map" and a disabled "Add stop" (Coming soon).
 class P08SearchScreen extends ConsumerStatefulWidget {
@@ -90,6 +93,13 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
         _offline = true;
         _loading = false;
       });
+    } on ApiException catch (e) {
+      if (!mounted || id != _request) return;
+      setState(() {
+        _results = const [];
+        _loading = false;
+      });
+      showRidoSnack(context, e.message);
     }
   }
 
@@ -105,6 +115,9 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
       p = await ref.read(placesRepositoryProvider).resolve(picked);
     } on OfflineException {
       if (mounted) showRidoSnack(context, "Couldn't load that place. Check your connection and try again.");
+      return;
+    } on ApiException catch (e) {
+      if (mounted) showRidoSnack(context, e.message);
       return;
     }
     if (!mounted) return;
@@ -301,7 +314,8 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
             icon: icon,
             title: p.name,
             subtitle: p.address,
-            trailingText: formatKm(FareEngine.estimate(pickup, p).distanceKm),
+            // Search suggestions only get coordinates when picked (Place Details), so no distance for them.
+            trailingText: p.id.startsWith(_suggestionPrefix) ? null : formatKm(FareEngine.estimate(pickup, p).distanceKm),
             onTap: () => _choose(p),
           ),
         );

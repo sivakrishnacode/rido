@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
 import 'p21_activity_screen.dart';
@@ -69,12 +70,26 @@ class _Details extends StatelessWidget {
   const _Details({required this.trip});
   final Trip trip;
 
+  /// Plain-text receipt for the share sheet (email, WhatsApp, save to files…).
+  String _receipt(FareQuote q) => [
+        'Rido receipt · ${trip.isParcel ? 'Parcel' : trip.vehicle.label}',
+        '${formatRelativeDay(trip.startedAt, withTime: true)} · Trip ${trip.id}',
+        'From: ${trip.pickup.name}',
+        'To: ${trip.drop.name}',
+        if (trip.driver != null) 'Driver: ${trip.driver!.name} · ${trip.driver!.plate}',
+        '${q.distanceKm.toStringAsFixed(1)} km · ${q.durationMin} min',
+        'Base ${formatInr(q.base)} · Distance ${formatInr(q.distanceCharge)} · Time ${formatInr(q.timeCharge)}'
+            '${q.minFareTopUp > 0 ? ' · Minimum fare ${formatInr(q.minFareTopUp)}' : ''}'
+            '${q.peakCharge > 0 ? ' · Peak ${formatInr(q.peakCharge)}' : ''}',
+        'Total: ${formatInr(trip.fare)} (paid to the driver, ${trip.paymentMode == PaymentMode.upi ? 'UPI' : 'cash'})',
+      ].join('\n');
+
   @override
   Widget build(BuildContext context) {
     final t = context.type;
     final (kind, label) = TripHistoryCard.statusOf(trip);
     final cancelled = trip.status == TripStatus.cancelled;
-    final route = roadPath(trip.pickup.location, trip.drop.location);
+    final route = roadPath(trip.pickup.location, trip.drop.location, mode: travelModeFor(trip.vehicle));
     final end = trip.startedAt.add(Duration(minutes: trip.durationMin));
     final driver = trip.driver;
     final quote = P22TripDetailsScreen.quoteFor(trip);
@@ -312,9 +327,9 @@ class _Details extends StatelessWidget {
               onTap: () => context.push(Routes.help(tripId: trip.id)),
             ),
             RidoListTile(
-              icon: Symbols.download_rounded,
-              title: 'Download receipt',
-              onTap: () => showRidoSnack(context, 'Receipt saved', success: true),
+              icon: Symbols.receipt_long_rounded,
+              title: 'Share receipt',
+              onTap: () => shareText(context, _receipt(quote), subject: 'Rido receipt ${trip.id}'),
             ),
           ],
         ),

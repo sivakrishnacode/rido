@@ -3,9 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
+
+import '../../../common/launch.dart';
+import '../../../common/place_search.dart';
+import '../../../state/parcel_flow.dart';
 
 /// Stepper labels shared by PP-08 and PP-09.
 const parcelSteps = ['Driver assigned', 'At pickup', 'Picked up', 'Delivered'];
@@ -27,8 +30,8 @@ String localPhone(String phone) {
 /// Digits only.
 String phoneDigits(String text) => text.replaceAll(RegExp(r'\D'), '');
 
-/// "98765 43210" → "+91 98765 43210".
-String fullPhone(String text) => '+91 ${localPhone(text)}';
+/// "98765 43210" → "+919876543210" (the format the API stores; show it with `displayPhone`).
+String fullPhone(String text) => apiPhone(text);
 
 /// Flat vehicle "illustration": a coral-50 tile with a filled coral vehicle symbol.
 class ParcelVehicleArt extends StatelessWidget {
@@ -154,36 +157,30 @@ class ParcelLocationCard extends StatelessWidget {
   }
 }
 
-/// Opens a sheet listing [Seed.places]; returns the picked place, resolved through
-/// [PlacesRepository.resolve] (a no-op for seed places).
-Future<Place?> showParcelPlacePicker(BuildContext context, {required String title, Place? current}) async {
-  final places = ProviderScope.containerOf(context, listen: false).read(placesRepositoryProvider);
-  final picked = await showRidoSheet<Place>(
-    context,
-    builder: (ctx) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(title, style: ctx.type.h2),
-        const SizedBox(height: 8),
-        for (final p in Seed.places)
-          RidoListTile(
-            icon: Symbols.location_on_rounded,
-            title: p.name,
-            subtitle: p.address,
-            showChevron: false,
-            trailing: p == current ? const Icon(Symbols.check_rounded, color: RidoColors.coral600) : null,
-            onTap: () => Navigator.of(ctx).pop(p),
-          ),
-      ],
+/// "Share tracking": opens the SMS app to the receiver with the driver, vehicle, drop, where the vehicle is
+/// now and the delivery OTP they give the driver at drop-off.
+Future<void> shareParcelWithReceiver(BuildContext context, ParcelFlowState s, LatLng? vehicleAt) {
+  final d = s.details;
+  final sender = d.senderName.trim().isEmpty ? 'Sender' : d.senderName.split(' ').first;
+  final text = [
+    tripShareText(
+      riderName: sender,
+      driver: s.driver,
+      vehicleLabel: s.vehicle.label,
+      drop: s.drop,
+      vehicleAt: vehicleAt,
+      parcel: true,
     ),
-  );
-  if (picked == null) return null;
-  try {
-    return await places.resolve(picked);
-  } on OfflineException {
-    return null;
-  }
+    'Delivery OTP: ${d.deliveryOtp} (give it to the driver at drop-off)',
+  ].join('\n');
+  return openSms(context, text, to: d.receiverPhone);
+}
+
+/// Searches places ([showPlaceSearchSheet]: Google via the API when live, seed places in mock mode) and
+/// returns the picked one with its coordinates resolved.
+Future<Place?> showParcelPlacePicker(BuildContext context, {required String title, Place? current}) async {
+  final pick = await showPlaceSearchSheet(context, title: title, current: current);
+  return pick?.place;
 }
 
 class _PhoneFormatter extends TextInputFormatter {

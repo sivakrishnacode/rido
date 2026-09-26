@@ -125,6 +125,11 @@ enum AnnouncementAudience {
   DRIVER
 }
 
+enum AppKind {
+  PASSENGER
+  DRIVER
+}
+
 enum TicketStatus {
   OPEN
   IN_PROGRESS
@@ -149,6 +154,7 @@ model User {
   savedPlaces       SavedPlace[]
   trips             Trip[]             @relation("PassengerTrips")
   tickets           SupportTicket[]
+  devices           DeviceToken[]
 }
 
 model EmergencyContact {
@@ -427,4 +433,17 @@ model HexStat {
   @@id([fromCell, toCell, hour])
   @@index([fromCell])
   @@index([res, trips])
+}
+
+/// FCM registration token of a phone where a user is signed in (one row per app install).
+model DeviceToken {
+  token     String   @id
+  userId    String
+  app       AppKind
+  platform  String   @default("android")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, app])
 }

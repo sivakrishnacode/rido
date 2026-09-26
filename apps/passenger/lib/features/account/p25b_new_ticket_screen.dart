@@ -61,6 +61,10 @@ class _P25bNewTicketScreenState extends ConsumerState<P25bNewTicketScreen> {
     } on OfflineException {
       if (mounted) showRidoSnack(context, "You're offline. Try again when you're connected.");
       return;
+    } on ApiException catch (e) {
+      // e.g. the description is too short for the API's validation.
+      if (mounted) showRidoSnack(context, e.message);
+      return;
     }
     ref.invalidate(ticketsProvider);
     if (!mounted) return;

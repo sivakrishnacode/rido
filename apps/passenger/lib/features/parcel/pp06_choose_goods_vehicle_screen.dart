@@ -4,17 +4,40 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
 import 'widgets/parcel_widgets.dart';
 
 /// PP-06 Choose goods vehicle and review: route map, goods vehicles filtered by weight,
 /// who pays, fare breakdown and Book.
-class PP06ChooseGoodsVehicleScreen extends ConsumerWidget {
+class PP06ChooseGoodsVehicleScreen extends ConsumerStatefulWidget {
   const PP06ChooseGoodsVehicleScreen({super.key, this.showcase = false});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
+
+  @override
+  ConsumerState<PP06ChooseGoodsVehicleScreen> createState() => _PP06ChooseGoodsVehicleScreenState();
+}
+
+class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVehicleScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Live API: the fares shown and booked are the server's goods quotes.
+    if (!widget.showcase) Future.microtask(() => ref.read(parcelFlowProvider.notifier).loadQuotes());
+  }
+
+  Future<void> _book() async {
+    final error = await ref.read(parcelFlowProvider.notifier).book();
+    if (!mounted) return;
+    if (error != null) {
+      showRidoSnack(context, error);
+      return;
+    }
+    context.go(Routes.parcelFinding);
+  }
 
   void _showFare(BuildContext context, FareQuote q) {
     showRidoSheet<void>(
@@ -35,15 +58,18 @@ class PP06ChooseGoodsVehicleScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final t = context.type;
     final s = ref.watch(parcelFlowProvider);
     final ctrl = ref.read(parcelFlowProvider.notifier);
+    // Live API: wait for the server's quotes; never show a locally computed fare.
+    final quotesReady = widget.showcase || !ref.watch(isLiveApiProvider) || s.serverQuotes != null;
     final quotes = s.quotes;
     final quote = s.quote;
-    final canBook = s.fits(quote.vehicle);
+    final canBook = quotesReady && s.fits(quote.vehicle) && !s.busy;
     final height = MediaQuery.sizeOf(context).height;
     final top = MediaQuery.paddingOf(context).top;
+    final insets = sheetMapInsets(EdgeInsets.fromLTRB(56, top + 96, 56, height * 0.64 + 24), height * 0.64);
 
     return Scaffold(
       backgroundColor: RidoColors.surface,
@@ -55,7 +81,8 @@ class PP06ChooseGoodsVehicleScreen extends ConsumerWidget {
               drop: s.drop.location,
               route: s.routeOrDefault,
               fitPoints: s.routeOrDefault,
-              fitPadding: EdgeInsets.fromLTRB(56, top + 96, 56, height * 0.64 + 24),
+              fitPadding: insets.fit,
+              mapPadding: insets.map,
               attributionAlignment: Alignment.topRight,
             ),
           ),
@@ -71,7 +98,7 @@ class PP06ChooseGoodsVehicleScreen extends ConsumerWidget {
           Positioned(
             top: top + 16,
             right: 16,
-            child: _RouteChip(label: s.estimate.label),
+            child: _RouteChip(label: quotesReady ? s.estimate.label : 'Getting fares…'),
           ),
           Align(
             alignment: Alignment.bottomCenter,
@@ -108,6 +135,9 @@ class PP06ChooseGoodsVehicleScreen extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 12),
+                          if (!quotesReady)
+                            _QuotesPending(error: s.quotesError, onRetry: ctrl.loadQuotes)
+                          else
                           for (final q in quotes) ...[
                             VehicleOptionCard(
                               icon: q.vehicle.kind.icon,
@@ -140,7 +170,7 @@ class PP06ChooseGoodsVehicleScreen extends ConsumerWidget {
                                     style: t.bodySmall.copyWith(color: RidoColors.navy700)),
                               ),
                               TextButton(
-                                onPressed: () => _showFare(context, quote),
+                                onPressed: quotesReady ? () => _showFare(context, quote) : null,
                                 style: TextButton.styleFrom(
                                   foregroundColor: RidoColors.coral600,
                                   minimumSize: const Size(48, 48),
@@ -163,13 +193,9 @@ class PP06ChooseGoodsVehicleScreen extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: RidoButton(
-                      label: 'Book ${quote.vehicle.name} · ${formatInr(quote.total)}',
-                      onPressed: canBook
-                          ? () {
-                              ctrl.book();
-                              context.go(Routes.parcelFinding);
-                            }
-                          : null,
+                      label: quotesReady ? 'Book ${quote.vehicle.name} · ${formatInr(quote.total)}' : 'Book',
+                      loading: s.busy,
+                      onPressed: canBook ? _book : null,
                     ),
                   ),
                 ],
@@ -199,4 +225,32 @@ class _RouteChip extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// Live API: goods fares are loading, or failed with [error] and a Retry.
+class _QuotesPending extends StatelessWidget {
+  const _QuotesPending({required this.error, required this.onRetry});
+  final String? error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = error;
+    if (message == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(
+        children: [
+          Text(message, style: context.type.body.copyWith(color: RidoColors.navy700), textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          RidoButton.text(label: 'Try again', onPressed: onRetry),
+        ],
+      ),
+    );
+  }
 }

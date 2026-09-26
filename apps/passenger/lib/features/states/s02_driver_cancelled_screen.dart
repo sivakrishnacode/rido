@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/map_insets.dart';
+import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 import '../ride/widgets/trip_widgets.dart';
@@ -30,8 +32,12 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
       Navigator.of(context).maybePop();
       return;
     }
-    await ref.read(rideFlowProvider.notifier).cancelRide(reason: 'Driver cancelled');
+    final error = await ref.read(rideFlowProvider.notifier).cancelRide(reason: 'Driver cancelled');
     if (!mounted) return;
+    if (error != null) {
+      showRidoSnack(context, error);
+      return;
+    }
     showRidoSnack(context, 'Ride request cancelled');
     context.go(Routes.ride);
   }
@@ -39,9 +45,10 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
   @override
   Widget build(BuildContext context) {
     ref.listen(rideFlowProvider.select((s) => s.phase), (prev, next) {
-      if (widget.showcase) return;
-      if (next == RidePhase.assigned) context.go(Routes.driverAssigned);
-      if (next == RidePhase.noDrivers) context.go(Routes.noDrivers);
+      if (widget.showcase || next == RidePhase.driverCancelled) return;
+      // Someone new accepted (or dispatch gave up); a poll may also skip ahead.
+      final route = routeForRidePhase(next);
+      if (route != null) context.go(route);
     });
 
     final t = context.type;
@@ -59,7 +66,8 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
           pulseAt: ride.pickup.location,
           pulseColor: RidoColors.success,
           fitPoints: [offsetPoint(ride.pickup.location, 700, 0), offsetPoint(ride.pickup.location, 700, 180)],
-          fitPadding: EdgeInsets.fromLTRB(24, 72, 24, h * 0.5),
+          fitPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).fit,
+          mapPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).map,
           attributionAlignment: Alignment.topRight,
         ),
         sheet: Column(

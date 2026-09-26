@@ -8,6 +8,7 @@ import 'package:rido_ui/rido_ui.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_session.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/signup_widgets.dart';
 
 /// D-12b Autopay success: "You're all set!", the trial (setup) or payment (pay) status, the
@@ -31,11 +32,18 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
     final vehicle = plan.vehicle == VehicleKind.truck ? 'Truck' : plan.vehicle.label;
     final date = formatDate(plan.nextDebit);
 
-    void goOnline() {
+    Future<void> goOnline() async {
       final s = ref.read(driverSessionProvider.notifier);
       s.markSelfieDone();
-      s.goOnline();
+      String? error;
+      try {
+        await s.goOnline();
+      } on Exception catch (e) {
+        error = userMessage(e);
+      }
+      if (!context.mounted) return;
       context.go(Routes.home);
+      if (error != null) showRidoSnack(context, error);
     }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -130,7 +138,14 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
                 ),
               ),
               BottomActions(
-                children: [RidoButton(label: 'Go online', icon: Symbols.power_settings_new_rounded, onPressed: goOnline)],
+                children: [
+                  RidoButton(
+                    label: 'Go online',
+                    icon: Symbols.power_settings_new_rounded,
+                    loading: ref.watch(driverSessionProvider.select((s) => s.goingOnline)),
+                    onPressed: goOnline,
+                  ),
+                ],
               ),
             ],
           ),

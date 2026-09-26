@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
+import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'widgets/job_common.dart';
 import 'widgets/job_map.dart';
@@ -13,6 +15,8 @@ import 'widgets/job_map.dart';
 /// D-21 Delivery in progress: stepper Go to pickup → Picked up → Go to drop → Delivered,
 /// driven by the session phase. One swipe per step: "Reached pickup", "Picked up",
 /// "Reached drop location" (→ D-22a). Back asks before leaving.
+/// Live API: "Reached pickup" and "Picked up" are API calls ("Reached drop" is local), Call dials the
+/// sender / receiver and Navigate opens Google Maps.
 class D21DeliveryInProgressScreen extends ConsumerStatefulWidget {
   const D21DeliveryInProgressScreen({super.key, this.showcase = false});
 
@@ -30,14 +34,27 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
 
   /// Phase used when there is no live job (showcase / opened directly): the D-21 frame.
   JobPhase _localPhase = JobPhase.toDrop;
+  late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
+  bool _busy = false;
 
-  void _advance(bool live, JobPhase phase) {
+  Future<void> _advance(bool live, JobPhase phase) async {
+    if (_busy) return;
     final c = ref.read(driverSessionProvider.notifier);
+    Future<void> step(Future<void> Function() action) async {
+      setState(() => _busy = true);
+      try {
+        await action();
+      } on Exception catch (e) {
+        if (mounted) showRidoSnack(context, userMessage(e));
+      }
+      if (mounted) setState(() => _busy = false);
+    }
+
     switch (phase) {
       case JobPhase.toPickup:
-        live ? c.arrivedAtPickup() : setState(() => _localPhase = JobPhase.atPickup);
+        live ? await step(c.arrivedAtPickup) : setState(() => _localPhase = JobPhase.atPickup);
       case JobPhase.atPickup:
-        live ? c.startTrip() : setState(() => _localPhase = JobPhase.toDrop);
+        live ? await step(c.startTrip) : setState(() => _localPhase = JobPhase.toDrop);
       default:
         if (live) {
           c.reachedDrop();
@@ -61,14 +78,16 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
       JobPhase.toDrop => 2,
       _ => 3,
     };
+    final mode = travelModeFor(_job.vehicle);
     final fallbackRoute = toDrop
-        ? roadPath(_job.pickup.location, _job.drop.location)
-        : roadPath(Seed.driverHome, _job.pickup.location, bend: -0.2);
+        ? roadPath(_job.pickup.location, _job.drop.location, mode: mode)
+        : roadPath(Seed.driverHome, _job.pickup.location, bend: -0.2, mode: mode);
     final route = live && session.route.isNotEmpty ? session.route : fallbackRoute;
     final eta = live ? session.etaMin : (toDrop ? 13 : _job.pickupEtaMin);
     final parcel = _job.parcel;
     final place = toDrop ? _job.drop : _job.pickup;
     final contactName = toDrop ? (parcel?.receiverName ?? _job.customerName) : (parcel?.senderName ?? 'Sender');
+    final contactPhone = toDrop ? (parcel?.receiverPhone ?? _job.customerPhone) : (parcel?.senderPhone ?? _job.customerPhone);
     final contactNote = toDrop
         ? (parcel?.dropNote.isNotEmpty ?? false ? parcel!.dropNote : 'House 14, near walking track')
         : (parcel?.pickupNote.isNotEmpty ?? false ? parcel!.pickupNote : place.address);
@@ -106,7 +125,11 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
                   ]),
                 ),
                 const SizedBox(width: RidoSpacing.s),
-                NavigatePill(onDark: true, onPressed: () => showRidoSnack(context, 'Opening Google Maps')),
+                NavigatePill(
+                  onDark: true,
+                  onPressed: () =>
+                      _api ? openNavigation(context, place.location) : showRidoSnack(context, 'Opening Google Maps'),
+                ),
               ]),
             ),
             Expanded(
@@ -142,7 +165,9 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
                     icon: Symbols.call_rounded,
                     expand: false,
                     semanticLabel: 'Call $contactName',
-                    onPressed: () => showRidoSnack(context, 'Calling ${contactName.split(' ').first} (number hidden)'),
+                    onPressed: () => _api
+                        ? dialNumber(context, contactPhone, name: contactName)
+                        : showRidoSnack(context, 'Calling ${contactName.split(' ').first} (number hidden)'),
                   ),
                 ]),
                 const SizedBox(height: RidoSpacing.m),
@@ -164,6 +189,7 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
                 SwipeToConfirm(
                   key: ValueKey('swipe-$phase'),
                   label: swipeLabel,
+                  enabled: !_busy,
                   onConfirmed: () => _advance(live, phase),
                 ),
               ]),

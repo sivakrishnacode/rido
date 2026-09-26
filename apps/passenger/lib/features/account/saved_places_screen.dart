@@ -24,7 +24,7 @@ class SavedPlacesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
-    final places = (ref.watch(passengerProfileProvider).value ?? Seed.priya).savedPlaces;
+    final places = ref.watch(currentProfileProvider).savedPlaces;
     return Scaffold(
       appBar: const RidoAppBar(
         title: 'Saved places',

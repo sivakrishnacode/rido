@@ -4,12 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/place_search.dart';
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
 import 'saved_places_screen.dart';
 
 /// P-23b Add / edit saved place: Home · Work · Other (with a custom name), the place on a small
-/// map with "Move pin" (pick from known places), a house / landmark note, Save and Delete.
+/// map with "Change" (search, or pin it on the map), a house / landmark note, Save and Delete.
 class P23bSavedPlaceEditorScreen extends ConsumerStatefulWidget {
   const P23bSavedPlaceEditorScreen({super.key, this.placeId, this.showcase = false});
 
@@ -54,7 +55,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
       _kind = e.kind;
       _place = e.place;
       if (e.kind == SavedPlaceKind.other) _name.text = e.label;
-      if (e.id == Seed.home.id) _note.text = '14, NSR Road, near Bharathi Park';
+      if (e.id == Seed.home.id && !ref.read(isLiveApiProvider)) _note.text = '14, NSR Road, near Bharathi Park';
     } else {
       final taken = p.savedPlaces.map((s) => s.kind).toSet();
       _kind = !taken.contains(SavedPlaceKind.home)
@@ -82,8 +83,10 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
   }
 
   Future<void> _pickPlace() async {
-    // Pin it on the map (P-09 in pick mode returns the chosen spot).
-    final picked = await context.push<Place>(Routes.pinPickOnMap);
+    // Search (Google via the API when live) or pin it on the map (P-09 in pick mode returns the spot).
+    final pick = await showPlaceSearchSheet(context, title: 'Choose a place', current: _place, offerMap: true);
+    if (pick == null || !mounted) return;
+    final picked = pick.onMap ? await context.push<Place>(Routes.pinPickOnMap) : pick.place;
     if (picked != null && mounted) setState(() => _place = picked);
   }
 
@@ -100,10 +103,12 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
     }
     id ??= 'sp-${DateTime.now().microsecondsSinceEpoch}';
     final label = _label;
-    await ref.read(passengerProfileProvider.notifier).saveSavedPlace(
+    final saved = await ref.read(passengerProfileProvider.notifier).saveSavedPlace(
           SavedPlace(id: id, label: label, kind: _kind, place: place),
         );
     if (!mounted) return;
+    setState(() => _saving = false);
+    if (!saved) return;
     showRidoSnack(context, '$label saved', success: true);
     _close();
   }
@@ -121,8 +126,8 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
       destructive: true,
     );
     if (!ok || !mounted) return;
-    await ref.read(passengerProfileProvider.notifier).removeSavedPlace(e.id);
-    if (!mounted) return;
+    final removed = await ref.read(passengerProfileProvider.notifier).removeSavedPlace(e.id);
+    if (!mounted || !removed) return;
     showRidoSnack(context, '${e.label} deleted');
     _close();
   }
@@ -132,7 +137,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
     final t = context.type;
     final loaded = ref.watch(passengerProfileProvider).value;
     if (loaded != null) _init(loaded);
-    final profile = loaded ?? Seed.priya;
+    final PassengerProfile profile = loaded ?? ref.watch(currentProfileProvider);
     final place = _place;
 
     return Scaffold(
@@ -230,7 +235,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 textStyle: t.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                               ),
-                              child: Text(place == null ? 'Choose' : 'Move pin'),
+                              child: Text(place == null ? 'Choose' : 'Change'),
                             ),
                           ],
                         ),
@@ -261,46 +266,6 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Sheet: search the known Coimbatore places and pick one.
-class _PlacePicker extends StatefulWidget {
-  const _PlacePicker();
-
-  @override
-  State<_PlacePicker> createState() => _PlacePickerState();
-}
-
-class _PlacePickerState extends State<_PlacePicker> {
-  String _q = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final q = _q.trim().toLowerCase();
-    final places = Seed.places
-        .where((p) => q.isEmpty || p.name.toLowerCase().contains(q) || p.address.toLowerCase().contains(q))
-        .toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Choose a place', style: context.type.h2),
-        const SizedBox(height: 12),
-        SearchField(hint: 'Search a place in Coimbatore', showMic: false, onChanged: (v) => setState(() => _q = v)),
-        const SizedBox(height: 8),
-        if (places.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text('No places match "$_q"', style: context.type.bodySmall, textAlign: TextAlign.center),
-          ),
-        for (final p in places.take(8))
-          LocationRow(
-            title: p.name,
-            subtitle: p.address,
-            onTap: () => Navigator.of(context).pop(p),
-          ),
-      ],
     );
   }
 }

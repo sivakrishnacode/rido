@@ -33,8 +33,8 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
   @override
   void initState() {
     super.initState();
-    final p = ref.read(passengerProfileProvider).value ?? Seed.priya;
-    _name = TextEditingController(text: p.name);
+    final p = ref.read(currentProfileProvider);
+    _name = TextEditingController(text: _realName(p.name));
     _email = TextEditingController(text: p.email);
     _gender = p.gender;
     // Fill in the stored profile once it loads, unless the user has started typing.
@@ -42,12 +42,15 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
       final v = next.value;
       if (v == null || _touched || !mounted) return;
       setState(() {
-        _name.text = v.name;
+        _name.text = _realName(v.name);
         _email.text = v.email;
         _gender = v.gender;
       });
     });
   }
+
+  /// The placeholder shown before a name is set is not a name to prefill.
+  static String _realName(String name) => name == kPlaceholderName ? '' : name;
 
   @override
   void dispose() {
@@ -67,9 +70,11 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
     if (name.isEmpty || _saving) return;
     FocusScope.of(context).unfocus();
     setState(() => _saving = true);
-    await ref.read(passengerProfileProvider.notifier).setBasics(name: name, email: _email.text.trim(), gender: _gender);
+    final saved =
+        await ref.read(passengerProfileProvider.notifier).setBasics(name: name, email: _email.text.trim(), gender: _gender);
     if (!mounted) return;
     setState(() => _saving = false);
+    if (!saved) return;
     if (widget.editing) {
       showRidoSnack(context, 'Profile updated', success: true);
       if (context.canPop()) context.pop();

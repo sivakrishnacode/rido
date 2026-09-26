@@ -296,6 +296,13 @@ class MockDriverRepository with _Latency implements DriverRepository {
   }
 
   @override
+  Future<DriverProfile> register(DriverProfile profile, WorkType workType) => updateProfile(profile);
+
+  @override
+  Future<List<KycDocument>> uploadKyc(KycDocType type, List<int> bytes, String filename) =>
+      setKycStatus(type, KycStatus.underReview);
+
+  @override
   Future<List<KycDocument>> kycDocuments() async {
     await delay(network: false);
     return db.kyc;

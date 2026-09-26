@@ -6,10 +6,12 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/otp_step.dart';
 
 /// D-22a Complete delivery: "Ask Meena for the delivery OTP" (7153), optional photo of the
 /// delivered parcel, "Complete delivery" → D-22b collect. Wrong code shakes with an error.
+/// Live API: the server checks the receiver's code when the delivery completes.
 class D22DeliveryOtpScreen extends ConsumerStatefulWidget {
   const D22DeliveryOtpScreen({super.key, this.showcase = false});
 
@@ -23,25 +25,47 @@ class D22DeliveryOtpScreen extends ConsumerStatefulWidget {
 class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen> {
   late final RideRequest _job = ref.read(driverSessionProvider).job ?? Seed.deliveryRequest;
   late String _code = widget.showcase ? Seed.deliveryOtp : '';
-  bool _error = false;
+  late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
+  String? _errorText;
   bool _photo = false;
   int _shake = 0;
+  bool _busy = false;
 
-  void _complete() {
-    final c = ref.read(driverSessionProvider.notifier);
-    if (!c.verifyDeliveryOtp(_code)) {
-      setState(() {
-        _error = true;
+  void _fail(String message) => setState(() {
+        _busy = false;
+        _errorText = message;
         _shake++;
       });
+
+  Future<void> _complete() async {
+    if (_busy) return;
+    final c = ref.read(driverSessionProvider.notifier);
+    if (_api) {
+      setState(() => _busy = true);
+      try {
+        await c.completeDelivery(otp: _code);
+      } on ApiException catch (e) {
+        if (mounted) _fail(e.message);
+        return;
+      } on Exception catch (e) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        showRidoSnack(context, userMessage(e));
+        return;
+      }
+      if (mounted) context.pushReplacement(Routes.collectDelivery);
+      return;
+    }
+    if (!c.verifyDeliveryOtp(_code)) {
+      _fail('Wrong OTP, please try again');
       return;
     }
     if (widget.showcase) {
       context.push(Routes.collectDelivery);
       return;
     }
-    c.completeDelivery();
-    context.pushReplacement(Routes.collectDelivery);
+    await c.completeDelivery();
+    if (mounted) context.pushReplacement(Routes.collectDelivery);
   }
 
   @override
@@ -52,20 +76,20 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen> {
     return OtpStepScaffold(
       appBarTitle: 'Complete delivery',
       title: 'Ask ${receiver.split(' ').first} for the delivery OTP',
-      subtitle: 'It was sent to $phone by SMS.',
+      subtitle: _api ? 'The sender sees it in their Rido app and shares it with them.' : 'It was sent to $phone by SMS.',
       otp: OtpInput(
         length: 4,
         boxSize: 80,
         autofocus: !widget.showcase,
         initialValue: _code,
-        hasError: _error,
+        hasError: _errorText != null,
         shakeTrigger: _shake,
         onChanged: (v) => setState(() {
           _code = v;
-          _error = false;
+          _errorText = null;
         }),
       ),
-      error: _error ? 'Wrong OTP, please try again' : null,
+      error: _errorText,
       extra: Material(
         color: _photo ? RidoColors.successTint : RidoColors.background,
         shape: RoundedRectangleBorder(
@@ -104,6 +128,7 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen> {
         ),
       ),
       buttonLabel: 'Complete delivery',
+      busy: _busy,
       onSubmit: _code.length == 4 ? _complete : null,
     );
   }

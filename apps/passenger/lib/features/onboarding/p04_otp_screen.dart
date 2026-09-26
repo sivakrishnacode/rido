@@ -7,6 +7,8 @@ import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
+import '../../state/live_trip.dart';
+import '../../state/session_actions.dart';
 
 /// P-04 OTP verification: 6-box input, resend countdown, Verify.
 /// Any 6 digits work except 000000 ("Incorrect OTP" + shake).
@@ -54,9 +56,17 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
     super.dispose();
   }
 
+  /// The API wants digits only ("9876543210"); the screen shows "98765 43210".
+  String get _phoneDigits => widget.phone.replaceAll(RegExp(r'\D'), '');
+
   Future<void> _resend() async {
     _startCountdown();
-    await ref.read(authRepositoryProvider).sendOtp(widget.phone);
+    try {
+      await ref.read(authRepositoryProvider).sendOtp(_phoneDigits);
+    } catch (e) {
+      if (mounted) showRidoSnack(context, apiErrorMessage(e));
+      return;
+    }
     if (!mounted) return;
     showRidoSnack(context, 'OTP resent', success: true);
   }
@@ -72,19 +82,34 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
   Future<void> _verify() async {
     if (_otp.length != 6 || _verifying) return;
     setState(() => _verifying = true);
-    final result = await ref.read(authRepositoryProvider).verifyOtp(widget.phone, _otp);
+    final OtpResult result;
+    try {
+      result = await ref.read(authRepositoryProvider).verifyOtp(_phoneDigits, _otp);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _verifying = false);
+      showRidoSnack(context, apiErrorMessage(e));
+      return;
+    }
     if (!mounted) return;
-    setState(() => _verifying = false);
+    if (result != OtpResult.incorrect) {
+      // A different account may have signed in: drop anything cached from before.
+      resetSignedInState(ref);
+    }
     switch (result) {
       case OtpResult.incorrect:
         setState(() {
+          _verifying = false;
           _error = true;
           _shake++;
         });
       case OtpResult.newUser:
         context.go(Routes.profileSetup);
       case OtpResult.existingUser:
-        context.go(Routes.ride);
+        // Live API: reopen a trip that is still running on the server.
+        final trip = await restoreActiveTrip(ref);
+        if (!mounted) return;
+        context.go(trip ?? Routes.ride);
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/launch.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_session.dart';
 import 'widgets/job_common.dart';
@@ -13,6 +14,8 @@ import 'widgets/job_common.dart';
 /// D-18b Driver SOS: "Emergency help", Call 112 (confirm → "Calling 112"), the emergency
 /// contact gets "Live location sent ✓", the safety team is notified, and the shared trip
 /// details are listed. "I'm safe" goes back.
+/// Live API: Call 112 and the contact's call button open the dialer, and the safety team is alerted with
+/// a "Safety concern" ticket carrying the trip and the GPS position (there is no SMS to the contact yet).
 class D18bDriverSosScreen extends ConsumerStatefulWidget {
   const D18bDriverSosScreen({super.key, this.showcase = false});
 
@@ -30,9 +33,24 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
   Timer? _timer;
   Timer? _teamTimer;
 
+  late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
+
+  /// Live API: the ticket id once the safety team has been alerted, or the error.
+  String? _ticketId;
+  bool _alertFailed = false;
+
   @override
   void initState() {
     super.initState();
+    if (_api) {
+      _alertSafetyTeam();
+      ref.read(driverRepositoryProvider).emergencyContact().then((c) {
+        if (mounted) setState(() => _contact = c);
+      }, onError: (Object _) {
+        if (mounted) setState(() => _contact = const EmergencyContact(id: '', name: '', relation: '', phone: ''));
+      });
+      return;
+    }
     ref.read(driverRepositoryProvider).emergencyContact().then((c) {
       if (!mounted) return;
       setState(() => _contact = c);
@@ -55,6 +73,25 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
     super.dispose();
   }
 
+  Future<void> _alertSafetyTeam() async {
+    final session = ref.read(driverSessionProvider);
+    final job = session.job;
+    final at = ref.read(driverSessionProvider.notifier).position;
+    final where = at == null
+        ? 'Location unknown'
+        : 'Location: https://maps.google.com/?q=${at.latitude.toStringAsFixed(6)},${at.longitude.toStringAsFixed(6)}';
+    try {
+      final ticket = await ref.read(supportRepositoryProvider).raiseTicket(
+            topic: 'Safety concern',
+            description: 'SOS pressed by the driver${job == null ? '' : ' during ${job.isDelivery ? 'delivery' : 'ride'} ${job.id}'}. $where',
+            tripId: job?.id,
+          );
+      if (mounted) setState(() => _ticketId = ticket.id);
+    } catch (_) {
+      if (mounted) setState(() => _alertFailed = true);
+    }
+  }
+
   Future<void> _call112() async {
     final ok = await showRidoConfirm(
       context,
@@ -65,7 +102,17 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
       destructive: true,
       icon: Symbols.call_rounded,
     );
-    if (ok && mounted) showRidoSnack(context, 'Calling 112');
+    if (!ok || !mounted) return;
+    if (_api) {
+      await dialNumber(context, '112');
+    } else {
+      showRidoSnack(context, 'Calling 112');
+    }
+  }
+
+  String _nowAt() {
+    final p = ref.read(driverSessionProvider.notifier).position;
+    return p == null ? 'Location unknown' : '${p.latitude.toStringAsFixed(5)}, ${p.longitude.toStringAsFixed(5)}';
   }
 
   @override
@@ -142,11 +189,26 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
                   const SizedBox(width: RidoSpacing.m),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(contact == null ? 'Loading…' : '${contact.name.split(' ').first} (${contact.relation})',
-                          style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                          contact == null
+                              ? 'Loading…'
+                              : contact.name.isEmpty
+                                  ? 'No emergency contact'
+                                  : contact.relation.isEmpty
+                                      ? contact.name.split(' ').first
+                                      : '${contact.name.split(' ').first} (${contact.relation})',
+                          style: t.h2,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                       Semantics(
                         liveRegion: true,
-                        child: _sent
+                        child: _api
+                            ? Text(
+                                contact == null || contact.phone.isEmpty
+                                    ? 'Add one in Account › Emergency contact'
+                                    : 'Call to tell them where you are',
+                                style: t.bodySmall.copyWith(color: RidoColors.navy500))
+                            : _sent
                             ? Row(children: [
                                 const Icon(Symbols.check_circle_rounded, color: RidoColors.success, fill: 1, size: 18),
                                 const SizedBox(width: 6),
@@ -162,13 +224,38 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
                     background: RidoColors.inputBg,
                     foreground: RidoColors.navy900,
                     size: 48,
-                    onPressed: () => showRidoSnack(context, 'Calling ${contact?.name ?? 'your emergency contact'}'),
+                    onPressed: () => _api
+                        ? dialNumber(context, contact?.phone ?? '', name: contact?.name)
+                        : showRidoSnack(context, 'Calling ${contact?.name ?? 'your emergency contact'}'),
                   ),
                 ]),
                 const SizedBox(height: RidoSpacing.xl),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
-                  child: _teamNotified
+                  child: _api
+                      ? (_ticketId != null
+                          ? RidoBanner(
+                              key: const ValueKey('ticket'),
+                              type: RidoBannerType.success,
+                              icon: Symbols.verified_user_rounded,
+                              title: 'Rido safety team has been alerted',
+                              message: 'Ticket $_ticketId has your trip and location. Call 112 if you are in danger.',
+                            )
+                          : _alertFailed
+                              ? const RidoBanner(
+                                  key: ValueKey('failed'),
+                                  type: RidoBannerType.error,
+                                  icon: Symbols.shield_rounded,
+                                  title: "Couldn't reach the Rido safety team",
+                                  message: 'Call 112 if you are in danger.',
+                                )
+                              : const RidoBanner(
+                                  key: ValueKey('alerting'),
+                                  type: RidoBannerType.info,
+                                  icon: Symbols.shield_rounded,
+                                  title: 'Alerting Rido safety team…',
+                                ))
+                      : _teamNotified
                       ? const RidoBanner(
                           key: ValueKey('notified'),
                           type: RidoBannerType.success,
@@ -192,7 +279,7 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
                         '${job.customerName} · ${job.customerRating.toStringAsFixed(1)}★'),
                     detail('Trip', '${job.pickup.name.split(' ').first} → ${job.drop.name.split(' ').first}'),
                     detail('Your vehicle', profile.plate),
-                    detail('Now at', job.drop.id == Seed.brookefields.id ? 'DB Road, RS Puram' : job.drop.address),
+                    detail('Now at', _api ? _nowAt() : (job.drop.id == Seed.brookefields.id ? 'DB Road, RS Puram' : job.drop.address)),
                   ]),
                 ),
               ],

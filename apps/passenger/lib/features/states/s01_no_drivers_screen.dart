@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 import '../ride/widgets/trip_widgets.dart';
@@ -23,8 +26,21 @@ class S01NoDriversScreen extends ConsumerWidget {
       Navigator.of(context).maybePop();
       return;
     }
-    ref.read(rideFlowProvider.notifier).cancelSearch();
+    // The search already ended: nothing to cancel on the server.
+    unawaited(ref.read(rideFlowProvider.notifier).cancelSearch());
     context.go(Routes.ride);
+  }
+
+  /// Books again (a new request when live); stays here with the reason if the server refuses.
+  Future<void> _rebook(BuildContext context, WidgetRef ref, {VehicleKind? vehicle}) async {
+    final flow = ref.read(rideFlowProvider.notifier);
+    final error = vehicle == null ? await flow.book() : await flow.retryWith(vehicle);
+    if (!context.mounted) return;
+    if (error != null) {
+      showRidoSnack(context, error);
+      return;
+    }
+    context.go(Routes.findingDriver);
   }
 
   @override
@@ -33,7 +49,7 @@ class S01NoDriversScreen extends ConsumerWidget {
     final ride = ref.watch(rideFlowProvider);
     // Suggest Auto for bikes, Cab for autos, Auto for cabs.
     final alt = ride.vehicle == VehicleKind.auto ? VehicleKind.cab : VehicleKind.auto;
-    final altQuote = ride.quotes.firstWhere((q) => q.vehicle.kind == alt);
+    final altQuote = ride.quotes.firstWhere((q) => q.vehicle.kind == alt, orElse: () => ride.quote);
     final plural = switch (ride.vehicle) {
       VehicleKind.bike => 'bikes',
       VehicleKind.auto => 'autos',
@@ -51,7 +67,8 @@ class S01NoDriversScreen extends ConsumerWidget {
         map: (context, h) => RidoMap(
           pickup: ride.pickup.location,
           fitPoints: [offsetPoint(ride.pickup.location, 700, 0), offsetPoint(ride.pickup.location, 700, 180)],
-          fitPadding: EdgeInsets.fromLTRB(24, 72, 24, h * 0.5),
+          fitPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).fit,
+          mapPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).map,
           attributionAlignment: Alignment.topRight,
           extraMarkers: [
             Marker(
@@ -87,18 +104,13 @@ class S01NoDriversScreen extends ConsumerWidget {
             RidoButton(
               label: 'Try ${alt.label} · ${formatInr(altQuote.total)}',
               icon: alt.icon,
-              onPressed: () {
-                ref.read(rideFlowProvider.notifier).retryWith(alt);
-                context.go(Routes.findingDriver);
-              },
+              loading: ride.busy,
+              onPressed: ride.busy ? null : () => _rebook(context, ref, vehicle: alt),
             ),
             const SizedBox(height: 10),
             RidoButton.secondary(
               label: 'Retry',
-              onPressed: () {
-                ref.read(rideFlowProvider.notifier).book();
-                context.go(Routes.findingDriver);
-              },
+              onPressed: ride.busy ? null : () => _rebook(context, ref),
             ),
           ],
         ),

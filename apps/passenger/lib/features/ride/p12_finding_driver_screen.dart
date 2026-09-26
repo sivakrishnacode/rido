@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../common/map_insets.dart';
+import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 
@@ -31,19 +33,19 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
   }
 
   void _route(RidePhase phase) {
-    if (widget.showcase || !mounted) return;
-    switch (phase) {
-      case RidePhase.assigned:
-        context.go(Routes.driverAssigned);
-      case RidePhase.noDrivers:
-        context.go(Routes.noDrivers);
-      default:
-        break;
-    }
+    if (widget.showcase || !mounted || phase == RidePhase.searching || phase == RidePhase.planning) return;
+    // Assigned, no drivers, or further along (a poll can skip steps when the socket was down).
+    final route = routeForRidePhase(phase);
+    if (route != null) context.go(route);
   }
 
-  void _cancel() {
-    ref.read(rideFlowProvider.notifier).cancelSearch();
+  Future<void> _cancel() async {
+    final error = await ref.read(rideFlowProvider.notifier).cancelSearch();
+    if (!mounted) return;
+    if (error != null) {
+      showRidoSnack(context, error);
+      return;
+    }
     showRidoSnack(context, 'Request cancelled');
     context.go(Routes.ride);
   }
@@ -55,7 +57,8 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
     final state = ref.watch(rideFlowProvider);
     final q = state.quote;
     final pickup = state.pickup.location;
-    final vehicles = [
+    // Decorative nearby vehicles in the seeded demo only; the live app has no feed of idle drivers.
+    final vehicles = ref.watch(isLiveApiProvider) ? const <MapVehicle>[] : [
       MapVehicle(position: offsetPoint(pickup, 420, 320), type: MapVehicleType.car, heading: 30),
       MapVehicle(position: offsetPoint(pickup, 380, 70), type: MapVehicleType.auto, heading: 110),
       MapVehicle(position: offsetPoint(pickup, 300, 150), type: MapVehicleType.bike, heading: 120),
@@ -72,7 +75,9 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
           children: [
             Positioned.fill(
               child: RidoMap(
-                center: offsetPoint(pickup, 700, 180),
+                // Google: centre on the pickup inside the padded area above the sheet (logo stays visible).
+                center: RidoMap.usesGoogle ? pickup : offsetPoint(pickup, 700, 180),
+                mapPadding: sheetMapPadding(MediaQuery.sizeOf(context).height * 0.45),
                 zoom: 15,
                 pickup: pickup,
                 pulseAt: pickup,
@@ -161,7 +166,12 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
                       ),
                     ),
                     const SizedBox(height: RidoSpacing.s),
-                    RidoButton(label: 'Cancel request', variant: RidoButtonVariant.dangerText, onPressed: _cancel),
+                    RidoButton(
+                      label: 'Cancel request',
+                      variant: RidoButtonVariant.dangerText,
+                      loading: state.busy,
+                      onPressed: _cancel,
+                    ),
                   ],
                 ),
               ),

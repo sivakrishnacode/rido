@@ -1,4 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { FileStorageService, type UploadedBlob } from '../../core/storage/file-storage.service.js';
+import { DriverEarningsService } from './driver-earnings.service.js';
+import type { UpdateDriverDto } from './dto/update-driver.dto.js';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, KycDocument } from '../../generated/prisma/client.js';
@@ -16,6 +19,8 @@ export class DriversService {
     private readonly auth: AuthService,
     private readonly subs: SubscriptionsService,
     private readonly location: DriverLocationService,
+    private readonly earnings: DriverEarningsService,
+    private readonly files: FileStorageService,
   ) {}
 
   /** Creates the driver, 5 KYC rows and a 30-day free trial; returns a token with the DRIVER role. */
@@ -45,10 +50,22 @@ export class DriversService {
     return this.prisma.kycDocument.findMany({ where: { driverId }, orderBy: { type: 'asc' } });
   }
 
-  uploadDocument(params: { driverId: string; type: KycDocType; fileUrl?: string }): Promise<KycDocument> {
+  /** Profile edits (D-25). Name and gender live on the user; the rest on the driver. */
+  async update(driverId: string, dto: UpdateDriverDto): Promise<Driver> {
+    const { name, gender, ...vehicle } = dto;
+    const driver = await this.prisma.driver.update({
+      where: { id: driverId },
+      data: { ...vehicle, plate: vehicle.plate?.toUpperCase(), ...(name || gender ? { user: { update: { name, gender } } } : {}) },
+    });
+    return this.me(driver.id);
+  }
+
+  /** Stores the photo / PDF and puts the document under review. `fileUrl` holds the stored file name. */
+  async uploadDocument(params: { driverId: string; type: KycDocType; file?: UploadedBlob }): Promise<KycDocument> {
+    const fileUrl = await this.files.save(params.file);
     return this.prisma.kycDocument.update({
       where: { driverId_type: { driverId: params.driverId, type: params.type } },
-      data: { status: KycStatus.UNDER_REVIEW, fileUrl: params.fileUrl, rejectReason: null },
+      data: { status: KycStatus.UNDER_REVIEW, fileUrl, rejectReason: null },
     });
   }
 
@@ -71,12 +88,14 @@ export class DriversService {
     if (driver.status !== DriverStatus.APPROVED) throw new ForbiddenException(`Account is ${driver.status.toLowerCase()}`);
     if (!(await this.subs.canGoOnline(driver.id))) throw new ForbiddenException('Plan expired. Renew to go online again');
     await this.location.update({ driverId: driver.id, kind: driver.vehicleKind, lat: params.lat, lng: params.lng });
+    await this.earnings.sessionStarted(driver.id);
     return this.prisma.driver.update({ where: { id: driver.id }, data: { isOnline: true } });
   }
 
   async goOffline(driverId: string): Promise<Driver> {
     const driver = await this.prisma.driver.update({ where: { id: driverId }, data: { isOnline: false } });
     await this.location.remove({ driverId, kind: driver.vehicleKind });
+    await this.earnings.sessionEnded(driverId);
     return driver;
   }
 
