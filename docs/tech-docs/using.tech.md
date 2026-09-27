@@ -734,6 +734,9 @@ the sslip.io names (Let's Encrypt certificates issued on first start), `ADMIN_CO
 at `https://admin.65-0-233-253.sslip.io`; the old `:3001` URL can no longer keep a session). Server backups of the
 previous files: `/opt/rido/.env.bak-202609271304`, `docker-compose.yml.bak-*`.
 
+**Deployed 28 Sep 2026:** Butterfly + pickup ETA (migration `butterfly`), "Who's riding?" (`trip_rider`), driver
+cancel fix, driver gender at sign-up. All people and trips were cleared first (dev data; admins and config kept).
+
 **Capacity (measured 26 Sep 2026, t3.small):** cached fare quotes at 50 concurrent connections: ~890 req/s average
 (peak 1,340), p50 43 ms, p99 ~200 ms, no errors; the API process used both vCPUs while Postgres/Redis stayed idle.
 Planning figures with headroom: ~300–400 req/s sustained, ~1,500–2,500 concurrent app users, ~300–500 online
