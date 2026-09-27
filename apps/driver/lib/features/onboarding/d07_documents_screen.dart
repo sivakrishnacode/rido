@@ -104,9 +104,12 @@ class D07DocumentsScreen extends ConsumerWidget {
                   const SizedBox(height: RidoSpacing.l),
                   if (readOnly)
                     Text(
-                        verified == docs.length
-                            ? 'All your documents are verified. Contact support if something changes, like a new RC.'
-                            : 'An admin checks each document, usually within 24 hours. Contact support if you need help.',
+                        // Counts the identity check too: a declined check is never "all verified".
+                        identity?.status == IdentityStatus.declined
+                            ? 'Your identity check needs another try. Fix the points above, then tap Try again.'
+                            : stepsVerified == steps
+                                ? 'All your documents are verified. Contact support if something changes, like a new RC.'
+                                : 'An admin checks each document, usually within 24 hours. Contact support if you need help.',
                         style: t.bodySmall.copyWith(color: RidoColors.navy500))
                   else
                     Container(

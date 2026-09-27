@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rido_data/rido_data.dart';
+import 'package:rido_driver/features/onboarding/d07_documents_screen.dart';
 import 'package:rido_driver/features/onboarding/widgets/identity_check_card.dart';
 import 'package:rido_ui/rido_ui.dart';
 
@@ -60,6 +61,20 @@ void main() {
     expect(find.text('Aadhaar: This looks like a photo of a screen. Scan the real card, not a photo or a phone / laptop screen.'),
         findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
+  });
+
+  testWidgets('Account › Documents never says "all verified" while the identity check is declined', (tester) async {
+    await loadTestFonts();
+    usePhone(tester);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [identityProvider.overrideWith(() => _Declined(const ['Driving licence: blurry']))],
+      child: MaterialApp(theme: RidoTheme.light(), home: const D07DocumentsScreen(readOnly: true)),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('All your documents are verified'), findsNothing);
+    expect(find.text('Your identity check needs another try. Fix the points above, then tap Try again.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(minutes: 1)); // provider timers
   });
 }
 
