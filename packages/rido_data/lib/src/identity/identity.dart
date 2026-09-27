@@ -72,7 +72,7 @@ class IdentityCheck {
   /// Every scanned ID (drivers: the licence and Aadhaar).
   final List<ScannedDocument> documents;
 
-  /// Why the last attempt was declined (Didit's short reasons).
+  /// What to fix after a decline, one per failed step, e.g. "Driving licence: this looks like a photo of a screen…".
   final List<String> reasons;
   final DateTime? verifiedAt;
 
@@ -83,6 +83,15 @@ class IdentityCheck {
 
   /// The user can (re)start the in-app check.
   bool get canStart => isEnabled && !isSubmitted;
+}
+
+/// A decline reason as a sentence: "Driving licence: this looks like…" → "Driving licence: This looks like….".
+String identityReasonSentence(String reason) {
+  final i = reason.indexOf(': ');
+  final s = i < 0 || i + 2 >= reason.length
+      ? reason
+      : '${reason.substring(0, i + 2)}${reason[i + 2].toUpperCase()}${reason.substring(i + 3)}';
+  return s.endsWith('.') ? s : '$s.';
 }
 
 /// `/kyc/*` on the API.
@@ -124,7 +133,7 @@ class MockIdentityRepository implements IdentityRepository {
 
   @override
   Future<IdentityCheck> sync() async => _check = settings().rejectKyc
-      ? const IdentityCheck(isEnabled: true, status: IdentityStatus.declined, reasons: ['Face does not match the photo on the ID'])
+      ? const IdentityCheck(isEnabled: true, status: IdentityStatus.declined, reasons: ["Selfie: your selfie doesn't match the photo on the ID. Retake it in good light"])
       : IdentityCheck(
           isEnabled: true,
           status: IdentityStatus.approved,

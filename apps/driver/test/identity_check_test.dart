@@ -36,4 +36,37 @@ void main() {
     expect(find.text('Verify'), findsNothing);
     await tester.pump(const Duration(seconds: 5)); // snack timer
   });
+
+  testWidgets('a declined check lists every reason in full', (tester) async {
+    await loadTestFonts();
+    usePhone(tester);
+    const reasons = [
+      'Driving licence: this looks like a photo of a screen. Scan the real card, not a photo or a phone / laptop screen',
+      'Aadhaar: this looks like a photo of a screen. Scan the real card, not a photo or a phone / laptop screen',
+    ];
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        identityProvider.overrideWith(() => _Declined(reasons)),
+      ],
+      child: MaterialApp(
+        theme: RidoTheme.light(),
+        home: const Scaffold(body: SingleChildScrollView(padding: EdgeInsets.all(16), child: IdentityCheckCard())),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text("We couldn't verify you. Fix this and try again:"), findsOneWidget);
+    expect(find.text('Driving licence: This looks like a photo of a screen. Scan the real card, not a photo or a phone / laptop screen.'),
+        findsOneWidget);
+    expect(find.text('Aadhaar: This looks like a photo of a screen. Scan the real card, not a photo or a phone / laptop screen.'),
+        findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+  });
+}
+
+class _Declined extends IdentityController {
+  _Declined(this.reasons);
+  final List<String> reasons;
+
+  @override
+  Future<IdentityCheck> build() async => IdentityCheck(isEnabled: true, status: IdentityStatus.declined, reasons: reasons);
 }

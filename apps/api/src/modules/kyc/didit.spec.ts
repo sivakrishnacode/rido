@@ -69,6 +69,7 @@ describe('summarizeDecision', () => {
       fullName: 'Murugan Selvam',
       dateOfBirth: '1990-04-12',
       warnings: ['Document has expired', 'LOW_FACE_MATCH_SIMILARITY'],
+      reasons: ['Driving licence: Document has expired', "Selfie: your selfie doesn't match the photo on the ID. Retake it in good light"],
     });
   });
 
@@ -81,7 +82,31 @@ describe('summarizeDecision', () => {
       fullName: null,
       dateOfBirth: null,
       warnings: [],
+      reasons: [],
     });
+  });
+
+  it('turns the failing warnings into plain reasons per document (real declined session)', () => {
+    const screen = { risk: 'SCREEN_CAPTURE_DETECTED', log_type: 'error', short_description: 'Screen capture of document detected' };
+    const summary = summarizeDecision(
+      {
+        status: 'Declined',
+        id_verifications: [
+          {
+            document_type: "Driver's License",
+            status: 'Declined',
+            warnings: [screen, { risk: 'NAME_NOT_DETECTED', log_type: 'warning' }, { risk: 'QR_NOT_DETECTED', log_type: 'information' }],
+          },
+          { document_type: 'Identity Card', status: 'Declined', warnings: [screen, { risk: 'POSSIBLE_DUPLICATED_USER', log_type: 'warning' }] },
+        ],
+        liveness_checks: [{ status: 'In Review', warnings: [{ risk: 'DUPLICATED_FACE', log_type: 'warning' }] }],
+      },
+      'Aadhaar',
+    );
+    expect(summary.reasons).toEqual([
+      'Driving licence: this looks like a photo of a screen. Scan the real card, not a photo or a phone / laptop screen',
+      'Aadhaar: this looks like a photo of a screen. Scan the real card, not a photo or a phone / laptop screen',
+    ]);
   });
 
   it('prefers the licence when a driver scans licence + Aadhaar', () => {

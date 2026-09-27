@@ -69,8 +69,18 @@ export class KycService {
   ) {}
 
   async view(userId: string): Promise<IdentityView> {
+    let latest = await this.latest(userId);
+    // Declines stored before reasons existed: read the decision once so the app can say what to fix.
+    if (latest?.status === IdentityStatus.DECLINED && latest.reasons === null && this.didit.isEnabled) {
+      try {
+        const decision = await this.didit.decision(latest.sessionId);
+        await this.apply(latest, decision.status ?? latest.providerStatus, decision);
+        latest = await this.latest(userId);
+      } catch {
+        // Didit unreachable: show the decline without reasons.
+      }
+    }
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { identityStatus: true, identityVerifiedAt: true } });
-    const latest = await this.latest(userId);
     const approved =
       user.identityStatus === IdentityStatus.APPROVED
         ? await this.prisma.identityVerification.findFirst({ where: { userId, status: IdentityStatus.APPROVED }, orderBy: { decidedAt: 'desc' } })
@@ -84,7 +94,7 @@ export class KycService {
       documentType: shown?.documentType ?? null,
       documentLast4: shown?.documentLast4 ?? null,
       documents: (shown?.documents as ScannedDocument[] | null) ?? [],
-      reasons: latest?.status === IdentityStatus.DECLINED ? ((latest.warnings as string[] | null) ?? []) : [],
+      reasons: latest?.status === IdentityStatus.DECLINED ? ((latest.reasons as string[] | null) ?? []) : [],
     };
   }
 
@@ -157,7 +167,7 @@ export class KycService {
   /** Stores the result, mirrors it on the user (newest session wins; an approval always does) and re-checks the driver. */
   private async apply(row: IdentityVerification, providerStatus: string, decision?: DiditDecision): Promise<void> {
     let status = toIdentityStatus(providerStatus);
-    const summary = decision ? summarizeDecision(decision) : null;
+    const summary = decision ? summarizeDecision(decision, row.purpose === IdentityPurpose.DRIVER ? 'Aadhaar' : 'ID card') : null;
     // A driver must have scanned a driving licence: if the workflow let one through without it, a person decides.
     if (row.purpose === IdentityPurpose.DRIVER && status === IdentityStatus.APPROVED && summary && !summary.hasDrivingLicence) {
       status = IdentityStatus.IN_REVIEW;
@@ -177,6 +187,7 @@ export class KycService {
               fullName: summary.fullName,
               dateOfBirth: summary.dateOfBirth,
               warnings: summary.warnings,
+              reasons: summary.reasons,
             }
           : {}),
         decidedAt: isDecided ? (row.decidedAt ?? new Date()) : null,

@@ -59,7 +59,7 @@ class _IdentityCheckCardState extends ConsumerState<IdentityCheckCard> {
             if (d.last4 != null) '${d.isDrivingLicence ? 'licence' : 'Aadhaar'} •••• ${d.last4}',
         ].join(' · '),
       IdentityStatus.inReview => "We're checking your details",
-      IdentityStatus.declined => check.reasons.isEmpty ? "We couldn't verify you. Please try again" : check.reasons.join('. '),
+      IdentityStatus.declined => check.reasons.isEmpty ? "We couldn't verify you. Please try again" : "We couldn't verify you. Fix this and try again:",
       IdentityStatus.inProgress => 'Not finished yet. Tap Continue to pick up where you left off',
       IdentityStatus.notStarted => 'Scan your licence and Aadhaar, then take a selfie. Takes about 3 minutes',
     };
@@ -116,6 +116,33 @@ class _IdentityCheckCardState extends ConsumerState<IdentityCheckCard> {
             ],
           ),
         ),
+        // Every reason in full (never cut off), so the driver knows what to fix.
+        if (status == IdentityStatus.declined && check.reasons.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: RidoSpacing.s),
+            padding: const EdgeInsets.all(RidoSpacing.l),
+            decoration: const BoxDecoration(color: RidoColors.errorTint, borderRadius: RidoRadii.cardRadius),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final r in check.reasons)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: RidoSpacing.xs),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(Symbols.error_rounded, color: RidoColors.error, size: 18, fill: 1),
+                        ),
+                        const SizedBox(width: RidoSpacing.s),
+                        Expanded(child: Text(identityReasonSentence(r), style: t.bodySmall.copyWith(color: RidoColors.navy900))),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
         if (check.canStart) ...[
           const SizedBox(height: RidoSpacing.s),
           const IdentityConsentNote(),

@@ -318,6 +318,11 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
 - **Stored (`IdentityVerification`):** session id, status, document type, **last 4 characters** of each document
   number (`documentLast4` = the licence, `documents` = all; never a full Aadhaar number), name and date of birth as read from the ID, decline reasons. Photos stay with Didit
   (retention set in Didit console › App Settings › Data).
+- **Decline reasons (`reasons`):** only Didit warnings with `log_type: error` (the ones that fail a step), per step and
+  in plain words (`FIXES` in `kyc/didit.ts`), e.g. "Driving licence: this looks like a photo of a screen. Scan the real
+  card…". The apps list every reason in full under the card. Non-blocking warnings (possible duplicate, low light) stay
+  in `warnings` for the admin panel only. Declines stored before this are filled in from Didit the first time
+  `/kyc/me` is read.
 - **Limits:** at most 3 new sessions per user per 24 h (unfinished sessions are reused by Didit), to protect the quota.
 - **Driver approval (`kyc/driver-approval.ts`):** APPROVED when VEHICLE_RC + INSURANCE are verified by an admin **and**
   identity is APPROVED (identity isn't required when `DIDIT_API_KEY` is empty). A rejected document or declined

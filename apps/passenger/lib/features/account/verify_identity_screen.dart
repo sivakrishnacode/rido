@@ -51,7 +51,7 @@ class _VerifyIdentityScreenState extends ConsumerState<VerifyIdentityScreen> {
           RidoColors.errorTint,
           RidoColors.error,
           "We couldn't verify you",
-          check!.reasons.isEmpty ? 'Please try again with a clear photo of your ID.' : '${check.reasons.join('. ')}.',
+          check!.reasons.isEmpty ? 'Please try again with a clear photo of your ID.' : 'Fix this and try again:',
         ),
       _ => (
           Symbols.shield_person_rounded,
@@ -82,6 +82,33 @@ class _VerifyIdentityScreenState extends ConsumerState<VerifyIdentityScreen> {
           Text(title, style: t.h1, textAlign: TextAlign.center),
           const SizedBox(height: RidoSpacing.xs),
           Text(body, style: t.body.copyWith(color: RidoColors.navy700), textAlign: TextAlign.center),
+          if (status == IdentityStatus.declined && check!.reasons.isNotEmpty) ...[
+            const SizedBox(height: RidoSpacing.m),
+            Container(
+              padding: const EdgeInsets.all(RidoSpacing.l),
+              decoration: const BoxDecoration(color: RidoColors.errorTint, borderRadius: RidoRadii.cardRadius),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final r in check.reasons)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: RidoSpacing.xs),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 2),
+                            child: Icon(Symbols.error_rounded, color: RidoColors.error, size: 18, fill: 1),
+                          ),
+                          const SizedBox(width: RidoSpacing.s),
+                          Expanded(child: Text(identityReasonSentence(r), style: t.bodySmall.copyWith(color: RidoColors.navy900))),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           if (status == IdentityStatus.approved && doc?.last4 != null) ...[
             const SizedBox(height: RidoSpacing.s),
             Text('${doc!.type} •••• ${doc.last4}',

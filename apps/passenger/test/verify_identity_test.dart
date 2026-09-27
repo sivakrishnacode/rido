@@ -48,7 +48,7 @@ void main() {
     await tester.tap(find.text('Verify now'));
     await tester.pumpAndSettle();
     expect(find.text("We couldn't verify you"), findsOneWidget);
-    expect(find.text('Face does not match the photo on the ID.'), findsOneWidget);
+    expect(find.text("Selfie: Your selfie doesn't match the photo on the ID. Retake it in good light."), findsOneWidget);
     expect(find.text('Try again'), findsOneWidget);
   });
 }

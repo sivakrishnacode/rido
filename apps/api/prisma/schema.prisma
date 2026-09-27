@@ -191,6 +191,8 @@ model IdentityVerification {
   fullName       String?
   dateOfBirth    String?
   warnings       Json?
+  /// What the user must fix (declined steps, plain words); shown in the apps.
+  reasons        Json?
   decidedAt      DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt

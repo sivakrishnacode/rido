@@ -411,7 +411,7 @@ describe('Rido API (e2e)', () => {
       face_matches: [{ status: 'Declined', warnings: [{ short_description: 'Face does not match the ID', log_type: 'error' }] }],
     });
     const declined = await http.post('/v1/kyc/sync').set(rider).expect(200);
-    expect(declined.body).toMatchObject({ status: 'DECLINED', reasons: ['Face does not match the ID'] });
+    expect(declined.body).toMatchObject({ status: 'DECLINED', reasons: ['Selfie: Face does not match the ID'] });
     fakeDidit.decisions.set(sessionId, { session_id: sessionId, status: 'Approved', id_verifications: [{ document_type: 'Aadhaar', document_number: '1234 5678 9012' }] });
     const approved = await http.post('/v1/kyc/sync').set(rider).expect(200);
     expect(approved.body).toMatchObject({ status: 'APPROVED', documentLast4: '9012' });

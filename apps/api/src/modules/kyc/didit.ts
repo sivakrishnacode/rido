@@ -121,8 +121,10 @@ export interface DecisionSummary {
   readonly hasDrivingLicence: boolean;
   readonly fullName: string | null;
   readonly dateOfBirth: string | null;
-  /** Short reasons worth showing a reviewer (or the user, on decline). */
+  /** Every non-informational Didit warning, for the admin panel. */
   readonly warnings: string[];
+  /** What the user must fix: only the warnings that fail a step, in plain words, e.g. "Driving licence: …". */
+  readonly reasons: string[];
 }
 
 
@@ -134,7 +136,33 @@ const last4 = (n: string | null | undefined): string | null => {
 /** Didit document names for a driving licence ("Driving License", "Driver's License", code "DL"). */
 export const isDrivingLicence = (type: string | null | undefined): boolean => /driv|^dl$/i.test(type ?? '');
 
-export function summarizeDecision(decision: DiditDecision | null | undefined): DecisionSummary {
+/** Didit risk codes → what the user should do differently. Anything unlisted falls back to Didit's own text. */
+const FIXES: Record<string, string> = {
+  SCREEN_CAPTURE_DETECTED: 'this looks like a photo of a screen. Scan the real card, not a photo or a phone / laptop screen',
+  PRINTED_COPY_DETECTED: 'this looks like a printout or photocopy. Scan the original card',
+  PORTRAIT_REPLACED: 'the photo on the card looks altered. Scan the original card',
+  DOCUMENT_LIVENESS_FAILED: 'scan the original card, not a photo, copy or screen',
+  DOCUMENT_EXPIRED: 'this document has expired. Use a valid one',
+  COULD_NOT_RECOGNIZE_DOCUMENT: "we couldn't recognise the card. Scan the front and back in good light",
+  NAME_NOT_DETECTED: 'the name wasn\'t readable. Hold the card flat in good light, with no glare',
+  DATE_OF_BIRTH_NOT_DETECTED: "the date of birth wasn't readable. Hold the card flat in good light, with no glare",
+  DOCUMENT_NUMBER_NOT_DETECTED: "the number wasn't readable. Hold the card flat in good light, with no glare",
+  EXPIRATION_DATE_NOT_DETECTED: "the expiry date wasn't readable. Keep all four corners in the frame",
+  MIN_AGE_NOT_REACHED: 'you must be 18 or older',
+  DUPLICATED_DOCUMENT: 'this document is already used by another Rido account. Contact support',
+  LOW_LIVENESS_SCORE: 'the selfie check failed. Face the camera in good light, without a mask or sunglasses',
+  LOW_FACE_MATCH_SIMILARITY: "your selfie doesn't match the photo on the ID. Retake it in good light",
+  DUPLICATED_FACE: 'this face is already used by another Rido account. Contact support',
+};
+
+function reasonsFor(label: string, feature: DiditFeatureResult): string[] {
+  return (feature.warnings ?? [])
+    .filter((w) => w.log_type === 'error')
+    .map((w) => `${label}: ${FIXES[w.risk ?? ''] ?? (w.short_description ?? w.risk ?? 'failed').replace(/\.$/, '')}`);
+}
+
+/** [idLabel] names the non-licence ID in reasons (drivers: "Aadhaar"). */
+export function summarizeDecision(decision: DiditDecision | null | undefined, idLabel = 'ID card'): DecisionSummary {
   const ids = decision?.id_verifications ?? [];
   const licence = ids.find((d) => isDrivingLicence(d.document_type));
   const id = licence ?? ids.at(-1);
@@ -149,6 +177,13 @@ export function summarizeDecision(decision: DiditDecision | null | undefined): D
         .filter(Boolean),
     ),
   ];
+  const reasons = [
+    ...new Set([
+      ...ids.flatMap((d) => reasonsFor(isDrivingLicence(d.document_type) ? 'Driving licence' : idLabel, d)),
+      ...(decision?.liveness_checks ?? []).flatMap((f) => reasonsFor('Selfie', f)),
+      ...(decision?.face_matches ?? []).flatMap((f) => reasonsFor('Selfie', f)),
+    ]),
+  ];
   return {
     documentType: id?.document_type ?? null,
     documentLast4: last4(id?.document_number),
@@ -157,5 +192,6 @@ export function summarizeDecision(decision: DiditDecision | null | undefined): D
     fullName: name,
     dateOfBirth: id?.date_of_birth ?? null,
     warnings,
+    reasons,
   };
 }
