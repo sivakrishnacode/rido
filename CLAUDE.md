@@ -138,7 +138,7 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
   learned ETA.
 - **Android:** Impeller is forced to OpenGL ES (Vulkan lagged on MediaTek/Mali). Release signing uses debug keys for now.
 - **Local Redis runs on port 6380** on this machine (set in `.env`).
-- **Staging:** single EC2 at `65.0.233.253` (API `:3000/v1`, admin `:3001`). Images are built locally and loaded over
+- **Staging:** single EC2 at `65.0.233.253`: `https://api.65-0-233-253.sslip.io/v1`, `https://admin.65-0-233-253.sslip.io` (Caddy, compose profile `https`; old `:3000` / `:3001` still open). Images are built locally and loaded over
   SSH. For redeploy steps see `using.tech.md` §9b.
 
 ---

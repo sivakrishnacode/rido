@@ -139,6 +139,7 @@ Never commit real `.env` files.
 | `ADMIN_PHONES` | API | empty (`.env.example`: 9000000001) | comma-separated phones that always sign in as ADMIN (admin panel login); the API container reads it on start |
 | `API_URL` | admin (server side only) | `http://localhost:3000/v1`; compose sets `http://api:3000/v1` | the browser never calls the API directly |
 | `ADMIN_PORT` | compose | 3001 | admin host port |
+| `API_HOST` / `ADMIN_HOST` | caddy (profile `https`) | `api.65-0-233-253.sslip.io` / `admin.65-0-233-253.sslip.io` | names Caddy serves with Let's Encrypt certificates; the real domain at launch |
 | `ADMIN_COOKIE_SECURE` → `COOKIE_SECURE` | admin container | false | `true` once served over HTTPS (session cookie gets `Secure`); outside compose, `NODE_ENV=production` sets Secure unless `COOKIE_SECURE=false` |
 | `DIDIT_API_KEY` | API | empty | Didit console › API & Webhooks › API Key. **Empty = identity checks off** (dev): drivers are approved on RC + insurance alone |
 | `DIDIT_WEBHOOK_SECRET` | API | empty | the webhook destination's signing secret; empty = every webhook is refused (the apps' `/kyc/sync` still works) |
@@ -650,14 +651,19 @@ suggestion's name.
 
 ## 9b. AWS deployment (single EC2, low cost)
 
-Everything (Postgres, Redis, API, admin) runs with Docker Compose on one EC2 instance. No domain yet, so it's plain HTTP on the IP.
+Everything (Postgres, Redis, API, admin) runs with Docker Compose on one EC2 instance. No domain yet: **HTTPS via
+Caddy on sslip.io names** (27 Sep 2026): `https://api.65-0-233-253.sslip.io` and `https://admin.65-0-233-253.sslip.io`
+(sslip.io resolves a name to the IP inside it; Caddy gets free Let's Encrypt certificates and renews them). The apps
+default to the HTTPS API. At launch: point the real domain's A records at the Elastic IP, set `API_HOST` /
+`ADMIN_HOST` in `/opt/rido/.env`, rebuild the apps with `RIDO_API_URL=https://<api domain>/v1`, and update the Didit
+webhook URL. Plain `http://65.0.233.253:3000` / `:3001` still work until those ports are closed.
 
 | Item | Value |
 |---|---|
 | Account / region | `786020471552` / ap-south-1 (Mumbai), AWS CLI profile `rido` (IAM user `rido-deployer`, `AmazonEC2FullAccess` only) |
 | Instance | `i-0f90806819ce574cd` (`rido-server`), t3.small (free-tier eligible), Ubuntu 24.04, 20 GB gp3, 2 GB swap |
 | Public IP | Elastic IP **65.0.233.253**: API `http://65.0.233.253:3000/v1`, admin `http://65.0.233.253:3001` |
-| Security group | `sg-0f4edf3e881efde00` (`rido-sg`): 22 from the owner's IP only, 3000–3001 public; Postgres/Redis not published |
+| Security group | `sg-0f4edf3e881efde00` (`rido-sg`): 22 from the owner's IP only, 80 + 443 public (Caddy), 3000–3001 public (old plain-HTTP URLs; close once every app build uses HTTPS); Postgres/Redis not published |
 | SSH | `ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253` |
 | On server | `/opt/rido`: `docker-compose.yml`, `docker-compose.prod.yml` (removes DB/Redis host ports), `.env` (generated JWT secret + DB password, `S3_BUCKET`, mode 600) |
 | Uploads (S3) | Bucket `rido-uploads-786020471552` (ap-south-1): all public access blocked, SSE-S3 default encryption, ACLs off. The instance role `rido-ec2-uploads` may only Put/Get `kyc/*` and List with prefix `kyc/` (no keys on the server). IMDSv2 required, hop limit 2 (so the API container can reach instance credentials) |
@@ -690,8 +696,15 @@ set -a; . ./.env; set +a
 docker build -f apps/api/Dockerfile -t rido-api:local .
 docker build -f apps/admin/Dockerfile --build-arg NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY="$GOOGLE_MAPS_BROWSER_KEY" -t rido-admin:local .
 docker save rido-api:local rido-admin:local | gzip -1 | ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'gunzip | docker load'
-ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'cd /opt/rido && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build'
+scp -i ~/.ssh/rido-key.pem docker-compose.yml ubuntu@65.0.233.253:/opt/rido/ && scp -i ~/.ssh/rido-key.pem -r caddy ubuntu@65.0.233.253:/opt/rido/
+ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'cd /opt/rido && docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile https up -d --no-build'
 ```
+
+**HTTPS one-time setup:** open 80 and 443 in `rido-sg`
+(`aws ec2 authorize-security-group-ingress --profile rido --group-id sg-0f4edf3e881efde00 --ip-permissions
+'IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]' 'IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]'`),
+add `DIDIT_*` and `ADMIN_COOKIE_SECURE=true` (admin login then needs the HTTPS URL) to `/opt/rido/.env`, and run the
+redeploy with `--profile https`. Caddy's certificates live in the `caddy_data` volume.
 
 If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new IP. An Elastic IP costs money while it isn't attached to a running instance, so release it if the server is terminated.
 
@@ -709,7 +722,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Women-driver preference | App toggle is not sent: booking has no field and dispatch doesn't filter by driver gender |
 | Selfie / DOB | **Sign-up selfie: Done (27 Sep 2026)**, by Didit's liveness check (date of birth is read from the ID). The daily selfie (S-13 / D-09) is still simulated; Didit Biometric Authentication ($0.10 a check, not in the free tier) could replace it |
 | CI | Add GitHub Actions: `npm ci`, `npm run check`, API e2e with service containers, APK build artifacts |
-| Hosting | **Staging live (26 Sep 2026)**: see "9b. AWS deployment". Later: HTTPS + domain, RDS/ElastiCache when load needs it |
+| Hosting | **Staging live (26 Sep 2026)**: see "9b. AWS deployment". **HTTPS: Done (27 Sep 2026)** via Caddy on sslip.io names. Later: real domain at launch, RDS/ElastiCache when load needs it |
 | Secrets | AWS Secrets Manager / SSM for `JWT_SECRET`, Google keys, DB password |
 | Observability | Structured logs → CloudWatch; health checks already exposed |
 | Payments | Not needed while the app is free (6a). If plans return: Razorpay Subscriptions (UPI Autopay mandates) |

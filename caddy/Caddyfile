@@ -1,0 +1,13 @@
+# HTTPS in front of the API and admin (compose profile "https"). Caddy gets free Let's Encrypt certificates
+# automatically; ports 80 and 443 must be open. Staging uses sslip.io names (they resolve to the IP in the name);
+# at launch set API_HOST / ADMIN_HOST in .env to the real domain.
+{$API_HOST} {
+	encode gzip
+	# REST (/v1), health, Socket.IO (/rt, websockets are proxied as-is) and the Didit webhook.
+	reverse_proxy api:3000
+}
+
+{$ADMIN_HOST} {
+	encode gzip
+	reverse_proxy admin:3001
+}

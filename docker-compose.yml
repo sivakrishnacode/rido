@@ -98,6 +98,24 @@ services:
     ports:
       - "${ADMIN_PORT:-3001}:3001"
 
+  # HTTPS (Let's Encrypt) for the API and admin: `docker compose --profile https up -d`. Needed for Didit webhooks.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on: [api, admin]
+    environment:
+      API_HOST: ${API_HOST:-api.65-0-233-253.sslip.io}
+      ADMIN_HOST: ${ADMIN_HOST:-admin.65-0-233-253.sslip.io}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+
   adminer:
     image: adminer:5
     profiles: ["tools"]
@@ -121,3 +139,5 @@ volumes:
   postgres-data:
   redis-data:
   redis-insight-data:
+  caddy_data:
+  caddy_config:
