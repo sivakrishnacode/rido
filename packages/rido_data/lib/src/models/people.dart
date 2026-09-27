@@ -5,6 +5,16 @@ import 'vehicle.dart';
 
 enum Gender { female, male, preferNotToSay }
 
+/// Butterfly (women riders only): who may take the ride. [preferred] = women drivers first, men if none is near;
+/// [only] = women drivers only.
+enum WomenDriverPref {
+  none,
+  preferred,
+  only;
+
+  bool get isOn => this != none;
+}
+
 /// Someone the passenger (or driver) trusts in an emergency.
 @immutable
 class EmergencyContact {

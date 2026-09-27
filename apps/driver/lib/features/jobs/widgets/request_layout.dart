@@ -153,12 +153,15 @@ class RequestRoute extends StatelessWidget {
 
 /// Grey card with the passenger's initial, name and rating.
 class RequestCustomerCard extends StatelessWidget {
-  const RequestCustomerCard({super.key, required this.name, required this.rating, this.isVerified = false});
+  const RequestCustomerCard({super.key, required this.name, required this.rating, this.isVerified = false, this.isWomenOnly = false});
   final String name;
   final double rating;
 
   /// The rider passed the optional identity check.
   final bool isVerified;
+
+  /// Butterfly "women only" ride: the rider asked for a woman driver.
+  final bool isWomenOnly;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -173,6 +176,13 @@ class RequestCustomerCard extends StatelessWidget {
             Semantics(
               label: 'Verified rider',
               child: const Icon(Symbols.verified_rounded, fill: 1, color: RidoColors.success, size: 20),
+            ),
+          ],
+          if (isWomenOnly) ...[
+            const SizedBox(width: RidoSpacing.s),
+            const Tooltip(
+              message: 'Butterfly: this rider asked for a woman driver',
+              child: ButterflyMark(size: 24),
             ),
           ],
           const Spacer(),

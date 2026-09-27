@@ -193,7 +193,7 @@ class MockRideRepository with _Latency implements RideRepository {
   List<VehicleType> get rideVehicles => Seed.rideVehicles;
 
   @override
-  Future<List<FareQuote>> quotes(Place from, Place to) async {
+  Future<List<FareQuote>> quotes(Place from, Place to, {bool womenOnly = false}) async {
     await delay();
     return FareEngine.quoteAll(rideVehicles, FareEngine.estimate(from, to));
   }

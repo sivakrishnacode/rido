@@ -65,7 +65,9 @@ abstract interface class PlacesRepository {
 /// Ride vehicles, quotes, and the passenger's trip history (rides and parcels).
 abstract interface class RideRepository {
   List<VehicleType> get rideVehicles;
-  Future<List<FareQuote>> quotes(Place from, Place to);
+
+  /// [womenOnly] (Butterfly "only"): pickup ETAs count women drivers only.
+  Future<List<FareQuote>> quotes(Place from, Place to, {bool womenOnly = false});
 
   /// Null when Demo control "No drivers nearby" is on.
   Future<DriverProfile?> findDriver(VehicleKind kind);

@@ -172,7 +172,8 @@ class ApiRideRepository implements RideRepository {
   List<VehicleType> get rideVehicles => Seed.rideVehicles;
 
   @override
-  Future<List<FareQuote>> quotes(Place from, Place to) => _quotes(api, from, to, 'RIDE');
+  Future<List<FareQuote>> quotes(Place from, Place to, {bool womenOnly = false}) =>
+      _quotes(api, from, to, 'RIDE', womenOnly: womenOnly);
 
   /// Not used with the live API: dispatch assigns a driver and pushes `trip.updated`.
   @override
@@ -202,8 +203,9 @@ class ApiRideRepository implements RideRepository {
   List<String> get quickReplies => Seed.quickReplies;
 }
 
-Future<List<FareQuote>> _quotes(ApiClient api, Place from, Place to, String kind) async {
-  final res = _map(await api.post('/fares/quote', {'pickup': pointJson(from), 'drop': pointJson(to), 'kind': kind}, true));
+Future<List<FareQuote>> _quotes(ApiClient api, Place from, Place to, String kind, {bool womenOnly = false}) async {
+  final res = _map(await api.post(
+      '/fares/quote', {'pickup': pointJson(from), 'drop': pointJson(to), 'kind': kind, if (womenOnly) 'womenOnly': true}, true));
   return [for (final q in _list(res['quotes'])) quoteFromJson(q)];
 }
 

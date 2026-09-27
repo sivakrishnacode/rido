@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
@@ -38,7 +39,7 @@ class SafetyPreferencesScreen extends ConsumerWidget {
               value: p.preferWomenDriver,
               onChanged: (v) {
                 profile.setPreferWomenDriver(v);
-                ref.read(rideFlowProvider.notifier).setPreferWomenDriver(v);
+                ref.read(rideFlowProvider.notifier).setWomenDriver(v ? WomenDriverPref.preferred : WomenDriverPref.none);
               },
             ),
             _SwitchTile(

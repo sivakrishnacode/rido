@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../format.dart';
 import '../theme/rido_colors.dart';
@@ -7,8 +8,9 @@ import '../theme/rido_tokens.dart';
 /// Badge style on a vehicle card: "Lowest" / "Best value" = coral, "Comfort" / "Fastest" = navy.
 enum VehicleBadgeTone { coral, navy }
 
-/// Vehicle option card: illustration tile, name + badge, "2 min away · 1 seat", fare.
-/// Selected = coral-50 fill + coral-100 border. Disabled shows [disabledReason] in grey.
+/// Vehicle option card: illustration tile, name + capacity + badges, "3 min away · Drop 9:24 PM", fare.
+/// Selected = coral-50 fill + coral-100 border. Disabled shows [disabledReason] in grey. [fastest] adds a
+/// "Fastest" chip (earliest drop of the list).
 class VehicleOptionCard extends StatelessWidget {
   const VehicleOptionCard({
     super.key,
@@ -21,13 +23,21 @@ class VehicleOptionCard extends StatelessWidget {
     this.badgeTone = VehicleBadgeTone.coral,
     this.disabledReason,
     this.onTap,
+    this.capacity,
+    this.fastest = false,
   });
 
   final IconData icon;
   final String name;
 
-  /// "2 min away · 1 seat"
+  /// "3 min away · Drop 9:24 PM" (or "2 min away · 1 seat" when [capacity] is not given).
   final String subtitle;
+
+  /// "1 seat", "4 seats": shown next to the name.
+  final String? capacity;
+
+  /// Earliest drop of the list: a "Fastest" chip with a bolt.
+  final bool fastest;
   final int fare;
   final bool selected;
   final String? badge;
@@ -47,7 +57,13 @@ class VehicleOptionCard extends StatelessWidget {
       selected: selected,
       enabled: !_disabled,
       button: true,
-      label: '$name, $subtitle, ${formatInr(fare)}${_disabled ? ', $disabledReason' : ''}',
+      label: [
+        name,
+        ?capacity,
+        if (fastest && !_disabled) 'Fastest',
+        _disabled ? disabledReason! : subtitle,
+        formatInr(fare),
+      ].join(', '),
       excludeSemantics: true,
       child: Opacity(
         opacity: _disabled ? 0.6 : 1,
@@ -86,7 +102,20 @@ class VehicleOptionCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis),
                             ),
-                            if (badge != null && !_disabled) ...[
+                            if (capacity != null) ...[
+                              const SizedBox(width: 6),
+                              Icon(Symbols.person_rounded, size: 16, color: RidoColors.navy500, fill: 1),
+                              Flexible(
+                                child: Text(capacity!,
+                                    style: t.caption.copyWith(color: RidoColors.navy500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                            ],
+                            if (fastest && !_disabled) ...[
+                              const SizedBox(width: 8),
+                              const _Badge(label: 'Fastest', tone: VehicleBadgeTone.navy, icon: Symbols.bolt_rounded),
+                            ] else if (badge != null && !_disabled) ...[
                               const SizedBox(width: 8),
                               _Badge(label: badge!, tone: badgeTone),
                             ],
@@ -116,9 +145,10 @@ class VehicleOptionCard extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({required this.label, required this.tone});
+  const _Badge({required this.label, required this.tone, this.icon});
   final String label;
   final VehicleBadgeTone tone;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -127,6 +157,15 @@ class _Badge extends StatelessWidget {
           color: tone == VehicleBadgeTone.coral ? RidoColors.coral600 : RidoColors.navy900,
           borderRadius: RidoRadii.pillRadius,
         ),
-        child: Text(label, style: context.type.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 13, color: Colors.white, fill: 1),
+              const SizedBox(width: 2),
+            ],
+            Text(label, style: context.type.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+          ],
+        ),
       );
 }

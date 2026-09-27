@@ -6,11 +6,12 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
+import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
 import 'p11_fare_details_sheet.dart';
 
-/// P-10 Choose vehicle: route map, Bike / Auto / Cab cards, payment note, women-driver
-/// preference and "Book Bike · ₹38".
+/// P-10 Choose vehicle: route map, Bike / Auto / Cab cards ("3 min away · Drop 9:24 PM", Fastest), payment note,
+/// Butterfly (women riders: women drivers preferred / only) and "Book Bike · ₹38".
 class P10ChooseVehicleScreen extends ConsumerStatefulWidget {
   const P10ChooseVehicleScreen({super.key, this.showcase = false});
 
@@ -54,11 +55,20 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
     final t = context.type;
     final state = ref.watch(rideFlowProvider);
     final flow = ref.read(rideFlowProvider.notifier);
+    ref.watch(currentProfileProvider); // Butterfly shows once the profile (gender) has loaded
     final live = ref.watch(isLiveApiProvider);
     // Live API: wait for the server's quotes; never show a locally computed fare.
     final quotesReady = !live || widget.showcase || state.serverQuotes != null;
     final quote = state.quote;
     final route = state.routeOrDefault;
+    final womenDriver = flow.womenDriver;
+    final fastest = _fastestKind(state.quotes);
+    final now = RidoClock.now();
+    String subtitleOf(FareQuote q) {
+      final eta = q.pickupEtaMin;
+      if (eta == null) return womenDriver == WomenDriverPref.only ? 'No women drivers nearby right now' : 'No drivers nearby right now';
+      return '$eta min away · Drop ${formatTime(now.add(Duration(minutes: eta + q.durationMin)))}';
+    }
 
     return Scaffold(
       backgroundColor: RidoColors.surface,
@@ -174,7 +184,9 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                 VehicleOptionCard(
                                   icon: q.vehicle.kind.icon,
                                   name: q.vehicle.name,
-                                  subtitle: '${q.vehicle.etaMin} min away · ${q.vehicle.capacityLabel}',
+                                  subtitle: subtitleOf(q),
+                                  capacity: q.vehicle.capacityLabel,
+                                  fastest: q.vehicle.kind == fastest,
                                   fare: q.total,
                                   badge: q.vehicle.badge,
                                   badgeTone: q.vehicle.badge == 'Comfort' || q.vehicle.badge == 'Fastest'
@@ -233,17 +245,10 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                   ),
                                 ],
                               ),
-                              const Divider(height: RidoSpacing.xl),
-                              MergeSemantics(
-                                child: Row(
-                                  children: [
-                                    const Icon(Symbols.woman_rounded, color: RidoColors.navy900),
-                                    const SizedBox(width: RidoSpacing.m),
-                                    Expanded(child: Text('Prefer women driver', style: t.bodyMedium)),
-                                    Switch(value: state.preferWomenDriver, onChanged: flow.setPreferWomenDriver),
-                                  ],
-                                ),
-                              ),
+                              if (flow.canUseButterfly) ...[
+                                const SizedBox(height: RidoSpacing.m),
+                                ButterflyCard(value: womenDriver, onChanged: flow.setWomenDriver),
+                              ],
                               const SizedBox(height: RidoSpacing.s),
                             ],
                           ),
@@ -269,6 +274,89 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// The vehicle with the earliest drop (pickup ETA + ride time); null on a tie or when fewer than two are known.
+VehicleKind? _fastestKind(List<FareQuote> quotes) {
+  final known = [
+    for (final q in quotes)
+      if (q.pickupEtaMin != null) (kind: q.vehicle.kind, at: q.pickupEtaMin! + q.durationMin),
+  ];
+  if (known.length < 2) return null;
+  known.sort((a, b) => a.at.compareTo(b.at));
+  return known[0].at < known[1].at ? known[0].kind : null;
+}
+
+/// Butterfly (women riders only): Off / Preferred / Only, with what each one means.
+class ButterflyCard extends StatelessWidget {
+  const ButterflyCard({super.key, required this.value, required this.onChanged});
+  final WomenDriverPref value;
+  final ValueChanged<WomenDriverPref> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    final on = value.isOn;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.all(RidoSpacing.m),
+      decoration: BoxDecoration(
+        color: on ? RidoColors.butterfly50 : RidoColors.surface,
+        borderRadius: RidoRadii.cardRadius,
+        border: Border.all(color: on ? RidoColors.butterfly100 : RidoColors.divider, width: on ? 1.5 : 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: on ? RidoColors.surface : RidoColors.butterfly50,
+                  borderRadius: RidoRadii.cardRadius,
+                ),
+                alignment: Alignment.center,
+                child: const ButterflyMark(size: 36),
+              ),
+              const SizedBox(width: RidoSpacing.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Butterfly', style: t.bodySemibold.copyWith(color: RidoColors.butterfly600, fontSize: 17)),
+                    Text('For women riders: ride with a woman driver',
+                        style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: RidoSpacing.m),
+          RidoSegmented<WomenDriverPref>(
+            options: WomenDriverPref.values,
+            selected: value,
+            labelOf: (v) => switch (v) {
+              WomenDriverPref.none => 'Any driver',
+              WomenDriverPref.preferred => 'Preferred',
+              WomenDriverPref.only => 'Women only',
+            },
+            onChanged: onChanged,
+          ),
+          if (on) ...[
+            const SizedBox(height: RidoSpacing.s),
+            Text(
+              value == WomenDriverPref.only
+                  ? 'Only women drivers get your request. It can take a little longer to find one.'
+                  : 'We ask women drivers first. If none is near, the nearest driver can take it.',
+              style: t.bodySmall.copyWith(color: RidoColors.navy700),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -248,6 +248,7 @@ class RideRequest {
     required this.customerRating,
     this.customerPhone = '',
     this.isCustomerVerified = false,
+    this.isWomenOnly = false,
     this.parcel,
     this.otp = '4829',
   });
@@ -270,6 +271,9 @@ class RideRequest {
 
   /// The rider passed the optional identity check (Didit): a "Verified" badge on the request card.
   final bool isCustomerVerified;
+
+  /// Butterfly "women only": a woman rider asked for women drivers only (a butterfly on the request card).
+  final bool isWomenOnly;
   final ParcelDetails? parcel;
   final String otp;
 
@@ -290,6 +294,7 @@ class RideRequest {
     double? customerRating,
     String? customerPhone,
     bool? isCustomerVerified,
+    bool? isWomenOnly,
     ParcelDetails? parcel,
     String? otp,
   }) =>
@@ -308,6 +313,7 @@ class RideRequest {
         customerRating: customerRating ?? this.customerRating,
         customerPhone: customerPhone ?? this.customerPhone,
         isCustomerVerified: isCustomerVerified ?? this.isCustomerVerified,
+        isWomenOnly: isWomenOnly ?? this.isWomenOnly,
         parcel: parcel ?? this.parcel,
         otp: otp ?? this.otp,
       );

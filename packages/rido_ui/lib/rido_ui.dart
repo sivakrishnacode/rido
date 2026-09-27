@@ -9,6 +9,7 @@ export 'src/theme/rido_colors.dart';
 export 'src/theme/rido_theme.dart';
 export 'src/theme/rido_tokens.dart';
 export 'src/vehicle_ui.dart';
+export 'src/widgets/butterfly_mark.dart';
 export 'src/widgets/choice_chips.dart';
 export 'src/widgets/commission_badge.dart';
 export 'src/widgets/contribute_view.dart';

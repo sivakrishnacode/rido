@@ -9,6 +9,7 @@ import 'package:rido_data/rido_data.dart';
 import 'package:rido_passenger/router/routes.dart';
 import 'package:rido_passenger/state/app_notice.dart';
 import 'package:rido_passenger/state/parcel_flow.dart';
+import 'package:rido_passenger/state/passenger_session.dart';
 import 'package:rido_passenger/state/ride_flow.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -117,8 +118,10 @@ class _FakeTrips extends LiveTrips {
     required Place drop,
     PaymentMode paymentMode = PaymentMode.cash,
     ParcelDetails? parcel,
+    WomenDriverPref womenDriver = WomenDriverPref.none,
   }) async {
-    calls.add('book:${kind.name}:${vehicle.name}${parcel != null ? ':${parcel.receiverName}' : ''}');
+    calls.add('book:${kind.name}:${vehicle.name}${parcel != null ? ':${parcel.receiverName}' : ''}'
+        '${womenDriver.isOn ? ':${womenDriver.name}' : ''}');
     return update('SEARCHING');
   }
 
@@ -160,12 +163,13 @@ Future<void> _settle() async {
 void main() {
   late ProviderContainer container;
   late _FakeTrips trips;
+  late _FakeRealtime realtime;
 
   setUp(() async {
     RoadRouter.enabled = false;
     SharedPreferences.setMockInitialValues({});
     final api = ApiClient(baseUrl: 'http://localhost:0/v1', session: ApiSession(await SharedPreferences.getInstance()));
-    final realtime = _FakeRealtime(api);
+    realtime = _FakeRealtime(api);
     trips = _FakeTrips(api, realtime);
     container = ProviderContainer(
       overrides: [
@@ -228,6 +232,30 @@ void main() {
     await flow().finishRide(rating: 5);
     expect(trips.calls.last, 'rate:5');
     expect(ride().phase, RidePhase.planning);
+  });
+
+  test('Butterfly: a woman rider books "women only"; the choice is ignored for anyone else', () async {
+    ProviderContainer rider(PassengerProfile p) {
+      final c = ProviderContainer(overrides: [
+        isLiveApiProvider.overrideWithValue(true),
+        realtimeProvider.overrideWithValue(realtime),
+        liveTripsProvider.overrideWithValue(trips),
+        currentProfileProvider.overrideWithValue(p),
+      ]);
+      addTearDown(c.dispose);
+      return c;
+    }
+
+    final woman = rider(Seed.priya).read(rideFlowProvider.notifier);
+    woman.setDrop(Seed.brookefields);
+    woman.setWomenDriver(WomenDriverPref.only);
+    expect(await woman.book(), isNull);
+    expect(trips.calls, ['book:ride:bike:only']);
+
+    final other = rider(Seed.priya.copyWith(gender: Gender.male));
+    other.read(rideFlowProvider.notifier).setWomenDriver(WomenDriverPref.only);
+    expect(other.read(rideFlowProvider.notifier).canUseButterfly, isFalse);
+    expect(other.read(rideFlowProvider.notifier).womenDriver, WomenDriverPref.none);
   });
 
   test('Skip on P-20 sends no rating', () async {

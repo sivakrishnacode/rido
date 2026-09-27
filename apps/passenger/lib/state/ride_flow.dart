@@ -52,7 +52,7 @@ class RideFlowState {
     this.pickup = Seed.gandhipuram,
     this.drop = Seed.brookefields,
     this.vehicle = VehicleKind.bike,
-    this.preferWomenDriver = false,
+    this.womenDriver,
     this.phase = RidePhase.planning,
     this.driver = Seed.karthik,
     this.tripId = 'RD-DEMO',
@@ -74,7 +74,9 @@ class RideFlowState {
   final Place pickup;
   final Place drop;
   final VehicleKind vehicle;
-  final bool preferWomenDriver;
+  /// Butterfly choice on P-10; null = the profile's default ("Prefer women driver" in Safety preferences).
+  /// Use [RideFlowController.womenDriver] for the effective value.
+  final WomenDriverPref? womenDriver;
   final RidePhase phase;
   final DriverProfile driver;
   final String tripId;
@@ -140,7 +142,7 @@ class RideFlowState {
     Place? pickup,
     Place? drop,
     VehicleKind? vehicle,
-    bool? preferWomenDriver,
+    Object? womenDriver = _keep,
     RidePhase? phase,
     DriverProfile? driver,
     String? tripId,
@@ -161,7 +163,7 @@ class RideFlowState {
     pickup: pickup ?? this.pickup,
     drop: drop ?? this.drop,
     vehicle: vehicle ?? this.vehicle,
-    preferWomenDriver: preferWomenDriver ?? this.preferWomenDriver,
+    womenDriver: identical(womenDriver, _keep) ? this.womenDriver : womenDriver as WomenDriverPref?,
     phase: phase ?? this.phase,
     driver: driver ?? this.driver,
     tripId: tripId ?? this.tripId,
@@ -263,7 +265,22 @@ class RideFlowController extends Notifier<RideFlowState> {
 
   void selectVehicle(VehicleKind v) => state = state.copyWith(vehicle: v);
 
-  void setPreferWomenDriver(bool v) => state = state.copyWith(preferWomenDriver: v);
+  /// Butterfly is offered to women riders only (profile gender); everyone else books with any driver.
+  bool get canUseButterfly => ref.read(currentProfileProvider).gender == Gender.female;
+
+  /// The Butterfly setting this ride books with: the P-10 choice, else the profile default.
+  WomenDriverPref get womenDriver {
+    if (!canUseButterfly) return WomenDriverPref.none;
+    return state.womenDriver ??
+        (ref.read(currentProfileProvider).preferWomenDriver ? WomenDriverPref.preferred : WomenDriverPref.none);
+  }
+
+  /// P-10 Butterfly choice. "Only" changes whose ETAs count, so live fares are fetched again.
+  void setWomenDriver(WomenDriverPref v) {
+    final wasOnly = womenDriver == WomenDriverPref.only;
+    state = state.copyWith(womenDriver: v);
+    if (wasOnly != (v == WomenDriverPref.only)) unawaited(loadQuotes());
+  }
 
   /// Live API: loads the server's fares for the current pickup / drop (P-10). No-op in mock mode.
   Future<void> loadQuotes() async {
@@ -271,7 +288,7 @@ class RideFlowController extends Notifier<RideFlowState> {
     final a = state.pickup, b = state.drop;
     state = state.copyWith(serverQuotes: null, quotesError: null);
     try {
-      final quotes = await ref.read(rideRepositoryProvider).quotes(a, b);
+      final quotes = await ref.read(rideRepositoryProvider).quotes(a, b, womenOnly: womenDriver == WomenDriverPref.only);
       // The pickup / drop moved meanwhile (e.g. GPS resolved): fetch fares for the new points instead of
       // leaving the screen on the loading skeleton.
       if (!_samePlace(state.pickup, a) || !_samePlace(state.drop, b)) return await loadQuotes();
@@ -381,7 +398,7 @@ class RideFlowController extends Notifier<RideFlowState> {
     try {
       final update = await ref
           .read(liveTripsProvider)
-          .book(kind: TripKind.ride, vehicle: state.vehicle, pickup: state.pickup, drop: state.drop);
+          .book(kind: TripKind.ride, vehicle: state.vehicle, pickup: state.pickup, drop: state.drop, womenDriver: womenDriver);
       _startFollowing(update, restoring: false);
       return null;
     } catch (e) {

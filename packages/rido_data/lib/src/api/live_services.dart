@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:latlong2/latlong.dart';
 
 import '../models/driver.dart';
+import '../models/people.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
 import '../models/vehicle.dart';
@@ -73,6 +74,7 @@ class LiveTrips {
     required Place drop,
     PaymentMode paymentMode = PaymentMode.cash,
     ParcelDetails? parcel,
+    WomenDriverPref womenDriver = WomenDriverPref.none,
   }) async {
     realtime.connect();
     final res = _map(await api.post('/trips', {
@@ -83,6 +85,7 @@ class LiveTrips {
       'paymentMode': enumToApi(paymentMode),
       if (parcel != null) 'parcel': parcelToJson(parcel),
       if (parcel != null) 'payer': enumToApi(parcel.payer),
+      if (womenDriver.isOn) 'womenDriver': enumToApi(womenDriver),
     }));
     final update = _update(res);
     unawaited(realtime.joinTrip(update.trip.id));

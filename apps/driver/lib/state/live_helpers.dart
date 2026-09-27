@@ -97,6 +97,7 @@ RideRequest rideRequestFromUpdate(LiveTripUpdate update, {RideRequest? offer}) {
     customerName: name ?? offer?.customerName ?? 'Rido customer',
     customerRating: offer?.customerRating ?? 4.8,
     customerPhone: phone ?? offer?.customerPhone ?? '',
+    isWomenOnly: update.json['womenDriver'] == 'ONLY' || (offer?.isWomenOnly ?? false),
     parcel: trip.parcel ?? offer?.parcel,
     // The driver never sees the ride OTP: the passenger reads it out and the API checks it.
     otp: '',

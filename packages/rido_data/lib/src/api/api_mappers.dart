@@ -78,6 +78,7 @@ FareQuote quoteFromJson(Json j) => FareQuote(
       multiplier: _d(j['multiplier'], 1),
       peakCharge: _i(j['peakCharge']),
       total: _i(j['total']),
+      pickupEtaMin: j['pickupEtaMin'] is num ? _i(j['pickupEtaMin']) : null,
     );
 
 /// A driver (`Driver` with its `user`).
@@ -196,6 +197,7 @@ RideRequest rideRequestFromOffer(Json offer) {
     customerRating: 4.8,
     customerPhone: _s(passenger['phone']),
     isCustomerVerified: passenger['isVerified'] == true,
+    isWomenOnly: (offer['trip'] as Map)['womenDriver'] == 'ONLY',
     parcel: trip.parcel,
     otp: '',
   );
@@ -220,6 +222,7 @@ RideRequest rideRequestFromTrip(Json j) {
     customerRating: 4.8,
     customerPhone: _s(passenger['phone']),
     isCustomerVerified: passenger['identityStatus'] == 'APPROVED',
+    isWomenOnly: j['womenDriver'] == 'ONLY',
     parcel: trip.parcel,
     otp: '',
   );

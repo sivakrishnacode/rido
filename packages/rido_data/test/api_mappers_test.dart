@@ -91,6 +91,16 @@ void main() {
     expect(r.pickupEtaMin, 3);
     expect(r.otp, isEmpty);
     expect(r.fare, 34);
+    expect(r.isWomenOnly, isFalse);
+    final butterfly = rideRequestFromOffer({'trip': {..._trip, 'womenDriver': 'ONLY'}, 'passenger': const {}});
+    expect(butterfly.isWomenOnly, isTrue);
+    expect(butterfly.copyWith(pickupEtaMin: 5).isWomenOnly, isTrue);
+  });
+
+  test('vehicle quotes carry the pickup ETA; null means nobody is near', () {
+    final q = {'vehicleKind': 'BIKE', 'distanceKm': 4.2, 'durationMin': 14, 'total': 38};
+    expect(quoteFromJson({...q, 'pickupEtaMin': 3}).pickupEtaMin, 3);
+    expect(quoteFromJson({...q, 'pickupEtaMin': null}).pickupEtaMin, isNull);
   });
 
   test('chat direction depends on the side', () {

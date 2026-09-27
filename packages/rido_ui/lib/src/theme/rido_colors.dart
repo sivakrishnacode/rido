@@ -41,6 +41,12 @@ abstract final class RidoColors {
   static const mapWater = Color(0xFFD5E5F1);
   static const mapPark = Color(0xFFDDEBD8);
 
+  /// Butterfly (women riders, women drivers): its own pink so it reads apart from coral. 600 on white is 5.9:1.
+  static const butterfly600 = Color(0xFFC2185B);
+  static const butterfly400 = Color(0xFFEC6FA5);
+  static const butterfly100 = Color(0xFFFBD3E6);
+  static const butterfly50 = Color(0xFFFDF0F6);
+
   /// Illustration skin tone.
   static const skin = Color(0xFFE8B88A);
 

@@ -247,6 +247,10 @@ Never commit real `.env` files.
      women riders only: the passenger's `gender` must be `FEMALE`, rides only). `ONLY` keeps women drivers
      (driver `user.gender = FEMALE`) and never falls back; `PREFERRED` ranks men as if 8 min further
      (`PREFERRED_HEAD_START_MIN`, `drivers/women-drivers.ts`), so men still get it when no woman is near.
+     Apps: P-10 Butterfly card (`ButterflyMark` in rido_ui, pink `RidoColors.butterfly*`) with Any driver /
+     Preferred / Women only, shown only when the profile gender is female; Safety preferences "Prefer women
+     driver" is its default. "Women only" re-quotes with `womenOnly`. The driver request card shows the
+     butterfly on ONLY trips (`RideRequest.isWomenOnly`).
   5. The whole batch is assigned together (`assignBatch`: all trip–driver pairs by ETA, each driver to one rider),
      then each driver gets `offerSeconds` to accept; decline/timeout → next in that trip's queue.
   6. **Out of candidates (26 Sep 2026):** search again every 4 s. A driver who let the offer **time out** can be

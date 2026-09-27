@@ -90,6 +90,7 @@ abstract final class FareEngine {
       multiplier: m,
       peakCharge: total - subtotal,
       total: total,
+      pickupEtaMin: vehicle.etaMin,
     );
   }
 

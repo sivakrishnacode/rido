@@ -129,6 +129,7 @@ class FareQuote {
     required this.peakCharge,
     required this.total,
     this.minFareTopUp = 0,
+    this.pickupEtaMin,
   });
 
   final VehicleType vehicle;
@@ -145,6 +146,10 @@ class FareQuote {
   final int peakCharge;
   final int total;
 
+  /// Vehicle list only: minutes until the nearest free driver of this vehicle reaches the pickup
+  /// (live: measured by the server; null = nobody near right now).
+  final int? pickupEtaMin;
+
   bool get hasPeak => multiplier > 1.0 && peakCharge > 0;
 
   FareQuote copyWith({
@@ -159,6 +164,7 @@ class FareQuote {
     double? multiplier,
     int? peakCharge,
     int? total,
+    int? pickupEtaMin,
   }) =>
       FareQuote(
         vehicle: vehicle ?? this.vehicle,
@@ -172,5 +178,6 @@ class FareQuote {
         multiplier: multiplier ?? this.multiplier,
         peakCharge: peakCharge ?? this.peakCharge,
         total: total ?? this.total,
+        pickupEtaMin: pickupEtaMin ?? this.pickupEtaMin,
       );
 }
