@@ -4,8 +4,12 @@ export const SETTING_DEFAULTS = {
   currentMultiplier: 1.1,
   /** Hard cap for any multiplier (surge zones included). */
   maxMultiplier: 1.5,
-  /** Driver search radius around the pickup. */
+  /** Driver search radius around the pickup when a booking starts searching. */
   searchRadiusKm: 5,
+  /** The radius widens while nobody accepts, up to this (few drivers early on: look farther rather than fail). */
+  maxSearchRadiusKm: 15,
+  /** Seconds to widen from [searchRadiusKm] to [maxSearchRadiusKm] (0 = the maximum at once). */
+  searchExpandSeconds: 45,
   /** Seconds each driver has to accept an offer. */
   offerSeconds: 15,
   /** Drivers offered per booking before "No drivers". */

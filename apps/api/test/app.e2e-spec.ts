@@ -6,6 +6,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/core/prisma/prisma.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
+import { SettingsService } from '../src/modules/settings/settings.service.js';
 
 const GANDHIPURAM = { lat: 11.0183, lng: 76.9725, placeId: 'gandhipuram', name: 'Gandhipuram Central Bus Stand' };
 const BROOKEFIELDS = { lat: 11.009, lng: 76.96, placeId: 'brookefields', name: 'Brookefields Mall' };
@@ -96,7 +97,8 @@ describe('Rido API (e2e)', () => {
     await http.post(`/v1/trips/${trip.id}/arrived`).set(auth).expect(200);
     await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: '0000' === trip.otp ? '1111' : '0000' }).expect(400);
     await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: trip.otp }).expect(200);
-    const done = await http.post(`/v1/trips/${trip.id}/complete`).set(auth).send({}).expect(200);
+    // Ended at the drop (farther than dropRadiusM would need a reason).
+    const done = await http.post(`/v1/trips/${trip.id}/complete`).set(auth).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(200);
     await http.post(`/v1/trips/${trip.id}/rate`).set('Authorization', `Bearer ${passenger}`).send({ rating: 5 }).expect(200);
 
     // Assert
@@ -104,6 +106,80 @@ describe('Rido API (e2e)', () => {
     expect(done.body.status).toBe('COMPLETED');
     const history = await http.get('/v1/trips').set('Authorization', `Bearer ${passenger}`).expect(200);
     expect(history.body[0].id).toBe(trip.id);
+  });
+
+  /** An approved driver of [vehicleKind], online at [at]. Returns their token. */
+  async function onlineDriver(vehicleKind: string, at: { lat: number; lng: number }): Promise<string> {
+    const user = await login();
+    const plate = `TN 37 ${vehicleKind.slice(0, 2)} ${Math.floor(1000 + Math.random() * 8999)}`;
+    const reg = await http
+      .post('/v1/drivers')
+      .set('Authorization', `Bearer ${user}`)
+      .send({ name: 'Test Driver', workType: 'RIDES', vehicleKind, vehicleModel: 'Test', vehicleColor: 'White', plate, upiId: 'test@okaxis' })
+      .expect(201);
+    await prisma.driver.update({ where: { id: reg.body.driver.id }, data: { status: 'APPROVED' } });
+    const token = reg.body.accessToken as string;
+    await http.post('/v1/drivers/me/online').set('Authorization', `Bearer ${token}`).send(at).expect(200);
+    return token;
+  }
+
+  /** Retries accept while matching runs (~2 s batches); returns the last response. */
+  async function acceptWhenOffered(tripId: string, driver: string, tries = 40): Promise<request.Response> {
+    let res = await http.post(`/v1/trips/${tripId}/accept`).set('Authorization', `Bearer ${driver}`);
+    for (let i = 1; i < tries && res.status !== 200; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      res = await http.post(`/v1/trips/${tripId}/accept`).set('Authorization', `Bearer ${driver}`);
+    }
+    return res;
+  }
+
+  it('"Book any": a slow cab search adds Auto, and the auto driver takes it at the auto fare', async () => {
+    // Arrange: no cab nearby, an auto driver at the pickup.
+    const passenger = await login();
+    const auto = await onlineDriver('AUTO', { lat: 11.0185, lng: 76.9727 });
+    const pax = { Authorization: `Bearer ${passenger}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'CAB', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+
+    // Act
+    const alts = (await http.get(`/v1/trips/${trip.id}/alternatives`).set(pax).expect(200)).body;
+    const added = (await http.post(`/v1/trips/${trip.id}/also`).set(pax).send({ vehicleKind: 'AUTO' }).expect(200)).body;
+    await http.post(`/v1/trips/${trip.id}/also`).set(pax).send({ vehicleKind: 'GOODS_BIKE' }).expect(400);
+    const accepted = await acceptWhenOffered(trip.id, auto);
+
+    // Assert
+    const autoAlt = alts.find((a: { vehicleKind: string }) => a.vehicleKind === 'AUTO');
+    expect(autoAlt.quote.total).toBe(72);
+    expect(autoAlt.driversNearby).toBeGreaterThan(0);
+    expect(alts.map((a: { vehicleKind: string }) => a.vehicleKind)).not.toContain('CAB');
+    expect(added.alsoKinds).toEqual(['AUTO']);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.vehicleKind).toBe('AUTO');
+    expect(accepted.body.fareTotal).toBe(72);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+  });
+
+  it('widens the search radius: a cab 7 km away (outside the 5 km start) still gets the request', async () => {
+    const settings = app.get(SettingsService);
+    await settings.update({ searchRadiusKm: 5, maxSearchRadiusKm: 15, searchExpandSeconds: 4 });
+    try {
+      // Arrange: the only cab is ~7 km east of the pickup.
+      const passenger = await login();
+      const cab = await onlineDriver('CAB', { lat: 11.0183, lng: 77.0365 });
+      const trip = (await http
+        .post('/v1/trips')
+        .set('Authorization', `Bearer ${passenger}`)
+        .send({ kind: 'RIDE', vehicleKind: 'CAB', pickup: GANDHIPURAM, drop: BROOKEFIELDS })
+        .expect(201)).body;
+
+      // Act
+      const accepted = await acceptWhenOffered(trip.id, cab);
+
+      // Assert
+      expect(accepted.status).toBe(200);
+      expect(accepted.body.vehicleKind).toBe('CAB');
+    } finally {
+      await settings.update({ searchRadiusKm: 5, maxSearchRadiusKm: 15, searchExpandSeconds: 45 });
+    }
   });
 
   it('falls back to seeded places and a curved route without a Google key', async () => {
@@ -181,11 +257,12 @@ describe('Rido API (e2e)', () => {
   it('surges from live H3 demand and learns hex-to-hex speeds', async () => {
     await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
     const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' })).body.accessToken}` };
-    const passenger = await login();
     const peelamedu = { lat: 11.029, lng: 77.027, name: 'Peelamedu' };
     const raceCourse = { lat: 10.999, lng: 76.978, name: 'Race Course' };
+    // Demand counts each passenger once per window: five different riders.
     for (let i = 0; i < 5; i++) {
-      await http.post('/v1/trips').set('Authorization', `Bearer ${passenger}`)
+      const rider = await login();
+      await http.post('/v1/trips').set('Authorization', `Bearer ${rider}`)
         .send({ kind: 'RIDE', vehicleKind: 'AUTO', pickup: peelamedu, drop: raceCourse }).expect(201);
     }
     // No drivers near Peelamedu: demand ÷ supply is high → the cell (and, smoothed, its neighbours) surges.

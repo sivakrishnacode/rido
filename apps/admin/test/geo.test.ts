@@ -61,7 +61,7 @@ describe("h3 helpers", () => {
 });
 
 describe("settings validation", () => {
-  const ok = { currentMultiplier: 1.1, maxMultiplier: 1.5, searchRadiusKm: 5, offerSeconds: 15, maxCandidates: 5, trialDays: 30, graceDays: 2, batchWindowMs: 2000, useRoadEta: true, supportPhone: "+91 422 000 0000" };
+  const ok = { currentMultiplier: 1.1, maxMultiplier: 1.5, searchRadiusKm: 5, maxSearchRadiusKm: 15, searchExpandSeconds: 45, offerSeconds: 15, maxCandidates: 5, trialDays: 30, graceDays: 2, batchWindowMs: 2000, useRoadEta: true, supportPhone: "+91 422 000 0000" };
 
   it("accepts the API defaults", () => {
     expect(validateSettings(ok)).toEqual({});
@@ -71,6 +71,7 @@ describe("settings validation", () => {
     const e = validateSettings({ ...ok, currentMultiplier: 1.6, offerSeconds: 2.5, supportPhone: "x" });
     expect(Object.keys(e).sort()).toEqual(["currentMultiplier", "offerSeconds", "supportPhone"]);
     expect(validateSettings({ ...ok, currentMultiplier: 1.4, maxMultiplier: 1.2 }).currentMultiplier).toMatch(/exceed/);
+    expect(validateSettings({ ...ok, searchRadiusKm: 8, maxSearchRadiusKm: 5 }).maxSearchRadiusKm).toMatch(/below/);
   });
 
   it("validates only the keys sent, including new surge keys and unknown numbers", () => {

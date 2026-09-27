@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { TripKind, VehicleKind } from '../../generated/prisma/enums.js';
 import { GeoService } from '../geo/geo.service.js';
 import { MapsService } from '../maps/maps.service.js';
-import { FareQuote, GeoPoint, quoteFare } from './fare-engine.js';
+import { FareQuote, GeoPoint, quoteFare, type RouteEstimate } from './fare-engine.js';
 import { FARE_RULES } from './fare-rules.js';
 
 /** Quotes vehicles for a route. Distance comes from Google Routes when configured (cached), else haversine. */
@@ -25,6 +25,13 @@ export class FaresService {
         return quoteFare({ vehicleKind, route, multiplier: here.multiplier, rule });
       }),
     );
+  }
+
+  /** [vehicleKind] on a route already measured (e.g. a booked trip's), at the pickup's current rates. */
+  async quoteOnRoute(params: { pickup: GeoPoint; route: RouteEstimate; vehicleKind: VehicleKind }): Promise<FareQuote> {
+    const here = await this.geo.locate(params.pickup);
+    const rule = (await this.geo.fareRule(here.cityId, params.vehicleKind)) ?? undefined;
+    return quoteFare({ vehicleKind: params.vehicleKind, route: params.route, multiplier: here.multiplier, rule });
   }
 
   async quoteOne(params: { pickup: GeoPoint; drop: GeoPoint; vehicleKind: VehicleKind }): Promise<FareQuote> {

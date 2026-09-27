@@ -5,6 +5,7 @@ import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Roles } from '../../core/auth/roles.decorator.js';
 import type { Trip } from '../../generated/prisma/client.js';
 import { Role } from '../../generated/prisma/enums.js';
+import { AddVehicleDto } from './dto/add-vehicle.dto.js';
 import { BookTripDto } from './dto/book-trip.dto.js';
 import { CancelTripDto } from './dto/cancel-trip.dto.js';
 import { ChatMessageDto } from './dto/chat-message.dto.js';
@@ -13,7 +14,7 @@ import { OtpDto } from './dto/otp.dto.js';
 import { CompleteTripDto, PositionCheckDto } from './dto/position-check.dto.js';
 import { RateTripDto } from './dto/rate-trip.dto.js';
 import { type ChatMessage, TripChatService } from './trip-chat.service.js';
-import { TripsService } from './trips.service.js';
+import { TripsService, type VehicleAlternative } from './trips.service.js';
 
 /** Passenger: P-10 … P-22, PP-06 … PP-10. Driver: D-15 … D-22. */
 @Controller('trips')
@@ -46,6 +47,21 @@ export class TripsController {
   @Get('offer')
   offer(@CurrentUser() user: AuthUser): Promise<(OfferDetails & { expiresInSeconds: number }) | null> {
     return this.dispatch.currentOffer(TripsController.driverId(user));
+  }
+
+  /** Passenger, while searching: other vehicles with drivers in range and their fares ("Book any"). */
+  @Roles(Role.PASSENGER)
+  @Get(':id/alternatives')
+  alternatives(@CurrentUser() user: AuthUser, @Param('id') id: string): Promise<VehicleAlternative[]> {
+    return this.trips.alternatives(user.userId, id);
+  }
+
+  /** Passenger, while searching: also look for [AddVehicleDto.vehicleKind]; its drivers get the offer at its fare. */
+  @Roles(Role.PASSENGER)
+  @Post(':id/also')
+  @HttpCode(200)
+  addVehicle(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: AddVehicleDto): Promise<Trip> {
+    return this.trips.addVehicle(user.userId, id, body.vehicleKind);
   }
 
   @Get(':id')

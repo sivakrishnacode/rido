@@ -13,6 +13,8 @@ const RULES: Record<string, (v: SettingValue) => string | null> = {
   maxMultiplier: (v) => (inRange(v, 1, 1.5) ? null : "Maximum multiplier must be 1.0–1.5"),
   currentMultiplier: (v) => (inRange(v, 1, 1.5) ? null : "Current multiplier must be 1.0–1.5"),
   searchRadiusKm: (v) => (inRange(v, 0.5, 30) ? null : "Search radius must be 0.5–30 km"),
+  maxSearchRadiusKm: (v) => (inRange(v, 0.5, 30) ? null : "Maximum search radius must be 0.5–30 km"),
+  searchExpandSeconds: (v) => (inRange(v, 0, 600, true) ? null : "Widen over must be 0–600 whole seconds"),
   offerSeconds: (v) => (inRange(v, 5, 120, true) ? null : "Offer time must be 5–120 whole seconds"),
   maxCandidates: (v) => (inRange(v, 1, 20, true) ? null : "Drivers per booking must be 1–20"),
   arrivalRadiusM: (v) => (inRange(v, 50, 2000, true) ? null : "Arrived radius must be 50–2,000 whole metres"),
@@ -49,6 +51,11 @@ export function validateSettings(s: SettingsInput): SettingsErrors {
   const max = s.maxMultiplier;
   if (!e.currentMultiplier && !e.maxMultiplier && typeof cur === "number" && typeof max === "number" && cur > max) {
     e.currentMultiplier = "Current multiplier can't exceed the maximum";
+  }
+  const r0 = s.searchRadiusKm;
+  const r1 = s.maxSearchRadiusKm;
+  if (!e.searchRadiusKm && !e.maxSearchRadiusKm && typeof r0 === "number" && typeof r1 === "number" && r1 < r0) {
+    e.maxSearchRadiusKm = "Maximum search radius can't be below the start radius";
   }
   return e;
 }

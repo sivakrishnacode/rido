@@ -155,7 +155,8 @@ Never commit real `.env` files.
   (18 km) + 3 DEMAND zones. With no cities configured, everything is serviceable.
 - **Per-city fares:** `CityFareRule` overrides the built-in rates per vehicle; the surge zone or `currentMultiplier`
   setting sets the multiplier, capped by `maxMultiplier`.
-- **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, offerSeconds, maxCandidates, trialDays,
+- **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds,
+  offerSeconds, maxCandidates, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
   contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
@@ -176,6 +177,12 @@ Never commit real `.env` files.
     (driver: the request currently offered, for when the socket missed `trip.offer`).
   - `GET|POST /trips/:id/messages` in-trip chat (Redis list `trip:chat:<id>`, 24 h, ≤ 200 messages; pushed as
     `trip.message` on the trip room).
+  - **"Book any" (27 Sep 2026, like Namma Yatra):** `GET /trips/:id/alternatives` (passenger, while SEARCHING): other
+    vehicles of the same kind (ride / goods) with free drivers within `maxSearchRadiusKm`, cheapest first:
+    `{vehicleKind, quote, driversNearby, nearestKm}`, priced on the booked route. `POST /trips/:id/also {vehicleKind}`
+    adds one (≤ 3; stored in `Trip.alsoKinds` + `alsoFares`), searches again at once without cutting an open offer and
+    restarts the search time. A driver of an added vehicle sees and accepts the trip as their vehicle at its fare
+    (`asVehicle`); accept rewrites `vehicleKind` / `fare` / `fareTotal`.
   - Trips include `driver.user` and `passenger` (name, phone) for both sides; the **OTP is hidden from drivers** in
     offers, trip reads and history.
   - `trip.offer` payload: `{ trip, passenger: {name, phone}, pickupKm, pickupEtaMin, expiresInSeconds }`.
@@ -218,8 +225,10 @@ Never commit real `.env` files.
 - **Dispatch (Uber-style, see owner ref "How Uber finds your driver"):**
   1. Drivers are indexed by H3 cell (res 8) in Redis sets `h3:drv:<kind>:<cell>`; no distance scan over all drivers.
   2. A booking waits in a batch window (`batchWindowMs`, default 2 s; Redis lock so one instance runs each batch).
-  3. Candidates = pickup hexagon, then ring 1 (the six neighbours), ring 2… up to `searchRadiusKm`, stopping once
-     enough drivers are found; busy and stale drivers are skipped.
+  3. Candidates = pickup hexagon, then ring 1 (the six neighbours), ring 2… up to the current radius, stopping once
+     enough drivers are found; busy and stale drivers are skipped. **Widening radius (27 Sep 2026):** the radius
+     starts at `searchRadiusKm` (5 km) and grows linearly to `maxSearchRadiusKm` (15 km) over `searchExpandSeconds`
+     (45 s) while nobody accepts (`search-radius.ts`), for the booked vehicle and any added ones ("Book any").
   4. Candidates are ranked by **road ETA**, not straight-line distance (`EtaService`: Google Routes when
      `useRoadEta` and a key are set, else a 20 km/h × 1.3 estimate), cached per H3 cell pair for 10 min so all
      drivers in one hexagon share one lookup.
@@ -227,8 +236,10 @@ Never commit real `.env` files.
      then each driver gets `offerSeconds` to accept; decline/timeout → next in that trip's queue.
   6. **Out of candidates (26 Sep 2026):** search again every 4 s. A driver who let the offer **time out** can be
      offered it again (e.g. the only driver around); one who **declined** is excluded for that trip
-     (`dispatch:<id>:declined`). `NO_DRIVERS` after 90 s if any driver was offered it, after 30 s if nobody was
-     nearby, or at once when a fresh search finds only drivers who declined. A sweep every 15 s re-queues or ends
+     (`dispatch:<id>:declined`). `NO_DRIVERS` after 90 s if any driver was offered it, else after 30 s, but never
+     before the radius has widened fully plus 15 s (60 s with the defaults), counted from the booking or the last
+     added vehicle (`dispatch:<id>:since`); or at once when a fresh search at the maximum radius finds only drivers
+     who declined. A sweep every 15 s re-queues or ends
      SEARCHING trips that lost their timers (restarts). Fix: the offer key now outlives the offer timer by 5 s
      (before, both expired together, the timeout handler saw no offer and the trip stayed SEARCHING forever).
 - **Realtime (`/rt`):** connect with `auth: { token }`; rooms `user:<id>`, `driver:<id>`, `trip:<id>`. Events:
@@ -336,7 +347,8 @@ pays the running costs; drivers and riders can contribute by UPI.
 - **Settings (`/settings`):** renders every key `GET /v1/admin/settings` returns: "Pricing & surge"
   (dynamicSurgeEnabled, surgeSensitivity, demandWindowMin, surgeMinRequests, maxMultiplier, currentMultiplier, with the
   formula and a live example: ratio 3 → 1 + 0.1 × 2 = 1.2×), "Dispatch & ETA" (batchWindowMs, useRoadEta,
-  historicalEtaMinTrips, searchRadiusKm, offerSeconds, maxCandidates), Driver plans, Support, and any new key in
+  historicalEtaMinTrips, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds, offerSeconds, maxCandidates), Driver
+  plans, Support, and any new key in
   "Other" (typed from the API value). Only changed keys are sent; values are validated client + server side.
 - **Travel speeds (`/travel-speeds`, System):** `GET /v1/admin/hex-stats?res=9|8|7&hour=&sort=busiest|slowest|fastest&used=true`.
   Tabs for hex size (street res 9 / neighbourhood res 8, default / district res 7, with row counts); filters for IST hour,

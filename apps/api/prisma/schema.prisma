@@ -251,6 +251,10 @@ model Trip {
   /// Itemised quote: base, distance, time, topUp, subtotal, multiplier, peak, total.
   fare         Json
   fareTotal    Int
+  /// "Book any" (like Namma Yatra): other vehicles the passenger added while searching, and their quotes by kind.
+  /// The first driver of any of them to accept takes the trip at that vehicle's fare.
+  alsoKinds    VehicleKind[] @default([])
+  alsoFares    Json?
   otp          String
   paymentMode  PaymentMode  @default(CASH)
   /// Parcel only: category, weight band, sender/receiver details.

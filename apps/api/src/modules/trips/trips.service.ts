@@ -4,8 +4,9 @@ import { randomInt } from 'node:crypto';
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
-import { TripKind, TripStatus } from '../../generated/prisma/enums.js';
+import { TripKind, TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
+import type { FareQuote } from '../fares/fare-engine.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
 import { DemandService } from '../geo/demand.service.js';
 import { GeoService } from '../geo/geo.service.js';
@@ -13,7 +14,7 @@ import { cellAt } from '../geo/h3.util.js';
 import { FaresService } from '../fares/fares.service.js';
 import { NotifierService, type TripWithPeople } from '../notifications/notifier.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
-import { DispatchService } from './dispatch.service.js';
+import { asVehicle, DispatchService } from './dispatch.service.js';
 import type { BookTripDto } from './dto/book-trip.dto.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
@@ -22,6 +23,18 @@ import { canTransition, isFinished } from './trip-transitions.js';
 
 /** H3 resolution stored on trips for heatmaps. */
 const HEAT_RES = 8;
+
+/** "Book any": at most this many vehicles added to one search. */
+const MAX_ALSO_KINDS = 3;
+
+/** Another vehicle a searching passenger could add: free drivers of it are within the maximum search radius. */
+export interface VehicleAlternative {
+  readonly vehicleKind: VehicleKind;
+  readonly quote: FareQuote;
+  readonly driversNearby: number;
+  /** Straight-line km from the pickup to the nearest of them. */
+  readonly nearestKm: number;
+}
 
 /** Both sides see who they're riding with: the driver (with name / phone) and the passenger's name / phone. */
 const TRIP_INCLUDE = {
@@ -107,14 +120,86 @@ export class TripsService {
 
   async accept(driverId: string, tripId: string): Promise<Trip> {
     if ((await this.dispatch.offeredTo(tripId)) !== driverId) throw new ConflictException('This request is no longer available');
+    const [booked, driver] = await Promise.all([
+      this.prisma.trip.findUnique({ where: { id: tripId } }),
+      this.prisma.driver.findUnique({ where: { id: driverId }, select: { vehicleKind: true } }),
+    ]);
+    if (!booked) throw new NotFoundException('Trip not found');
+    // "Book any": a driver of an added vehicle takes the trip as that vehicle, at its fare.
+    const matched = asVehicle(booked, driver?.vehicleKind);
+    const switched = matched.vehicleKind !== booked.vehicleKind;
     const { count } = await this.prisma.trip.updateMany({
       where: { id: tripId, status: TripStatus.SEARCHING },
-      data: { status: TripStatus.DRIVER_ASSIGNED, driverId, assignedAt: new Date() },
+      data: {
+        status: TripStatus.DRIVER_ASSIGNED,
+        driverId,
+        assignedAt: new Date(),
+        ...(switched && { vehicleKind: matched.vehicleKind, fare: matched.fare as Prisma.InputJsonValue, fareTotal: matched.fareTotal }),
+      },
     });
     if (count === 0) throw new ConflictException('Trip already taken or cancelled');
     await this.dispatch.stop(tripId);
     await this.location.setBusy(driverId, tripId);
     return this.publish(tripId, 'DRIVER');
+  }
+
+  /**
+   * "Book any" (like Namma Yatra): other vehicles of the same kind (ride / goods) the passenger could add to a slow
+   * search. Only vehicles with free drivers within the maximum search radius, cheapest first, with their fare.
+   */
+  async alternatives(passengerId: string, tripId: string): Promise<VehicleAlternative[]> {
+    const trip = await this.searchingTrip(passengerId, tripId);
+    const s = await this.settings.all();
+    const isGoods = FARE_RULES[trip.vehicleKind].isGoods;
+    const kinds = (Object.keys(FARE_RULES) as VehicleKind[]).filter(
+      (k) => FARE_RULES[k].isGoods === isGoods && k !== trip.vehicleKind && !trip.alsoKinds.includes(k),
+    );
+    const pickup = { lat: trip.pickupLat, lng: trip.pickupLng };
+    const route = { distanceKm: trip.distanceKm, durationMin: trip.durationMin };
+    const radiusKm = Math.max(s.searchRadiusKm, s.maxSearchRadiusKm);
+    const found = await Promise.all(
+      kinds.map(async (vehicleKind): Promise<VehicleAlternative | null> => {
+        const drivers = await this.location.nearby({ kind: vehicleKind, ...pickup, radiusKm, limit: 5 });
+        if (drivers.length === 0) return null;
+        // Same route as the booking, so the fares compare like the vehicle list did.
+        const quote = await this.fares.quoteOnRoute({ pickup, route, vehicleKind });
+        const nearestKm = Math.round(Math.min(...drivers.map((d) => d.distanceKm)) * 10) / 10;
+        return { vehicleKind, quote, driversNearby: drivers.length, nearestKm };
+      }),
+    );
+    return found.filter((a): a is VehicleAlternative => a !== null).sort((a, b) => a.quote.total - b.quote.total);
+  }
+
+  /** Adds [vehicleKind] to a searching trip ("Book any"): its drivers get the offer too, at that vehicle's fare. */
+  async addVehicle(passengerId: string, tripId: string, vehicleKind: VehicleKind): Promise<Trip> {
+    const trip = await this.searchingTrip(passengerId, tripId);
+    if (FARE_RULES[vehicleKind].isGoods !== FARE_RULES[trip.vehicleKind].isGoods) {
+      throw new BadRequestException("That vehicle can't take this trip");
+    }
+    if (vehicleKind === trip.vehicleKind || trip.alsoKinds.includes(vehicleKind)) {
+      return this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE });
+    }
+    if (trip.alsoKinds.length >= MAX_ALSO_KINDS) throw new BadRequestException('You already added the other vehicles');
+    const quote = await this.fares.quoteOnRoute({
+      pickup: { lat: trip.pickupLat, lng: trip.pickupLng },
+      route: { distanceKm: trip.distanceKm, durationMin: trip.durationMin },
+      vehicleKind,
+    });
+    const alsoFares = { ...(trip.alsoFares as Record<string, FareQuote> | null), [vehicleKind]: quote };
+    const { count } = await this.prisma.trip.updateMany({
+      where: { id: tripId, status: TripStatus.SEARCHING },
+      data: { alsoKinds: { push: vehicleKind }, alsoFares: alsoFares as unknown as Prisma.InputJsonValue },
+    });
+    if (count === 0) throw new ConflictException('The search has already ended');
+    await this.dispatch.widen(tripId);
+    return this.publish(tripId, 'PASSENGER');
+  }
+
+  private async searchingTrip(passengerId: string, tripId: string): Promise<Trip> {
+    const trip = await this.prisma.trip.findUnique({ where: { id: tripId } });
+    if (!trip || trip.passengerId !== passengerId) throw new NotFoundException('Trip not found');
+    if (trip.status !== TripStatus.SEARCHING) throw new ConflictException('The search has already ended');
+    return trip;
   }
 
   async decline(driverId: string, tripId: string): Promise<void> {

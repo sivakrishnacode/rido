@@ -3,7 +3,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Trip } from '../../generated/prisma/client.js';
-import { TripStatus } from '../../generated/prisma/enums.js';
+import { TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { roadKm } from '../geo/eta-model.js';
 import { NotifierService } from '../notifications/notifier.service.js';
@@ -11,6 +11,7 @@ import { EtaService } from '../maps/eta.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { assignBatch, BatchRequest } from './batch-assign.js';
+import { searchRadiusAt, searchWindowMs } from './search-radius.js';
 
 const PENDING_KEY = 'dispatch:pending';
 const LOCK_KEY = 'dispatch:lock';
@@ -19,20 +20,20 @@ const SWEEP_LOCK_KEY = 'dispatch:sweep:lock';
 const OFFER_GRACE_S = 5;
 /** Out of candidates: search again after this long (drivers who timed out may be offered again). */
 const RESEARCH_AFTER_MS = 4_000;
-/** Keep searching this long when some driver was offered the trip, or when nobody was nearby at all. */
-const SEARCH_FOR_MS = 90_000;
-const SEARCH_EMPTY_FOR_MS = 30_000;
 const SWEEP_EVERY_MS = 15_000;
 
 /**
  * Uber-style dispatch:
  * 1. Bookings wait in a short batch window (`batchWindowMs`, default 2 s).
- * 2. For each booking, drivers are found by H3 rings around the pickup (pickup hexagon, then neighbours…).
+ * 2. For each booking, drivers are found by H3 rings around the pickup (pickup hexagon, then neighbours…), for the
+ *    booked vehicle and any the passenger added ("Book any", [widen]). The radius grows from `searchRadiusKm` to
+ *    `maxSearchRadiusKm` over `searchExpandSeconds` (see search-radius.ts).
  * 3. Candidates are ranked by road ETA (cached per hex pair), not straight-line distance.
  * 4. The whole batch is assigned together so two riders never get the same driver.
  * 5. Each driver gets `offerSeconds` to accept; decline/timeout moves to the next in that trip's queue.
  * 6. Out of candidates → search again every few seconds (a driver who let the offer time out can get it again; one who
- *    declined can't) until [SEARCH_FOR_MS] (or [SEARCH_EMPTY_FOR_MS] if nobody was nearby), then NO_DRIVERS.
+ *    declined can't) until [searchWindowMs] has passed since the search started (or a vehicle was added), then
+ *    NO_DRIVERS.
  *    A sweep re-queues or closes searching trips that lost their timers (e.g. after a restart).
  * A Redis lock makes only one API instance run a batch at a time.
  */
@@ -111,7 +112,29 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     this.timers.delete(tripId);
     await this.redis.srem(PENDING_KEY, tripId);
     await this.clearOffer(tripId);
-    await this.redis.del(`dispatch:${tripId}:queue`, `dispatch:${tripId}:declined`, `dispatch:${tripId}:offered`, `dispatch:${tripId}:retry`);
+    await this.redis.del(
+      `dispatch:${tripId}:queue`,
+      `dispatch:${tripId}:declined`,
+      `dispatch:${tripId}:offered`,
+      `dispatch:${tripId}:retry`,
+      `dispatch:${tripId}:since`,
+    );
+  }
+
+  /**
+   * The passenger added a vehicle to a searching trip: search again now (without cutting short an open offer) and
+   * give the search its full time again from here.
+   */
+  async widen(tripId: string): Promise<void> {
+    await this.redis.set(`dispatch:${tripId}:since`, String(Date.now()), 'EX', 900);
+    if (await this.offeredTo(tripId)) {
+      // The next search runs when this offer is answered or times out; queue one so the new vehicle joins then.
+      await this.redis.sadd(PENDING_KEY, tripId);
+      return;
+    }
+    clearTimeout(this.timers.get(tripId));
+    this.timers.delete(tripId);
+    await this.redis.sadd(PENDING_KEY, tripId);
   }
 
   /** Runs one batch: takes all pending bookings, ranks candidates by ETA, assigns across the batch. */
@@ -133,6 +156,12 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
         await this.redis.del(key);
         if (queue.length > 0) await this.redis.rpush(key, ...queue);
         await this.redis.expire(key, 600);
+        // A driver is looking at this trip right now (re-queued by [widen]): the fresh queue waits for their answer.
+        const open = await this.offeredTo(trip.id);
+        if (open) {
+          await this.redis.lrem(key, 0, open);
+          continue;
+        }
         await this.offerNext(trip.id, { searchFoundNobody: queue.length === 0 });
       }
       return trips.length;
@@ -147,15 +176,21 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   private async request(trip: Trip): Promise<BatchRequest> {
     const s = await this.settings.all();
     const pickup = { lat: trip.pickupLat, lng: trip.pickupLng };
-    const [found, declined] = await Promise.all([
-      this.location.nearby({ kind: trip.vehicleKind, ...pickup, radiusKm: s.searchRadiusKm, limit: s.maxCandidates * 2 }),
+    const radiusKm = searchRadiusAt(Date.now() - trip.createdAt.getTime(), s);
+    const kinds: VehicleKind[] = [trip.vehicleKind, ...trip.alsoKinds.filter((k) => k !== trip.vehicleKind)];
+    const [perKind, declined] = await Promise.all([
+      Promise.all(
+        kinds.map(async (kind) =>
+          (await this.location.nearby({ kind, ...pickup, radiusKm, limit: s.maxCandidates * 2 })).map((d) => ({ ...d, kind })),
+        ),
+      ),
       this.redis.smembers(`dispatch:${trip.id}:declined`),
     ]);
-    const nearby = found.filter((d) => !declined.includes(d.driverId));
+    const nearby = perKind.flat().filter((d) => !declined.includes(d.driverId));
     const withEta = await Promise.all(
       nearby.map(async (d) => ({
         driverId: d.driverId,
-        etaMin: await this.eta.minutes({ from: d, to: pickup, vehicleKind: trip.vehicleKind, useRoad: s.useRoadEta }),
+        etaMin: await this.eta.minutes({ from: d, to: pickup, vehicleKind: d.kind, useRoad: s.useRoadEta }),
       })),
     );
     const candidates = withEta.sort((a, b) => a.etaMin - b.etaMin).slice(0, s.maxCandidates);
@@ -184,13 +219,16 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** What the driver sees on the request card: the trip (without the OTP), the customer and the pickup distance. */
-  async offerDetails(trip: Trip, driverId: string): Promise<OfferDetails> {
-    const pickup = { lat: trip.pickupLat, lng: trip.pickupLng };
-    const [passenger, at, useRoad] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: trip.passengerId }, select: { name: true, phone: true } }),
+  async offerDetails(booked: Trip, driverId: string): Promise<OfferDetails> {
+    const pickup = { lat: booked.pickupLat, lng: booked.pickupLng };
+    const [passenger, at, useRoad, driver] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: booked.passengerId }, select: { name: true, phone: true } }),
       this.location.position(driverId),
       this.settings.get('useRoadEta'),
+      this.prisma.driver.findUnique({ where: { id: driverId }, select: { vehicleKind: true } }),
     ]);
+    // "Book any": a driver of an added vehicle sees the trip as their vehicle, at its fare.
+    const trip = asVehicle(booked, driver?.vehicleKind);
     return {
       trip: { ...trip, otp: '' },
       passenger: { name: passenger?.name ?? 'Rido customer', phone: passenger?.phone ?? '' },
@@ -199,15 +237,30 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  /** Search time left is counted from the booking, or from the last vehicle the passenger added. */
+  private async searchedLongEnough(trip: Trip): Promise<boolean> {
+    const [offered, since, s] = await Promise.all([
+      this.redis.exists(`dispatch:${trip.id}:offered`),
+      this.redis.get(`dispatch:${trip.id}:since`),
+      this.settings.all(),
+    ]);
+    const from = Math.max(trip.createdAt.getTime(), Number(since ?? 0));
+    return Date.now() - from >= searchWindowMs(offered === 1, s);
+  }
+
   /**
    * Nobody left in the queue: search again shortly, or end the search once it has run long enough. A fresh search
-   * that finds nobody but drivers who already declined ends it right away (they said no; waiting helps nobody).
+   * that finds nobody but drivers who already declined ends it right away once the radius can't widen any more and
+   * no other vehicle was added (they said no; waiting helps nobody).
    */
   private async searchAgainOrGiveUp(trip: Trip, searchFoundNobody: boolean): Promise<void> {
-    if (searchFoundNobody && (await this.redis.scard(`dispatch:${trip.id}:declined`)) > 0) return this.giveUp(trip);
-    const wasOffered = (await this.redis.exists(`dispatch:${trip.id}:offered`)) === 1;
-    const age = Date.now() - trip.createdAt.getTime();
-    if (age < (wasOffered ? SEARCH_FOR_MS : SEARCH_EMPTY_FOR_MS)) {
+    if (searchFoundNobody && (await this.redis.scard(`dispatch:${trip.id}:declined`)) > 0) {
+      // Only drivers who said no are in range: wait while the radius still widens, else end it now.
+      const s = await this.settings.all();
+      const atMax = searchRadiusAt(Date.now() - trip.createdAt.getTime(), s) >= Math.max(s.searchRadiusKm, s.maxSearchRadiusKm);
+      if (atMax && trip.alsoKinds.length === 0) return this.giveUp(trip);
+    }
+    if (!(await this.searchedLongEnough(trip))) {
       await this.redis.set(`dispatch:${trip.id}:retry`, '1', 'PX', RESEARCH_AFTER_MS * 3);
       clearTimeout(this.timers.get(trip.id));
       this.timers.set(trip.id, setTimeout(() => void this.redis.sadd(PENDING_KEY, trip.id), RESEARCH_AFTER_MS));
@@ -238,8 +291,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
         this.redis.exists(`dispatch:${trip.id}:retry`),
       ]);
       if (offer || pending || retry) continue;
-      const wasOffered = (await this.redis.exists(`dispatch:${trip.id}:offered`)) === 1;
-      if (Date.now() - trip.createdAt.getTime() >= (wasOffered ? SEARCH_FOR_MS : SEARCH_EMPTY_FOR_MS)) await this.giveUp(trip);
+      if (await this.searchedLongEnough(trip)) await this.giveUp(trip);
       else await this.redis.sadd(PENDING_KEY, trip.id);
     }
   }
@@ -250,6 +302,17 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     this.logger.debug(`Offer for ${tripId} to ${driverId} timed out`);
     await this.next(tripId);
   }
+}
+
+/**
+ * [trip] as matched with a driver of [kind]: an added vehicle ("Book any") takes its own quote from `alsoFares`;
+ * the booked vehicle (or an unknown one) leaves the trip as it is.
+ */
+export function asVehicle(trip: Trip, kind: VehicleKind | undefined): Trip {
+  if (!kind || kind === trip.vehicleKind || !trip.alsoKinds.includes(kind)) return trip;
+  const quote = (trip.alsoFares as Record<string, { total: number }> | null)?.[kind];
+  if (!quote) return trip;
+  return { ...trip, vehicleKind: kind, fare: quote, fareTotal: quote.total };
 }
 
 export interface OfferDetails {

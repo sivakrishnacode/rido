@@ -453,6 +453,10 @@ export interface Settings {
   readonly currentMultiplier: number;
   readonly maxMultiplier: number;
   readonly searchRadiusKm: number;
+  /** The search widens up to this while nobody accepts. */
+  readonly maxSearchRadiusKm: number;
+  /** Seconds to widen from searchRadiusKm to maxSearchRadiusKm. */
+  readonly searchExpandSeconds: number;
   readonly offerSeconds: number;
   readonly maxCandidates: number;
   readonly trialDays: number;
