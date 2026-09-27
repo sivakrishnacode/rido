@@ -6,10 +6,12 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
+import 'widgets/identity_check_card.dart';
 import 'widgets/signup_widgets.dart';
 
-/// D-07 Documents / KYC checklist: "3 of 5 done", a row per document with its status and
-/// an Upload button. Continue (all 5 uploaded) → D-09 selfie.
+/// D-07 Documents / KYC checklist: the in-app identity check (driving licence + Aadhaar + selfie, by Didit) and a row
+/// per document to upload (RC, insurance) with its status and an Upload button. Continue (identity done and
+/// both uploaded) → D-10 under review.
 /// [readOnly] (Account → Documents) shows every document as verified, with no actions (live API: the
 /// real statuses, with Re-upload for a rejected document).
 class D07DocumentsScreen extends ConsumerWidget {
@@ -24,15 +26,23 @@ class D07DocumentsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final live = !showcase && ref.watch(isLiveApiProvider);
-    final docs = readOnly && !live
+    final allDocs = readOnly && !live
         ? Seed.kycAllVerified
         : showcase
             ? Seed.kycFresh
             : (ref.watch(kycProvider).value ?? Seed.kycFresh);
+    final docs = [for (final d in allDocs) if (driverUploadDocs.contains(d.type)) d];
+    final identity = showcase ? null : ref.watch(identityProvider).value;
+    // Didit off (dev) counts as done; so does a check waiting for review.
+    final isIdentityDone = identity == null ? showcase : (!identity.isEnabled || identity.isSubmitted);
+    final hasIdentity = identity?.isEnabled ?? showcase;
     final signup = ref.watch(signupProvider);
     final done = docs.where((d) => d.status == KycStatus.verified || d.status == KycStatus.underReview).length;
     final verified = docs.where((d) => d.status == KycStatus.verified).length;
-    final allDone = done == docs.length;
+    final steps = docs.length + (hasIdentity ? 1 : 0);
+    final stepsDone = done + (hasIdentity && isIdentityDone ? 1 : 0);
+    final stepsVerified = verified + (identity?.isApproved == true ? 1 : 0);
+    final allDone = done == docs.length && isIdentityDone;
     // Live API: after a restart the sign-up draft is empty, so the vehicle comes from the driver profile.
     final profile = live ? ref.watch(driverProfileProvider).value : null;
     final kind = profile?.vehicleKind ?? signup.vehicle;
@@ -47,9 +57,9 @@ class D07DocumentsScreen extends ConsumerWidget {
           DocsHeader(
             title: 'Documents',
             step: readOnly ? null : 4,
-            summary: readOnly ? '$verified of ${docs.length} verified' : '$done of ${docs.length} done',
+            summary: readOnly ? '$stepsVerified of $steps verified' : '$stepsDone of $steps done',
             trailing: readOnly ? null : '$vehicle · $work',
-            segments: [((readOnly ? verified : done) / docs.length, readOnly ? RidoColors.success : RidoColors.coral500)],
+            segments: [((readOnly ? stepsVerified : stepsDone) / steps, readOnly ? RidoColors.success : RidoColors.coral500)],
             onBack: readOnly ? null : backOr(context, Routes.personalDetails),
           ),
           Expanded(
@@ -58,6 +68,10 @@ class D07DocumentsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (hasIdentity) ...[
+                    IdentityCheckCard(showcase: showcase),
+                    const SizedBox(height: RidoSpacing.l),
+                  ],
                   Container(
                     decoration: BoxDecoration(
                       color: RidoColors.surface,
@@ -116,10 +130,10 @@ class D07DocumentsScreen extends ConsumerWidget {
           if (!readOnly)
             BottomActions(
               children: [
-                RidoButton(label: 'Continue', onPressed: allDone ? () => context.push(Routes.selfie) : null),
+                RidoButton(label: 'Continue', onPressed: allDone ? () => context.go(Routes.underReview) : null),
                 if (!allDone) ...[
                   const SizedBox(height: RidoSpacing.s),
-                  Text('Upload all ${docs.length} to continue',
+                  Text(isIdentityDone ? 'Upload both documents to continue' : 'Verify your licence and Aadhaar, and upload both documents to continue',
                       textAlign: TextAlign.center, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
                 ],
               ],

@@ -8,7 +8,7 @@ import 'package:rido_driver/state/driver_session.dart';
 import 'package:rido_driver/state/live_helpers.dart';
 
 List<KycDocument> docs(Map<KycDocType, KycStatus> overrides) => [
-      for (final t in KycDocType.values) KycDocument(type: t, status: overrides[t] ?? KycStatus.verified),
+      for (final t in driverUploadDocs) KycDocument(type: t, status: overrides[t] ?? KycStatus.verified),
     ];
 
 LiveTripUpdate update({String status = 'DRIVER_ASSIGNED', Map<String, dynamic>? passenger, int fare = 64}) {
@@ -106,7 +106,17 @@ void main() {
     });
 
     test('missing documents → D-07', () {
-      expect(applicationRoute(approved: null, docs: docs({KycDocType.aadhaar: KycStatus.notUploaded})), Routes.documents);
+      expect(applicationRoute(approved: null, docs: docs({KycDocType.insurance: KycStatus.notUploaded})), Routes.documents);
+    });
+
+    test('identity check not done or declined → D-07 (runs it in the app); in review → D-10', () {
+      const underReview = {KycDocType.insurance: KycStatus.underReview};
+      IdentityCheck id(IdentityStatus s) => IdentityCheck(isEnabled: true, status: s);
+      expect(applicationRoute(approved: null, docs: docs(underReview), identity: id(IdentityStatus.notStarted)), Routes.documents);
+      expect(applicationRoute(approved: false, docs: docs(underReview), identity: id(IdentityStatus.declined)), Routes.documents);
+      expect(applicationRoute(approved: null, docs: docs(underReview), identity: id(IdentityStatus.inReview)), Routes.underReview);
+      const off = IdentityCheck(isEnabled: false, status: IdentityStatus.notStarted);
+      expect(applicationRoute(approved: null, docs: docs(underReview), identity: off), Routes.underReview);
     });
 
     test('all uploaded, waiting for an admin → D-10 (also after re-uploading a rejected document)', () {

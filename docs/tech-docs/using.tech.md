@@ -323,6 +323,15 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
   identity → REJECTED; a re-upload → PENDING. ON_HOLD is never changed automatically; drivers approved before this
   change stay approved. New drivers only get RC + insurance rows; the old document types stay in the enum and are
   hidden from the apps and the admin queue.
+- **Driver app:** D-07 Documents starts with "Licence, Aadhaar + selfie" (`IdentityCheckCard`: Verify / Continue /
+  Try again, the decline reasons, and a consent line linking Didit's privacy notice), then RC and insurance uploads.
+  Continue → D-10 (the simulated D-09 selfie is no longer part of sign-up). The start route sends a driver whose check
+  isn't done or was declined back to D-07. Shared code in `rido_data` (`identity/identity.dart`: `IdentityCheck`,
+  `IdentityRepository` API + mock, `identityProvider.verify()`, `identitySdkProvider`); mock mode approves at once
+  (declines with Demo control "Reject KYC").
+- **Android:** `didit_sdk` 4.9 with `diditSdkAndroidVariant=autodetection` in `android/gradle.properties` (auto
+  capture, no NFC, smaller APK). The SDK asks for the camera itself and runs in its own activity; there is no `ios/`
+  folder yet (it would need the camera / microphone / photo-library usage strings and iOS 13+).
 - **Didit console setup:** see "Didit console checklist" below.
 
 **Didit console checklist** (business.didit.me):
@@ -501,7 +510,7 @@ suggestion's name.
 - **Driver permission banner (Home):** besides location, `missingPermissionsProvider` (`lib/state/app_permissions.dart`)
   checks notifications, "Display over other apps" and Android 14+ full-screen notifications on opening Home and on
   every resume. The first missing one shows as a banner (online too) until allowed; "Allow" shows the system prompt
-  or the matching settings page. None of these block going online (location does). Camera is asked only for KYC.
+  or the matching settings page. None of these block going online (location does). Camera is asked only for KYC (document photos and the Didit check).
 
 ## 7b. Apps ↔ API (packages/rido_data/lib/src/api)
 
@@ -690,7 +699,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Trip `updatedAt` | Add to Trip JSON so apps can order pushed updates reliably (apps guard with a status order today) |
 | SOS / tracking link | No SOS service (apps raise a "Safety concern" ticket + dialer) and no public trip-tracking page yet |
 | Women-driver preference | App toggle is not sent: booking has no field and dispatch doesn't filter by driver gender |
-| Selfie / DOB | Daily selfie (S-13 / D-09) and sign-up photo are simulated; date of birth isn't stored |
+| Selfie / DOB | **Sign-up selfie: Done (27 Sep 2026)**, by Didit's liveness check (date of birth is read from the ID). The daily selfie (S-13 / D-09) is still simulated; Didit Biometric Authentication ($0.10 a check, not in the free tier) could replace it |
 | CI | Add GitHub Actions: `npm ci`, `npm run check`, API e2e with service containers, APK build artifacts |
 | Hosting | **Staging live (26 Sep 2026)**: see "9b. AWS deployment". Later: HTTPS + domain, RDS/ElastiCache when load needs it |
 | Secrets | AWS Secrets Manager / SSM for `JWT_SECRET`, Google keys, DB password |

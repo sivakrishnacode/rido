@@ -14,6 +14,7 @@ export 'src/api/push.dart';
 export 'src/api/realtime_client.dart';
 export 'src/demo_settings.dart';
 export 'src/fare_engine.dart';
+export 'src/identity/identity.dart';
 export 'src/maps/google_http.dart' show GoogleApiException;
 export 'src/maps/google_maps_config.dart';
 export 'src/maps/google_places_client.dart';

@@ -99,6 +99,10 @@ enum KycDocType {
   final String label;
 }
 
+/// Documents the driver still uploads (an admin checks them). The licence and selfie are checked in the app
+/// with Didit; the licence, Aadhaar and police-verification uploads are retired.
+const driverUploadDocs = [KycDocType.vehicleRc, KycDocType.insurance];
+
 enum KycStatus { notUploaded, underReview, verified, rejected }
 
 @immutable

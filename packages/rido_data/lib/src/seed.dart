@@ -499,20 +499,15 @@ abstract final class Seed {
         PaymentRecord(label: 'Aug 2026', amount: 2000, status: PaymentRecordStatus.paid, date: DateTime(2026, 8, 24)),
       ];
 
+  /// Uploaded by hand: RC and insurance. The licence and selfie are checked in the app with Didit.
   static const List<KycDocument> kycFresh = [
-    KycDocument(type: KycDocType.drivingLicence, status: KycStatus.verified),
-    KycDocument(type: KycDocType.aadhaar, status: KycStatus.verified),
     KycDocument(type: KycDocType.vehicleRc, status: KycStatus.underReview),
     KycDocument(type: KycDocType.insurance, status: KycStatus.notUploaded),
-    KycDocument(type: KycDocType.policeVerification, status: KycStatus.notUploaded),
   ];
 
   static const List<KycDocument> kycAllVerified = [
-    KycDocument(type: KycDocType.drivingLicence, status: KycStatus.verified),
-    KycDocument(type: KycDocType.aadhaar, status: KycStatus.verified),
     KycDocument(type: KycDocType.vehicleRc, status: KycStatus.verified),
     KycDocument(type: KycDocType.insurance, status: KycStatus.verified),
-    KycDocument(type: KycDocType.policeVerification, status: KycStatus.verified),
   ];
 
   static const kycRejectReason = 'Photo is blurry. Please upload a clearer image';

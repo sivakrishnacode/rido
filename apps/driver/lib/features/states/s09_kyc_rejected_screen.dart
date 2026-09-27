@@ -40,12 +40,12 @@ class S09KycRejectedScreen extends ConsumerWidget {
     final rejectedType = rejected?.type ?? KycDocType.vehicleRc;
     final reason = rejected?.rejectReason ?? Seed.kycRejectReason;
     final others = [
-      for (final type in KycDocType.values)
+      for (final type in driverUploadDocs)
         if (type != rejectedType)
           docs?.where((d) => d.type == type).firstOrNull ?? KycDocument(type: type, status: KycStatus.verified),
     ];
     final verified = others.where((d) => d.status == KycStatus.verified).length;
-    final total = KycDocType.values.length;
+    final total = driverUploadDocs.length;
 
     return Scaffold(
       backgroundColor: RidoColors.background,

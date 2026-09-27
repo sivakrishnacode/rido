@@ -15,8 +15,8 @@ import 'widgets/signup_widgets.dart';
 
 /// D-10 Application under review. Checks automatically after 4 s (or on "Check status"):
 /// approved → D-11 Choose plan; rejected (Demo control "Reject KYC") → S-09.
-/// Live API: an admin reviews the documents, so the screen checks quietly every 30 s and "Check status"
-/// says so while the review is pending.
+/// Live API: an admin reviews the RC and insurance (Didit has checked the licence, Aadhaar and selfie), so the
+/// screen checks quietly every 30 s and "Check status" says so while the review is pending.
 class D10UnderReviewScreen extends ConsumerStatefulWidget {
   const D10UnderReviewScreen({super.key, this.showcase = false});
 
@@ -64,6 +64,7 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
     bool? ok;
     try {
       ok = await ref.read(kycProvider.notifier).checkApplication();
+      await ref.read(identityProvider.notifier).refresh();
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _checking = false);
@@ -90,7 +91,11 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
       if (mounted) context.go(route);
       return;
     }
-    final route = applicationRoute(approved: ok, docs: ref.read(kycProvider).value ?? const []);
+    final route = applicationRoute(
+      approved: ok,
+      docs: ref.read(kycProvider).value ?? const [],
+      identity: ref.read(identityProvider).value,
+    );
     if (route == Routes.underReview) {
       if (!silent) {
         showRidoSnack(context, "Still under review. We'll let you know as soon as an admin approves your documents.");
@@ -104,7 +109,19 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final docs = widget.showcase ? _showcaseDocs : (ref.watch(kycProvider).value ?? _showcaseDocs);
+    final docs = [
+      for (final d in widget.showcase ? _showcaseDocs : (ref.watch(kycProvider).value ?? _showcaseDocs))
+        if (driverUploadDocs.contains(d.type)) d,
+    ];
+    final identity = widget.showcase ? null : ref.watch(identityProvider).value;
+    final identityRow = switch (identity?.status) {
+      IdentityStatus.approved => KycStatus.verified,
+      IdentityStatus.declined => KycStatus.rejected,
+      IdentityStatus.inReview || IdentityStatus.inProgress => KycStatus.underReview,
+      IdentityStatus.notStarted => KycStatus.notUploaded,
+      null => KycStatus.underReview,
+    };
+    final showIdentity = widget.showcase || (identity?.isEnabled ?? !_live);
     final phone = ref.watch(signupProvider).phone;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -175,14 +192,14 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
                       ),
                       child: Column(
                         children: [
-                          for (final d in docs) ...[
-                            _CheckRow(
-                              label: d.type == KycDocType.policeVerification ? 'Police verification' : d.type.label,
-                              status: d.status,
-                            ),
-                            if (!_live || d != docs.last) const Divider(height: 1),
+                          if (showIdentity) ...[
+                            _CheckRow(label: 'Licence, Aadhaar + selfie', status: identityRow),
+                            const Divider(height: 1),
                           ],
-                          if (!_live) const _CheckRow(label: 'Selfie', status: KycStatus.underReview),
+                          for (final d in docs) ...[
+                            _CheckRow(label: d.type.label, status: d.status),
+                            if (d != docs.last) const Divider(height: 1),
+                          ],
                         ],
                       ),
                     ),
@@ -219,11 +236,8 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
 }
 
 const _showcaseDocs = [
-  KycDocument(type: KycDocType.drivingLicence, status: KycStatus.verified),
-  KycDocument(type: KycDocType.aadhaar, status: KycStatus.verified),
   KycDocument(type: KycDocType.vehicleRc, status: KycStatus.verified),
   KycDocument(type: KycDocType.insurance, status: KycStatus.underReview),
-  KycDocument(type: KycDocType.policeVerification, status: KycStatus.underReview),
 ];
 
 class _CheckRow extends StatelessWidget {

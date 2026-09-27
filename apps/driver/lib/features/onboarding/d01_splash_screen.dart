@@ -45,7 +45,7 @@ class _D01SplashScreenState extends ConsumerState<D01SplashScreen> {
     var route = Routes.home;
     if (ref.read(isLiveApiProvider)) {
       try {
-        route = await driverStartRoute(repo);
+        route = await driverStartRoute(repo, ref.read(identityRepositoryProvider));
       } on ApiException catch (e) {
         // 401: the session was cleared; anything else: Home shows what it can.
         route = e.status == 401 ? Routes.welcome : Routes.home;
