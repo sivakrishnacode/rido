@@ -1,6 +1,6 @@
-import { IsEnum, IsString, Length, Matches } from 'class-validator';
+import { IsEnum, IsOptional, IsString, Length, Matches } from 'class-validator';
 
-import { VehicleKind, WorkType } from '../../../generated/prisma/enums.js';
+import { Gender, VehicleKind, WorkType } from '../../../generated/prisma/enums.js';
 
 /** POST /drivers body (D-04 … D-06). */
 export class RegisterDriverDto {
@@ -28,4 +28,9 @@ export class RegisterDriverDto {
 
   @Matches(/^[\w.-]{2,}@[a-z]{2,}$/i, { message: 'Enter a valid UPI ID' })
   upiId: string;
+
+  /** D-06 gender (stored on the user). FEMALE drivers get Butterfly (women-only) requests. */
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
 }

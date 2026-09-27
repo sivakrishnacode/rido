@@ -150,12 +150,9 @@ describe('Rido API (e2e)', () => {
     const reg = await http
       .post('/v1/drivers')
       .set('Authorization', `Bearer ${user}`)
-      .send({ name: 'Test Driver', workType: 'RIDES', vehicleKind, vehicleModel: 'Test', vehicleColor: 'White', plate, upiId: 'test@okaxis' })
+      .send({ name: 'Test Driver', workType: 'RIDES', vehicleKind, vehicleModel: 'Test', vehicleColor: 'White', plate, upiId: 'test@okaxis', gender })
       .expect(201);
-    await prisma.driver.update({
-      where: { id: reg.body.driver.id },
-      data: { status: 'APPROVED', photoFile: E2E_PHOTO, ...(gender ? { user: { update: { gender } } } : {}) },
-    });
+    await prisma.driver.update({ where: { id: reg.body.driver.id }, data: { status: 'APPROVED', photoFile: E2E_PHOTO } });
     const token = reg.body.accessToken as string;
     await http.post('/v1/drivers/me/online').set('Authorization', `Bearer ${token}`).send(at).expect(200);
     return token;

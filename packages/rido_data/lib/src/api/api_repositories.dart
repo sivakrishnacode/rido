@@ -277,6 +277,7 @@ class ApiDriverRepository implements DriverRepository {
   Future<DriverProfile> register(DriverProfile profile, WorkType workType) async {
     final res = _map(await api.post('/drivers', {
       'name': profile.name,
+      'gender': enumToApi(profile.gender),
       'workType': enumToApi(workType),
       'vehicleKind': enumToApi(profile.vehicleKind),
       'vehicleModel': profile.vehicleModel,

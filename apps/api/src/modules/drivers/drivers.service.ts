@@ -32,9 +32,9 @@ export class DriversService {
 
   /** Creates the driver, the RC + insurance rows and a 30-day free trial; returns a token with the DRIVER role. */
   async register(userId: string, dto: RegisterDriverDto): Promise<{ driver: Driver; accessToken: string }> {
-    const { name, ...vehicle } = dto;
+    const { name, gender, ...vehicle } = dto;
     const driver = await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: userId }, data: { name, role: Role.DRIVER } });
+      await tx.user.update({ where: { id: userId }, data: { name, gender, role: Role.DRIVER } });
       return tx.driver.create({
         data: {
           ...vehicle,
