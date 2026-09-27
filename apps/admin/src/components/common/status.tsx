@@ -22,6 +22,10 @@ const TONES: Record<string, Tone> = {
   NOT_UPLOADED: "neutral",
   UNDER_REVIEW: "warning",
   VERIFIED: "success",
+  // Identity (Didit)
+  NOT_STARTED: "neutral",
+  IN_REVIEW: "warning",
+  DECLINED: "error",
   // Trip
   SEARCHING: "brand",
   NO_DRIVERS: "warning",

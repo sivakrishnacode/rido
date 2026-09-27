@@ -8,6 +8,8 @@ export type VehicleKind = "BIKE" | "AUTO" | "CAB" | "GOODS_BIKE" | "THREE_WHEELE
 export type DriverStatus = "PENDING" | "APPROVED" | "REJECTED" | "ON_HOLD";
 export type KycDocType = "DRIVING_LICENCE" | "AADHAAR" | "VEHICLE_RC" | "INSURANCE" | "POLICE_VERIFICATION";
 export type KycStatus = "NOT_UPLOADED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
+/** Didit identity check (drivers: licence + Aadhaar + selfie; riders: optional, any ID). */
+export type IdentityStatus = "NOT_STARTED" | "IN_PROGRESS" | "IN_REVIEW" | "APPROVED" | "DECLINED";
 export type TripKind = "RIDE" | "PARCEL";
 export type TripStatus =
   | "SEARCHING"
@@ -58,13 +60,8 @@ export const PAYMENT_STATUSES: readonly PaymentStatus[] = ["PENDING", "PAID", "F
 export const ZONE_KINDS: readonly ZoneKind[] = ["SURGE", "DEMAND", "NO_SERVICE", "PICKUP_POINT"];
 export const AUDIENCES: readonly AnnouncementAudience[] = ["ALL", "PASSENGER", "DRIVER"];
 export const PLAN_PERIODS: readonly PlanPeriod[] = ["DAILY", "WEEKLY", "MONTHLY"];
-export const KYC_DOC_TYPES: readonly KycDocType[] = [
-  "DRIVING_LICENCE",
-  "AADHAAR",
-  "VEHICLE_RC",
-  "INSURANCE",
-  "POLICE_VERIFICATION",
-];
+/** Documents drivers upload for review. The licence and Aadhaar are checked by Didit (identity check). */
+export const KYC_DOC_TYPES: readonly KycDocType[] = ["VEHICLE_RC", "INSURANCE"];
 
 /** A page of results (admin.types.ts). */
 export interface Paged<T> {
@@ -85,8 +82,28 @@ export interface User {
   readonly autoShareTrips: boolean;
   readonly isBlocked?: boolean;
   readonly blockedReason?: string | null;
+  readonly identityStatus?: IdentityStatus;
+  readonly identityVerifiedAt?: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+/** One Didit session. Only the last 4 digits of each document number are kept. */
+export interface IdentityVerification {
+  readonly id: string;
+  readonly purpose: "DRIVER" | "RIDER";
+  readonly sessionId: string;
+  readonly status: IdentityStatus;
+  /** Didit's own status ("Approved", "In Review", "Kyc Expired"…). */
+  readonly providerStatus: string;
+  readonly documentType: string | null;
+  readonly documentLast4: string | null;
+  readonly documents: { type: string; last4: string | null }[] | null;
+  readonly fullName: string | null;
+  readonly dateOfBirth: string | null;
+  readonly warnings: string[] | null;
+  readonly decidedAt: string | null;
+  readonly createdAt: string;
 }
 
 /** GET /admin/passengers item. */
@@ -164,6 +181,8 @@ export interface Driver extends DriverBase {
 /** GET /admin/drivers/:id: all subscriptions with payments, last 20 trips. */
 export interface DriverDetail extends Driver {
   readonly trips: TripBase[];
+  /** Newest first (up to 5). */
+  readonly user: User & { readonly identityChecks: IdentityVerification[] };
 }
 
 /** Itemised quote stored on the trip (fare engine output). */
@@ -391,7 +410,9 @@ export interface UserDetail extends User {
 
 /** GET /admin/kyc item. */
 export interface KycQueueItem extends KycDocument {
-  readonly driver: DriverBase & { readonly user: { readonly id: string; readonly name: string | null; readonly phone: string } };
+  readonly driver: DriverBase & {
+    readonly user: { readonly id: string; readonly name: string | null; readonly phone: string; readonly identityStatus?: IdentityStatus };
+  };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

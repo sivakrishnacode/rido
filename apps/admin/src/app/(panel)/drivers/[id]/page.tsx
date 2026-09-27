@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, ExternalLinkIcon, FileTextIcon, RouteIcon, StarIcon, WalletCardsIcon } from "lucide-react";
+import { ArrowLeftIcon, ExternalLinkIcon, FileTextIcon, RouteIcon, ScanFaceIcon, StarIcon, WalletCardsIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -34,9 +34,10 @@ export async function generateMetadata({ params }: PageProps<"/drivers/[id]">): 
 export default async function DriverPage({ params }: PageProps<"/drivers/[id]">) {
   const { id } = await params;
   const d = await adminApi.driver(id);
-  const kyc = kycProgress(d.documents);
+  const identity = d.user.identityChecks?.[0] ?? null;
+  const kyc = kycProgress(d.documents, d.user.identityStatus ?? "NOT_STARTED");
   const name = displayName(d.user);
-  // Always list all 5 documents, even if the API has no row for one yet.
+  // Always list every uploaded document (RC, insurance), even if the API has no row for one yet.
   const docs: KycDocument[] = KYC_DOC_TYPES.map(
     (type) =>
       d.documents.find((doc) => doc.type === type) ?? {
@@ -147,12 +148,56 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
         </Card>
       </div>
 
+      <Card className="mt-4 gap-0">
+        <CardHeader className="border-b">
+          <CardTitle className="flex items-center gap-2 font-semibold">
+            <ScanFaceIcon className="size-4 text-navy-700" aria-hidden /> Identity check (Didit)
+            <StatusBadge status={d.user.identityStatus ?? "NOT_STARTED"} />
+          </CardTitle>
+          <CardDescription>
+            Driving licence + Aadhaar + selfie, checked in the driver app. &ldquo;In review&rdquo; sessions are decided
+            in the Didit console (business.didit.me); the result arrives here by webhook.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {identity ? (
+            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Name on ID">{identity.fullName ?? "–"}</Field>
+              <Field label="Date of birth">{identity.dateOfBirth ?? "–"}</Field>
+              <Field label="Documents">
+                {identity.documents?.length
+                  ? identity.documents.map((doc) => (
+                      <span key={`${doc.type}-${doc.last4}`} className="block">
+                        {doc.type} {doc.last4 && <span className="font-mono text-[13px]">•••• {doc.last4}</span>}
+                      </span>
+                    ))
+                  : "–"}
+              </Field>
+              <Field label="Didit session">
+                <span className="block font-mono text-[12px] break-all">{identity.sessionId}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {identity.providerStatus}
+                  {identity.decidedAt ? ` · ${formatDateTime(identity.decidedAt)}` : ""}
+                </span>
+              </Field>
+              {identity.warnings && identity.warnings.length > 0 && (
+                <Field label="Warnings" className="sm:col-span-2 lg:col-span-4">
+                  <span className="text-error">{identity.warnings.join(" · ")}</span>
+                </Field>
+              )}
+            </dl>
+          ) : (
+            <p className="text-sm text-muted-foreground">The driver hasn&apos;t started the identity check yet.</p>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="mt-4 gap-0 pb-0">
         <CardHeader className="border-b">
           <CardTitle className="font-semibold">KYC documents</CardTitle>
           <CardDescription>
-            {kyc.verified} of {kyc.total} verified. All five verified approves the driver; any rejection marks the driver
-            rejected.
+            {kyc.verified} of {kyc.total} verified (identity check included). RC and insurance verified plus an approved
+            identity check approves the driver; any rejection marks the driver rejected.
           </CardDescription>
         </CardHeader>
         <ul className="divide-y">

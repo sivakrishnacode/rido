@@ -336,6 +336,10 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
 - **Android:** `didit_sdk` 4.9 with `diditSdkAndroidVariant=autodetection` in `android/gradle.properties` (auto
   capture, no NFC, smaller APK). The SDK asks for the camera itself and runs in its own activity; there is no `ios/`
   folder yet (it would need the camera / microphone / photo-library usage strings and iOS 13+).
+- **Admin panel:** driver page has an "Identity check (Didit)" card (status, name and date of birth on the ID, each
+  document with its last 4 digits, the Didit session id and status, warnings); KYC progress counts RC + insurance +
+  identity ("x of 3"); the KYC queue shows each driver's identity status; the user page shows "Identity (Didit)".
+  Decide "In review" sessions in the Didit console; the webhook updates Rido.
 - **Didit console setup:** see "Didit console checklist" below.
 
 **Didit console checklist** (business.didit.me):

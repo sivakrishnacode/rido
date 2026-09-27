@@ -24,6 +24,7 @@ export async function generateMetadata({ params }: PageProps<"/users/[id]">): Pr
 export default async function UserPage({ params }: PageProps<"/users/[id]">) {
   const { id } = await params;
   const [u, me] = await Promise.all([adminApi.user(id), getSessionUser()]);
+  const driverKyc = u.driver ? kycProgress(u.driver.documents, u.identityStatus ?? "NOT_STARTED") : null;
   const name = displayName(u);
   const isSelf = !!me && me.phone === u.phone;
 
@@ -84,6 +85,9 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
               <Field label="Gender">{humanize(u.gender)}</Field>
               <Field label="Women drivers">{u.preferWomenDriver ? "Preferred" : "No preference"}</Field>
               <Field label="Auto-share trips">{u.autoShareTrips ? "On" : "Off"}</Field>
+              <Field label="Identity (Didit)">
+                <StatusBadge status={u.identityStatus ?? "NOT_STARTED"} label={u.identityStatus === "APPROVED" ? "Verified" : undefined} />
+              </Field>
             </dl>
           </CardContent>
         </Card>
@@ -103,7 +107,7 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
                   <PlateBadge plate={u.driver.plate} />
                 </Field>
                 <Field label="KYC">
-                  {kycProgress(u.driver.documents).verified}/5 verified
+                  {driverKyc && `${driverKyc.verified}/${driverKyc.total} verified`}
                 </Field>
                 <div className="col-span-2">
                   <Button asChild variant="outline" size="sm">

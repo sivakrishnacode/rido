@@ -260,7 +260,7 @@ export default async function DashboardPage() {
           ) : (
             <ul className="divide-y">
               {pending.items.map((d) => {
-                const kyc = kycProgress(d.documents);
+                const kyc = kycProgress(d.documents, d.user.identityStatus ?? "NOT_STARTED");
                 return (
                   <li key={d.id}>
                     <Link

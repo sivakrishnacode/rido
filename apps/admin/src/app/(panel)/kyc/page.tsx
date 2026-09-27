@@ -81,6 +81,11 @@ export default async function KycPage({ searchParams }: PageProps<"/kyc">) {
                       {displayName(doc.driver.user)}
                     </Link>
                     <span className="block text-xs text-muted-foreground">{formatPhone(doc.driver.user.phone)}</span>
+                    {doc.driver.user.identityStatus && (
+                      <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                        Identity <StatusBadge status={doc.driver.user.identityStatus} />
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <span className="flex flex-col gap-1">

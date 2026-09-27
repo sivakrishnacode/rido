@@ -58,7 +58,7 @@ export default async function DriversPage({ searchParams }: PageProps<"/drivers"
             </TableHeader>
             <TableBody>
               {data.items.map((d) => {
-                const kyc = kycProgress(d.documents);
+                const kyc = kycProgress(d.documents, d.user.identityStatus ?? "NOT_STARTED");
                 const sub = d.subscriptions[0];
                 return (
                   <TableRow key={d.id} className="relative">

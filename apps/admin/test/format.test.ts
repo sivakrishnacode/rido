@@ -38,8 +38,11 @@ describe("other formatters", () => {
     expect(displayName({ name: " Karthik S ", phone: "+919000000001" })).toBe("Karthik S");
   });
 
-  it("counts verified KYC documents out of 5", () => {
-    const doc = (status: KycDocument["status"]) => ({ status }) as KycDocument;
-    expect(kycProgress([doc("VERIFIED"), doc("REJECTED"), doc("VERIFIED")])).toEqual({ verified: 2, total: 5 });
+  it("counts verified RC + insurance, plus the identity check when given", () => {
+    const doc = (type: KycDocument["type"], status: KycDocument["status"]) => ({ type, status }) as KycDocument;
+    const docs = [doc("VEHICLE_RC", "VERIFIED"), doc("INSURANCE", "REJECTED"), doc("AADHAAR", "VERIFIED")];
+    expect(kycProgress(docs)).toEqual({ verified: 1, total: 2 });
+    expect(kycProgress(docs, "APPROVED")).toEqual({ verified: 2, total: 3 });
+    expect(kycProgress(docs, "IN_REVIEW")).toEqual({ verified: 1, total: 3 });
   });
 });
