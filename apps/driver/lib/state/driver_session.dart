@@ -330,6 +330,14 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     }
   }
 
+  /// The current job. Live API: throws when it's gone (cancelled meanwhile), so a job screen never carries on
+  /// without one; mock mode keeps returning null (the design gallery opens job screens with no job).
+  RideRequest? _jobOrGone() {
+    final job = state.job;
+    if (job == null && _live) throw const ApiException(409, 'This trip was cancelled');
+    return job;
+  }
+
   void _eta(int total, double p) {
     final eta = (total * (1 - p)).ceil();
     if (eta != state.etaMin) state = state.copyWith(etaMin: eta);
@@ -339,7 +347,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// D-16 "Arrived at pickup" (rides) / D-21 "Reached pickup" (deliveries). Live API: sends the GPS fix;
   /// farther than the pickup radius the API refuses with [ApiException.tooFar] until [farReason] is given.
   Future<void> arrivedAtPickup({String? farReason}) async {
-    final job = state.job;
+    final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
       await _jobs.arrived(job.id, at: _position, farReason: farReason);
@@ -358,7 +366,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// D-17 "Start ride" with the passenger's [otp] / D-21 "Picked up". Live API: throws [ApiException]
   /// ("Wrong OTP, please try again") when the server rejects the code.
   Future<void> startTrip({String? otp}) async {
-    final job = state.job;
+    final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
       await _jobs.start(job.id, otp: job.isDelivery ? null : otp);
@@ -375,7 +383,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// D-18 "Swipe to end ride" → collect payment. Live API: completes the trip (the fare is recorded); far from
   /// the drop it needs [farReason] ([ApiException.tooFar]).
   Future<void> endRide({String? farReason}) async {
-    final job = state.job;
+    final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
       await _jobs.complete(job.id, at: _position, farReason: farReason);
@@ -407,7 +415,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// D-22a "Complete delivery" → collect view. Live API: the server checks the receiver's [otp] and
   /// throws [ApiException] when it is wrong.
   Future<void> completeDelivery({String? otp, String? farReason}) async {
-    final job = state.job;
+    final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
       await _jobs.complete(job.id, otp: otp, at: _position, farReason: farReason);

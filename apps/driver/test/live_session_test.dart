@@ -3,11 +3,15 @@
 // (server-checked OTP) / complete, GPS uploads, a passenger cancellation, and errors from the API.
 import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
+import 'package:rido_driver/app.dart';
 import 'package:rido_driver/state/driver_location.dart';
 import 'package:rido_driver/state/driver_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -359,6 +363,51 @@ void main() {
     expect(state().phase, JobPhase.none);
     expect(state().notice?.jobEnded, isTrue);
     expect(state().notice?.message, 'Priya cancelled the ride');
+  });
+
+  test('after a cancel the job steps refuse instead of carrying on without a job', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(_offer('t1'));
+    await pumpEventQueue();
+    await session().acceptRequest();
+    jobs.updatesCtl.add(_update('t1', 'CANCELLED'));
+    await pumpEventQueue();
+    final gone = throwsA(isA<ApiException>().having((e) => e.message, 'message', 'This trip was cancelled'));
+    await expectLater(session().arrivedAtPickup(), gone);
+    await expectLater(session().startTrip(otp: '1234'), gone);
+    await expectLater(session().endRide(), gone);
+    await expectLater(session().completeDelivery(otp: '1234'), gone);
+    expect(jobs.calls.where((c) => c.startsWith('start') || c.startsWith('complete') || c.startsWith('arrived')), isEmpty);
+  });
+
+  testWidgets('the passenger cancelling closes the job screens and returns Home', (tester) async {
+    // The overlay plugin's channels answer nothing (no bubble in tests).
+    final m = tester.binding.defaultBinaryMessenger;
+    m.setMockMethodCallHandler(const MethodChannel('x-slayer/overlay_channel'), (_) async => null);
+    m.setMockMessageHandler('x-slayer/overlay_messenger', (_) async => null);
+    final router = GoRouter(initialLocation: '/home', routes: [
+      GoRoute(path: '/home', builder: (_, _) => const Text('Home screen')),
+      GoRoute(path: '/driver/pickup', builder: (_, _) => const Text('Pickup screen')),
+    ]);
+    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: RidoDriverApp(router: router)));
+    await tester.runAsync(() async {
+      await session().goOnline();
+      jobs.offersCtl.add(_offer('t1'));
+      await pumpEventQueue();
+      await session().acceptRequest();
+    });
+    // Job screens are pushed over Home, like the app does (the router's path stays /home).
+    router.push('/driver/pickup');
+    await tester.pumpAndSettle();
+    expect(find.text('Pickup screen'), findsOneWidget);
+
+    jobs.updatesCtl.add(_update('t1', 'CANCELLED'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('Pickup screen'), findsNothing);
+    expect(find.text('Home screen'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 10));
   });
 
   test('the driver cancelling calls the API with the reason', () async {

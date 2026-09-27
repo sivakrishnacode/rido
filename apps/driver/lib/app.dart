@@ -104,7 +104,8 @@ class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindi
   }
 
   void _onNotice(SessionNotice notice) {
-    if (notice.jobEnded && _path.startsWith('/driver/')) _router.go(Routes.home);
+    // Job screens are pushed over Home, so the router's path stays /home: always go (it clears the pushed screens).
+    if (notice.jobEnded) _router.go(Routes.home);
     // Let the navigation settle so the snack shows on the new screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = rootNavigatorKey.currentContext;
@@ -120,6 +121,11 @@ class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindi
       });
       ref.listen(driverSessionProvider.select((s) => (s.online, s.incoming?.id, s.job?.id)), (_, _) {
         _background?.onSession();
+      });
+      // The job ended any way (cancelled by either side, found gone on reconnect, paid): no job screen may stay open,
+      // or it would carry on as a demo and even offer to rate a cancelled trip.
+      ref.listen(driverSessionProvider.select((s) => s.job?.id), (prev, next) {
+        if (prev != null && next == null) _router.go(Routes.home);
       });
     }
     return MaterialApp.router(
