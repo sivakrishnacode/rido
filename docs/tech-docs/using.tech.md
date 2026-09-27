@@ -343,6 +343,19 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
   Decide "In review" sessions in the Didit console; the webhook updates Rido.
 - **Didit console setup:** see "Didit console checklist" below.
 
+**Live setup (27 Sep 2026, created through the Workflows / Webhooks API with the application key):**
+
+| Item | Value |
+|---|---|
+| Rido Driver KYC | `ab3accee-c90c-45ed-9672-999fa5a131c5`: ID step 1 India `DL` (all 43 state subtypes, strict expiry) → ID step 2 India `ID` subtype `ID_CARD_GENERIC` (Aadhaar) → passive liveness → face match → device & IP; $0.48 max (two ID scans), camera only (no uploads) |
+| Rido Rider KYC | `c9896ca8-93eb-44c4-9565-9c256d36b71a`: India `ID` (generic ID card, voter card, e-Shram, certificate of identity) + `DL` + `P` → passive liveness → face match → device & IP; $0.33 max |
+| Both | min age 18 in India (decline), missing expiry date → no action (Aadhaar / PAN have none), duplicate user / possible duplicate face → review, 3 retries per 7 days |
+| Webhook destination | `4b257c85-f81c-45b8-978f-70c01505df01` → `https://api.65-0-233-253.sslip.io/v1/kyc/didit/webhook`, v3, `status.updated` + `data.updated` |
+
+Didit's India catalog has no Aadhaar- or PAN-specific subtype: both are read as `ID_CARD_GENERIC`. The API also
+accepts unknown subtype names without error, so use only catalog names (read them from an existing workflow's
+`documents_allowed.IND`).
+
 **Didit console checklist** (business.didit.me):
 1. Workflows › Create › **Advanced** (graph) from the KYC template → "Rido Driver KYC": ID Verification #1 (India,
    Driving Licence only, decline expired) → ID Verification #2 (India, Aadhaar only) → Passive Liveness → Face Match →
