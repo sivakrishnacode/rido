@@ -691,6 +691,11 @@ DATABASE_URL="postgresql://rido:<POSTGRES_PASSWORD from /opt/rido/.env>@127.0.0.
 
 Seeded 26 Sep 2026: 2,000 demo trips + demo people.
 
+**Deployed 27 Sep 2026:** Didit identity checks (migrations `identity_verification`, `identity_documents`), Caddy on
+the sslip.io names (Let's Encrypt certificates issued on first start), `ADMIN_COOKIE_SECURE=true` (sign in to the admin
+at `https://admin.65-0-233-253.sslip.io`; the old `:3001` URL can no longer keep a session). Server backups of the
+previous files: `/opt/rido/.env.bak-202609271304`, `docker-compose.yml.bak-*`.
+
 **Capacity (measured 26 Sep 2026, t3.small):** cached fare quotes at 50 concurrent connections: ~890 req/s average
 (peak 1,340), p50 43 ms, p99 ~200 ms, no errors; the API process used both vCPUs while Postgres/Redis stayed idle.
 Planning figures with headroom: ~300–400 req/s sustained, ~1,500–2,500 concurrent app users, ~300–500 online
