@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsOptional, ValidateNested } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, ValidateNested } from 'class-validator';
 
 import { TripKind } from '../../../generated/prisma/enums.js';
 import { PointDto } from './point.dto.js';
@@ -18,4 +18,9 @@ export class QuoteRequestDto {
   @IsOptional()
   @IsEnum(TripKind)
   kind?: TripKind;
+
+  /** Butterfly "only": count only women drivers for each vehicle's pickup ETA. */
+  @IsOptional()
+  @IsBoolean()
+  womenOnly?: boolean;
 }

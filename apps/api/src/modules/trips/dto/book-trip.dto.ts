@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsEnum, IsObject, IsOptional, ValidateNested } from 'class-validator';
 
-import { ParcelPayer, PaymentMode, TripKind, VehicleKind } from '../../../generated/prisma/enums.js';
+import { ParcelPayer, PaymentMode, TripKind, VehicleKind, WomenDriverPref } from '../../../generated/prisma/enums.js';
 import { PointDto } from '../../fares/dto/point.dto.js';
 
 /** POST /trips body (P-10 Book, PP-06 Book). */
@@ -32,4 +32,9 @@ export class BookTripDto {
   @IsOptional()
   @IsEnum(ParcelPayer)
   payer?: ParcelPayer;
+
+  /** Butterfly (rides, women riders only): women drivers first (PREFERRED) or only (ONLY). Default NONE. */
+  @IsOptional()
+  @IsEnum(WomenDriverPref)
+  womenDriver?: WomenDriverPref;
 }

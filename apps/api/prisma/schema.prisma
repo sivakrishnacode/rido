@@ -100,6 +100,13 @@ enum ParcelPayer {
   RECEIVER
 }
 
+/// Butterfly (women riders only): NONE = any driver, PREFERRED = women drivers first, ONLY = women drivers only.
+enum WomenDriverPref {
+  NONE
+  PREFERRED
+  ONLY
+}
+
 enum PlanPeriod {
   DAILY
   WEEKLY
@@ -315,6 +322,8 @@ model Trip {
   /// Parcel only: category, weight band, sender/receiver details.
   parcel           Json?
   payer            ParcelPayer?
+  /// Butterfly: offer the trip to women drivers first (PREFERRED) or only (ONLY).
+  womenDriver      WomenDriverPref @default(NONE)
   rating           Int?
   cancelReason     String?
   /// Driver's distance from the pickup when marking "Arrived", and the reason given when outside `arrivalRadiusM`.

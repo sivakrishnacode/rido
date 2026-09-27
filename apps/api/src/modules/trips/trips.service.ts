@@ -4,7 +4,7 @@ import { randomInt } from 'node:crypto';
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
-import { TripKind, TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
+import { Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import type { FareQuote } from '../fares/fare-engine.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
@@ -63,6 +63,12 @@ export class TripsService {
     if (isGoods !== (dto.kind === TripKind.PARCEL)) throw new BadRequestException('Vehicle does not match trip kind');
     const [from, to] = await Promise.all([this.geo.locate(dto.pickup), this.geo.locate(dto.drop)]);
     if (!from.isServiceable || !to.isServiceable) throw new BadRequestException("Rido isn't in this area yet");
+    const womenDriver = dto.womenDriver ?? WomenDriverPref.NONE;
+    if (womenDriver !== WomenDriverPref.NONE) {
+      if (isGoods) throw new BadRequestException('Butterfly is for rides only');
+      const rider = await this.prisma.user.findUnique({ where: { id: passengerId }, select: { gender: true } });
+      if (rider?.gender !== Gender.FEMALE) throw new BadRequestException('Butterfly is for women riders. Set your gender in Profile to use it');
+    }
     const quote = await this.fares.quoteOne({ pickup: dto.pickup, drop: dto.drop, vehicleKind: dto.vehicleKind });
     const trip = await this.prisma.trip.create({
       data: {
@@ -87,6 +93,7 @@ export class TripsService {
         paymentMode: dto.paymentMode,
         parcel: dto.parcel as Prisma.InputJsonValue | undefined,
         payer: dto.payer,
+        womenDriver,
       },
     });
     await this.demand.recordRequest(dto.pickup, passengerId);

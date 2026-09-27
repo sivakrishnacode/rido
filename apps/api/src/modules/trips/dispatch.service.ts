@@ -3,8 +3,9 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Trip } from '../../generated/prisma/client.js';
-import { TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
+import { TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
+import { applyWomenPref, womenAmong } from '../drivers/women-drivers.js';
 import { roadKm } from '../geo/eta-model.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { EtaService } from '../maps/eta.service.js';
@@ -28,7 +29,8 @@ const SWEEP_EVERY_MS = 15_000;
  * 2. For each booking, drivers are found by H3 rings around the pickup (pickup hexagon, then neighbours…), for the
  *    booked vehicle and any the passenger added ("Book any", [widen]). The radius grows from `searchRadiusKm` to
  *    `maxSearchRadiusKm` over `searchExpandSeconds` (see search-radius.ts).
- * 3. Candidates are ranked by road ETA (cached per hex pair), not straight-line distance.
+ * 3. Candidates are ranked by road ETA (cached per hex pair), not straight-line distance. Butterfly trips keep only
+ *    women drivers (ONLY) or give them a head start (PREFERRED), see women-drivers.ts.
  * 4. The whole batch is assigned together so two riders never get the same driver.
  * 5. Each driver gets `offerSeconds` to accept; decline/timeout moves to the next in that trip's queue.
  * 6. Out of candidates → search again every few seconds (a driver who let the offer time out can get it again; one who
@@ -193,7 +195,10 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
         etaMin: await this.eta.minutes({ from: d, to: pickup, vehicleKind: d.kind, useRoad: s.useRoadEta }),
       })),
     );
-    const candidates = withEta.sort((a, b) => a.etaMin - b.etaMin).slice(0, s.maxCandidates);
+    const women = trip.womenDriver === WomenDriverPref.NONE ? new Set<string>() : await womenAmong(this.prisma, withEta.map((d) => d.driverId));
+    const candidates = applyWomenPref(withEta, trip.womenDriver, women)
+      .sort((a, b) => a.etaMin - b.etaMin)
+      .slice(0, s.maxCandidates);
     return { tripId: trip.id, createdAt: trip.createdAt, candidates };
   }
 

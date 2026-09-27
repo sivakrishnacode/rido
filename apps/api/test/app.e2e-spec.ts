@@ -144,7 +144,7 @@ describe('Rido API (e2e)', () => {
   });
 
   /** An approved driver of [vehicleKind], online at [at]. Returns their token. */
-  async function onlineDriver(vehicleKind: string, at: { lat: number; lng: number }): Promise<string> {
+  async function onlineDriver(vehicleKind: string, at: { lat: number; lng: number }, gender?: 'FEMALE' | 'MALE'): Promise<string> {
     const user = await login();
     const plate = `TN 37 ${vehicleKind.slice(0, 2)} ${Math.floor(1000 + Math.random() * 8999)}`;
     const reg = await http
@@ -152,7 +152,10 @@ describe('Rido API (e2e)', () => {
       .set('Authorization', `Bearer ${user}`)
       .send({ name: 'Test Driver', workType: 'RIDES', vehicleKind, vehicleModel: 'Test', vehicleColor: 'White', plate, upiId: 'test@okaxis' })
       .expect(201);
-    await prisma.driver.update({ where: { id: reg.body.driver.id }, data: { status: 'APPROVED', photoFile: E2E_PHOTO } });
+    await prisma.driver.update({
+      where: { id: reg.body.driver.id },
+      data: { status: 'APPROVED', photoFile: E2E_PHOTO, ...(gender ? { user: { update: { gender } } } : {}) },
+    });
     const token = reg.body.accessToken as string;
     await http.post('/v1/drivers/me/online').set('Authorization', `Bearer ${token}`).send(at).expect(200);
     return token;
@@ -167,6 +170,41 @@ describe('Rido API (e2e)', () => {
     }
     return res;
   }
+
+  it('quotes carry the nearest driver\'s pickup ETA (null when nobody is near)', async () => {
+    const bikeDriver = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
+    const quotes = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200)).body.quotes;
+    const bike = quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'BIKE');
+    expect(typeof bike.pickupEtaMin).toBe('number');
+    expect(bike.total).toBe(38);
+    const far = { lat: 11.2, lng: 77.2, name: 'Far away' };
+    const empty = (await http.post('/v1/fares/quote').send({ pickup: far, drop: BROOKEFIELDS }).expect(200)).body.quotes;
+    expect(empty.every((q: { pickupEtaMin: number | null }) => q.pickupEtaMin === null)).toBe(true);
+    await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${bikeDriver}`).expect(200);
+  });
+
+  it('Butterfly "only": needs a woman rider and goes to the woman driver, never the closer man', async () => {
+    // Arrange: a man right at the pickup, a woman a little further.
+    const at = { lat: 11.0184, lng: 76.9726 };
+    const man = await onlineDriver('CAB', at, 'MALE');
+    const woman = await onlineDriver('CAB', { lat: 11.0195, lng: 76.9738 }, 'FEMALE');
+    const rider = await login();
+    const pax = { Authorization: `Bearer ${rider}` };
+    const book = { kind: 'RIDE', vehicleKind: 'CAB', pickup: GANDHIPURAM, drop: BROOKEFIELDS, womenDriver: 'ONLY' };
+
+    // Act + assert: no gender set → refused; FEMALE → booked with the preference.
+    await http.post('/v1/trips').set(pax).send(book).expect(400);
+    await http.patch('/v1/me').set(pax).send({ gender: 'FEMALE' }).expect(200);
+    const womenOnlyQuote = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS, womenOnly: true }).expect(200)).body.quotes;
+    expect(womenOnlyQuote.find((q: { vehicleKind: string }) => q.vehicleKind === 'CAB').pickupEtaMin).not.toBeNull();
+    const trip = (await http.post('/v1/trips').set(pax).send(book).expect(201)).body;
+    expect(trip.womenDriver).toBe('ONLY');
+    const accepted = await acceptWhenOffered(trip.id, woman);
+    expect(accepted.status).toBe(200);
+    expect((await http.post(`/v1/trips/${trip.id}/accept`).set('Authorization', `Bearer ${man}`)).status).not.toBe(200);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+    for (const d of [man, woman]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
+  });
 
   it('"Book any": a slow cab search adds Auto, and the auto driver takes it at the auto fare', async () => {
     // Arrange: no cab nearby, an auto driver at the pickup.

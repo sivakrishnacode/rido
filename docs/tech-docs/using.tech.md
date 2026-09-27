@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 27 Sep 2026 (Didit identity checks)
+Last updated: 27 Sep 2026 (Butterfly women-driver rides, pickup ETA on quotes)
 
 ---
 
@@ -243,6 +243,10 @@ Never commit real `.env` files.
   4. Candidates are ranked by **road ETA**, not straight-line distance (`EtaService`: Google Routes when
      `useRoadEta` and a key are set, else a 20 km/h × 1.3 estimate), cached per H3 cell pair for 10 min so all
      drivers in one hexagon share one lookup.
+     **Butterfly (27 Sep 2026):** `Trip.womenDriver` (`NONE` / `PREFERRED` / `ONLY`, booking field `womenDriver`,
+     women riders only: the passenger's `gender` must be `FEMALE`, rides only). `ONLY` keeps women drivers
+     (driver `user.gender = FEMALE`) and never falls back; `PREFERRED` ranks men as if 8 min further
+     (`PREFERRED_HEAD_START_MIN`, `drivers/women-drivers.ts`), so men still get it when no woman is near.
   5. The whole batch is assigned together (`assignBatch`: all trip–driver pairs by ETA, each driver to one rider),
      then each driver gets `offerSeconds` to accept; decline/timeout → next in that trip's queue.
   6. **Out of candidates (26 Sep 2026):** search again every 4 s. A driver who let the offer **time out** can be
@@ -253,6 +257,10 @@ Never commit real `.env` files.
      who declined. A sweep every 15 s re-queues or ends
      SEARCHING trips that lost their timers (restarts). Fix: the offer key now outlives the offer timer by 5 s
      (before, both expired together, the timeout handler saw no offer and the trip stayed SEARCHING forever).
+- **Pickup ETA on quotes (27 Sep 2026):** `POST /v1/fares/quote` adds `pickupEtaMin` to each quote: road ETA of the
+  fastest of the 3 nearest free drivers of that vehicle within `maxSearchRadiusKm`, or `null` when nobody is near.
+  Body `womenOnly: true` counts women drivers only (Butterfly "only"). P-10 shows "3 min away · Drop 9:24 PM" and a
+  Fastest chip from it. Stored trip fares don't carry it.
 - **Realtime (`/rt`):** connect with `auth: { token }`; rooms `user:<id>`, `driver:<id>`, `trip:<id>`. Events:
   `trip.offer`, `trip.updated`, `trip.location`, `trip.message`, `trip.no_drivers`. Drivers stream `driver:location`;
   clients `trip:join {tripId}` (participants only).
@@ -754,7 +762,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Driver re-search | A driver cancel ends the trip (CANCELLED); re-dispatch instead so the passenger's S-02 "finding another driver" is real |
 | Trip `updatedAt` | Add to Trip JSON so apps can order pushed updates reliably (apps guard with a status order today) |
 | SOS / tracking link | No SOS service (apps raise a "Safety concern" ticket + dialer) and no public trip-tracking page yet |
-| Women-driver preference | App toggle is not sent: booking has no field and dispatch doesn't filter by driver gender |
+| Women-driver preference | **Done (27 Sep 2026)** as Butterfly: booking sends `womenDriver`, dispatch filters (ONLY) or ranks (PREFERRED) by driver gender, see 7 Dispatch step 4 |
 | Selfie / DOB | **Sign-up selfie: Done (27 Sep 2026)**, by Didit's liveness check (date of birth is read from the ID). The daily selfie (S-13 / D-09) is still simulated; Didit Biometric Authentication ($0.10 a check, not in the free tier) could replace it |
 | CI | Add GitHub Actions: `npm ci`, `npm run check`, API e2e with service containers, APK build artifacts |
 | Hosting | **Staging live (26 Sep 2026)**: see "9b. AWS deployment". **HTTPS: Done (27 Sep 2026)** via Caddy on sslip.io names. Later: real domain at launch, RDS/ElastiCache when load needs it |
