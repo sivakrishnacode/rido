@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { apiBaseUrl, apiUrl } from "@/lib/api-core";
 import { getToken } from "@/lib/session";
+import { publicUrl } from "@/lib/public-url";
 
 const ENTITIES = new Set(["trips", "drivers", "payments"]);
 
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/export/[enti
   const { entity } = await ctx.params;
   if (!ENTITIES.has(entity)) return NextResponse.json({ message: "Unknown export" }, { status: 404 });
   const token = await getToken();
-  if (!token) return NextResponse.redirect(new URL("/login", request.url));
+  if (!token) return NextResponse.redirect(publicUrl(request, "/login"));
 
   let res: Response;
   try {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/export/[enti
   } catch {
     return NextResponse.json({ message: "Cannot reach the Rido API" }, { status: 503 });
   }
-  if (res.status === 401) return NextResponse.redirect(new URL("/auth/signout?expired=1", request.url));
+  if (res.status === 401) return NextResponse.redirect(publicUrl(request, "/auth/signout?expired=1"));
   if (!res.ok || !res.body) return NextResponse.json({ message: `Export failed (${res.status})` }, { status: res.status });
 
   const day = new Date().toISOString().slice(0, 10);

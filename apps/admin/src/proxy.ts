@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isUsableAdminToken } from "@/lib/jwt";
+import { publicUrl } from "@/lib/public-url";
 
 // Keep in sync with src/lib/session.ts (that module is server-only and uses next/headers).
 const TOKEN_COOKIE = "rido_admin_token";
@@ -16,10 +17,10 @@ export function proxy(request: NextRequest) {
   const isSignedIn = isUsableAdminToken(token);
   const isLogin = pathname === "/login";
 
-  if (isLogin && isSignedIn) return NextResponse.redirect(new URL("/", request.url));
+  if (isLogin && isSignedIn) return NextResponse.redirect(publicUrl(request, "/"));
   if (isLogin || isSignedIn) return NextResponse.next();
 
-  const url = new URL("/login", request.url);
+  const url = publicUrl(request, "/login");
   if (pathname !== "/") url.searchParams.set("next", `${pathname}${search}`);
   if (token) url.searchParams.set("expired", "1");
   const res = NextResponse.redirect(url);
