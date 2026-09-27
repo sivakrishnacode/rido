@@ -329,6 +329,10 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
   isn't done or was declined back to D-07. Shared code in `rido_data` (`identity/identity.dart`: `IdentityCheck`,
   `IdentityRepository` API + mock, `identityProvider.verify()`, `identitySdkProvider`); mock mode approves at once
   (declines with Demo control "Reject KYC").
+- **Passenger app:** Account › Verify identity (`/account/verify-identity`, shown only when the server has Didit set
+  up): steps, Verify now / Try again, the consent line; a green verified tick next to the name on Account.
+- **Badge for drivers:** ride offers carry `passenger.isVerified` and trips carry `passenger.identityStatus`; the D-15
+  request card shows a verified tick next to the rider's name (`RideRequest.isCustomerVerified`).
 - **Android:** `didit_sdk` 4.9 with `diditSdkAndroidVariant=autodetection` in `android/gradle.properties` (auto
   capture, no NFC, smaller APK). The SDK asks for the camera itself and runs in its own activity; there is no `ios/`
   folder yet (it would need the camera / microphone / photo-library usage strings and iOS 13+).

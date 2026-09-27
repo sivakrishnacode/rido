@@ -124,7 +124,7 @@ class MockIdentityRepository implements IdentityRepository {
 
   @override
   Future<IdentityCheck> sync() async => _check = settings().rejectKyc
-      ? const IdentityCheck(isEnabled: true, status: IdentityStatus.declined, reasons: ['Face does not match the photo on the licence'])
+      ? const IdentityCheck(isEnabled: true, status: IdentityStatus.declined, reasons: ['Face does not match the photo on the ID'])
       : IdentityCheck(
           isEnabled: true,
           status: IdentityStatus.approved,

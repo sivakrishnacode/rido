@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../common/phone.dart';
@@ -41,6 +42,8 @@ class P23AccountScreen extends ConsumerWidget {
     String onOff(bool v) => v ? 'On' : 'Off';
     final places = p.savedPlaces.map((s) => s.label).join(', ');
     final contacts = p.emergencyContacts.map((c) => c.name).join(', ');
+    final identity = showcase ? null : ref.watch(identityProvider).value;
+    final isVerified = identity?.isApproved ?? false;
 
     return Scaffold(
       body: ListView(
@@ -60,7 +63,16 @@ class P23AccountScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p.name, style: t.h1, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Row(children: [
+                            Flexible(child: Text(p.name, style: t.h1, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                            if (isVerified) ...[
+                              const SizedBox(width: 6),
+                              Semantics(
+                                label: 'Verified',
+                                child: const Icon(Symbols.verified_rounded, fill: 1, color: RidoColors.success, size: 22),
+                              ),
+                            ],
+                          ]),
                           Text(displayPhone(p.phone), style: RidoTextStyles.tabular(t.body.copyWith(color: RidoColors.navy700))),
                         ],
                       ),
@@ -90,6 +102,18 @@ class P23AccountScreen extends ConsumerWidget {
                     subtitle: contacts.isEmpty ? 'Add up to 3 people' : contacts,
                     onTap: () => context.push(Routes.emergencyContacts),
                   ),
+                  if (identity?.isEnabled ?? false)
+                    RidoListTile(
+                      icon: Symbols.verified_user_rounded,
+                      title: 'Verify identity',
+                      subtitle: switch (identity!.status) {
+                        IdentityStatus.approved => 'Verified',
+                        IdentityStatus.inReview => 'Being checked',
+                        IdentityStatus.declined => "Couldn't verify. Try again",
+                        _ => 'Optional. Get a Verified badge',
+                      },
+                      onTap: () => context.push(Routes.verifyIdentity),
+                    ),
                   RidoListTile(
                     icon: Symbols.shield_person_rounded,
                     title: 'Safety preferences',
