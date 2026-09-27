@@ -5,6 +5,8 @@ import { ENV } from '../../core/config/env.token.js';
 import type { DiditDecision } from './didit.js';
 
 const TIMEOUT_MS = 10_000;
+/** Face-match score (0–100) above which a new profile photo counts as the verified person. */
+export const FACE_MATCH_MIN_SCORE = 80;
 
 /** A new (or reused, unfinished) hosted session. The app passes [sessionToken] to the in-app SDK. */
 export interface DiditSession {
@@ -52,6 +54,55 @@ export class DiditClient {
   async decision(sessionId: string): Promise<DiditDecision> {
     const res = await this.call(`/v3/session/${encodeURIComponent(sessionId)}/decision/`, { method: 'GET' });
     return (await res.json()) as DiditDecision;
+  }
+
+  /**
+   * POST /v3/face-match/: is [photo] the same person as [reference]? `faces` = faces found in the photo.
+   * Throws ServiceUnavailableException when Didit can't be reached.
+   */
+  async faceMatch(params: {
+    photo: { buffer: Buffer; type: string };
+    reference: { buffer: Buffer; type: string };
+    vendorData: string;
+  }): Promise<{ score: number | null; faces: number; isMatch: boolean }> {
+    const form = new FormData();
+    form.append('user_image', new Blob([new Uint8Array(params.photo.buffer)], { type: params.photo.type }), 'photo');
+    form.append('ref_image', new Blob([new Uint8Array(params.reference.buffer)], { type: params.reference.type }), 'selfie');
+    form.append('face_match_score_decline_threshold', String(FACE_MATCH_MIN_SCORE));
+    form.append('vendor_data', params.vendorData);
+    let res: Response;
+    try {
+      res = await fetch(`${this.env.didit.baseUrl}/v3/face-match/`, {
+        method: 'POST',
+        headers: { 'x-api-key': this.env.didit.apiKey, accept: 'application/json' },
+        body: form,
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch (e) {
+      this.logger.warn(`Didit face match failed: ${(e as Error).message}`);
+      throw new ServiceUnavailableException('Photo check is unavailable right now');
+    }
+    if (!res.ok) {
+      this.logger.warn(`Didit face match → ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      throw new ServiceUnavailableException('Photo check is unavailable right now');
+    }
+    const json = (await res.json()) as { face_match?: { status?: string; score?: number | null; user_image?: { entities?: unknown[] } } };
+    const fm = json.face_match ?? {};
+    return { score: fm.score ?? null, faces: fm.user_image?.entities?.length ?? 0, isMatch: fm.status === 'Approved' };
+  }
+
+  /** Downloads a Didit media link (selfie). JPG / PNG / WebP up to 8 MB, else null. */
+  async image(url: string): Promise<{ buffer: Buffer; mimetype: string } | null> {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+      const mimetype = (res.headers.get('content-type') ?? '').split(';')[0].trim();
+      if (!res.ok || !['image/jpeg', 'image/png', 'image/webp'].includes(mimetype)) return null;
+      const buffer = Buffer.from(await res.arrayBuffer());
+      return buffer.length > 0 && buffer.length <= 8 * 1024 * 1024 ? { buffer, mimetype } : null;
+    } catch (e) {
+      this.logger.warn(`Didit image download failed: ${(e as Error).message}`);
+      return null;
+    }
   }
 
   private async call(path: string, init: RequestInit): Promise<Response> {

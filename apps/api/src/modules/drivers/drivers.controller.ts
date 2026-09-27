@@ -1,10 +1,11 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, Param, ParseEnumPipe, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, Param, ParseEnumPipe, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Roles } from '../../core/auth/roles.decorator.js';
-import { MAX_UPLOAD_BYTES, type UploadedBlob } from '../../core/storage/file-storage.service.js';
+import { FileStorageService, MAX_UPLOAD_BYTES, type UploadedBlob } from '../../core/storage/file-storage.service.js';
 import type { Driver, KycDocument } from '../../generated/prisma/client.js';
 import { KycDocType, Role } from '../../generated/prisma/enums.js';
 import { DriverEarningsService, type Earnings } from './driver-earnings.service.js';
@@ -13,6 +14,7 @@ import { EarningsQueryDto } from './dto/earnings-query.dto.js';
 import { LocationDto } from './dto/location.dto.js';
 import { RegisterDriverDto } from './dto/register-driver.dto.js';
 import { ReviewDriverDto } from './dto/review-driver.dto.js';
+import { ReviewPhotoDto } from './dto/review-photo.dto.js';
 import { UpdateDriverDto } from './dto/update-driver.dto.js';
 
 /** D-04 … D-10, D-13 / D-14, admin KYC review. */
@@ -21,6 +23,7 @@ export class DriversController {
   constructor(
     private readonly drivers: DriversService,
     private readonly earningsService: DriverEarningsService,
+    private readonly files: FileStorageService,
   ) {}
 
   @Post('drivers')
@@ -84,6 +87,31 @@ export class DriversController {
   @HttpCode(204)
   location(@CurrentUser() user: AuthUser, @Body() body: LocationDto): Promise<void> {
     return this.drivers.heartbeat({ driverId: DriversController.driverId(user), ...body });
+  }
+
+  /** D-07 profile photo: multipart `file` (JPG / PNG / WebP ≤ 8 MB), matched to the verified selfie. */
+  @Roles(Role.DRIVER)
+  @Post('drivers/me/photo')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES } }))
+  uploadPhoto(@CurrentUser() user: AuthUser, @UploadedFile() file?: UploadedBlob): Promise<{ status: 'APPROVED' | 'IN_REVIEW' }> {
+    return this.drivers.uploadPhoto({ driverId: DriversController.driverId(user), file });
+  }
+
+  @Roles(Role.ADMIN)
+  @Post('admin/drivers/:id/photo')
+  @HttpCode(200)
+  reviewPhoto(@Param('id') id: string, @Body() body: ReviewPhotoDto): Promise<Driver> {
+    return this.drivers.reviewPhoto({ driverId: id, ...body });
+  }
+
+  /** The driver's profile photo (`?v=` = photo file, for caching). The driver, admins and their riders only. */
+  @Get('drivers/:id/photo')
+  async photo(@CurrentUser() user: AuthUser, @Param('id') id: string, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
+    const name = await this.drivers.photo({ driverId: id, viewer: user });
+    const f = await this.files.open(name);
+    res.setHeader('cache-control', 'private, max-age=86400');
+    return new StreamableFile(f.stream, { type: f.type, length: f.size || undefined, disposition: 'inline' });
   }
 
   @Roles(Role.ADMIN)

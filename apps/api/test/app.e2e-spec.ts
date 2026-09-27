@@ -23,6 +23,10 @@ function phone(): string {
 }
 
 const WEBHOOK_SECRET = 'whsec_e2e';
+/** A stored photo so drivers approved directly in the database may go online (photo required with Didit on). */
+const E2E_PHOTO = '00000000-0000-4000-8000-00000000e2e0.jpg';
+/** Smallest valid JPEG header bytes: enough for storage (it only checks the type). */
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9]);
 
 /** Stands in for Didit: sessions are per user, decisions are set by the test. */
 const fakeDidit = {
@@ -30,6 +34,10 @@ const fakeDidit = {
   decisions: new Map<string, DiditDecision>(),
   createSession: async (p: { userId: string }) => ({ sessionId: `sess-${p.userId}`, sessionToken: `tok-${p.userId}`, status: 'Not Started' }),
   decision: async (sessionId: string) => fakeDidit.decisions.get(sessionId) ?? { session_id: sessionId, status: 'In Progress' },
+  image: async (url: string) => (url.startsWith('https://') ? { buffer: JPEG, mimetype: 'image/jpeg' } : null),
+  /** Next face-match result for a profile photo. */
+  nextMatch: { score: 97 as number | null, faces: 1, isMatch: true },
+  faceMatch: async () => fakeDidit.nextMatch,
 };
 
 /** Signs a webhook body like Didit (X-Signature-V2 over sorted compact JSON). */
@@ -104,7 +112,7 @@ describe('Rido API (e2e)', () => {
       .send({ name: 'Karthik S', workType: 'RIDES', vehicleKind: 'BIKE', vehicleModel: 'Honda Activa', vehicleColor: 'Grey', plate, upiId: 'karthik@okaxis' })
       .expect(201);
     const driver = reg.body.accessToken as string;
-    await prisma.driver.update({ where: { id: reg.body.driver.id }, data: { status: 'APPROVED' } });
+    await prisma.driver.update({ where: { id: reg.body.driver.id }, data: { status: 'APPROVED', photoFile: E2E_PHOTO } });
     await http.post('/v1/drivers/me/online').set('Authorization', `Bearer ${driver}`).send({ lat: 11.019, lng: 76.973 }).expect(200);
 
     // Act: book, accept, arrive, start with OTP, complete, rate.
@@ -144,7 +152,7 @@ describe('Rido API (e2e)', () => {
       .set('Authorization', `Bearer ${user}`)
       .send({ name: 'Test Driver', workType: 'RIDES', vehicleKind, vehicleModel: 'Test', vehicleColor: 'White', plate, upiId: 'test@okaxis' })
       .expect(201);
-    await prisma.driver.update({ where: { id: reg.body.driver.id }, data: { status: 'APPROVED' } });
+    await prisma.driver.update({ where: { id: reg.body.driver.id }, data: { status: 'APPROVED', photoFile: E2E_PHOTO } });
     const token = reg.body.accessToken as string;
     await http.post('/v1/drivers/me/online').set('Authorization', `Bearer ${token}`).send(at).expect(200);
     return token;
@@ -365,6 +373,7 @@ describe('Rido API (e2e)', () => {
           { document_type: 'Driving License', document_number: 'TN3820190012345', full_name: 'Murugan Selvam', date_of_birth: '1990-04-12', warnings: [] },
           { document_type: 'Identity Card', document_number: '1234 5678 9012', full_name: 'Murugan Selvam', warnings: [] },
         ],
+        liveness_checks: [{ status: 'Approved', reference_image: 'https://media.didit.test/face/selfie.jpg' }],
       },
     };
     await http.post('/v1/kyc/didit/webhook').send(event).expect(401);
@@ -385,6 +394,49 @@ describe('Rido API (e2e)', () => {
     });
     expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('APPROVED');
     await http.post('/v1/kyc/session').set(driver).expect(409);
+
+    // The approved live selfie is kept as the reference face; the profile photo is taken separately.
+    const profile = (await http.get('/v1/drivers/me').set(driver).expect(200)).body;
+    expect(profile.selfieFile).toMatch(/\.jpg$/);
+    expect(profile.photoFile).toBeNull();
+
+    // No face in the photo → retake. A clear match → riders see it at once.
+    fakeDidit.nextMatch = { score: null, faces: 0, isMatch: false };
+    await http.post('/v1/drivers/me/photo').set(driver).attach('file', JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' }).expect(422);
+    fakeDidit.nextMatch = { score: 97, faces: 1, isMatch: true };
+    const up = await http.post('/v1/drivers/me/photo').set(driver).attach('file', JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' }).expect(200);
+    expect(up.body).toEqual({ status: 'APPROVED' });
+
+    // The driver, admins and their riders see it; a stranger gets 404.
+    const photo = await http.get(`/v1/drivers/${driverId}/photo`).set(driver).expect(200);
+    expect(photo.headers['content-type']).toContain('image/jpeg');
+    await http.get('/v1/drivers/me/photo').set(driver).expect(200);
+    await http.get(`/v1/drivers/${driverId}/photo`).set(admin).expect(200);
+    const stranger = { Authorization: `Bearer ${await login()}` };
+    await http.get(`/v1/drivers/${driverId}/photo`).set(stranger).expect(404);
+
+    // A low match waits for an admin, who approves it.
+    fakeDidit.nextMatch = { score: 41, faces: 1, isMatch: false };
+    const low = await http.post('/v1/drivers/me/photo').set(driver).attach('file', JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' }).expect(200);
+    expect(low.body).toEqual({ status: 'IN_REVIEW' });
+    const pending = (await http.get('/v1/drivers/me').set(driver).expect(200)).body;
+    expect(pending.pendingPhotoFile).toMatch(/\.jpg$/);
+    await http.post(`/v1/admin/drivers/${driverId}/photo`).set(admin).send({ isApproved: true }).expect(200);
+    expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.photoFile).toBe(pending.pendingPhotoFile);
+    fakeDidit.nextMatch = { score: 97, faces: 1, isMatch: true };
+  });
+
+  it('needs the verified photo before an approved driver can go online', async () => {
+    const driverUser = await login();
+    const reg = await http
+      .post('/v1/drivers')
+      .set('Authorization', `Bearer ${driverUser}`)
+      .send({ name: 'Ravi M', workType: 'RIDES', vehicleKind: 'BIKE', vehicleModel: 'Hero Splendor', vehicleColor: 'Black', plate: `TN 66 PH ${Math.floor(1000 + Math.random() * 8999)}`, upiId: 'ravi@okaxis' })
+      .expect(201);
+    const driver = { Authorization: `Bearer ${reg.body.accessToken as string}` };
+    await prisma.driver.update({ where: { id: reg.body.driver.id }, data: { status: 'APPROVED' } });
+    const res = await http.post('/v1/drivers/me/online').set(driver).send({ lat: 11.019, lng: 76.973 }).expect(403);
+    expect(res.body.code).toBe('PHOTO_REQUIRED');
   });
 
   it('sends a driver approved without a driving licence to review', async () => {

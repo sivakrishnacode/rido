@@ -63,6 +63,14 @@ export class FileStorageService {
     return name;
   }
 
+  /** A stored file's bytes (small images, e.g. for a face match). */
+  async read(name: string): Promise<{ buffer: Buffer; type: string }> {
+    const f = await this.open(name);
+    const chunks: Buffer[] = [];
+    for await (const chunk of f.stream) chunks.push(Buffer.from(chunk as Uint8Array));
+    return { buffer: Buffer.concat(chunks), type: f.type };
+  }
+
   /** Streams a stored file. With S3, files saved on disk before the switch are still found. */
   async open(name: string): Promise<{ stream: Readable; type: string; size: number }> {
     if (!NAME.test(name)) throw new NotFoundException('File not found');

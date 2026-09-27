@@ -9,7 +9,8 @@ import type { IdentityVerification } from '../../generated/prisma/client.js';
 import { IdentityPurpose, IdentityStatus, Role } from '../../generated/prisma/enums.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { DiditClient } from './didit.client.js';
-import { type DiditDecision, type ScannedDocument, summarizeDecision, toIdentityStatus } from './didit.js';
+import { type DiditDecision, type ScannedDocument, selfieUrl, summarizeDecision, toIdentityStatus } from './didit.js';
+import { FileStorageService } from '../../core/storage/file-storage.service.js';
 import { DriverApprovalService } from './driver-approval.service.js';
 
 /** New Didit sessions a user may start per day (declines and abandoned attempts), to protect the free quota. */
@@ -66,6 +67,7 @@ export class KycService {
     private readonly didit: DiditClient,
     private readonly approval: DriverApprovalService,
     private readonly notifier: NotifierService,
+    private readonly files: FileStorageService,
   ) {}
 
   async view(userId: string): Promise<IdentityView> {
@@ -80,7 +82,22 @@ export class KycService {
         // Didit unreachable: show the decline without reasons.
       }
     }
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { identityStatus: true, identityVerifiedAt: true } });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { identityStatus: true, identityVerifiedAt: true, driver: { select: { id: true, selfieFile: true } } },
+    });
+    // Approved before selfies were kept (or the download failed): fetch it again, at most every 10 minutes.
+    if (user.identityStatus === IdentityStatus.APPROVED && user.driver && !user.driver.selfieFile && this.didit.isEnabled) {
+      const approvedRow = await this.prisma.identityVerification.findFirst({ where: { userId, status: IdentityStatus.APPROVED }, orderBy: { decidedAt: 'desc' } });
+      const isFirstTry = await this.redis.set(`kyc:photo-retry:${user.driver.id}`, '1', 'EX', 600, 'NX');
+      if (approvedRow && isFirstTry) {
+        try {
+          await this.saveSelfie(user.driver.id, await this.didit.decision(approvedRow.sessionId));
+        } catch {
+          // Try again on a later read.
+        }
+      }
+    }
     const approved =
       user.identityStatus === IdentityStatus.APPROVED
         ? await this.prisma.identityVerification.findFirst({ where: { userId, status: IdentityStatus.APPROVED }, orderBy: { decidedAt: 'desc' } })
@@ -160,6 +177,19 @@ export class KycService {
     await this.apply(row, body.status, decision);
   }
 
+  /** Stores the decision's live selfie as the driver's reference face. A failed download is retried by `/kyc/me`. */
+  private async saveSelfie(driverId: string, decision?: DiditDecision): Promise<void> {
+    const url = selfieUrl(decision);
+    const image = url ? await this.didit.image(url) : null;
+    if (!image) {
+      this.logger.warn(`No selfie saved for driver ${driverId}`);
+      return;
+    }
+    const ext = image.mimetype.split('/')[1];
+    const selfieFile = await this.files.save({ originalname: `selfie.${ext}`, mimetype: image.mimetype, size: image.buffer.length, buffer: image.buffer });
+    await this.prisma.driver.update({ where: { id: driverId }, data: { selfieFile } });
+  }
+
   private latest(userId: string): Promise<IdentityVerification | null> {
     return this.prisma.identityVerification.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' } });
   }
@@ -193,7 +223,14 @@ export class KycService {
         decidedAt: isDecided ? (row.decidedAt ?? new Date()) : null,
       },
     });
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: row.userId }, select: { identityStatus: true, driver: { select: { id: true } } } });
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: row.userId },
+      select: { identityStatus: true, driver: { select: { id: true, selfieFile: true } } },
+    });
+    // Keep the approved live selfie: the driver's profile photo is matched against it. Didit's link is short-lived.
+    if (row.purpose === IdentityPurpose.DRIVER && user.driver && status === IdentityStatus.APPROVED) {
+      if (row.status !== IdentityStatus.APPROVED || !user.driver.selfieFile) await this.saveSelfie(user.driver.id, decision);
+    }
     const newest = await this.latest(row.userId);
     const isNewest = newest?.id === row.id;
     // Keep an approval unless this session is the newest one (Didit expired or overturned it).

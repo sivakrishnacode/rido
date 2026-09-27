@@ -324,6 +324,18 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
   in `warnings` for the admin panel only. Declines stored before this are filled in from Didit the first time
   `/kyc/me` is read.
 - **Limits:** at most 3 new sessions per user per 24 h (unfinished sessions are reused by Didit), to protect the quota.
+- **Driver profile photo (riders see it, like Rapido):** Didit's liveness selfie is auto-captured (dark, unposed),
+  so it is only kept as the private reference (`Driver.selfieFile`, saved from `liveness_checks[].reference_image`
+  when the driver's identity is approved; `/kyc/me` refetches it if missing). The driver then takes a proper photo on
+  D-07 › Profile photo (front camera, light tips) and sees a **"How riders will see you" preview card** with Retake /
+  Use this photo; nothing is uploaded before they confirm. `POST /v1/drivers/me/photo` matches it to the selfie with
+  Didit Face Match (`POST /v3/face-match/`, $0.05, 500 free a month): exactly one face and a score above 80 → live at
+  once (`photoFile`); no face / several faces → 422 (retake); low score or Didit unreachable → `pendingPhotoFile`
+  for an admin (driver page › Profile photo › Approve / Reject with a reason; pushes to the driver).
+  `GET /v1/drivers/:id/photo` (and `/drivers/me/photo`) serves it only to the driver, admins and riders who had a
+  trip with them (else 404); the apps load it with the session token (`driverPhotoProvider`, `DriverAvatar`), with
+  `?v=<file>` as cache key. Passengers see it on every driver card (P-13/15/16, chat, rate, trip details, parcel
+  screens, driver-cancelled). **Going online needs a photo** once Didit is on (`403 PHOTO_REQUIRED`).
 - **Driver approval (`kyc/driver-approval.ts`):** APPROVED when VEHICLE_RC + INSURANCE are verified by an admin **and**
   identity is APPROVED (identity isn't required when `DIDIT_API_KEY` is empty). A rejected document or declined
   identity → REJECTED; a re-upload → PENDING. ON_HOLD is never changed automatically; drivers approved before this

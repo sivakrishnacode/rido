@@ -121,6 +121,29 @@ export class NotifierService {
     }
   }
 
+  /** A profile photo went to admin review: tell the driver it is being checked. */
+  async photoSubmitted(driverId: string): Promise<void> {
+    const driver = await this.prisma.driver.findUnique({ where: { id: driverId }, select: { userId: true } });
+    if (!driver) return;
+    this.push.toUser(driver.userId, AppKind.DRIVER, {
+      title: 'Photo received',
+      body: "We're checking your profile photo. You can go online once it's approved",
+      channel: 'account',
+      data: { type: 'photo', status: 'IN_REVIEW' },
+    });
+  }
+
+  async photoReviewed(params: { driverId: string; isApproved: boolean; reason: string }): Promise<void> {
+    const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
+    if (!driver) return;
+    this.push.toUser(driver.userId, AppKind.DRIVER, {
+      title: params.isApproved ? 'Profile photo approved' : 'Please retake your photo',
+      body: params.isApproved ? 'Riders will see it on their trip. You can go online now' : `${params.reason}. Tap to retake`,
+      channel: 'account',
+      data: { type: 'photo', status: params.isApproved ? 'APPROVED' : 'REJECTED' },
+    });
+  }
+
   async kycReviewed(params: { driverId: string; type?: string; status: 'VERIFIED' | 'REJECTED' | 'APPROVED'; reason?: string | null }): Promise<void> {
     const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
     if (!driver) return;

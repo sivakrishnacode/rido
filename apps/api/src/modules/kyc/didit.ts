@@ -101,7 +101,8 @@ export interface DiditDecision {
   readonly session_id?: string;
   readonly status?: string;
   readonly id_verifications?: DiditIdVerification[];
-  readonly liveness_checks?: DiditFeatureResult[];
+  /** `reference_image`: short-lived link to the live selfie. */
+  readonly liveness_checks?: (DiditFeatureResult & { readonly reference_image?: string | null })[];
   readonly face_matches?: DiditFeatureResult[];
 }
 
@@ -194,4 +195,10 @@ export function summarizeDecision(decision: DiditDecision | null | undefined, id
     warnings,
     reasons,
   };
+}
+
+/** The live selfie of the latest liveness check (a short-lived presigned URL), if the session has one. */
+export function selfieUrl(decision: DiditDecision | null | undefined): string | null {
+  const url = decision?.liveness_checks?.at(-1)?.reference_image;
+  return url?.startsWith('https://') ? url : null;
 }
