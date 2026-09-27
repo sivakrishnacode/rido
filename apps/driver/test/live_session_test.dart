@@ -486,6 +486,18 @@ void main() {
     expect(session().vehicle.value, isNull, reason: 'no Gandhipuram placeholder in live mode');
   });
 
+  test('approximate location only: the car shows offline, going online asks for the precise location', () async {
+    locator.accessResult = LocationAccess.approximate;
+    await session().locateHere();
+    await pumpEventQueue();
+    expect(container.read(locationAccessProvider), LocationAccess.approximate);
+    expect(session().vehicle.value, isNotNull, reason: 'approximate is enough for the offline car');
+    locator.problem = const LocationProblem('Turn on "Use precise location"', fix: LocationFix.appSettings);
+    await expectLater(session().goOnline(), throwsA(isA<LocationProblem>()),
+        reason: 'checked even with a recent offline fix');
+    expect(state().online, isFalse);
+  });
+
   test('indoors: a recent offline position is enough to go online (no waiting for a fresh GPS fix)', () async {
     await session().locateHere();
     await pumpEventQueue();

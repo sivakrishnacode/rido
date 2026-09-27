@@ -225,7 +225,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       final recent = _position != null && at != null && DateTime.now().difference(at) < const Duration(minutes: 2)
           ? GpsFix(_position!, heading: _heading, at: at)
           : null;
-      if (recent == null) await locator.ensureReady();
+      // Always checked (fast): also catches approximate-only location, which delivers a fix every 10 minutes.
+      await locator.ensureReady();
       final fix = recent ?? await locator.currentFix();
       await locator.requestNotificationPermission();
       await _jobs.goOnline(fix.point);
@@ -514,7 +515,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final access = await locator.access(ask: ask);
     if (!ref.mounted) return;
     ref.read(locationAccessProvider.notifier).set(access);
-    if (access != LocationAccess.granted || state.online) return;
+    // Approximate is enough to show the car offline; going online asks for the precise location.
+    if ((access != LocationAccess.granted && access != LocationAccess.approximate) || state.online) return;
     final last = await locator.lastKnownFix();
     if (last != null && ref.mounted && !state.online) _onFix(last, upload: false);
     if (!ref.mounted || state.online) return;

@@ -32,6 +32,10 @@ enum LocationAccess {
 
   /// Android no longer shows the prompt: only the app's settings page can allow it.
   deniedForever,
+
+  /// Allowed, but "Precise location" is off: Android then gives an app one fix about every 10 minutes, so the
+  /// driver would go "GPS signal lost" right after going online.
+  approximate,
 }
 
 class LocationAccessController extends Notifier<LocationAccess> {
@@ -81,7 +85,7 @@ class DriverLocator {
     }
   }
 
-  /// Throws [LocationProblem] when the service is off or permission is missing.
+  /// Throws [LocationProblem] when the service is off, permission is missing or only approximate.
   Future<void> ensureReady() async {
     if (!await geo.Geolocator.isLocationServiceEnabled()) {
       throw const LocationProblem('Turn on Location to go online', fix: LocationFix.locationSettings);
@@ -89,13 +93,32 @@ class DriverLocator {
     var permission = await geo.Geolocator.checkPermission();
     if (permission == geo.LocationPermission.denied) permission = await geo.Geolocator.requestPermission();
     switch (permission) {
+      case geo.LocationPermission.whileInUse || geo.LocationPermission.always:
+        if (!await _precise(ask: true)) {
+          throw const LocationProblem(
+              'Turn on "Use precise location" for Rido Driver. With approximate location riders can\'t follow you.',
+              fix: LocationFix.appSettings);
+        }
       case geo.LocationPermission.denied:
         throw const LocationProblem('Allow location access so riders can find you');
       case geo.LocationPermission.deniedForever:
         throw const LocationProblem('Location access is off for Rido Driver. Allow it in Settings to go online.',
             fix: LocationFix.appSettings);
-      case geo.LocationPermission.whileInUse || geo.LocationPermission.always || geo.LocationPermission.unableToDetermine:
+      case geo.LocationPermission.unableToDetermine:
         return;
+    }
+  }
+
+  /// Whether the permission is for the precise location. With only the approximate one and [ask], asks again:
+  /// Android 12+ then shows the "Change to precise location" dialog (until the driver refused it twice).
+  Future<bool> _precise({bool ask = false}) async {
+    try {
+      if (await geo.Geolocator.getLocationAccuracy() != geo.LocationAccuracyStatus.reduced) return true;
+      if (!ask) return false;
+      await geo.Geolocator.requestPermission();
+      return await geo.Geolocator.getLocationAccuracy() != geo.LocationAccuracyStatus.reduced;
+    } catch (_) {
+      return true; // Not available on this platform / Android version: no approximate mode.
     }
   }
 
@@ -108,7 +131,7 @@ class DriverLocator {
       return switch (p) {
         geo.LocationPermission.denied => LocationAccess.denied,
         geo.LocationPermission.deniedForever => LocationAccess.deniedForever,
-        _ => LocationAccess.granted,
+        _ => await _precise(ask: ask) ? LocationAccess.granted : LocationAccess.approximate,
       };
     } catch (_) {
       return LocationAccess.unknown;
@@ -140,7 +163,7 @@ class DriverLocator {
     try {
       if (!await geo.Geolocator.isLocationServiceEnabled()) return false;
       final p = await geo.Geolocator.checkPermission();
-      return p == geo.LocationPermission.whileInUse || p == geo.LocationPermission.always;
+      return (p == geo.LocationPermission.whileInUse || p == geo.LocationPermission.always) && await _precise();
     } catch (_) {
       return false;
     }

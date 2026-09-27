@@ -87,6 +87,12 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         await locator.openSettings(LocationFix.locationSettings);
       case LocationAccess.deniedForever:
         await locator.openSettings(LocationFix.appSettings);
+      case LocationAccess.approximate:
+        // Android shows "Change to precise location"; once refused twice only the settings page can.
+        await ref.read(driverSessionProvider.notifier).locateHere();
+        if (mounted && ref.read(locationAccessProvider) == LocationAccess.approximate) {
+          await locator.openSettings(LocationFix.appSettings);
+        }
       case LocationAccess.denied || LocationAccess.unknown || LocationAccess.granted:
         await ref.read(driverSessionProvider.notifier).locateHere();
     }
@@ -242,7 +248,10 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     // ------------------------------------------------------------- top card
     Widget? topCard;
     final access = _api ? ref.watch(locationAccessProvider) : LocationAccess.granted;
-    if (access == LocationAccess.serviceOff || access == LocationAccess.denied || access == LocationAccess.deniedForever) {
+    if (access == LocationAccess.serviceOff ||
+        access == LocationAccess.denied ||
+        access == LocationAccess.deniedForever ||
+        access == LocationAccess.approximate) {
       // Nothing works without location: shown above everything else until it's allowed.
       topCard = RidoBanner(
         type: RidoBannerType.warning,
@@ -250,15 +259,20 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         title: switch (access) {
           LocationAccess.serviceOff => 'Turn on location',
           LocationAccess.deniedForever => 'Location is off for Rido Driver',
+          LocationAccess.approximate => 'Turn on precise location',
           _ => 'Allow location access',
         },
-        message: access == LocationAccess.deniedForever
-            ? 'Open Settings → Permissions → Location and choose "Allow while using the app". '
-                'Rido needs it to send you requests and share live tracking with riders.'
-            : 'Rido needs your location to send you ride requests nearby and share live tracking with riders.',
+        message: switch (access) {
+          LocationAccess.deniedForever => 'Open Settings → Permissions → Location and choose "Allow while using the app". '
+              'Rido needs it to send you requests and share live tracking with riders.',
+          LocationAccess.approximate => 'Rido Driver only has your approximate location, so your GPS stops updating '
+              'after going online. Choose "Precise", or turn on "Use precise location" in Settings → Permissions → Location.',
+          _ => 'Rido needs your location to send you ride requests nearby and share live tracking with riders.',
+        },
         actionLabel: switch (access) {
           LocationAccess.serviceOff => 'Turn on',
           LocationAccess.deniedForever => 'Open settings',
+          LocationAccess.approximate => 'Fix',
           _ => 'Allow',
         },
         onAction: () => _fixLocation(access),

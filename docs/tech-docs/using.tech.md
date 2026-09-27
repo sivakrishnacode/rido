@@ -425,6 +425,10 @@ suggestion's name.
   20 s, only with the app in the foreground: a location service started from the background gets no while-in-use
   access); stream errors / end also trigger it, as does coming back to the app. "Fix now" restarts GPS, or opens
   location settings when Location is off. Before this, going offline and online was the only cure.
+- **Driver needs precise location:** with only "Approximate" allowed (Android 12+ toggle) Play services rewrites the
+  5 s request to one fix per 10 min (`dumpsys location`: `(COARSE) Request[@10m …]`), so the driver went "GPS signal
+  lost" right after going online. `LocationAccess.approximate` shows a Home banner; going online (always, even with a
+  recent offline fix) asks again, which shows Android's "Change to precise location" dialog, else points to app settings.
 
 ## 7b. Apps ↔ API (packages/rido_data/lib/src/api)
 
