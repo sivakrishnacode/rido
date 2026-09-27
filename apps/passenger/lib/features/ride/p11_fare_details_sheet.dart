@@ -58,19 +58,33 @@ class P11FareDetailsSheet extends ConsumerWidget {
         const SizedBox(height: RidoSpacing.l),
         RidoCard(child: FareBreakdown.fromQuote(q)),
         const SizedBox(height: RidoSpacing.l),
-        _Note(icon: Symbols.lock_rounded, color: RidoColors.success, text: 'Your fare is locked at booking.'),
-        const SizedBox(height: RidoSpacing.m),
-        _Note(
-          icon: Symbols.trending_up_rounded,
-          color: RidoColors.coral500,
-          text: 'Surge is capped at 1.5x and goes to your driver.',
+        Row(
+          children: [
+            const Icon(Symbols.info_rounded, color: RidoColors.coral600, size: 22),
+            const SizedBox(width: RidoSpacing.s),
+            Text('Things to know', style: t.bodySemibold.copyWith(fontSize: 17)),
+          ],
         ),
-        const SizedBox(height: RidoSpacing.l),
+        const SizedBox(height: RidoSpacing.m),
+        for (final (icon, color, text) in _thingsToKnow) ...[
+          _Note(icon: icon, color: color, text: text),
+          const SizedBox(height: RidoSpacing.m),
+        ],
+        const SizedBox(height: RidoSpacing.s),
         RidoButton.secondary(label: 'Got it', onPressed: () => Navigator.of(context).maybePop()),
       ],
     );
   }
 }
+
+/// P-11 "Things to know": only rules Rido really applies (no waiting or cancel fees exist in the fare engine).
+const _thingsToKnow = <(IconData, Color, String)>[
+  (Symbols.lock_rounded, RidoColors.success, 'Your fare is locked when you book. Slow traffic or a longer wait won\'t change it.'),
+  (Symbols.trending_up_rounded, RidoColors.coral500, 'Surge is capped at 1.5x and all of it goes to your driver.'),
+  (Symbols.payments_rounded, RidoColors.navy700, 'Pay your driver by cash or UPI when the ride ends. Rido takes 0% of it.'),
+  (Symbols.timer_off_rounded, RidoColors.navy700, 'No waiting charges and no cancellation fees.'),
+  (Symbols.pin_rounded, RidoColors.navy700, 'Share your 4-digit ride OTP only when you are in the vehicle.'),
+];
 
 class _Note extends StatelessWidget {
   const _Note({required this.icon, required this.color, required this.text});

@@ -112,7 +112,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
                 Expanded(
                   child: Text.rich(
                     waitingStarted
-                        ? TextSpan(text: 'Waiting charges may apply now', style: t.body)
+                        ? TextSpan(text: 'Your driver is waiting. Please head to the pickup', style: t.body)
                         : TextSpan(children: [
                             TextSpan(text: 'Waiting time starts in  ', style: t.body),
                             TextSpan(
