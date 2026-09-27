@@ -301,6 +301,10 @@ class ApiDriverRepository implements DriverRepository {
   }
 
   @override
+  Future<bool> uploadProfilePhoto(List<int> bytes, String filename) async =>
+      _map(await api.upload('/drivers/me/photo', field: 'file', bytes: bytes, filename: filename))['status'] == 'APPROVED';
+
+  @override
   Future<bool> checkApplication() async {
     final me = _map(await api.get('/drivers/me'));
     return switch (me['status']) {

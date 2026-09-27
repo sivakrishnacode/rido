@@ -7,6 +7,7 @@ import 'package:rido_ui/rido_ui.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import 'widgets/identity_check_card.dart';
+import 'widgets/profile_photo_card.dart';
 import 'widgets/signup_widgets.dart';
 
 /// D-07 Documents / KYC checklist: the in-app identity check (driving licence + Aadhaar + selfie, by Didit) and a row
@@ -42,9 +43,11 @@ class D07DocumentsScreen extends ConsumerWidget {
     final steps = docs.length + (hasIdentity ? 1 : 0);
     final stepsDone = done + (hasIdentity && isIdentityDone ? 1 : 0);
     final stepsVerified = verified + (identity?.isApproved == true ? 1 : 0);
-    final allDone = done == docs.length && isIdentityDone;
     // Live API: after a restart the sign-up draft is empty, so the vehicle comes from the driver profile.
     final profile = live ? ref.watch(driverProfileProvider).value : null;
+    // Once the identity check is approved, the profile photo is needed too (riders see it).
+    final isPhotoDone = !live || identity == null || !identity.isApproved || profile?.photoPath != null || (profile?.hasPendingPhoto ?? false);
+    final allDone = done == docs.length && isIdentityDone && isPhotoDone;
     final kind = profile?.vehicleKind ?? signup.vehicle;
     final vehicle = kind == VehicleKind.truck ? 'Truck' : kind.label;
     final work = (profile != null ? !profile.vehicleKind.isGoods : signup.workType == WorkType.rides) ? 'Rides' : 'Deliveries';
@@ -71,6 +74,10 @@ class D07DocumentsScreen extends ConsumerWidget {
                   if (hasIdentity) ...[
                     IdentityCheckCard(showcase: showcase),
                     const SizedBox(height: RidoSpacing.l),
+                    if (!showcase) ...[
+                      const ProfilePhotoCard(),
+                      const SizedBox(height: RidoSpacing.l),
+                    ],
                   ],
                   Container(
                     decoration: BoxDecoration(
@@ -133,7 +140,11 @@ class D07DocumentsScreen extends ConsumerWidget {
                 RidoButton(label: 'Continue', onPressed: allDone ? () => context.go(Routes.underReview) : null),
                 if (!allDone) ...[
                   const SizedBox(height: RidoSpacing.s),
-                  Text(isIdentityDone ? 'Upload both documents to continue' : 'Verify your licence and Aadhaar, and upload both documents to continue',
+                  Text(!isIdentityDone
+                      ? 'Verify your licence and Aadhaar, and upload both documents to continue'
+                      : !isPhotoDone
+                          ? 'Take your profile photo to continue'
+                          : 'Upload both documents to continue',
                       textAlign: TextAlign.center, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
                 ],
               ],

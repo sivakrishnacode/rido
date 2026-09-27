@@ -131,7 +131,7 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        RidoAvatar(initials: driver.initials, size: 44, tone: AvatarTone.navy),
+                        DriverAvatar(driver: driver, size: 44, tone: AvatarTone.navy),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(

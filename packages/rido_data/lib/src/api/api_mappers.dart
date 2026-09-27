@@ -95,6 +95,10 @@ DriverProfile driverFromJson(Json j) {
     rides: _i(j['ridesCount']),
     upiId: _s(j['upiId']),
     gender: genderFromApi(user['gender']),
+    // ?v= changes when the photo does, so the image cache refreshes.
+    photoPath: j['photoFile'] is String ? '/drivers/${_s(j['id'])}/photo?v=${j['photoFile']}' : null,
+    hasPendingPhoto: j['pendingPhotoFile'] is String,
+    photoRejectReason: j['photoRejectReason'] as String?,
   );
 }
 

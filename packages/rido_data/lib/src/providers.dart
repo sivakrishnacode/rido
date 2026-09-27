@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart' show ImageProvider, NetworkImage;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 
@@ -75,6 +76,14 @@ final liveTripsProvider = Provider<LiveTrips>((ref) => LiveTrips(ref.watch(apiCl
 
 /// Driver: offers, jobs, GPS and chat.
 final liveJobsProvider = Provider<LiveJobs>((ref) => LiveJobs(ref.watch(apiClientProvider), ref.watch(realtimeProvider)));
+
+/// A driver's verified photo from the API (with the session token), or null (no photo yet, or seed data).
+/// Only the driver, admins and riders who had a trip with them may load it.
+final driverPhotoProvider = Provider.family<ImageProvider?, String?>((ref, path) {
+  if (path == null || !ref.watch(isLiveApiProvider)) return null;
+  final api = ref.watch(apiClientProvider);
+  return NetworkImage('${api.baseUrl}$path', headers: {if (api.session.token != null) 'authorization': 'Bearer ${api.session.token}'});
+});
 
 /// Push notifications (null in mock mode, tests, or builds without Firebase config).
 final pushProvider = Provider<RidoPush?>((ref) => null);

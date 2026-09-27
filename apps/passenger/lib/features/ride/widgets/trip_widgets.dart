@@ -107,7 +107,7 @@ class TripDriverRow extends StatelessWidget {
     final t = context.type;
     return Row(
       children: [
-        RidoAvatar(initials: driver.initials, size: 56, tone: AvatarTone.navy),
+        DriverAvatar(driver: driver, size: 56, tone: AvatarTone.navy),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -153,7 +153,7 @@ class CompactDriverRow extends StatelessWidget {
     final t = context.type;
     return Row(
       children: [
-        RidoAvatar(initials: driver.initials, size: 50, tone: AvatarTone.navy),
+        DriverAvatar(driver: driver, size: 50, tone: AvatarTone.navy),
         const SizedBox(width: 12),
         Expanded(
           child: Column(

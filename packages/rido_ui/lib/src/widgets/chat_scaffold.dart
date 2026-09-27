@@ -15,6 +15,7 @@ class ChatScaffold extends StatefulWidget {
     super.key,
     required this.peerName,
     required this.peerInitials,
+    this.peerPhoto,
     required this.messages,
     required this.quickReplies,
     required this.onSend,
@@ -25,6 +26,9 @@ class ChatScaffold extends StatefulWidget {
 
   final String peerName;
   final String peerInitials;
+
+  /// The driver's verified photo, when the peer is a driver.
+  final ImageProvider? peerPhoto;
   final List<ChatMessage> messages;
   final List<String> quickReplies;
   final ValueChanged<String> onSend;
@@ -84,7 +88,7 @@ class _ChatScaffoldState extends State<ChatScaffold> {
         ),
         title: Row(
           children: [
-            RidoAvatar(initials: widget.peerInitials, size: 44, tone: AvatarTone.navy),
+            RidoAvatar(initials: widget.peerInitials, size: 44, tone: AvatarTone.navy, image: widget.peerPhoto),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

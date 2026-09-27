@@ -157,8 +157,11 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _photoRow(t),
-                  const SizedBox(height: RidoSpacing.l),
+                  // Live: the real profile photo is taken on D-07, after the identity check (it must match the selfie).
+                  if (!ref.watch(isLiveApiProvider)) ...[
+                    _photoRow(t),
+                    const SizedBox(height: RidoSpacing.l),
+                  ],
                   RidoTextField(
                     label: 'Full name (as on licence)',
                     controller: _name,

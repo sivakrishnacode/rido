@@ -44,6 +44,9 @@ class DriverProfile {
     required this.rides,
     required this.upiId,
     this.gender = Gender.male,
+    this.photoPath,
+    this.hasPendingPhoto = false,
+    this.photoRejectReason,
   });
 
   final String id;
@@ -59,6 +62,16 @@ class DriverProfile {
   final int rides;
   final String upiId;
   final Gender gender;
+
+  /// API path of the verified selfie (`/drivers/<id>/photo?v=<file>`); null until the identity check is approved.
+  /// Load it with [driverPhotoProvider].
+  final String? photoPath;
+
+  /// Driver app: a new photo is waiting for an admin (unclear face match).
+  final bool hasPendingPhoto;
+
+  /// Driver app: why an admin rejected the last photo.
+  final String? photoRejectReason;
 
   String get firstName => name.split(' ').first;
 
@@ -83,6 +96,9 @@ class DriverProfile {
     int? rides,
     String? upiId,
     Gender? gender,
+    String? photoPath,
+    bool? hasPendingPhoto,
+    String? photoRejectReason,
   }) =>
       DriverProfile(
         id: id ?? this.id,
@@ -96,6 +112,9 @@ class DriverProfile {
         rides: rides ?? this.rides,
         upiId: upiId ?? this.upiId,
         gender: gender ?? this.gender,
+        photoPath: photoPath ?? this.photoPath,
+        hasPendingPhoto: hasPendingPhoto ?? this.hasPendingPhoto,
+        photoRejectReason: photoRejectReason ?? this.photoRejectReason,
       );
 }
 

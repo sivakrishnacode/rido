@@ -87,7 +87,7 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
                     shape: BoxShape.circle,
                     border: Border.all(color: RidoColors.surface, width: 3),
                   ),
-                  child: RidoAvatar(initials: _cancelled.initials, size: 72, tone: AvatarTone.navy),
+                  child: DriverAvatar(driver: _cancelled, size: 72, tone: AvatarTone.navy),
                 ),
               ),
             ),

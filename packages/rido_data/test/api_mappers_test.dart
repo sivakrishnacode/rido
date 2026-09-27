@@ -153,4 +153,18 @@ void main() {
     expect(h.nested.single.score, 0.5);
     expect(m.serviceArea.single, hasLength(3));
   });
+
+  test('driver photo: API path with a cache key, pending review and reject reason', () {
+    final d = driverFromJson({
+      'id': 'd1',
+      'vehicleKind': 'BIKE',
+      'photoFile': 'abc.jpg',
+      'pendingPhotoFile': 'new.jpg',
+      'photoRejectReason': null,
+      'user': {'name': 'Siva Krishna'},
+    });
+    expect(d.photoPath, '/drivers/d1/photo?v=abc.jpg');
+    expect(d.hasPendingPhoto, isTrue);
+    expect(driverFromJson({'id': 'd2', 'vehicleKind': 'BIKE', 'user': {}}).photoPath, isNull);
+  });
 }

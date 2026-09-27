@@ -153,6 +153,7 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                         vehicle: driver.vehicleModel,
                         plate: driver.plate,
                         bordered: false,
+                        photo: ref.watch(driverPhotoProvider(driver.photoPath)),
                       ),
                       OtpDisplay(
                         label: 'DELIVERY OTP',

@@ -54,6 +54,7 @@ class P14ChatScreen extends ConsumerWidget {
     return ChatScaffold(
       peerName: driver.name,
       peerInitials: driver.initials,
+      peerPhoto: ref.watch(driverPhotoProvider(driver.photoPath)),
       messages: parcelChat ? parcel.chat : ride.chat,
       quickReplies: ref.read(rideRepositoryProvider).quickReplies,
       onSend: (text) => parcelChat

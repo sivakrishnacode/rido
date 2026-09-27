@@ -105,6 +105,10 @@ abstract interface class DriverRepository {
   /// D-08: uploads a photo / PDF of [type]; the document goes under review.
   Future<List<KycDocument>> uploadKyc(KycDocType type, List<int> bytes, String filename);
 
+  /// D-07 profile photo riders see. True = live now (matches the verified selfie); false = an admin checks it.
+  /// Throws [ApiException] (422: no face / several faces, retake; 409: verify identity first).
+  Future<bool> uploadProfilePhoto(List<int> bytes, String filename);
+
   /// True when approved; false when rejected (Demo control "Reject KYC"). Throws [StillUnderReviewException]
   /// while an admin hasn't decided yet.
   Future<bool> checkApplication();

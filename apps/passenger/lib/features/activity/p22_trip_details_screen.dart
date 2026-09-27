@@ -150,7 +150,7 @@ class _Details extends StatelessWidget {
           RidoCard(
             child: Row(
               children: [
-                RidoAvatar(initials: driver.initials, size: 44, tone: AvatarTone.navy),
+                DriverAvatar(driver: driver, size: 44, tone: AvatarTone.navy),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -232,7 +232,7 @@ class _Details extends StatelessWidget {
           RidoCard(
             child: Row(
               children: [
-                RidoAvatar(initials: driver.initials, size: 44, tone: AvatarTone.navy),
+                DriverAvatar(driver: driver, size: 44, tone: AvatarTone.navy),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

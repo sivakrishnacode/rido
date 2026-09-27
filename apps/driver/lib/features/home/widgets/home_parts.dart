@@ -13,6 +13,7 @@ class HomeHeader extends StatelessWidget {
     required this.pill,
     required this.onlineRing,
     required this.showBadge,
+    this.photo,
   });
 
   final String initials;
@@ -21,6 +22,9 @@ class HomeHeader extends StatelessWidget {
   final Widget pill;
   final bool onlineRing;
   final bool showBadge;
+
+  /// The driver's profile photo; initials when null.
+  final ImageProvider? photo;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +38,7 @@ class HomeHeader extends StatelessWidget {
             size: 46,
             tone: AvatarTone.dark,
             ringColor: onlineRing ? RidoColors.success : null,
+            image: photo,
           ),
           const SizedBox(width: RidoSpacing.m),
           Expanded(

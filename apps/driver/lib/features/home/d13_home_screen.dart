@@ -426,6 +426,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         children: [
           HomeHeader(
             initials: profile.initials,
+            photo: ref.watch(driverPhotoProvider(profile.photoPath)),
             firstName: profile.firstName,
             subtitle: subtitle,
             pill: pill,

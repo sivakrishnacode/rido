@@ -69,7 +69,7 @@ class _P20RateDriverScreenState extends ConsumerState<P20RateDriverScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 children: [
-                  Center(child: RidoAvatar(initials: driver.initials, size: 88, tone: AvatarTone.navy)),
+                  Center(child: DriverAvatar(driver: driver, size: 88, tone: AvatarTone.navy)),
                   const SizedBox(height: 20),
                   Text('How was your ride with ${driver.firstName}?', style: t.h1, textAlign: TextAlign.center),
                   const SizedBox(height: 6),

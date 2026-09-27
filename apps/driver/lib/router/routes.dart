@@ -12,6 +12,7 @@ abstract final class Routes {
   static const documents = '/signup/documents';
   static String uploadDocument(String type) => '/signup/documents/upload/$type';
   static const selfie = '/signup/selfie';
+  static const profilePhoto = '/signup/photo';
   static const underReview = '/signup/review';
   static const choosePlan = '/signup/plan';
 

@@ -33,6 +33,7 @@ import '../features/onboarding/d05_choose_vehicle_screen.dart';
 import '../features/onboarding/d06_personal_details_screen.dart';
 import '../features/onboarding/d07_documents_screen.dart';
 import '../features/onboarding/d08_upload_document_screen.dart';
+import '../features/onboarding/profile_photo_screen.dart';
 import '../features/onboarding/d09_selfie_screen.dart';
 import '../features/onboarding/d10_under_review_screen.dart';
 import '../features/onboarding/d11_choose_plan_screen.dart';
@@ -78,6 +79,7 @@ GoRouter createDriverRouter({String initialLocation = Routes.splash}) => GoRoute
           ),
         ),
         _full(Routes.selfie, (_) => const D09SelfieScreen()),
+        _full(Routes.profilePhoto, (_) => const ProfilePhotoScreen()),
         _full(Routes.underReview, (_) => const D10UnderReviewScreen()),
         _full(Routes.choosePlan, (_) => const D11ChoosePlanScreen()),
         _full('/autopay', (s) => D12AutopayScreen(purpose: _purpose(s))),

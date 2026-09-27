@@ -61,7 +61,7 @@ class D26AccountScreen extends ConsumerWidget {
         NavyHeader(
           padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, RidoSpacing.xl),
           child: Row(children: [
-            RidoAvatar(initials: profile.initials, size: 76, tone: AvatarTone.dark, ringColor: RidoColors.coral500),
+            DriverAvatar(driver: profile, size: 76, tone: AvatarTone.dark, ringColor: RidoColors.coral500),
             const SizedBox(width: RidoSpacing.l),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

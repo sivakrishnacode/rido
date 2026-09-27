@@ -6,7 +6,7 @@ import '../theme/rido_tokens.dart';
 import 'number_plate.dart';
 import 'rido_avatar.dart';
 
-/// Driver card: initials avatar, name, rating, vehicle, Indian number plate, and
+/// Driver card: photo (or initials) avatar, name, rating, vehicle, Indian number plate, and
 /// round chat / call buttons. [statusText] shows on the right ("2 min away", "Arrived").
 class DriverInfoCard extends StatelessWidget {
   const DriverInfoCard({
@@ -22,6 +22,7 @@ class DriverInfoCard extends StatelessWidget {
     this.onCall,
     this.onChat,
     this.bordered = true,
+    this.photo,
   });
 
   final String name;
@@ -40,6 +41,9 @@ class DriverInfoCard extends StatelessWidget {
   final VoidCallback? onChat;
   final bool bordered;
 
+  /// The driver's verified photo (`driverPhotoProvider`); initials when null.
+  final ImageProvider? photo;
+
   @override
   Widget build(BuildContext context) {
     final t = context.type;
@@ -55,7 +59,7 @@ class DriverInfoCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              RidoAvatar(initials: initials, size: 52, tone: AvatarTone.navy),
+              RidoAvatar(initials: initials, size: 52, tone: AvatarTone.navy, image: photo),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

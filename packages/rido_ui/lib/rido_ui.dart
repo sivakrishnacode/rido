@@ -27,6 +27,7 @@ export 'src/widgets/phone_input.dart';
 export 'src/widgets/pickup_drop_connector.dart';
 export 'src/widgets/rating_stars.dart';
 export 'src/widgets/rido_app_bar.dart';
+export 'src/widgets/driver_avatar.dart';
 export 'src/widgets/rido_avatar.dart';
 export 'src/widgets/rido_banner.dart';
 export 'src/widgets/rido_bottom_nav.dart';
