@@ -167,6 +167,15 @@ export interface DriverBase {
   readonly ridesCount: number;
   readonly status: DriverStatus;
   readonly isOnline: boolean;
+  /** Profile photo riders see (stored file; the admin opens it at /files/<name>). */
+  readonly photoFile?: string | null;
+  readonly photoUpdatedAt?: string | null;
+  /** Live selfie from the approved Didit check (the reference photos are matched against). */
+  readonly selfieFile?: string | null;
+  /** A new photo with an unclear face match, waiting for an admin. */
+  readonly pendingPhotoFile?: string | null;
+  readonly photoMatchScore?: number | null;
+  readonly photoRejectReason?: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

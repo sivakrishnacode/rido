@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { DriverStatus, KycDocType, KycStatus } from "@/lib/types";
 
-import { reviewDocument, setDriverStatus, type ActionResult } from "../../actions";
+import { reviewDocument, reviewPhoto, setDriverStatus, type ActionResult } from "../../actions";
 
 function notify(res: ActionResult): boolean {
   if (res.ok) toast.success(res.message);
@@ -170,6 +170,90 @@ export function DocumentActions({
               </DialogClose>
               <Button type="submit" variant="destructive" disabled={!isReasonValid || isPending}>
                 {isPending && action === "REJECTED" ? <Loader2Icon className="animate-spin" /> : <XIcon />} Reject document
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/** Approve / reject a profile photo waiting for review (low face-match score) → POST /admin/drivers/:id/photo. */
+export function PhotoReviewActions({ driverId }: { driverId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const [action, setAction] = useState<"APPROVE" | "REJECT" | null>(null);
+  const [isRejectOpen, setRejectOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const isReasonValid = reason.trim().length >= 3 && reason.trim().length <= 200;
+
+  function review(isApproved: boolean) {
+    setAction(isApproved ? "APPROVE" : "REJECT");
+    startTransition(async () => {
+      const ok = notify(await reviewPhoto(driverId, isApproved, isApproved ? undefined : reason));
+      if (ok && !isApproved) {
+        setRejectOpen(false);
+        setReason("");
+      }
+      setAction(null);
+    });
+  }
+
+  return (
+    <div className="flex shrink-0 gap-2">
+      <Button
+        size="sm"
+        variant="outline"
+        className="border-success/30 text-success-text hover:bg-success-tint hover:text-success-text"
+        disabled={isPending}
+        onClick={() => review(true)}
+      >
+        {isPending && action === "APPROVE" ? <Loader2Icon className="animate-spin" /> : <CheckIcon />} Approve photo
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="border-error/30 text-error hover:bg-error-tint hover:text-error"
+        disabled={isPending}
+        onClick={() => setRejectOpen(true)}
+      >
+        <XIcon /> Reject
+      </Button>
+
+      <Dialog open={isRejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (isReasonValid) review(false);
+            }}
+            className="grid gap-4"
+          >
+            <DialogHeader>
+              <DialogTitle>Reject this photo?</DialogTitle>
+              <DialogDescription>The driver sees this reason in the app and takes a new photo.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2">
+              <Label htmlFor="photo-reason">Reason</Label>
+              <Textarea
+                id="photo-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="e.g. Face is not clearly visible, please retake in good light"
+                maxLength={200}
+                rows={3}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">{reason.trim().length}/200 · at least 3 characters</p>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" variant="destructive" disabled={!isReasonValid || isPending}>
+                {isPending && action === "REJECT" ? <Loader2Icon className="animate-spin" /> : <XIcon />} Reject photo
               </Button>
             </DialogFooter>
           </form>

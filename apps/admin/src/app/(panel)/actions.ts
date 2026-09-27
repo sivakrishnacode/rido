@@ -64,6 +64,16 @@ export async function reviewDocument(
   ));
 }
 
+export async function reviewPhoto(driverId: string, isApproved: boolean, reason?: string): Promise<ActionResult> {
+  const trimmed = reason?.trim();
+  if (!isApproved && (!trimmed || trimmed.length < 3)) return { ok: false, error: "Add a reason (at least 3 characters)" };
+  return plain(await run(
+    () => adminApi.reviewPhoto(driverId, isApproved, isApproved ? undefined : trimmed),
+    isApproved ? "Photo approved" : "Photo rejected",
+    [`/drivers/${driverId}`, "/drivers"],
+  ));
+}
+
 export async function updatePlan(planId: string, data: { price?: number; isActive?: boolean }): Promise<ActionResult> {
   if (data.price !== undefined && (!Number.isInteger(data.price) || data.price < 0 || data.price > 100_000)) {
     return { ok: false, error: "Price must be a whole number between ₹0 and ₹1,00,000" };

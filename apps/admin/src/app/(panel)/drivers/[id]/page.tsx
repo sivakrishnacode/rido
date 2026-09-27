@@ -5,7 +5,7 @@ import Link from "next/link";
 import { EmptyState, Field, PageHeader } from "@/components/common/page";
 import { KycProgress, OnlineDot, PlateBadge, StatusBadge } from "@/components/common/status";
 import { TripRouteCell } from "@/components/common/trip-bits";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { adminApi, docFileHref } from "@/lib/api";
@@ -24,7 +24,7 @@ import {
 } from "@/lib/format";
 import { KYC_DOC_TYPES, type KycDocument } from "@/lib/types";
 
-import { DocumentActions, DriverStatusActions } from "./driver-actions";
+import { DocumentActions, DriverStatusActions, PhotoReviewActions } from "./driver-actions";
 
 export async function generateMetadata({ params }: PageProps<"/drivers/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -61,6 +61,7 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
         title={
           <span className="flex items-center gap-3">
             <Avatar className="size-12">
+              {d.photoFile && <AvatarImage src={docFileHref(d.photoFile)} alt={`Photo of ${name}`} className="object-cover" />}
               <AvatarFallback className="bg-coral-50 text-base font-semibold text-coral-600">{initials(d.user.name)}</AvatarFallback>
             </Avatar>
             <span className="min-w-0">
@@ -188,6 +189,35 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
             </dl>
           ) : (
             <p className="text-sm text-muted-foreground">The driver hasn&apos;t started the identity check yet.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-4 gap-0">
+        <CardHeader className="border-b">
+          <CardTitle className="font-semibold">Profile photo</CardTitle>
+          <CardDescription>
+            Riders see the approved photo. The driver takes it in the app; it is matched to the live selfie from the
+            identity check. A clear match goes live at once; an unclear one waits here.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap items-start gap-6">
+            <PhotoTile label="Shown to riders" file={d.photoFile} note={d.photoUpdatedAt ? `Since ${formatDateTime(d.photoUpdatedAt)}` : "None yet"} />
+            <PhotoTile label="Verified selfie (Didit)" file={d.selfieFile} note="Reference face, never shown to riders" />
+            {d.pendingPhotoFile && (
+              <div className="flex flex-col gap-3">
+                <PhotoTile
+                  label="Waiting for review"
+                  file={d.pendingPhotoFile}
+                  note={d.photoMatchScore != null ? `Face match ${d.photoMatchScore.toFixed(0)}%` : "Face match not run"}
+                />
+                <PhotoReviewActions driverId={d.id} />
+              </div>
+            )}
+          </div>
+          {d.photoRejectReason && !d.pendingPhotoFile && (
+            <p className="mt-3 text-xs text-error">Last photo rejected: {d.photoRejectReason}</p>
           )}
         </CardContent>
       </Card>
@@ -359,5 +389,27 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
         )}
       </Card>
     </>
+  );
+}
+
+/** A stored photo (opened through the admin's /files proxy), or an empty square. */
+function PhotoTile({ label, file, note }: { label: string; file?: string | null; note: string }) {
+  return (
+    <figure className="w-36">
+      {file ? (
+        <a href={docFileHref(file)} target="_blank" rel="noreferrer noopener">
+          {/* eslint-disable-next-line @next/next/no-img-element -- private, token-proxied file; next/image can't optimise it */}
+          <img src={docFileHref(file)} alt={label} className="size-36 rounded-xl border object-cover" />
+        </a>
+      ) : (
+        <div className="flex size-36 items-center justify-center rounded-xl border border-dashed text-xs text-muted-foreground">
+          No photo
+        </div>
+      )}
+      <figcaption className="mt-1.5">
+        <span className="block text-xs font-medium text-navy-900">{label}</span>
+        <span className="block text-xs text-muted-foreground">{note}</span>
+      </figcaption>
+    </figure>
   );
 }

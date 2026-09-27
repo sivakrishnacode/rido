@@ -189,6 +189,9 @@ export const adminApi = {
       body: { status, reason },
     }),
 
+  reviewPhoto: (id: string, isApproved: boolean, reason?: string) =>
+    apiFetch<Driver>(`/admin/drivers/${encodeURIComponent(id)}/photo`, { method: "POST", body: { isApproved, reason } }),
+
   trips: (q: ListQuery = {}) => apiFetch<Paged<Trip>>("/admin/trips", { query: listQuery(q) }),
   trip: (id: string) => orNotFound(apiFetch<TripDetail>(`/admin/trips/${encodeURIComponent(id)}`)),
 
