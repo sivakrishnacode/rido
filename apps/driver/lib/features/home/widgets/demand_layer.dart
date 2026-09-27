@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
 import 'package:rido_data/rido_data.dart';
@@ -8,6 +10,12 @@ import 'package:rido_ui/rido_ui.dart';
 const double kServiceAreaMaxZoom = 12.8;
 const double kHotspotMinZoom = 10.5;
 const double kNestedMinZoom = 13.2;
+
+/// "High demand" labels only from street level: zoomed out to the whole city they pile up on each other.
+const double kLabelMinZoom = 12.5;
+
+/// Room one label needs on screen (logical px); a label closer than this to a shown one is left out.
+const Size _labelBox = Size(180, 44);
 
 const _high = Color(0xFFE64A19); // coral-deep
 const _busy = Color(0xFFF59E0B); // amber
@@ -28,8 +36,8 @@ List<MapPolygon> demandPolygons(DemandMap? map) {
       MapPolygon(
         points: ring,
         fillColor: RidoColors.navy900.withValues(alpha: 0.04),
-        strokeColor: RidoColors.navy900.withValues(alpha: 0.7),
-        strokeWidth: 2.5,
+        strokeColor: RidoColors.navy900.withValues(alpha: 0.4),
+        strokeWidth: 1,
         maxZoom: kServiceAreaMaxZoom,
       ),
     for (final h in map.hotspots) ...[
@@ -54,12 +62,23 @@ List<MapPolygon> demandPolygons(DemandMap? map) {
   ];
 }
 
-/// "High demand" (or the surge, e.g. "1.2x") on the hottest hexes.
-List<Marker> demandLabels(DemandMap? map) {
-  if (map == null) return const [];
+/// "High demand" (or the surge, e.g. "1.2x") on the hottest hexes at [zoom] (the map camera's): none below
+/// [kLabelMinZoom], and a label that would overlap one already placed is dropped (hottest first, surge first).
+List<Marker> demandLabels(DemandMap? map, {double zoom = 14.6}) {
+  if (map == null || zoom < kLabelMinZoom) return const [];
+  final hot = map.hotspots.where((h) => h.level == HotspotLevel.high).toList()
+    ..sort((a, b) => b.multiplier.compareTo(a.multiplier));
+  final placed = <Offset>[];
+  for (final h in hot) {
+    if (placed.length == 4) break;
+    final p = _world(h.centre, zoom);
+    final clear = placed.every((q) => (p.dx - q.dx).abs() >= _labelBox.width || (p.dy - q.dy).abs() >= _labelBox.height);
+    if (clear) placed.add(p);
+  }
   return [
-    for (final h in map.hotspots.where((h) => h.level == HotspotLevel.high).take(4))
-      Marker(
+    for (final h in hot)
+      if (placed.contains(_world(h.centre, zoom)))
+        Marker(
         point: h.centre,
         width: 200,
         height: 40,
@@ -68,4 +87,11 @@ List<Marker> demandLabels(DemandMap? map) {
         ),
       ),
   ];
+}
+
+/// Web-Mercator position in logical px (256 px world at zoom 0, as Google and flutter_map use).
+Offset _world(LatLng p, double zoom) {
+  final scale = 256 * math.pow(2, zoom).toDouble();
+  final s = math.sin(p.latitude * math.pi / 180);
+  return Offset((p.longitude + 180) / 360 * scale, (0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi)) * scale);
 }

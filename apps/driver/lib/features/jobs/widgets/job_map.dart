@@ -28,6 +28,7 @@ class LiveVehicleMap extends ConsumerWidget {
     this.mapPadding = EdgeInsets.zero,
     this.polygons = const [],
     this.labels = const [],
+    this.onZoom,
   });
 
   final MapVehicleType vehicleType;
@@ -55,6 +56,9 @@ class LiveVehicleMap extends ConsumerWidget {
 
   /// Extra labels on the map (e.g. "High demand" on the hottest hexes).
   final List<Marker> labels;
+
+  /// The camera's zoom whenever it moves (e.g. to place zoom-dependent labels).
+  final ValueChanged<double>? onZoom;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -85,6 +89,7 @@ class LiveVehicleMap extends ConsumerWidget {
             ? const []
             : [MapVehicle(position: pos, type: vehicleType, heading: heading, large: true)],
         polygons: polygons,
+        onPositionChanged: onZoom == null ? null : (camera, _) => onZoom!(camera.zoom),
         extraMarkers: [
           ...labels,
           if (gpsLost) Marker(point: pos, width: 128, height: 128, child: const _GpsLostMarker()),

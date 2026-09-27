@@ -49,6 +49,9 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
   /// Height of the panels over the map (Google logo padding).
   double _panelHeight = 0;
 
+  /// Map zoom in half steps: the "High demand" labels follow it without rebuilding Home on every camera frame.
+  final _labelZoom = ValueNotifier<double>(14.5);
+
   HomeVariant get _v => widget.variant;
   bool get _live => _v == HomeVariant.live;
   bool get _showcase => widget.showcase || !_live;
@@ -84,6 +87,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
   @override
   void dispose() {
     _lifecycle?.dispose();
+    _labelZoom.dispose();
     super.dispose();
   }
 
@@ -358,17 +362,22 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     // Live: where orders come from (demand hexes, nested hexes when zoomed in) and the service area when zoomed
     // out; hidden during a job.
     final demand = _api && job == null ? ref.watch(demandMapProvider) : null;
-    final map = LiveVehicleMap(
-      key: ValueKey('home-map-$quiet'),
-      polygons: demandPolygons(demand),
-      labels: gpsLost ? const [] : demandLabels(demand),
-      vehicleType: vehicleType,
-      fixedPosition: _showcase ? Seed.driverHome : null,
-      pulse: online && job == null,
-      gpsLost: gpsLost,
-      zones: zones,
-      zoom: quiet ? 13.4 : 14.6,
-      mapPadding: EdgeInsets.only(bottom: _panelHeight),
+    final polygons = demandPolygons(demand);
+    final map = ValueListenableBuilder<double>(
+      valueListenable: _labelZoom,
+      builder: (context, labelZoom, _) => LiveVehicleMap(
+        key: ValueKey('home-map-$quiet'),
+        polygons: polygons,
+        labels: gpsLost ? const [] : demandLabels(demand, zoom: labelZoom),
+        onZoom: demand == null ? null : (z) => _labelZoom.value = (z * 2).floor() / 2,
+        vehicleType: vehicleType,
+        fixedPosition: _showcase ? Seed.driverHome : null,
+        pulse: online && job == null,
+        gpsLost: gpsLost,
+        zones: zones,
+        zoom: quiet ? 13.4 : 14.6,
+        mapPadding: EdgeInsets.only(bottom: _panelHeight),
+      ),
     );
 
     // ---------------------------------------------------------- bottom panel

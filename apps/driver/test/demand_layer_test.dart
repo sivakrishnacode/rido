@@ -41,6 +41,22 @@ void main() {
     expect(labels.single.point, const LatLng(11.05, 76.95));
   });
 
+  test('labels: none zoomed out to the city; neighbouring ones never overlap', () {
+    Hotspot high(String id, LatLng c, double m) => Hotspot(
+        cell: id, level: HotspotLevel.high, score: 1, multiplier: m, centre: c, boundary: _ring);
+    // Two hexes ~900 m apart (res 8 neighbours) and one across town.
+    final map = DemandMap(at: DateTime(2026, 9, 26), serviceArea: const [], hotspots: [
+      high('a', const LatLng(11.016, 76.955), 1.0),
+      high('b', const LatLng(11.016, 76.963), 1.3),
+      high('c', const LatLng(11.06, 77.03), 1.0),
+    ]);
+    expect(demandLabels(map, zoom: 11.5), isEmpty, reason: 'whole-city view');
+    final city = demandLabels(map, zoom: 13);
+    expect(city.map((m) => m.point), [const LatLng(11.016, 76.963), const LatLng(11.06, 77.03)],
+        reason: 'the surging one of the close pair wins');
+    expect(demandLabels(map, zoom: 16), hasLength(3), reason: 'far enough apart once zoomed in');
+  });
+
   test('no data yet: nothing drawn', () {
     expect(demandPolygons(null), isEmpty);
     expect(demandLabels(null), isEmpty);
