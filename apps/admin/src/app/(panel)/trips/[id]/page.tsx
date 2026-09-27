@@ -117,6 +117,17 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                   "–"
                 )}
                 <span className="block text-xs text-muted-foreground">{formatPhone(t.passenger?.phone)}</span>
+                {t.riderName && (
+                  <span className="mt-1 block text-xs text-navy-900">
+                    Booked for <span className="font-medium">{t.riderName}</span> · {formatPhone(t.riderPhone)}
+                    {t.riderIsWoman ? " (woman)" : ""}
+                  </span>
+                )}
+                {t.womenDriver && t.womenDriver !== "NONE" && (
+                  <span className="mt-1 inline-block rounded-full bg-pink-50 px-2 py-0.5 text-[11px] font-medium text-pink-700">
+                    Butterfly · {t.womenDriver === "ONLY" ? "women drivers only" : "women preferred"}
+                  </span>
+                )}
               </Field>
               <Field label="Driver">
                 {t.driver ? (
@@ -158,7 +169,13 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
               </p>
             )}
             {t.cancelReason && (
-              <p className="rounded-lg bg-error-tint px-3 py-2 text-sm text-error">Cancel reason: {t.cancelReason}</p>
+              <p className="rounded-lg bg-error-tint px-3 py-2 text-sm text-error">
+                Cancel reason: {t.cancelReason}
+                {t.cancelReason === "Rider is not a woman" &&
+                  (t.riderName
+                    ? " (reported by the driver; 2 reports turn off Butterfly-for-others on this account)"
+                    : " (reported by the driver)")}
+              </p>
             )}
           </CardContent>
         </Card>

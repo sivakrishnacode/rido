@@ -234,6 +234,12 @@ export interface TripBase {
   readonly payer: ParcelPayer | null;
   readonly rating: number | null;
   readonly cancelReason: string | null;
+  /** Butterfly: women drivers first (PREFERRED) or only (ONLY). */
+  readonly womenDriver?: "NONE" | "PREFERRED" | "ONLY";
+  /** Booked for someone else ("Who's riding?"): the driver met and called this person. */
+  readonly riderName?: string | null;
+  readonly riderPhone?: string | null;
+  readonly riderIsWoman?: boolean;
   /** Driver's distance from the pickup at "Arrived", and the reason given when outside the radius. */
   readonly arrivedDistanceM?: number | null;
   readonly arrivedFarReason?: string | null;
