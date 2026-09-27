@@ -74,7 +74,9 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
   }
 
   Future<void> _cancel() async {
-    final reason = await showDialog<String>(context: context, builder: (_) => const _CancelReasonDialog(reasons: _cancelReasons));
+    // Butterfly (women only): the rider at the pickup may turn out not to be a woman.
+    final reasons = [if (_job.isWomenOnly) kRiderNotWoman, ..._cancelReasons];
+    final reason = await showDialog<String>(context: context, builder: (_) => _CancelReasonDialog(reasons: reasons));
     if (reason == null || !mounted) return;
     if (_live) {
       try {

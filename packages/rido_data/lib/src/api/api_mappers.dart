@@ -198,6 +198,7 @@ RideRequest rideRequestFromOffer(Json offer) {
     customerPhone: _s(passenger['phone']),
     isCustomerVerified: passenger['isVerified'] == true,
     isWomenOnly: (offer['trip'] as Map)['womenDriver'] == 'ONLY',
+    bookedBy: passenger['bookedBy'] is String ? passenger['bookedBy'] as String : null,
     parcel: trip.parcel,
     otp: '',
   );
@@ -218,11 +219,13 @@ RideRequest rideRequestFromTrip(Json j) {
     pickupEtaMin: 0,
     tripKm: trip.distanceKm,
     tripMin: trip.durationMin,
-    customerName: _s(passenger['name'], 'Rido customer'),
+    // Booked for someone else: the rider is who the driver meets and calls.
+    customerName: j['riderName'] is String ? j['riderName'] as String : _s(passenger['name'], 'Rido customer'),
     customerRating: 4.8,
-    customerPhone: _s(passenger['phone']),
-    isCustomerVerified: passenger['identityStatus'] == 'APPROVED',
+    customerPhone: j['riderPhone'] is String ? j['riderPhone'] as String : _s(passenger['phone']),
+    isCustomerVerified: j['riderName'] is! String && passenger['identityStatus'] == 'APPROVED',
     isWomenOnly: j['womenDriver'] == 'ONLY',
+    bookedBy: j['riderName'] is String ? _s(passenger['name'], 'Rido customer') : null,
     parcel: trip.parcel,
     otp: '',
   );

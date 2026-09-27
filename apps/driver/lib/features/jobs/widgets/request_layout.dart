@@ -153,7 +153,14 @@ class RequestRoute extends StatelessWidget {
 
 /// Grey card with the passenger's initial, name and rating.
 class RequestCustomerCard extends StatelessWidget {
-  const RequestCustomerCard({super.key, required this.name, required this.rating, this.isVerified = false, this.isWomenOnly = false});
+  const RequestCustomerCard({
+    super.key,
+    required this.name,
+    required this.rating,
+    this.isVerified = false,
+    this.isWomenOnly = false,
+    this.bookedBy,
+  });
   final String name;
   final double rating;
 
@@ -163,6 +170,9 @@ class RequestCustomerCard extends StatelessWidget {
   /// Butterfly "women only" ride: the rider asked for a woman driver.
   final bool isWomenOnly;
 
+  /// Booked for someone else: "Booked by Ravi" under the rider's name.
+  final String? bookedBy;
+
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(RidoSpacing.l),
@@ -170,7 +180,14 @@ class RequestCustomerCard extends StatelessWidget {
         child: Row(children: [
           RidoAvatar(initials: name.substring(0, 1).toUpperCase(), size: 40),
           const SizedBox(width: RidoSpacing.l),
-          Flexible(child: Text(name, style: context.type.h2, overflow: TextOverflow.ellipsis)),
+          Flexible(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text(name, style: context.type.h2, overflow: TextOverflow.ellipsis),
+              if (bookedBy != null)
+                Text('Booked by $bookedBy',
+                    style: context.type.caption.copyWith(color: RidoColors.navy500), overflow: TextOverflow.ellipsis),
+            ]),
+          ),
           if (isVerified) ...[
             const SizedBox(width: RidoSpacing.s),
             Semantics(

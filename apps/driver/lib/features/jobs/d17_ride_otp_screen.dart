@@ -75,13 +75,45 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
     if (mounted) context.pushReplacement(Routes.trip);
   }
 
+  Future<void> _cancelNotWoman() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => RidoDialog(
+        title: 'Cancel this Butterfly ride?',
+        message: "This ride is for women only. If the rider isn't a woman you can cancel. It won't count against you.",
+        icon: Symbols.cancel_rounded,
+        destructive: true,
+        actions: [
+          RidoButton.danger(label: 'Cancel ride', onPressed: () => Navigator.of(context).pop(true)),
+          const SizedBox(height: RidoSpacing.xs),
+          RidoButton.text(label: 'Keep ride', expand: true, onPressed: () => Navigator.of(context).pop(false)),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(driverSessionProvider.notifier).cancelJob(reason: kRiderNotWoman);
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      showRidoSnack(context, userMessage(e));
+      return;
+    }
+    if (!mounted) return;
+    showRidoSnack(context, 'Ride cancelled · $kRiderNotWoman');
+    context.go(Routes.home);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.type;
     return OtpStepScaffold(
       appBarTitle: 'Start ride',
       title: 'Ask ${_job.customerName} for the 4-digit OTP',
-      subtitle: 'She can see it in her Rido app.',
+      subtitle: _job.bookedBy != null
+          ? '${_job.bookedBy} booked this ride and has the OTP in their Rido app.'
+          : 'It is in their Rido app.',
       otp: OtpInput(
         length: 4,
         boxSize: 80,
@@ -95,7 +127,8 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
         }),
       ),
       error: _errorText,
-      extra: Container(
+      extra: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Container(
         padding: const EdgeInsets.all(RidoSpacing.l),
         decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.cardRadius),
         child: Row(children: [
@@ -110,7 +143,13 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
             ]),
           ),
         ]),
-      ),
+        ),
+        // Butterfly (women only): the driver may cancel, with no penalty, if the rider is not a woman.
+        if (_job.isWomenOnly && !widget.showcase) ...[
+          const SizedBox(height: RidoSpacing.s),
+          RidoButton.text(label: "Rider isn't a woman? Cancel ride", onPressed: _busy ? null : _cancelNotWoman),
+        ],
+      ]),
       buttonLabel: 'Start ride',
       busy: _busy,
       onSubmit: _code.length == 4 ? _start : null,

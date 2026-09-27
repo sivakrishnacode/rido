@@ -249,6 +249,7 @@ class RideRequest {
     this.customerPhone = '',
     this.isCustomerVerified = false,
     this.isWomenOnly = false,
+    this.bookedBy,
     this.parcel,
     this.otp = '4829',
   });
@@ -274,6 +275,9 @@ class RideRequest {
 
   /// Butterfly "women only": a woman rider asked for women drivers only (a butterfly on the request card).
   final bool isWomenOnly;
+
+  /// Booked for someone else: the account holder's name ([customerName] / [customerPhone] are the rider's).
+  final String? bookedBy;
   final ParcelDetails? parcel;
   final String otp;
 
@@ -295,6 +299,7 @@ class RideRequest {
     String? customerPhone,
     bool? isCustomerVerified,
     bool? isWomenOnly,
+    String? bookedBy,
     ParcelDetails? parcel,
     String? otp,
   }) =>
@@ -314,6 +319,7 @@ class RideRequest {
         customerPhone: customerPhone ?? this.customerPhone,
         isCustomerVerified: isCustomerVerified ?? this.isCustomerVerified,
         isWomenOnly: isWomenOnly ?? this.isWomenOnly,
+        bookedBy: bookedBy ?? this.bookedBy,
         parcel: parcel ?? this.parcel,
         otp: otp ?? this.otp,
       );

@@ -105,6 +105,7 @@ class _D15RideRequestScreenState extends ConsumerState<D15RideRequestScreen> {
             rating: _r.customerRating,
             isVerified: _r.isCustomerVerified,
             isWomenOnly: _r.isWomenOnly,
+            bookedBy: _r.bookedBy,
           ),
         ],
         onAccept: _accept,

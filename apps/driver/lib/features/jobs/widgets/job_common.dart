@@ -4,6 +4,10 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../../router/routes.dart';
 
+/// Cancel reason on a Butterfly (women only) ride when the person at the pickup is not a woman. The API counts these
+/// on rides booked for someone else and switches Butterfly-for-others off for accounts with repeat reports.
+const kRiderNotWoman = 'Rider is not a woman';
+
 /// Pops the current screen, or goes Home when it was opened directly (deep link / test).
 void popOrHome(BuildContext context) {
   if (context.canPop()) {

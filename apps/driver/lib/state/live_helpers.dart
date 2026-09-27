@@ -81,8 +81,14 @@ RideRequest rideRequestFromUpdate(LiveTripUpdate update, {RideRequest? offer}) {
   final trip = update.trip;
   final passenger = update.json['passenger'];
   final p = passenger is Map ? passenger : const {};
-  final name = p['name'] is String && (p['name'] as String).isNotEmpty ? p['name'] as String : null;
-  final phone = p['phone'] is String && (p['phone'] as String).isNotEmpty ? p['phone'] as String : null;
+  final account = p['name'] is String && (p['name'] as String).isNotEmpty ? p['name'] as String : null;
+  // Booked for someone else: the driver meets and calls the rider; the account holder is "booked by".
+  final riderName = update.json['riderName'] is String ? update.json['riderName'] as String : null;
+  final riderPhone = update.json['riderPhone'] is String ? update.json['riderPhone'] as String : null;
+  final name = riderName ?? account;
+  final phone = riderName != null
+      ? riderPhone
+      : (p['phone'] is String && (p['phone'] as String).isNotEmpty ? p['phone'] as String : null);
   return RideRequest(
     id: trip.id,
     kind: trip.kind,
@@ -98,6 +104,7 @@ RideRequest rideRequestFromUpdate(LiveTripUpdate update, {RideRequest? offer}) {
     customerRating: offer?.customerRating ?? 4.8,
     customerPhone: phone ?? offer?.customerPhone ?? '',
     isWomenOnly: update.json['womenDriver'] == 'ONLY' || (offer?.isWomenOnly ?? false),
+    bookedBy: riderName != null ? (account ?? offer?.bookedBy) : offer?.bookedBy,
     parcel: trip.parcel ?? offer?.parcel,
     // The driver never sees the ride OTP: the passenger reads it out and the API checks it.
     otp: '',
