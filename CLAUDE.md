@@ -110,7 +110,7 @@ subscriptions, support, trips, users.
 npm install && npm run get            # deps + flutter pub get + prisma generate
 npm run check                         # analyze + test everything (Turborepo, cached)
 npm run passenger | npm run driver    # flutter run
-./scripts/build_apks.sh [passenger|driver] [--split]   # release APKs → dist/
+./scripts/build_apks.sh [passenger|driver]   # one release APK per app → dist/
 
 docker compose up -d                  # full backend stack: API :3000, admin :3001
 docker compose up -d postgres redis   # DBs only, then:

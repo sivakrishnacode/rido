@@ -74,7 +74,7 @@ turbo.json            task pipeline
 | `npm test` | Flutter tests, API unit tests, admin unit tests (Vitest) |
 | `npm run check` | analyze + test (cached by Turborepo) |
 | `npm run build:apk` | Release APKs → `dist/rido-passenger.apk`, `dist/rido-driver.apk` |
-| `./scripts/build_apks.sh [passenger\|driver] [--split]` | Same without Node; one app or both; `--split` = per-CPU APKs (~20 MB); checks the map key is in the APK |
+| `./scripts/build_apks.sh [passenger\|driver]` | Same without Node; one app or both; always **one APK per app** (`dist/rido-passenger.apk`, `dist/rido-driver.apk`, arm + arm64, old ones deleted); checks the map key is in the APK |
 | `npm run passenger` / `npm run driver` | `flutter run` for that app |
 | `npm run start:dev -w @rido/api` | API with watch mode (needs Postgres + Redis) |
 | `npm run test:e2e -w @rido/api` | API end-to-end tests on an isolated `rido_test` database + Redis DB 1 (migrated and seeded each run; dev data untouched) |
