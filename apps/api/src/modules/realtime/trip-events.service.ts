@@ -19,7 +19,8 @@ export class TripEventsService {
     this.server?.to(`driver:${driverId}`).emit(event, payload);
   }
 
-  toTrip(tripId: string, event: string, payload: unknown): void {
-    this.server?.to(`trip:${tripId}`).emit(event, payload);
+  /** To the trip room and, when given, the driver's own room too (one broadcast: a socket in both gets it once). */
+  toTrip(tripId: string, event: string, payload: unknown, driverId?: string | null): void {
+    this.server?.to(driverId ? [`trip:${tripId}`, `driver:${driverId}`] : `trip:${tripId}`).emit(event, payload);
   }
 }

@@ -307,7 +307,8 @@ export class TripsService {
   /** Emits the fresh trip to both sides (socket + push) and returns it. [by] caused the change. */
   private async publish(tripId: string, by: 'PASSENGER' | 'DRIVER'): Promise<Trip> {
     const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE });
-    this.events.toTrip(tripId, 'trip.updated', { ...trip, otp: '' });
+    // Also the driver's own room: a cancel must reach the driver even if their trip-room join was lost.
+    this.events.toTrip(tripId, 'trip.updated', { ...trip, otp: '' }, trip.driverId);
     this.events.toUser(trip.passengerId, 'trip.updated', trip);
     this.notifier.tripChanged(trip as TripWithPeople, by);
     return trip;
