@@ -183,6 +183,10 @@ Never commit real `.env` files.
     adds one (≤ 3; stored in `Trip.alsoKinds` + `alsoFares`), searches again at once without cutting an open offer and
     restarts the search time. A driver of an added vehicle sees and accepts the trip as their vehicle at its fare
     (`asVehicle`); accept rewrites `vehicleKind` / `fare` / `fareTotal`.
+    Passenger app (P-12 Finding your driver): after 15 s of searching it asks for alternatives every 10 s and shows
+    "Taking a while? Add another vehicle" (vehicle, drivers nearby, km, fare, Add); the title becomes "Finding a nearby
+    bike or auto…". On assignment the ride takes the trip's vehicle and fare from the server. Rides only for now
+    (parcels have the API but no UI yet).
   - Trips include `driver.user` and `passenger` (name, phone) for both sides; the **OTP is hidden from drivers** in
     offers, trip reads and history.
   - `trip.offer` payload: `{ trip, passenger: {name, phone}, pickupKm, pickupEtaMin, expiresInSeconds }`.

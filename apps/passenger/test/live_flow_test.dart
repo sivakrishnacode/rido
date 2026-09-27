@@ -62,15 +62,22 @@ class _FakeTrips extends LiveTrips {
   TripKind kind = TripKind.ride;
   late LiveTripUpdate last;
 
-  LiveTripUpdate update(String status, {DriverProfile? driver, String? cancelReason}) {
+  LiveTripUpdate update(
+    String status, {
+    DriverProfile? driver,
+    String? cancelReason,
+    VehicleKind? vehicle,
+    FareQuote quote = _quote,
+    List<String> also = const [],
+  }) {
     final trip = Trip(
       id: 'trip-1',
       kind: kind,
-      vehicle: kind == TripKind.parcel ? VehicleKind.threeWheeler : VehicleKind.bike,
+      vehicle: vehicle ?? (kind == TripKind.parcel ? VehicleKind.threeWheeler : VehicleKind.bike),
       pickup: Seed.gandhipuram,
       drop: Seed.brookefields,
-      fare: 49,
-      quote: _quote,
+      fare: quote.total,
+      quote: quote,
       status: TripStatus.searching,
       startedAt: DateTime(2026, 9, 26, 10),
       driver: driver,
@@ -79,7 +86,23 @@ class _FakeTrips extends LiveTrips {
       otp: '5821',
       parcel: kind == TripKind.parcel ? kEmptyParcelDetails.copyWith(receiverName: 'Meena', deliveryOtp: '5821') : null,
     );
-    return last = LiveTripUpdate(trip, status, {'id': 'trip-1', 'status': status, 'cancelReason': ?cancelReason});
+    return last = LiveTripUpdate(trip, status, {
+      'id': 'trip-1',
+      'status': status,
+      'cancelReason': ?cancelReason,
+      'alsoKinds': also,
+    });
+  }
+
+  List<VehicleAlternative> alternativesResult = const [];
+
+  @override
+  Future<List<VehicleAlternative>> alternatives(String tripId) async => alternativesResult;
+
+  @override
+  Future<LiveTripUpdate> addVehicle(String tripId, VehicleKind vehicle) async {
+    calls.add('also:${vehicle.name}');
+    return update('SEARCHING', also: [enumToApi(vehicle)]);
   }
 
   void push(LiveTripUpdate u) => _updates.add(u);
@@ -226,6 +249,38 @@ void main() {
     trips.push(trips.update('DRIVER_ASSIGNED', driver: _driver));
     await _settle();
     expect(ride().phase, RidePhase.assigned);
+  });
+
+  test('"Book any": a slow search adds Auto and an auto driver takes it at the auto fare', () async {
+    const autoQuote = FareQuote(
+      vehicle: Seed.auto,
+      distanceKm: 6.1,
+      durationMin: 20,
+      base: 25,
+      distanceCharge: 54,
+      timeCharge: 6,
+      subtotal: 85,
+      multiplier: 1.1,
+      peakCharge: 8,
+      total: 93,
+    );
+    await flow().book();
+    trips.alternativesResult = const [
+      VehicleAlternative(vehicle: VehicleKind.auto, quote: autoQuote, driversNearby: 2, nearestKm: 1.4),
+    ];
+    await flow().loadAlternatives();
+    expect(ride().alternatives.single.vehicle, VehicleKind.auto);
+
+    expect(await flow().addVehicle(VehicleKind.auto), isNull);
+    expect(trips.calls.last, 'also:auto');
+    expect(ride().alsoVehicles, [VehicleKind.auto]);
+    expect(ride().alternatives, isEmpty, reason: 'an added vehicle is no longer offered');
+
+    trips.push(trips.update('DRIVER_ASSIGNED', driver: _driver, vehicle: VehicleKind.auto, quote: autoQuote, also: ['AUTO']));
+    await _settle();
+    expect(ride().phase, RidePhase.assigned);
+    expect(ride().vehicle, VehicleKind.auto);
+    expect(ride().quote.total, 93, reason: 'the fare of the vehicle that came');
   });
 
   test('no drivers ends the search', () async {

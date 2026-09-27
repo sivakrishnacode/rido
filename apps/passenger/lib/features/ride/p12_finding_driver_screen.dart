@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,9 @@ import '../../state/ride_flow.dart';
 
 /// P-12 Finding your driver: coral pulse at the pickup, progress bar, trip summary and
 /// "Cancel request". The ride controller's timer moves to P-13 (or S-01 when no drivers).
+///
+/// Live, "Book any" (like Namma Yatra): after [_offerAlternativesAfter] of searching, other vehicles with drivers in
+/// range are offered with their fare; adding one lets its drivers take the ride too.
 class P12FindingDriverScreen extends ConsumerStatefulWidget {
   const P12FindingDriverScreen({super.key, this.showcase = false});
 
@@ -21,15 +26,39 @@ class P12FindingDriverScreen extends ConsumerStatefulWidget {
   ConsumerState<P12FindingDriverScreen> createState() => _P12FindingDriverScreenState();
 }
 
+const _offerAlternativesAfter = Duration(seconds: 15);
+const _refreshAlternativesEvery = Duration(seconds: 10);
+
 class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen> {
+  Timer? _alternatives;
+
   @override
   void initState() {
     super.initState();
     if (widget.showcase) return;
+    if (ref.read(isLiveApiProvider)) {
+      _alternatives = Timer(_offerAlternativesAfter, () {
+        final flow = ref.read(rideFlowProvider.notifier);
+        flow.loadAlternatives();
+        _alternatives = Timer.periodic(_refreshAlternativesEvery, (_) => flow.loadAlternatives());
+      });
+    }
     // Opened after the search already finished (e.g. from the Home banner).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _route(ref.read(rideFlowProvider).phase);
     });
+  }
+
+  @override
+  void dispose() {
+    _alternatives?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _add(VehicleKind v) async {
+    final error = await ref.read(rideFlowProvider.notifier).addVehicle(v);
+    if (!mounted) return;
+    showRidoSnack(context, error ?? 'Also looking for ${Seed.vehicle(v).name.toLowerCase()} now', success: error == null);
   }
 
   void _route(RidePhase phase) {
@@ -118,13 +147,15 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Finding a nearby ${q.vehicle.name.toLowerCase()}…',
+                                'Finding a nearby ${_vehicleNames([state.vehicle, ...state.alsoVehicles])}…',
                                 style: t.h1,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                'Usually takes under a minute',
+                                state.alsoVehicles.isEmpty
+                                    ? 'Usually takes under a minute'
+                                    : 'The first to accept takes it, at their fare',
                                 style: t.bodySmall.copyWith(color: RidoColors.navy700),
                               ),
                             ],
@@ -141,6 +172,10 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
                         backgroundColor: RidoColors.coral50,
                       ),
                     ),
+                    if (state.alternatives.isNotEmpty) ...[
+                      const SizedBox(height: RidoSpacing.l),
+                      _BookAnyCard(alternatives: state.alternatives, busy: state.busy, onAdd: _add),
+                    ],
                     const SizedBox(height: RidoSpacing.l),
                     RidoCard(
                       child: Row(
@@ -178,6 +213,68 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "bike", "bike or auto", "bike, auto or cab".
+String _vehicleNames(List<VehicleKind> kinds) {
+  final names = [for (final k in kinds) Seed.vehicle(k).name.toLowerCase()];
+  if (names.length == 1) return names.single;
+  return '${names.sublist(0, names.length - 1).join(', ')} or ${names.last}';
+}
+
+/// "Taking a while? Add another vehicle": each with drivers nearby, its fare and Add.
+class _BookAnyCard extends StatelessWidget {
+  const _BookAnyCard({required this.alternatives, required this.busy, required this.onAdd});
+
+  final List<VehicleAlternative> alternatives;
+  final bool busy;
+  final ValueChanged<VehicleKind> onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return RidoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Taking a while? Add another vehicle', style: t.bodySemibold),
+          const SizedBox(height: RidoSpacing.xs),
+          Text('Drivers of any vehicle you add can take your ride.', style: t.caption),
+          for (final a in alternatives.take(2)) ...[
+            const SizedBox(height: RidoSpacing.m),
+            Row(
+              children: [
+                Icon(a.vehicle.icon, color: RidoColors.coral500, fill: 1, size: 28),
+                const SizedBox(width: RidoSpacing.m),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(Seed.vehicle(a.vehicle).name, style: t.bodySemibold),
+                      Text(
+                        '${a.driversNearby == 1 ? '1 driver' : '${a.driversNearby} drivers'} nearby · '
+                        '${a.nearestKm.toStringAsFixed(1)} km',
+                        style: t.caption,
+                      ),
+                    ],
+                  ),
+                ),
+                Text(formatInr(a.quote.total), style: RidoTextStyles.tabular(t.bodySemibold)),
+                const SizedBox(width: RidoSpacing.m),
+                RidoButton(
+                  label: 'Add',
+                  expand: false,
+                  height: 40,
+                  variant: RidoButtonVariant.secondary,
+                  onPressed: busy ? null : () => onAdd(a.vehicle),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

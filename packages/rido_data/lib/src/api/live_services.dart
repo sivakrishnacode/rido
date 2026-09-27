@@ -24,6 +24,29 @@ class LiveTripUpdate {
   final Json json;
 
   bool get isNoDrivers => status == 'NO_DRIVERS';
+
+  /// "Book any": vehicles the passenger added to the search besides [Trip.vehicle].
+  List<VehicleKind> get alsoVehicles => [for (final k in (json['alsoKinds'] as List?) ?? const []) vehicleKindFromApi(k)];
+}
+
+/// "Book any" (like Namma Yatra): another vehicle a slow search could add. Free drivers of it are within the maximum
+/// search radius; [quote] is its fare on the booked route.
+class VehicleAlternative {
+  const VehicleAlternative({required this.vehicle, required this.quote, required this.driversNearby, required this.nearestKm});
+
+  factory VehicleAlternative.fromJson(Json j) => VehicleAlternative(
+        vehicle: vehicleKindFromApi(j['vehicleKind']),
+        quote: quoteFromJson(_map(j['quote'])),
+        driversNearby: (j['driversNearby'] as num?)?.toInt() ?? 0,
+        nearestKm: (j['nearestKm'] as num?)?.toDouble() ?? 0,
+      );
+
+  final VehicleKind vehicle;
+  final FareQuote quote;
+  final int driversNearby;
+
+  /// Straight-line km from the pickup to the nearest of them.
+  final double nearestKm;
 }
 
 /// Live driver position on the passenger's map.
@@ -106,6 +129,15 @@ class LiveTrips {
 
   Future<LiveTripUpdate> cancel(String tripId, {String? reason}) async =>
       _update(_map(await api.post('/trips/$tripId/cancel', {'reason': ?reason})));
+
+  /// While searching: other vehicles with drivers in range, cheapest first ("Book any").
+  Future<List<VehicleAlternative>> alternatives(String tripId) async => [
+        for (final a in (await api.get('/trips/$tripId/alternatives') as List)) VehicleAlternative.fromJson(_map(a)),
+      ];
+
+  /// While searching: also look for [vehicle]; the first driver of any of them takes the trip at their fare.
+  Future<LiveTripUpdate> addVehicle(String tripId, VehicleKind vehicle) async =>
+      _update(_map(await api.post('/trips/$tripId/also', {'vehicleKind': enumToApi(vehicle)})));
 
   Future<void> rate(String tripId, int rating) => api.post('/trips/$tripId/rate', {'rating': rating});
 

@@ -67,6 +67,8 @@ class RideFlowState {
     this.quotesError,
     this.tripQuote,
     this.busy = false,
+    this.alsoVehicles = const [],
+    this.alternatives = const [],
   });
 
   final Place pickup;
@@ -103,6 +105,12 @@ class RideFlowState {
 
   /// A booking / cancel request is on its way to the server.
   final bool busy;
+
+  /// Live API, "Book any": vehicles added to the search besides [vehicle] (the first driver of any takes it).
+  final List<VehicleKind> alsoVehicles;
+
+  /// Live API, while searching: other vehicles with drivers in range that could be added (cheapest first).
+  final List<VehicleAlternative> alternatives;
 
   RouteEstimate get estimate {
     final q = tripQuote ?? (serverQuotes?.isNotEmpty ?? false ? serverQuotes!.first : null);
@@ -147,6 +155,8 @@ class RideFlowState {
     Object? quotesError = _keep,
     Object? tripQuote = _keep,
     bool? busy,
+    List<VehicleKind>? alsoVehicles,
+    List<VehicleAlternative>? alternatives,
   }) => RideFlowState(
     pickup: pickup ?? this.pickup,
     drop: drop ?? this.drop,
@@ -166,6 +176,8 @@ class RideFlowState {
     quotesError: identical(quotesError, _keep) ? this.quotesError : quotesError as String?,
     tripQuote: identical(tripQuote, _keep) ? this.tripQuote : tripQuote as FareQuote?,
     busy: busy ?? this.busy,
+    alsoVehicles: alsoVehicles ?? this.alsoVehicles,
+    alternatives: alternatives ?? this.alternatives,
   );
 }
 
@@ -402,6 +414,8 @@ class RideFlowController extends Notifier<RideFlowState> {
       otp: trip.otp,
       tripQuote: trip.quote,
       busy: false,
+      alsoVehicles: update.alsoVehicles,
+      alternatives: const [],
     );
     _refreshRoute();
     final session = LiveTripSession(
@@ -461,7 +475,7 @@ class RideFlowController extends Notifier<RideFlowState> {
         _stopFollowing();
         state = state.copyWith(phase: RidePhase.noDrivers, busy: false);
       case RidePhase.searching:
-        state = state.copyWith(phase: RidePhase.searching, otp: otp);
+        state = state.copyWith(phase: RidePhase.searching, otp: otp, alsoVehicles: u.alsoVehicles);
       case RidePhase.driverCancelled:
         _liveFix.value = null;
         _lastPoint = null;
@@ -469,12 +483,17 @@ class RideFlowController extends Notifier<RideFlowState> {
       case RidePhase.assigned:
         // Coming from any other phase starts a new approach leg (built from the driver's first fix).
         final fresh = state.phase != RidePhase.assigned;
+        // "Book any": a driver of an added vehicle took it, at that vehicle's fare.
+        final vehicle = u.trip.vehicle;
         state = state.copyWith(
           phase: RidePhase.assigned,
           driver: driver,
           otp: otp,
+          vehicle: vehicle,
+          tripQuote: u.trip.quote ?? state.tripQuote,
+          alternatives: const [],
           approach: fresh ? const [] : null,
-          etaMin: fresh ? Seed.vehicle(state.vehicle).etaMin : null,
+          etaMin: fresh ? Seed.vehicle(vehicle).etaMin : null,
         );
       case RidePhase.arrived:
         state = state.copyWith(phase: RidePhase.arrived, driver: driver, otp: otp, etaMin: 0);
@@ -587,6 +606,37 @@ class RideFlowController extends Notifier<RideFlowState> {
     }
     state = state.copyWith(phase: RidePhase.planning);
     return null;
+  }
+
+  /// Live, while searching: refreshes the vehicles that could be added ("Book any"). Quiet on errors.
+  Future<void> loadAlternatives() async {
+    if (!_live || state.phase != RidePhase.searching) return;
+    final id = state.tripId;
+    try {
+      final list = await ref.read(liveTripsProvider).alternatives(id);
+      if (state.tripId != id || state.phase != RidePhase.searching) return;
+      state = state.copyWith(alternatives: [for (final a in list) if (!state.alsoVehicles.contains(a.vehicle)) a]);
+    } catch (e) {
+      debugPrint('Alternatives: $e');
+    }
+  }
+
+  /// Live, while searching: also look for [v] ("Book any"). Returns an error to show, or null.
+  Future<String?> addVehicle(VehicleKind v) async {
+    if (!_live || state.phase != RidePhase.searching || state.busy) return null;
+    state = state.copyWith(busy: true);
+    try {
+      final update = await ref.read(liveTripsProvider).addVehicle(state.tripId, v);
+      state = state.copyWith(
+        busy: false,
+        alsoVehicles: update.alsoVehicles,
+        alternatives: [for (final a in state.alternatives) if (a.vehicle != v) a],
+      );
+      return null;
+    } catch (e) {
+      state = state.copyWith(busy: false);
+      return apiErrorMessage(e);
+    }
   }
 
   /// Cancel while still searching / no drivers: nothing is recorded (mock). Live: a searching request is
