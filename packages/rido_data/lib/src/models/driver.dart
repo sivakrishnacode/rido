@@ -247,6 +247,7 @@ class RideRequest {
     required this.customerName,
     required this.customerRating,
     this.customerPhone = '',
+    this.isCustomerVerified = false,
     this.parcel,
     this.otp = '4829',
   });
@@ -266,6 +267,9 @@ class RideRequest {
   final String customerName;
   final double customerRating;
   final String customerPhone;
+
+  /// The rider passed the optional identity check (Didit): a "Verified" badge on the request card.
+  final bool isCustomerVerified;
   final ParcelDetails? parcel;
   final String otp;
 
@@ -285,6 +289,7 @@ class RideRequest {
     String? customerName,
     double? customerRating,
     String? customerPhone,
+    bool? isCustomerVerified,
     ParcelDetails? parcel,
     String? otp,
   }) =>
@@ -302,6 +307,7 @@ class RideRequest {
         customerName: customerName ?? this.customerName,
         customerRating: customerRating ?? this.customerRating,
         customerPhone: customerPhone ?? this.customerPhone,
+        isCustomerVerified: isCustomerVerified ?? this.isCustomerVerified,
         parcel: parcel ?? this.parcel,
         otp: otp ?? this.otp,
       );

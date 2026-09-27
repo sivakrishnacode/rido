@@ -191,6 +191,7 @@ RideRequest rideRequestFromOffer(Json offer) {
     customerName: _s(passenger['name'], 'Rido customer'),
     customerRating: 4.8,
     customerPhone: _s(passenger['phone']),
+    isCustomerVerified: passenger['isVerified'] == true,
     parcel: trip.parcel,
     otp: '',
   );
@@ -214,6 +215,7 @@ RideRequest rideRequestFromTrip(Json j) {
     customerName: _s(passenger['name'], 'Rido customer'),
     customerRating: 4.8,
     customerPhone: _s(passenger['phone']),
+    isCustomerVerified: passenger['identityStatus'] == 'APPROVED',
     parcel: trip.parcel,
     otp: '',
   );

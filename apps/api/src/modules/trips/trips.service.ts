@@ -39,7 +39,7 @@ export interface VehicleAlternative {
 /** Both sides see who they're riding with: the driver (with name / phone) and the passenger's name / phone. */
 const TRIP_INCLUDE = {
   driver: { include: { user: { select: { id: true, name: true, phone: true, gender: true } } } },
-  passenger: { select: { id: true, name: true, phone: true } },
+  passenger: { select: { id: true, name: true, phone: true, identityStatus: true } },
 } as const;
 
 /** Rides and parcels: booking, the status lifecycle, cancel and rating. */

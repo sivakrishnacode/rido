@@ -100,7 +100,7 @@ class _D15RideRequestScreenState extends ConsumerState<D15RideRequestScreen> {
         details: [
           RequestRoute(request: _r),
           const SizedBox(height: RidoSpacing.xl),
-          RequestCustomerCard(name: _r.customerName, rating: _r.customerRating),
+          RequestCustomerCard(name: _r.customerName, rating: _r.customerRating, isVerified: _r.isCustomerVerified),
         ],
         onAccept: _accept,
         accepting: _accepting,

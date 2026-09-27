@@ -222,7 +222,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   async offerDetails(booked: Trip, driverId: string): Promise<OfferDetails> {
     const pickup = { lat: booked.pickupLat, lng: booked.pickupLng };
     const [passenger, at, useRoad, driver] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: booked.passengerId }, select: { name: true, phone: true } }),
+      this.prisma.user.findUnique({ where: { id: booked.passengerId }, select: { name: true, phone: true, identityStatus: true } }),
       this.location.position(driverId),
       this.settings.get('useRoadEta'),
       this.prisma.driver.findUnique({ where: { id: driverId }, select: { vehicleKind: true } }),
@@ -231,7 +231,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     const trip = asVehicle(booked, driver?.vehicleKind);
     return {
       trip: { ...trip, otp: '' },
-      passenger: { name: passenger?.name ?? 'Rido customer', phone: passenger?.phone ?? '' },
+      passenger: { name: passenger?.name ?? 'Rido customer', phone: passenger?.phone ?? '', isVerified: passenger?.identityStatus === 'APPROVED' },
       pickupKm: at ? Math.round(roadKm(at, pickup) * 10) / 10 : null,
       pickupEtaMin: at ? await this.eta.minutes({ from: at, to: pickup, vehicleKind: trip.vehicleKind, useRoad }) : null,
     };
@@ -317,7 +317,8 @@ export function asVehicle(trip: Trip, kind: VehicleKind | undefined): Trip {
 
 export interface OfferDetails {
   trip: Trip;
-  passenger: { name: string; phone: string };
+  /** isVerified: the rider passed the optional Didit check (a badge on the request card). */
+  passenger: { name: string; phone: string; isVerified: boolean };
   pickupKm: number | null;
   pickupEtaMin: number | null;
 }

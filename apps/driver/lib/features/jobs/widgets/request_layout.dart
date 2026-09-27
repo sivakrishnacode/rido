@@ -153,9 +153,12 @@ class RequestRoute extends StatelessWidget {
 
 /// Grey card with the passenger's initial, name and rating.
 class RequestCustomerCard extends StatelessWidget {
-  const RequestCustomerCard({super.key, required this.name, required this.rating});
+  const RequestCustomerCard({super.key, required this.name, required this.rating, this.isVerified = false});
   final String name;
   final double rating;
+
+  /// The rider passed the optional identity check.
+  final bool isVerified;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -164,7 +167,15 @@ class RequestCustomerCard extends StatelessWidget {
         child: Row(children: [
           RidoAvatar(initials: name.substring(0, 1).toUpperCase(), size: 40),
           const SizedBox(width: RidoSpacing.l),
-          Expanded(child: Text(name, style: context.type.h2, overflow: TextOverflow.ellipsis)),
+          Flexible(child: Text(name, style: context.type.h2, overflow: TextOverflow.ellipsis)),
+          if (isVerified) ...[
+            const SizedBox(width: RidoSpacing.s),
+            Semantics(
+              label: 'Verified rider',
+              child: const Icon(Symbols.verified_rounded, fill: 1, color: RidoColors.success, size: 20),
+            ),
+          ],
+          const Spacer(),
           const Icon(Symbols.star_rounded, fill: 1, color: RidoColors.warning, size: 22),
           const SizedBox(width: RidoSpacing.xs),
           Text(rating.toStringAsFixed(1), style: RidoTextStyles.tabular(context.type.bodySemibold)),
