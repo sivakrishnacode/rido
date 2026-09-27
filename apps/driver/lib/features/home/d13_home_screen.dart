@@ -7,6 +7,7 @@ import 'package:rido_ui/rido_ui.dart';
 import '../../common/job_routes.dart';
 import '../../common/measure_size.dart';
 import '../../overlay/background_permissions.dart';
+import '../../state/app_permissions.dart';
 import '../../router/routes.dart';
 import '../../state/demand_map.dart';
 import '../../state/driver_account.dart';
@@ -66,10 +67,17 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         session.attach();
         // The car shows the real position from the start; the permission is asked on every visit until given.
         session.locateHere();
+        ref.read(missingPermissionsProvider.notifier).refresh();
       });
-      _lifecycle = AppLifecycleListener(onRestart: () {
-        if (mounted) ref.read(driverSessionProvider.notifier).locateHere();
-      });
+      _lifecycle = AppLifecycleListener(
+        onRestart: () {
+          if (mounted) ref.read(driverSessionProvider.notifier).locateHere();
+        },
+        // Back from a settings page (or anywhere): the permission banner follows what's allowed now.
+        onResume: () {
+          if (mounted) ref.read(missingPermissionsProvider.notifier).refresh();
+        },
+      );
     }
   }
 
@@ -168,7 +176,11 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     if (_api) {
       // First time online: ask for the bubble / full-screen request permissions (each once).
       ref.listen(driverSessionProvider.select((s) => s.online), (prev, next) {
-        if (next && prev == false && mounted) explainBackgroundPermissions(context);
+        if (next && prev == false && mounted) {
+          explainBackgroundPermissions(context).whenComplete(() {
+            if (mounted) ref.read(missingPermissionsProvider.notifier).refresh();
+          });
+        }
       });
     }
     if (!_showcase) {
@@ -248,6 +260,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     // ------------------------------------------------------------- top card
     Widget? topCard;
     final access = _api ? ref.watch(locationAccessProvider) : LocationAccess.granted;
+    final missing = _api ? ref.watch(missingPermissionsProvider) : const <AppPermission>[];
     if (access == LocationAccess.serviceOff ||
         access == LocationAccess.denied ||
         access == LocationAccess.deniedForever ||
@@ -276,6 +289,33 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
           _ => 'Allow',
         },
         onAction: () => _fixLocation(access),
+      );
+    } else if (missing.isNotEmpty) {
+      // Shown (online too) until allowed; one at a time, most important first.
+      final p = missing.first;
+      topCard = RidoBanner(
+        type: RidoBannerType.warning,
+        icon: switch (p) {
+          AppPermission.notifications => Symbols.notifications_off_rounded,
+          AppPermission.overlay => Symbols.picture_in_picture_alt_rounded,
+          AppPermission.fullScreen => Symbols.notifications_active_rounded,
+        },
+        title: switch (p) {
+          AppPermission.notifications => 'Allow notifications',
+          AppPermission.overlay => 'Allow "Display over other apps"',
+          AppPermission.fullScreen => 'Allow full-screen notifications',
+        },
+        message: switch (p) {
+          AppPermission.notifications =>
+            "Without notifications you won't hear new ride requests while Rido is in the background or closed.",
+          AppPermission.overlay =>
+            'So new requests pop up over maps, music or WhatsApp and you can accept in time. '
+                'Find Rido Driver on the next screen and turn it on.',
+          AppPermission.fullScreen => 'So a new request lights up the screen when the phone is locked.',
+        } +
+            (missing.length > 1 ? ' (${missing.length - 1} more after this)' : ''),
+        actionLabel: 'Allow',
+        onAction: () => ref.read(missingPermissionsProvider.notifier).fix(p),
       );
     } else if (!online && status == PlanStatus.grace) {
       topCard = GraceBanner(

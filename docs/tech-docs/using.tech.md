@@ -429,6 +429,10 @@ suggestion's name.
   5 s request to one fix per 10 min (`dumpsys location`: `(COARSE) Request[@10m …]`), so the driver went "GPS signal
   lost" right after going online. `LocationAccess.approximate` shows a Home banner; going online (always, even with a
   recent offline fix) asks again, which shows Android's "Change to precise location" dialog, else points to app settings.
+- **Driver permission banner (Home):** besides location, `missingPermissionsProvider` (`lib/state/app_permissions.dart`)
+  checks notifications, "Display over other apps" and Android 14+ full-screen notifications on opening Home and on
+  every resume. The first missing one shows as a banner (online too) until allowed; "Allow" shows the system prompt
+  or the matching settings page. None of these block going online (location does). Camera is asked only for KYC.
 
 ## 7b. Apps ↔ API (packages/rido_data/lib/src/api)
 
