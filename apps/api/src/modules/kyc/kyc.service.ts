@@ -198,6 +198,9 @@ export class KycService {
     const isNewest = newest?.id === row.id;
     // Keep an approval unless this session is the newest one (Didit expired or overturned it).
     if (!isNewest && status !== IdentityStatus.APPROVED) return;
+    // A newer session that was only started, then expired or abandoned, never undoes an approval: only the
+    // approved session itself can (Kyc Expired, or a reviewer overturning it).
+    if (user.identityStatus === IdentityStatus.APPROVED && status !== IdentityStatus.APPROVED && row.status !== IdentityStatus.APPROVED) return;
     if (user.identityStatus !== status) {
       await this.prisma.user.update({
         where: { id: row.userId },

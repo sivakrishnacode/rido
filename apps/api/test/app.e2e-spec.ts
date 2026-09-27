@@ -416,5 +416,12 @@ describe('Rido API (e2e)', () => {
     const approved = await http.post('/v1/kyc/sync').set(rider).expect(200);
     expect(approved.body).toMatchObject({ status: 'APPROVED', documentLast4: '9012' });
     expect((await http.get('/v1/me').set(rider).expect(200)).body.identityStatus).toBe('APPROVED');
+
+    // A newer session that only expires (e.g. "Try again" opened and closed) keeps the approval.
+    const userId = (await http.get('/v1/me').set(rider).expect(200)).body.id as string;
+    await prisma.identityVerification.create({ data: { userId, purpose: 'RIDER', sessionId: `later-${userId}` } });
+    const expired = signed({ event_id: `evt-exp-${userId}`, webhook_type: 'status.updated', session_id: `later-${userId}`, status: 'Expired', vendor_data: userId });
+    await http.post('/v1/kyc/didit/webhook').set(expired.headers).send(expired.body).expect(200);
+    expect((await http.get('/v1/kyc/me').set(rider).expect(200)).body.status).toBe('APPROVED');
   });
 });
