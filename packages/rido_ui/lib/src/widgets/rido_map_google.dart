@@ -88,7 +88,7 @@ class _GoogleRidoMap extends StatefulWidget {
   State<_GoogleRidoMap> createState() => _GoogleRidoMapState();
 }
 
-class _GoogleRidoMapState extends State<_GoogleRidoMap> {
+class _GoogleRidoMapState extends State<_GoogleRidoMap> with WidgetsBindingObserver {
   static const _pickupSize = Size(28, 28);
   static const _dropSize = Size(40, 40);
   static const _eager = <Factory<OneSequenceGestureRecognizer>>{
@@ -106,10 +106,43 @@ class _GoogleRidoMapState extends State<_GoogleRidoMap> {
 
   RidoMap get m => widget.map;
 
+  /// Bumped to create a fresh native map (see [didChangeAppLifecycleState]).
+  int _generation = 0;
+  DateTime? _awaySince;
+
+  /// Away at least this long (another app, the permission dialog) → a fresh native map on return.
+  static const _recreateAfter = Duration(milliseconds: 800);
+
   @override
   void initState() {
     super.initState();
     m.controller?._google = this;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Android (texture layer platform view): after the app was in the background (Google Maps navigation, a
+  /// permission dialog) the native map can stop drawing: logo only, no tiles or markers, camera frozen. A fresh
+  /// map at the same camera fixes it; a quick glance at the notification shade doesn't count.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final since = _awaySince;
+      _awaySince = null;
+      if (since != null && DateTime.now().difference(since) >= _recreateAfter && mounted) _recreate();
+    } else {
+      _awaySince ??= DateTime.now();
+    }
+  }
+
+  void _recreate() {
+    setState(() {
+      _generation++;
+      _controller = null;
+      _initial = _camera; // Same place and zoom as before.
+      _programmaticMove = false;
+      final centre = m.center;
+      if (centre != null && !_userMovedRecently) _pendingMove = (centre, _camera.zoom);
+    });
   }
 
   @override
@@ -149,6 +182,7 @@ class _GoogleRidoMapState extends State<_GoogleRidoMap> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (m.controller?._google == this) m.controller!._google = null;
     super.dispose();
   }
@@ -326,6 +360,7 @@ class _GoogleRidoMapState extends State<_GoogleRidoMap> {
                     onPointerUp: (_) => _pointers = _pointers > 0 ? _pointers - 1 : 0,
                     onPointerCancel: (_) => _pointers = _pointers > 0 ? _pointers - 1 : 0,
                     child: gm.GoogleMap(
+                      key: ValueKey('google-map-$_generation'),
                       initialCameraPosition: initial,
                       padding: m.mapPadding,
                       style: ridoGoogleMapStyle,
