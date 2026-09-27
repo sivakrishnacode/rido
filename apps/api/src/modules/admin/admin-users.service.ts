@@ -7,6 +7,7 @@ import { KycStatus, Role } from '../../generated/prisma/enums.js';
 import type { Paged } from './admin.types.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
 import type { UpdateUserDto } from './dto/update-user.dto.js';
+import { REQUIRED_DOCS } from '../kyc/driver-approval.js';
 
 /** All accounts (passengers, drivers, admins): search, roles, block/unblock; plus the KYC review queue. */
 @Injectable()
@@ -64,11 +65,11 @@ export class AdminUsersService {
     const page = q.page ?? 1;
     const pageSize = q.pageSize ?? 20;
     const status = Object.values(KycStatus).includes(q.status as KycStatus) ? (q.status as KycStatus) : KycStatus.UNDER_REVIEW;
-    const where: Prisma.KycDocumentWhereInput = { status };
+    const where: Prisma.KycDocumentWhereInput = { status, type: { in: [...REQUIRED_DOCS] } };
     const [items, total] = await Promise.all([
       this.prisma.kycDocument.findMany({
         where, skip: (page - 1) * pageSize, take: pageSize, orderBy: { updatedAt: 'asc' },
-        include: { driver: { include: { user: { select: { id: true, name: true, phone: true } } } } },
+        include: { driver: { include: { user: { select: { id: true, name: true, phone: true, identityStatus: true } } } } },
       }),
       this.prisma.kycDocument.count({ where }),
     ]);

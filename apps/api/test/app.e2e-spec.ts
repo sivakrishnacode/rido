@@ -1,4 +1,6 @@
 // End-to-end: needs Postgres + Redis (`docker compose up -d postgres redis` and `npm run prisma:deploy -w @rido/api`).
+import { createHmac } from 'node:crypto';
+
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -7,6 +9,8 @@ import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/core/prisma/prisma.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
 import { SettingsService } from '../src/modules/settings/settings.service.js';
+import { DiditClient } from '../src/modules/kyc/didit.client.js';
+import type { DiditDecision } from '../src/modules/kyc/didit.js';
 
 const GANDHIPURAM = { lat: 11.0183, lng: 76.9725, placeId: 'gandhipuram', name: 'Gandhipuram Central Bus Stand' };
 const BROOKEFIELDS = { lat: 11.009, lng: 76.96, placeId: 'brookefields', name: 'Brookefields Mall' };
@@ -18,6 +22,24 @@ function phone(): string {
   return `9${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
 }
 
+const WEBHOOK_SECRET = 'whsec_e2e';
+
+/** Stands in for Didit: sessions are per user, decisions are set by the test. */
+const fakeDidit = {
+  isEnabled: true,
+  decisions: new Map<string, DiditDecision>(),
+  createSession: async (p: { userId: string }) => ({ sessionId: `sess-${p.userId}`, sessionToken: `tok-${p.userId}`, status: 'Not Started' }),
+  decision: async (sessionId: string) => fakeDidit.decisions.get(sessionId) ?? { session_id: sessionId, status: 'In Progress' },
+};
+
+/** Signs a webhook body like Didit (X-Signature-V2 over sorted compact JSON). */
+function signed(body: Record<string, unknown>): { headers: Record<string, string>; body: Record<string, unknown> } {
+  const sort = (v: unknown): unknown =>
+    Array.isArray(v) ? v.map(sort) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sort((v as Record<string, unknown>)[k])])) : v;
+  const sig = createHmac('sha256', WEBHOOK_SECRET).update(JSON.stringify(sort(body))).digest('hex');
+  return { headers: { 'x-signature-v2': sig, 'x-timestamp': String(Math.floor(Date.now() / 1000)) }, body };
+}
+
 describe('Rido API (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -27,7 +49,12 @@ describe('Rido API (e2e)', () => {
     process.env.OTP_DEV_MODE = 'true';
     process.env.ADMIN_PHONES = ADMIN_PHONE;
     process.env.GOOGLE_MAPS_API_KEY = ''; // no paid Google calls in tests
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    // Didit is "set up" with a fake client, so drivers need an identity check to be approved.
+    process.env.DIDIT_API_KEY = 'e2e';
+    process.env.DIDIT_WEBHOOK_SECRET = WEBHOOK_SECRET;
+    process.env.DIDIT_DRIVER_WORKFLOW_ID = 'wf-driver';
+    process.env.DIDIT_RIDER_WORKFLOW_ID = 'wf-rider';
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(DiditClient).useValue(fakeDidit).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('v1', { exclude: ['health', 'health/ready'] });
     await app.init();
@@ -203,8 +230,8 @@ describe('Rido API (e2e)', () => {
     const drivers = await http.get('/v1/admin/drivers?pageSize=5').set(auth).expect(200);
     expect(drivers.body.items.length).toBeGreaterThan(0);
     const driverId = drivers.body.items[0].id as string;
-    const docs = await http.post(`/v1/admin/drivers/${driverId}/documents/AADHAAR`).set(auth).send({ status: 'VERIFIED' }).expect(201);
-    expect(docs.body.find((d: { type: string }) => d.type === 'AADHAAR').status).toBe('VERIFIED');
+    const docs = await http.post(`/v1/admin/drivers/${driverId}/documents/VEHICLE_RC`).set(auth).send({ status: 'VERIFIED' }).expect(201);
+    expect(docs.body.find((d: { type: string }) => d.type === 'VEHICLE_RC').status).toBe('VERIFIED');
     await http.get('/v1/admin/trips').set(auth).expect(200);
     const heat = await http.get('/v1/admin/heatmap?metric=pickups').set(auth).expect(200);
     expect(heat.body.cells.length).toBeGreaterThan(0);
@@ -293,5 +320,72 @@ describe('Rido API (e2e)', () => {
   it('starts a free trial and lists daily/weekly/monthly plans', async () => {
     const plans = await http.get('/v1/plans?vehicleKind=BIKE').expect(200);
     expect(plans.body.map((p: { price: number }) => p.price)).toEqual([79, 449, 1499]);
+  });
+  it('approves a driver after the Didit identity check and the RC + insurance review', async () => {
+    const driverUser = await login();
+    const plate = `TN 38 KY ${Math.floor(1000 + Math.random() * 8999)}`;
+    const reg = await http
+      .post('/v1/drivers')
+      .set('Authorization', `Bearer ${driverUser}`)
+      .send({ name: 'Murugan Selvam', workType: 'RIDES', vehicleKind: 'AUTO', vehicleModel: 'Bajaj RE', vehicleColor: 'Green', plate, upiId: 'murugan@okaxis' })
+      .expect(201);
+    const driver = { Authorization: `Bearer ${reg.body.accessToken as string}` };
+    const driverId = reg.body.driver.id as string;
+    const userId = reg.body.driver.userId as string;
+
+    // Only RC and insurance are uploaded now (no licence / Aadhaar / police photos).
+    const docs = await http.get('/v1/drivers/me/documents').set(driver).expect(200);
+    expect(docs.body.map((d: { type: string }) => d.type).sort()).toEqual(['INSURANCE', 'VEHICLE_RC']);
+    await http.post('/v1/drivers/me/documents/POLICE_VERIFICATION').set(driver).attach('file', Buffer.from('x'), 'p.jpg').expect(400);
+
+    // The app gets a token for the in-app SDK; the same unfinished session is reused.
+    const started = await http.post('/v1/kyc/session').set(driver).expect(201);
+    expect(started.body).toEqual({ sessionId: `sess-${userId}`, sessionToken: `tok-${userId}` });
+    await http.post('/v1/kyc/session').set(driver).expect(201);
+    expect(await prisma.identityVerification.count({ where: { userId } })).toBe(1);
+
+    // Admin verifies both documents: still pending until identity passes.
+    await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
+    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' })).body.accessToken}` };
+    for (const type of ['VEHICLE_RC', 'INSURANCE']) {
+      await http.post(`/v1/admin/drivers/${driverId}/documents/${type}`).set(admin).send({ status: 'VERIFIED' }).expect(201);
+    }
+    expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('PENDING');
+
+    // Unsigned or badly signed webhooks are refused.
+    const event = {
+      event_id: `evt-${userId}`,
+      webhook_type: 'status.updated',
+      session_id: `sess-${userId}`,
+      status: 'Approved',
+      vendor_data: userId,
+      decision: { status: 'Approved', id_verifications: [{ document_type: 'Driving License', document_number: 'TN3820190012345', full_name: 'Murugan Selvam', date_of_birth: '1990-04-12', warnings: [] }] },
+    };
+    await http.post('/v1/kyc/didit/webhook').send(event).expect(401);
+    const hook = signed(event);
+    await http.post('/v1/kyc/didit/webhook').set(hook.headers).send(hook.body).expect(200);
+    await http.post('/v1/kyc/didit/webhook').set(hook.headers).send(hook.body).expect(200); // duplicate: ignored
+
+    const me = await http.get('/v1/kyc/me').set(driver).expect(200);
+    expect(me.body).toMatchObject({ isEnabled: true, status: 'APPROVED', fullName: 'Murugan Selvam', documentLast4: '2345' });
+    expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('APPROVED');
+    await http.post('/v1/kyc/session').set(driver).expect(409);
+  });
+
+  it('gives riders an optional Verified badge via sync when the SDK closes', async () => {
+    const rider = { Authorization: `Bearer ${await login()}` };
+    expect((await http.get('/v1/kyc/me').set(rider).expect(200)).body.status).toBe('NOT_STARTED');
+    const { sessionId } = (await http.post('/v1/kyc/session').set(rider).expect(201)).body as { sessionId: string };
+    fakeDidit.decisions.set(sessionId, {
+      session_id: sessionId,
+      status: 'Declined',
+      face_matches: [{ status: 'Declined', warnings: [{ short_description: 'Face does not match the ID', log_type: 'error' }] }],
+    });
+    const declined = await http.post('/v1/kyc/sync').set(rider).expect(200);
+    expect(declined.body).toMatchObject({ status: 'DECLINED', reasons: ['Face does not match the ID'] });
+    fakeDidit.decisions.set(sessionId, { session_id: sessionId, status: 'Approved', id_verifications: [{ document_type: 'Aadhaar', document_number: '1234 5678 9012' }] });
+    const approved = await http.post('/v1/kyc/sync').set(rider).expect(200);
+    expect(approved.body).toMatchObject({ status: 'APPROVED', documentLast4: '9012' });
+    expect((await http.get('/v1/me').set(rider).expect(200)).body.identityStatus).toBe('APPROVED');
   });
 });

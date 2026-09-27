@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 27 Sep 2026
+Last updated: 27 Sep 2026 (Didit identity checks)
 
 ---
 
@@ -140,6 +140,10 @@ Never commit real `.env` files.
 | `API_URL` | admin (server side only) | `http://localhost:3000/v1`; compose sets `http://api:3000/v1` | the browser never calls the API directly |
 | `ADMIN_PORT` | compose | 3001 | admin host port |
 | `ADMIN_COOKIE_SECURE` → `COOKIE_SECURE` | admin container | false | `true` once served over HTTPS (session cookie gets `Secure`); outside compose, `NODE_ENV=production` sets Secure unless `COOKIE_SECURE=false` |
+| `DIDIT_API_KEY` | API | empty | Didit console › API & Webhooks › API Key. **Empty = identity checks off** (dev): drivers are approved on RC + insurance alone |
+| `DIDIT_WEBHOOK_SECRET` | API | empty | the webhook destination's signing secret; empty = every webhook is refused (the apps' `/kyc/sync` still works) |
+| `DIDIT_DRIVER_WORKFLOW_ID` / `DIDIT_RIDER_WORKFLOW_ID` | API | empty | published workflows "Rido Driver KYC" (India, driving licence) and "Rido Rider KYC" (India, any ID) |
+| `DIDIT_BASE_URL` | API | `https://verification.didit.me` | only for tests |
 | `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | admin (build time, client bundle) | empty | browser key for the **Maps JavaScript API** (must be enabled on the key). Local dev: `apps/admin/.env.local` (git-ignored, template `apps/admin/.env.example`). Docker: root `.env` `GOOGLE_MAPS_BROWSER_KEY` → build arg. Currently the `rido-app-services` key; restrict to HTTP referrers later (`rido-admin-web`) |
 
 ---
@@ -147,7 +151,8 @@ Never commit real `.env` files.
 ## 6. Backend (apps/api)
 
 - **Modules:** core (config, Prisma, Redis, JWT guard, roles guard, validation pipe, error filter), settings, geo (H3),
-  health, auth, users, places, maps, fares, drivers, subscriptions, trips (dispatch), realtime, support, admin.
+  health, auth, users, places, maps, fares, drivers, kyc (Didit identity checks, 6c), subscriptions, trips (dispatch),
+  realtime, support, admin.
 - **H3 service areas:** each `City` stores its service area as H3 cells (`serviceCells`, default resolution 8 ≈ 0.74 km²
   per hex). `Zone`s group cells as SURGE (multiplier 1.0–1.5), DEMAND, NO_SERVICE or PICKUP_POINT. `GeoService.locate`
   (cached 30 s, invalidated on admin edits) decides serviceability, city, zones and the fare multiplier for any point.
@@ -207,7 +212,7 @@ Never commit real `.env` files.
     Errors may carry `code` / `details` (global filter); apps read them as `ApiException.code` / `.tooFar`.
   - Global JWT/roles guards now skip non-HTTP contexts: sockets authenticate on connect. (Before this, `trip:join` and
     `driver:location` crashed in the guard, so live tracking never reached passengers.)
-- **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, Trip, Plan, Subscription,
+- **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, IdentityVerification, Trip, Plan, Subscription,
   Payment, SupportTicket. Money in whole rupees (Int). Migrations in `apps/api/prisma/migrations`.
 - **Redis keys:**
 
@@ -224,6 +229,7 @@ Never commit real `.env` files.
 | `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer`, `dispatch:driver:<driverId>:offer` | Nearest-driver queue, current 15 s offer (both directions) | 10 min / 15 s |
 | `trip:chat:<tripId>` | In-trip chat messages | 24 h |
 | `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
+| `kyc:event:<event_id>` | Didit webhook already handled (idempotency) | 2 d |
 | `maps:ac:*`, `maps:pd:*`, `maps:rg:*`, `maps:rt:*` | Google response cache | 1 d / 30 d / 30 d / 6 h |
 
 - **Dispatch (Uber-style, see owner ref "How Uber finds your driver"):**
@@ -283,6 +289,50 @@ pays the running costs; drivers and riders can contribute by UPI.
 - **UPI tip:** many UPI apps block or warn on `upi://pay` links with an amount to a personal UPI ID. A free merchant
   UPI ID (PhonePe Business, Google Pay for Business, Paytm Business) makes the button work reliably; the QR code works
   with either.
+
+---
+
+## 6c. Identity verification (Didit)
+
+Free tier: **500 sessions a month** (ID scan + passive liveness + face match + device/IP), then $0.33. Sandbox
+sessions are free. No credits are loaded, so session 501 is refused and the apps say "Verification is busy right now";
+nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhooks: HMAC `X-Signature-V2`).
+
+- **Who:** drivers **must** pass (driving licence + selfie; replaces the licence, Aadhaar and police-verification
+  uploads, and the simulated sign-up selfie). Riders may verify (any Indian ID) for a **Verified** badge; never required
+  to book.
+- **Flow (in the app, no browser):** app → `POST /v1/kyc/session` → API creates a Didit session (`vendor_data` = user
+  id, `expected_details` = profile name, India, `DL` or `ID/DL/P`) → returns `{sessionId, sessionToken}` → the app runs
+  Didit's native Flutter SDK (`didit_sdk`, `DiditSdk.startVerification(token)`) → on close the app calls
+  `POST /v1/kyc/sync` (API reads `GET /v3/session/{id}/decision/`). Didit also posts to
+  `POST /v1/kyc/didit/webhook` (public; `X-Timestamp` ≤ 5 min and `X-Signature-V2`, or `X-Signature` over the raw
+  body; de-duplicated on `event_id`). `GET /v1/kyc/me` returns `{isEnabled, status, verifiedAt, fullName, documentType,
+  documentLast4, reasons}`.
+- **Statuses:** Didit → ours: Approved → APPROVED, Declined → DECLINED, In Review → IN_REVIEW (you decide in the Didit
+  console; the result arrives by webhook), In Progress / Resubmitted → IN_PROGRESS, Not Started / Expired / Abandoned /
+  Kyc Expired → NOT_STARTED (can start again). `User.identityStatus` mirrors the newest session (an approval always
+  sticks unless a newer session overturns it).
+- **Stored (`IdentityVerification`):** session id, status, document type, **last 4 characters** of the document number
+  (never a full Aadhaar number), name and date of birth as read from the ID, decline reasons. Photos stay with Didit
+  (retention set in Didit console › App Settings › Data).
+- **Limits:** at most 3 new sessions per user per 24 h (unfinished sessions are reused by Didit), to protect the quota.
+- **Driver approval (`kyc/driver-approval.ts`):** APPROVED when VEHICLE_RC + INSURANCE are verified by an admin **and**
+  identity is APPROVED (identity isn't required when `DIDIT_API_KEY` is empty). A rejected document or declined
+  identity → REJECTED; a re-upload → PENDING. ON_HOLD is never changed automatically; drivers approved before this
+  change stay approved. New drivers only get RC + insurance rows; the old document types stay in the enum and are
+  hidden from the apps and the admin queue.
+- **Didit console setup:** see "Didit console checklist" below.
+
+**Didit console checklist** (business.didit.me):
+1. Workflows › Create › Simple › KYC → "Rido Driver KYC": ID Verification (India, Driving Licence only, decline
+   expired), Passive Liveness, Face Match, Device & IP Analysis; everything else off (AML, NFC, active liveness, phone,
+   email, proof of address, database validation cost extra). Publish → `DIDIT_DRIVER_WORKFLOW_ID`.
+2. Same for "Rido Rider KYC" with India: Aadhaar, PAN, Voter ID, Driving Licence, Passport → `DIDIT_RIDER_WORKFLOW_ID`.
+3. API & Webhooks: API key → `DIDIT_API_KEY`; add destination `https://<api host>/v1/kyc/didit/webhook`, events
+   `status.updated` + `data.updated`, version v3; secret → `DIDIT_WEBHOOK_SECRET`. Test with "Try Webhook".
+4. App Settings › Data: retention 24 months.
+
+---
 
 ## 6b. Admin panel (apps/admin)
 

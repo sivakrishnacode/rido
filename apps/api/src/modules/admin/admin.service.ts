@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, KycDocument, Plan, Prisma, SupportTicket, Trip, User } from '../../generated/prisma/client.js';
-import { DriverStatus, KycDocType, KycStatus, Role, TicketStatus } from '../../generated/prisma/enums.js';
+import { DriverStatus, KycDocType, Role, TicketStatus } from '../../generated/prisma/enums.js';
 import type { Paged } from './admin.types.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
 import { NotifierService } from '../notifications/notifier.service.js';
+import { DriverApprovalService } from '../kyc/driver-approval.service.js';
+import { REQUIRED_DOCS } from '../kyc/driver-approval.js';
 
 function paging(q: ListQueryDto): { skip: number; take: number; page: number; pageSize: number } {
   const page = q.page ?? 1;
@@ -23,6 +25,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifier: NotifierService,
+    private readonly approval: DriverApprovalService,
   ) {}
 
   async drivers(q: ListQueryDto): Promise<Paged<Driver>> {
@@ -36,7 +39,7 @@ export class AdminService {
     const [items, total] = await Promise.all([
       this.prisma.driver.findMany({
         where, skip, take, orderBy: { createdAt: 'desc' },
-        include: { user: true, documents: true, subscriptions: { orderBy: { endsAt: 'desc' }, take: 1, include: { plan: true } } },
+        include: { user: true, documents: { where: { type: { in: [...REQUIRED_DOCS] } } }, subscriptions: { orderBy: { endsAt: 'desc' }, take: 1, include: { plan: true } } },
       }),
       this.prisma.driver.count({ where }),
     ]);
@@ -47,8 +50,9 @@ export class AdminService {
     return this.prisma.driver.findUniqueOrThrow({
       where: { id },
       include: {
-        user: true,
-        documents: { orderBy: { type: 'asc' } },
+        // Identity checks (Didit): newest first; the admin page shows the latest result and its reasons.
+        user: { include: { identityChecks: { orderBy: { createdAt: 'desc' }, take: 5 } } },
+        documents: { where: { type: { in: [...REQUIRED_DOCS] } }, orderBy: { type: 'asc' } },
         subscriptions: { orderBy: { endsAt: 'desc' }, include: { plan: true, payments: true } },
         trips: { orderBy: { createdAt: 'desc' }, take: 20 },
       },
@@ -59,21 +63,16 @@ export class AdminService {
     return this.prisma.driver.update({ where: { id }, data: { status, isOnline: status === DriverStatus.APPROVED ? undefined : false } });
   }
 
-  /** Verify or reject one KYC document; all 5 verified → driver APPROVED, any rejected → REJECTED. */
+  /** Verify or reject one document; RC + insurance verified and identity approved → APPROVED, any rejected → REJECTED. */
   async reviewDocument(params: { driverId: string; type: KycDocType; status: 'VERIFIED' | 'REJECTED'; reason?: string }): Promise<KycDocument[]> {
     await this.prisma.kycDocument.update({
       where: { driverId_type: { driverId: params.driverId, type: params.type } },
       data: { status: params.status, rejectReason: params.status === 'REJECTED' ? (params.reason ?? 'Please upload a clearer image') : null },
     });
-    const docs = await this.prisma.kycDocument.findMany({ where: { driverId: params.driverId }, orderBy: { type: 'asc' } });
-    const isAllVerified = docs.every((d) => d.status === KycStatus.VERIFIED);
-    const hasRejected = docs.some((d) => d.status === KycStatus.REJECTED);
-    if (isAllVerified || hasRejected) {
-      await this.prisma.driver.update({ where: { id: params.driverId }, data: { status: isAllVerified ? DriverStatus.APPROVED : DriverStatus.REJECTED } });
-    }
+    // Approval (and its push) happens in recompute once the identity check has passed too.
+    await this.approval.recompute(params.driverId);
     if (params.status === 'REJECTED') void this.notifier.kycReviewed({ driverId: params.driverId, type: params.type, status: 'REJECTED', reason: params.reason });
-    else if (isAllVerified) void this.notifier.kycReviewed({ driverId: params.driverId, status: 'APPROVED' });
-    return docs;
+    return this.prisma.kycDocument.findMany({ where: { driverId: params.driverId }, orderBy: { type: 'asc' } });
   }
 
   async trips(q: ListQueryDto): Promise<Paged<Trip>> {

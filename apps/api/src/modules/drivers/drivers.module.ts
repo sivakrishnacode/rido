@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module.js';
+import { KycModule } from '../kyc/kyc.module.js';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js';
 import { DriverEarningsService } from './driver-earnings.service.js';
 import { DriverLocationService } from './driver-location.service.js';
@@ -9,7 +10,7 @@ import { DriversService } from './drivers.service.js';
 
 /** Driver registration, profile, KYC uploads, online status, earnings and live locations. */
 @Module({
-  imports: [AuthModule, SubscriptionsModule],
+  imports: [AuthModule, SubscriptionsModule, KycModule],
   controllers: [DriversController],
   providers: [DriversService, DriverLocationService, DriverEarningsService],
   exports: [DriversService, DriverLocationService],

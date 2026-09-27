@@ -24,6 +24,14 @@ export interface Env {
   readonly s3Endpoint: string;
   /** Firebase service-account JSON for FCM (from FIREBASE_SERVICE_ACCOUNT_B64, base64). Empty = push disabled. */
   readonly firebaseServiceAccount: string;
+  /** Didit identity checks (selfie + ID). Empty key = checks disabled (dev): drivers are approved on documents alone. */
+  readonly didit: {
+    readonly apiKey: string;
+    readonly webhookSecret: string;
+    readonly driverWorkflowId: string;
+    readonly riderWorkflowId: string;
+    readonly baseUrl: string;
+  };
 }
 
 function required(name: string): string {
@@ -63,5 +71,12 @@ export function loadEnv(): Env {
     firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT_B64
       ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8')
       : '',
+    didit: {
+      apiKey: process.env.DIDIT_API_KEY ?? '',
+      webhookSecret: process.env.DIDIT_WEBHOOK_SECRET ?? '',
+      driverWorkflowId: process.env.DIDIT_DRIVER_WORKFLOW_ID ?? '',
+      riderWorkflowId: process.env.DIDIT_RIDER_WORKFLOW_ID ?? '',
+      baseUrl: process.env.DIDIT_BASE_URL ?? 'https://verification.didit.me',
+    },
   };
 }

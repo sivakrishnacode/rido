@@ -5,6 +5,7 @@ import { AdminModule } from './modules/admin/admin.module.js';
 import { AppConfigModule } from './modules/app-config/app-config.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { DriversModule } from './modules/drivers/drivers.module.js';
+import { KycModule } from './modules/kyc/kyc.module.js';
 import { FaresModule } from './modules/fares/fares.module.js';
 import { MapsModule } from './modules/maps/maps.module.js';
 import { GeoModule } from './modules/geo/geo.module.js';
@@ -31,6 +32,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     MapsModule,
     PlacesModule,
     FaresModule,
+    KycModule,
     DriversModule,
     SubscriptionsModule,
     TripsModule,

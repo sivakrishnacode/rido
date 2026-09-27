@@ -68,6 +68,11 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       # Firebase service account (base64 of the JSON) for push notifications. Empty = push disabled.
       FIREBASE_SERVICE_ACCOUNT_B64: ${FIREBASE_SERVICE_ACCOUNT_B64:-}
+      # Didit identity checks (in-app selfie + ID). Empty key = off (drivers approved on RC + insurance alone).
+      DIDIT_API_KEY: ${DIDIT_API_KEY:-}
+      DIDIT_WEBHOOK_SECRET: ${DIDIT_WEBHOOK_SECRET:-}
+      DIDIT_DRIVER_WORKFLOW_ID: ${DIDIT_DRIVER_WORKFLOW_ID:-}
+      DIDIT_RIDER_WORKFLOW_ID: ${DIDIT_RIDER_WORKFLOW_ID:-}
     volumes:
       - uploads:/data/uploads
     ports:

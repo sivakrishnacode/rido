@@ -59,6 +59,20 @@ enum KycStatus {
   REJECTED
 }
 
+/// Selfie + ID check with Didit (drivers: required; riders: optional "Verified" badge).
+enum IdentityStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  IN_REVIEW
+  APPROVED
+  DECLINED
+}
+
+enum IdentityPurpose {
+  DRIVER
+  RIDER
+}
+
 enum TripKind {
   RIDE
   PARCEL
@@ -137,24 +151,50 @@ enum TicketStatus {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  phone             String             @unique
-  name              String?
-  email             String?
-  gender            Gender?
-  role              Role               @default(PASSENGER)
-  preferWomenDriver Boolean            @default(false)
-  autoShareTrips    Boolean            @default(true)
-  isBlocked         Boolean            @default(false)
-  blockedReason     String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  driver            Driver?
-  emergencyContacts EmergencyContact[]
-  savedPlaces       SavedPlace[]
-  trips             Trip[]             @relation("PassengerTrips")
-  tickets           SupportTicket[]
-  devices           DeviceToken[]
+  id                 String                 @id @default(cuid())
+  phone              String                 @unique
+  name               String?
+  email              String?
+  gender             Gender?
+  role               Role                   @default(PASSENGER)
+  preferWomenDriver  Boolean                @default(false)
+  autoShareTrips     Boolean                @default(true)
+  isBlocked          Boolean                @default(false)
+  blockedReason      String?
+  /// Latest Didit identity check result (mirrors the newest IdentityVerification).
+  identityStatus     IdentityStatus         @default(NOT_STARTED)
+  identityVerifiedAt DateTime?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  driver             Driver?
+  emergencyContacts  EmergencyContact[]
+  savedPlaces        SavedPlace[]
+  trips              Trip[]                 @relation("PassengerTrips")
+  tickets            SupportTicket[]
+  devices            DeviceToken[]
+  identityChecks     IdentityVerification[]
+}
+
+/// One Didit verification session. Only the last 4 digits of the document number are kept.
+model IdentityVerification {
+  id             String          @id @default(cuid())
+  userId         String
+  purpose        IdentityPurpose
+  sessionId      String          @unique
+  status         IdentityStatus  @default(NOT_STARTED)
+  /// Didit's exact status string ("Approved", "In Review", "Kyc Expired", …).
+  providerStatus String          @default("Not Started")
+  documentType   String?
+  documentLast4  String?
+  fullName       String?
+  dateOfBirth    String?
+  warnings       Json?
+  decidedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model EmergencyContact {
@@ -169,16 +209,16 @@ model EmergencyContact {
 }
 
 model SavedPlace {
-  id      String @id @default(cuid())
+  id      String  @id @default(cuid())
   userId  String
   label   String
-  kind    String @default("other") // home | work | other
+  kind    String  @default("other") // home | work | other
   name    String
   address String
   lat     Float
   lng     Float
   note    String?
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -229,52 +269,52 @@ model KycDocument {
 }
 
 model Trip {
-  id           String       @id @default(cuid())
-  kind         TripKind
-  status       TripStatus   @default(SEARCHING)
-  passengerId  String
-  driverId     String?
-  vehicleKind  VehicleKind
-  pickupName   String
-  pickupAddr   String
-  pickupLat    Float
-  pickupLng    Float
-  dropName     String
-  dropAddr     String
-  dropLat      Float
-  dropLng      Float
+  id               String          @id @default(cuid())
+  kind             TripKind
+  status           TripStatus      @default(SEARCHING)
+  passengerId      String
+  driverId         String?
+  vehicleKind      VehicleKind
+  pickupName       String
+  pickupAddr       String
+  pickupLat        Float
+  pickupLng        Float
+  dropName         String
+  dropAddr         String
+  dropLat          Float
+  dropLng          Float
   /// H3 cells (res 8) of pickup and drop, for heatmaps and demand stats.
-  pickupCell   String?
-  dropCell     String?
-  distanceKm   Float
-  durationMin  Int
+  pickupCell       String?
+  dropCell         String?
+  distanceKm       Float
+  durationMin      Int
   /// Itemised quote: base, distance, time, topUp, subtotal, multiplier, peak, total.
-  fare         Json
-  fareTotal    Int
+  fare             Json
+  fareTotal        Int
   /// "Book any" (like Namma Yatra): other vehicles the passenger added while searching, and their quotes by kind.
   /// The first driver of any of them to accept takes the trip at that vehicle's fare.
-  alsoKinds    VehicleKind[] @default([])
-  alsoFares    Json?
-  otp          String
-  paymentMode  PaymentMode  @default(CASH)
+  alsoKinds        VehicleKind[]   @default([])
+  alsoFares        Json?
+  otp              String
+  paymentMode      PaymentMode     @default(CASH)
   /// Parcel only: category, weight band, sender/receiver details.
-  parcel       Json?
-  payer        ParcelPayer?
-  rating       Int?
-  cancelReason String?
+  parcel           Json?
+  payer            ParcelPayer?
+  rating           Int?
+  cancelReason     String?
   /// Driver's distance from the pickup when marking "Arrived", and the reason given when outside `arrivalRadiusM`.
   arrivedDistanceM Int?
   arrivedFarReason String?
   /// Distance from the drop when the trip was completed, and the reason when outside `dropRadiusM`.
   endDistanceM     Int?
   endFarReason     String?
-  createdAt    DateTime     @default(now())
-  assignedAt   DateTime?
-  startedAt    DateTime?
-  endedAt      DateTime?
-  passenger    User         @relation("PassengerTrips", fields: [passengerId], references: [id])
-  driver       Driver?      @relation(fields: [driverId], references: [id])
-  tickets      SupportTicket[]
+  createdAt        DateTime        @default(now())
+  assignedAt       DateTime?
+  startedAt        DateTime?
+  endedAt          DateTime?
+  passenger        User            @relation("PassengerTrips", fields: [passengerId], references: [id])
+  driver           Driver?         @relation(fields: [driverId], references: [id])
+  tickets          SupportTicket[]
 
   @@index([passengerId, createdAt])
   @@index([driverId, createdAt])
@@ -343,17 +383,17 @@ model SupportTicket {
 
 /// A city Rido operates in. The service area is a set of H3 cells at [h3Resolution].
 model City {
-  id           String     @id // slug, e.g. "coimbatore"
+  id           String         @id // slug, e.g. "coimbatore"
   name         String
   state        String
   centerLat    Float
   centerLng    Float
-  h3Resolution Int        @default(8)
+  h3Resolution Int            @default(8)
   /// H3 cell indexes (strings) that make up the service area.
   serviceCells String[]
-  isActive     Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   zones        Zone[]
   fareRules    CityFareRule[]
 }

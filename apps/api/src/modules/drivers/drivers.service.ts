@@ -11,6 +11,8 @@ import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
 import { DriverLocationService } from './driver-location.service.js';
 import type { RegisterDriverDto } from './dto/register-driver.dto.js';
 import { NotifierService } from '../notifications/notifier.service.js';
+import { DriverApprovalService } from '../kyc/driver-approval.service.js';
+import { REQUIRED_DOCS } from '../kyc/driver-approval.js';
 
 /** Driver registration, KYC and online status. */
 @Injectable()
@@ -23,9 +25,10 @@ export class DriversService {
     private readonly earnings: DriverEarningsService,
     private readonly files: FileStorageService,
     private readonly notifier: NotifierService,
+    private readonly approval: DriverApprovalService,
   ) {}
 
-  /** Creates the driver, 5 KYC rows and a 30-day free trial; returns a token with the DRIVER role. */
+  /** Creates the driver, the RC + insurance rows and a 30-day free trial; returns a token with the DRIVER role. */
   async register(userId: string, dto: RegisterDriverDto): Promise<{ driver: Driver; accessToken: string }> {
     const { name, ...vehicle } = dto;
     const driver = await this.prisma.$transaction(async (tx) => {
@@ -35,7 +38,7 @@ export class DriversService {
           ...vehicle,
           plate: vehicle.plate.toUpperCase(),
           userId,
-          documents: { create: Object.values(KycDocType).map((type) => ({ type })) },
+          documents: { create: REQUIRED_DOCS.map((type) => ({ type })) },
         },
       });
     });
@@ -48,8 +51,9 @@ export class DriversService {
     return this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, include: { user: true } });
   }
 
+  /** The documents still uploaded by hand (RC, insurance). Older rows (licence, Aadhaar, police) are hidden. */
   documents(driverId: string): Promise<KycDocument[]> {
-    return this.prisma.kycDocument.findMany({ where: { driverId }, orderBy: { type: 'asc' } });
+    return this.prisma.kycDocument.findMany({ where: { driverId, type: { in: [...REQUIRED_DOCS] } }, orderBy: { type: 'asc' } });
   }
 
   /** Profile edits (D-25). Name and gender live on the user; the rest on the driver. */
@@ -64,11 +68,16 @@ export class DriversService {
 
   /** Stores the photo / PDF and puts the document under review. `fileUrl` holds the stored file name. */
   async uploadDocument(params: { driverId: string; type: KycDocType; file?: UploadedBlob }): Promise<KycDocument> {
+    if (!REQUIRED_DOCS.includes(params.type)) throw new BadRequestException('This document is checked in the identity step');
     const fileUrl = await this.files.save(params.file);
-    return this.prisma.kycDocument.update({
+    const data = { status: KycStatus.UNDER_REVIEW, fileUrl, rejectReason: null };
+    const doc = await this.prisma.kycDocument.upsert({
       where: { driverId_type: { driverId: params.driverId, type: params.type } },
-      data: { status: KycStatus.UNDER_REVIEW, fileUrl, rejectReason: null },
+      create: { driverId: params.driverId, type: params.type, ...data },
+      update: data,
     });
+    await this.approval.recompute(params.driverId);
+    return doc;
   }
 
   /** Admin review: verifies all documents and approves the driver (or rejects one document). */
