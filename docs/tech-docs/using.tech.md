@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 26 Sep 2026
+Last updated: 27 Sep 2026
 
 ---
 
@@ -420,6 +420,11 @@ suggestion's name.
   (`AppLifecycleListener.onRestart`, so closing the dialog doesn't re-trigger it). `LocationAccess` (granted,
   serviceOff, denied, deniedForever) drives a banner on Home explaining why location is needed; its button asks again,
   opens location settings (GPS off) or the app's settings page (after "Don't allow" twice).
+- **Driver GPS self-heal (S-16 "GPS signal lost"):** online, the banner shows after 30 s without a fix. From 20 s the
+  10 s ticker asks for a one-shot fix (only a fresh one counts) and re-subscribes the position stream (at most every
+  20 s, only with the app in the foreground: a location service started from the background gets no while-in-use
+  access); stream errors / end also trigger it, as does coming back to the app. "Fix now" restarts GPS, or opens
+  location settings when Location is off. Before this, going offline and online was the only cure.
 
 ## 7b. Apps ↔ API (packages/rido_data/lib/src/api)
 

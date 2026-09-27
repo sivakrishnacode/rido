@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 /// S-16 GPS weak / location off while online: red full-width strip under the header,
-/// "GPS signal lost. Riders can't see you" with "Fix now" ([onFix]: the live app opens location settings).
+/// "GPS signal lost. Riders can't see you" with "Fix now" ([onFix]: the live app restarts GPS, or opens location settings when it's off).
 class S16GpsWeakBanner extends StatelessWidget {
   const S16GpsWeakBanner({super.key, this.showcase = false, this.onFix});
 

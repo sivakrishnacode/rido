@@ -170,8 +170,12 @@ class FakeLocator extends DriverLocator {
 
   @override
   Future<void> requestNotificationPermission() async {}
+  int gpsListens = 0;
   @override
-  Stream<GpsFix> positions() => fixes.stream;
+  Stream<GpsFix> positions() {
+    gpsListens++;
+    return fixes.stream;
+  }
   final previewFixes = StreamController<GpsFix>.broadcast();
   @override
   Stream<GpsFix> previewPositions() => previewFixes.stream;
@@ -290,6 +294,22 @@ void main() {
     locator.fixes.add(GpsFix(offsetPoint(next, 5, 0), at: DateTime.now()));
     await pumpEventQueue();
     expect(realtime.sent, hasLength(1));
+  });
+
+  test('GPS lost while Location is on: Fix now restarts the stream and a fresh fix clears the banner', () async {
+    await session().goOnline();
+    expect(locator.gpsListens, 1);
+    locator.currentFixCalls = 0;
+    session().restartGps();
+    await pumpEventQueue();
+    expect(locator.gpsListens, 2, reason: 'the GPS stream is subscribed again');
+    expect(locator.currentFixCalls, 1, reason: 'a one-shot fix does not wait for the stream');
+    expect(state().gpsLost, isFalse);
+    // The restarted stream keeps delivering.
+    final next = offsetPoint(_here, 80, 0);
+    locator.fixes.add(GpsFix(next, at: DateTime.now()));
+    await pumpEventQueue();
+    expect(session().vehicle.value?.position, next);
   });
 
   test('decline and timeout clear the card; a declined trip never comes back, a timed-out one can be re-offered', () async {

@@ -92,6 +92,17 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     }
   }
 
+  /// S-16 "Fix now": Location settings when it's off, else restart the GPS (no need to go offline and online).
+  Future<void> _fixGps() async {
+    final access = await ref.read(driverLocatorProvider).access();
+    if (!mounted) return;
+    if (access == LocationAccess.serviceOff) {
+      await ref.read(driverLocatorProvider).openSettings(LocationFix.locationSettings);
+    } else {
+      ref.read(driverSessionProvider.notifier).restartGps();
+    }
+  }
+
   String _greeting() {
     final h = RidoClock.now().hour;
     if (h < 12) return 'Good morning';
@@ -372,7 +383,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
             ),
           if (gpsLost)
             S16GpsWeakBanner(
-              onFix: _api ? () => ref.read(driverLocatorProvider).openSettings(LocationFix.locationSettings) : null,
+              onFix: _api ? _fixGps : null,
             ),
           Expanded(
             child: Stack(

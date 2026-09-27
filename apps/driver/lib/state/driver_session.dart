@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
 import 'package:rido_data/rido_data.dart';
@@ -149,12 +150,17 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   LatLng? _lastSent;
   DateTime? _lastSentAt;
   DateTime? _lastHeartbeat;
+  DateTime? _gpsRestartedAt;
+  bool _fixInFlight = false;
   int _legMin = 0;
   String? _legKey;
   bool _attached = false;
   final Set<String> _closedOffers = {};
 
   static const _gpsStaleAfter = Duration(seconds: 30);
+
+  /// No fix for this long while online: ask for a one-shot fix and restart the stream (see [_healGps]).
+  static const _gpsHealAfter = Duration(seconds: 20);
   static const _heartbeatEvery = Duration(seconds: 30);
 
   /// Live position of the driver's vehicle.
@@ -527,6 +533,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   void onAppResumed() {
     if (!_live || !state.online) return;
     ref.read(realtimeProvider).connect();
+    final at = _lastFixAt;
+    if (at == null || DateTime.now().difference(at) >= _gpsHealAfter) _healGps(force: true);
     unawaited(_recoverOffer());
     unawaited(_syncJob());
   }
@@ -567,7 +575,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   void _startTracking() {
     _stopTracking();
     _stopPreview();
-    _gps = ref.read(driverLocatorProvider).positions().listen(_onFix, onError: (Object _) {});
+    _listenGps();
     _offerSub = _jobs.offers().listen(_onOffer, onError: (Object _) {});
     _connectionSub = ref.read(realtimeProvider).connection.listen((up) {
       if (!up) return;
@@ -576,6 +584,51 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     });
     _ticker = Timer.periodic(const Duration(seconds: 10), (_) => _tick());
   }
+
+  /// The online GPS stream. The native side can stop delivering (location briefly off, OEM battery savers, the
+  /// plugin's shared foreground service); an error or end of the stream restarts it on the next tick.
+  void _listenGps() {
+    _gps?.cancel();
+    _gpsRestartedAt = DateTime.now();
+    _gps = ref.read(driverLocatorProvider).positions().listen(
+          _onFix,
+          onError: (Object _) => _gpsRestartedAt = null,
+          onDone: () => _gpsRestartedAt = null,
+        );
+  }
+
+  /// Online with no fix for [_gpsHealAfter]: going offline and online used to be the only cure.
+  /// A one-shot fix clears the banner at once; the stream restarts (at most every [_gpsHealAfter]) only with the
+  /// app in the foreground: a location service started from the background gets no while-in-use access.
+  void _healGps({bool force = false}) {
+    if (!_live || !state.online) return;
+    final now = DateTime.now();
+    final restartedAt = _gpsRestartedAt;
+    if (_appInForeground && (force || restartedAt == null || now.difference(restartedAt) >= _gpsHealAfter)) {
+      _listenGps();
+    }
+    if (_fixInFlight) return;
+    _fixInFlight = true;
+    unawaited(ref.read(driverLocatorProvider).currentFix().then((fix) {
+      // currentFix falls back to the last known position: an old one must not hide the banner.
+      final fresh = DateTime.now().difference(fix.at) < _gpsStaleAfter;
+      if (fresh && ref.mounted && state.online) _onFix(fix);
+    }).catchError((Object _) {
+      // Still no fix: the banner stays and the next tick tries again.
+    }).whenComplete(() => _fixInFlight = false));
+  }
+
+  static bool get _appInForeground {
+    try {
+      final s = WidgetsBinding.instance.lifecycleState;
+      return s == null || s == AppLifecycleState.resumed;
+    } catch (_) {
+      return true; // No binding (plain Dart tests).
+    }
+  }
+
+  /// S-16 "Fix now" with Location on: get GPS going again without going offline.
+  void restartGps() => _healGps(force: true);
 
   void _stopTracking() {
     _gps?.cancel();
@@ -624,8 +677,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   void _tick() {
     if (!ref.mounted || !state.online) return;
     final now = DateTime.now();
-    final stale = _lastFixAt == null || now.difference(_lastFixAt!) > _gpsStaleAfter;
+    final since = _lastFixAt == null ? null : now.difference(_lastFixAt!);
+    final stale = since == null || since > _gpsStaleAfter;
     if (stale != state.gpsLost) state = state.copyWith(gpsLost: stale);
+    if (since == null || since >= _gpsHealAfter) _healGps();
     final realtime = ref.read(realtimeProvider);
     if (realtime.isConnected) return;
     realtime.connect();
