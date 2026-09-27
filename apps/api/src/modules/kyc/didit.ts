@@ -105,19 +105,39 @@ export interface DiditDecision {
   readonly face_matches?: DiditFeatureResult[];
 }
 
-/** What we keep from a decision. Only the last 4 characters of the document number (never a full Aadhaar). */
+/** One scanned ID: its type as Didit names it ("Driving License", "Identity Card"…) and the number's last 4. */
+export interface ScannedDocument {
+  readonly type: string;
+  readonly last4: string | null;
+}
+
+/** What we keep from a decision. Only the last 4 characters of document numbers (never a full Aadhaar). */
 export interface DecisionSummary {
+  /** The driving licence when one was scanned, else the last document. */
   readonly documentType: string | null;
   readonly documentLast4: string | null;
+  /** Every document scanned in the session (drivers: licence + Aadhaar). */
+  readonly documents: ScannedDocument[];
+  readonly hasDrivingLicence: boolean;
   readonly fullName: string | null;
   readonly dateOfBirth: string | null;
   /** Short reasons worth showing a reviewer (or the user, on decline). */
   readonly warnings: string[];
 }
 
+
+const last4 = (n: string | null | undefined): string | null => {
+  const clean = (n ?? '').replace(/\s+/g, '');
+  return clean ? clean.slice(-4) : null;
+};
+
+/** Didit document names for a driving licence ("Driving License", "Driver's License", code "DL"). */
+export const isDrivingLicence = (type: string | null | undefined): boolean => /driv|^dl$/i.test(type ?? '');
+
 export function summarizeDecision(decision: DiditDecision | null | undefined): DecisionSummary {
-  const id = decision?.id_verifications?.at(-1);
-  const docNumber = (id?.document_number ?? '').replace(/\s+/g, '');
+  const ids = decision?.id_verifications ?? [];
+  const licence = ids.find((d) => isDrivingLicence(d.document_type));
+  const id = licence ?? ids.at(-1);
   const name = id?.full_name ?? ([id?.first_name, id?.last_name].filter(Boolean).join(' ') || null);
   const features = [...(decision?.id_verifications ?? []), ...(decision?.liveness_checks ?? []), ...(decision?.face_matches ?? [])];
   const warnings = [
@@ -131,7 +151,9 @@ export function summarizeDecision(decision: DiditDecision | null | undefined): D
   ];
   return {
     documentType: id?.document_type ?? null,
-    documentLast4: docNumber ? docNumber.slice(-4) : null,
+    documentLast4: last4(id?.document_number),
+    documents: ids.filter((d) => d.document_type).map((d) => ({ type: d.document_type as string, last4: last4(d.document_number) })),
+    hasDrivingLicence: !!licence,
     fullName: name,
     dateOfBirth: id?.date_of_birth ?? null,
     warnings,

@@ -359,7 +359,13 @@ describe('Rido API (e2e)', () => {
       session_id: `sess-${userId}`,
       status: 'Approved',
       vendor_data: userId,
-      decision: { status: 'Approved', id_verifications: [{ document_type: 'Driving License', document_number: 'TN3820190012345', full_name: 'Murugan Selvam', date_of_birth: '1990-04-12', warnings: [] }] },
+      decision: {
+        status: 'Approved',
+        id_verifications: [
+          { document_type: 'Driving License', document_number: 'TN3820190012345', full_name: 'Murugan Selvam', date_of_birth: '1990-04-12', warnings: [] },
+          { document_type: 'Identity Card', document_number: '1234 5678 9012', full_name: 'Murugan Selvam', warnings: [] },
+        ],
+      },
     };
     await http.post('/v1/kyc/didit/webhook').send(event).expect(401);
     const hook = signed(event);
@@ -367,9 +373,32 @@ describe('Rido API (e2e)', () => {
     await http.post('/v1/kyc/didit/webhook').set(hook.headers).send(hook.body).expect(200); // duplicate: ignored
 
     const me = await http.get('/v1/kyc/me').set(driver).expect(200);
-    expect(me.body).toMatchObject({ isEnabled: true, status: 'APPROVED', fullName: 'Murugan Selvam', documentLast4: '2345' });
+    expect(me.body).toMatchObject({
+      isEnabled: true,
+      status: 'APPROVED',
+      fullName: 'Murugan Selvam',
+      documentLast4: '2345',
+      documents: [
+        { type: 'Driving License', last4: '2345' },
+        { type: 'Identity Card', last4: '9012' },
+      ],
+    });
     expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('APPROVED');
     await http.post('/v1/kyc/session').set(driver).expect(409);
+  });
+
+  it('sends a driver approved without a driving licence to review', async () => {
+    const driverUser = await login();
+    const reg = await http
+      .post('/v1/drivers')
+      .set('Authorization', `Bearer ${driverUser}`)
+      .send({ name: 'Anand K', workType: 'RIDES', vehicleKind: 'BIKE', vehicleModel: 'TVS Jupiter', vehicleColor: 'Blue', plate: `TN 39 NL ${Math.floor(1000 + Math.random() * 8999)}`, upiId: 'anand@okaxis' })
+      .expect(201);
+    const driver = { Authorization: `Bearer ${reg.body.accessToken as string}` };
+    const { sessionId } = (await http.post('/v1/kyc/session').set(driver).expect(201)).body as { sessionId: string };
+    fakeDidit.decisions.set(sessionId, { session_id: sessionId, status: 'Approved', id_verifications: [{ document_type: 'Identity Card', document_number: '1234 5678 9012' }] });
+    const res = await http.post('/v1/kyc/sync').set(driver).expect(200);
+    expect(res.body.status).toBe('IN_REVIEW');
   });
 
   it('gives riders an optional Verified badge via sync when the SDK closes', async () => {

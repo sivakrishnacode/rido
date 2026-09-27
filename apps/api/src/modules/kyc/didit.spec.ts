@@ -64,6 +64,8 @@ describe('summarizeDecision', () => {
     expect(summary).toEqual({
       documentType: 'Driving License',
       documentLast4: '2345',
+      documents: [{ type: 'Driving License', last4: '2345' }],
+      hasDrivingLicence: true,
       fullName: 'Murugan Selvam',
       dateOfBirth: '1990-04-12',
       warnings: ['Document has expired', 'LOW_FACE_MATCH_SIMILARITY'],
@@ -71,6 +73,29 @@ describe('summarizeDecision', () => {
   });
 
   it('handles an empty decision', () => {
-    expect(summarizeDecision(undefined)).toEqual({ documentType: null, documentLast4: null, fullName: null, dateOfBirth: null, warnings: [] });
+    expect(summarizeDecision(undefined)).toEqual({
+      documentType: null,
+      documentLast4: null,
+      documents: [],
+      hasDrivingLicence: false,
+      fullName: null,
+      dateOfBirth: null,
+      warnings: [],
+    });
+  });
+
+  it('prefers the licence when a driver scans licence + Aadhaar', () => {
+    const summary = summarizeDecision({
+      id_verifications: [
+        { document_type: 'Driving License', document_number: 'TN3820190012345', full_name: 'Murugan Selvam' },
+        { document_type: 'Identity Card', document_number: '1234 5678 9012', full_name: 'Murugan Selvam' },
+      ],
+    });
+    expect(summary.documentType).toBe('Driving License');
+    expect(summary.documentLast4).toBe('2345');
+    expect(summary.documents).toEqual([
+      { type: 'Driving License', last4: '2345' },
+      { type: 'Identity Card', last4: '9012' },
+    ]);
   });
 });

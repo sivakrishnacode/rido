@@ -186,6 +186,8 @@ model IdentityVerification {
   providerStatus String          @default("Not Started")
   documentType   String?
   documentLast4  String?
+  /// Every scanned ID as [{type, last4}] (drivers: licence + Aadhaar).
+  documents      Json?
   fullName       String?
   dateOfBirth    String?
   warnings       Json?

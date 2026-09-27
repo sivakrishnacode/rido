@@ -9,14 +9,15 @@ import type { IdentityVerification } from '../../generated/prisma/client.js';
 import { IdentityPurpose, IdentityStatus, Role } from '../../generated/prisma/enums.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { DiditClient } from './didit.client.js';
-import { type DiditDecision, summarizeDecision, toIdentityStatus } from './didit.js';
+import { type DiditDecision, type ScannedDocument, summarizeDecision, toIdentityStatus } from './didit.js';
 import { DriverApprovalService } from './driver-approval.service.js';
 
 /** New Didit sessions a user may start per day (declines and abandoned attempts), to protect the free quota. */
 const MAX_SESSIONS_PER_DAY = 3;
 const EVENT_TTL_S = 2 * 24 * 3600;
-/** Didit document codes: drivers prove identity with their driving licence; riders may use any Indian ID. */
-const DOC_TYPES: Record<IdentityPurpose, string[]> = { DRIVER: ['DL'], RIDER: ['ID', 'DL', 'P'] };
+/** Didit document codes: drivers scan their driving licence and Aadhaar (ID); riders may use any Indian ID. */
+const DOC_TYPES: Record<IdentityPurpose, string[]> = { DRIVER: ['DL', 'ID'], RIDER: ['ID', 'DL', 'P'] };
+const NO_LICENCE = 'Driving licence not scanned';
 
 /** The user's identity check as the apps show it. */
 export interface IdentityView {
@@ -27,6 +28,8 @@ export interface IdentityView {
   readonly fullName: string | null;
   readonly documentType: string | null;
   readonly documentLast4: string | null;
+  /** Every scanned ID (type + last 4), e.g. the licence and Aadhaar. */
+  readonly documents: ScannedDocument[];
   /** Why the last attempt was declined (short Didit reasons). */
   readonly reasons: string[];
 }
@@ -80,6 +83,7 @@ export class KycService {
       fullName: shown?.fullName ?? null,
       documentType: shown?.documentType ?? null,
       documentLast4: shown?.documentLast4 ?? null,
+      documents: (shown?.documents as ScannedDocument[] | null) ?? [],
       reasons: latest?.status === IdentityStatus.DECLINED ? ((latest.warnings as string[] | null) ?? []) : [],
     };
   }
@@ -152,16 +156,28 @@ export class KycService {
 
   /** Stores the result, mirrors it on the user (newest session wins; an approval always does) and re-checks the driver. */
   private async apply(row: IdentityVerification, providerStatus: string, decision?: DiditDecision): Promise<void> {
-    const status = toIdentityStatus(providerStatus);
-    const isDecided = status === IdentityStatus.APPROVED || status === IdentityStatus.DECLINED || status === IdentityStatus.IN_REVIEW;
+    let status = toIdentityStatus(providerStatus);
     const summary = decision ? summarizeDecision(decision) : null;
+    // A driver must have scanned a driving licence: if the workflow let one through without it, a person decides.
+    if (row.purpose === IdentityPurpose.DRIVER && status === IdentityStatus.APPROVED && summary && !summary.hasDrivingLicence) {
+      status = IdentityStatus.IN_REVIEW;
+      summary.warnings.push(NO_LICENCE);
+    }
+    const isDecided = status === IdentityStatus.APPROVED || status === IdentityStatus.DECLINED || status === IdentityStatus.IN_REVIEW;
     await this.prisma.identityVerification.update({
       where: { id: row.id },
       data: {
         status,
         providerStatus,
         ...(summary
-          ? { documentType: summary.documentType, documentLast4: summary.documentLast4, fullName: summary.fullName, dateOfBirth: summary.dateOfBirth, warnings: summary.warnings }
+          ? {
+              documentType: summary.documentType,
+              documentLast4: summary.documentLast4,
+              documents: summary.documents.map((d) => ({ type: d.type, last4: d.last4 })),
+              fullName: summary.fullName,
+              dateOfBirth: summary.dateOfBirth,
+              warnings: summary.warnings,
+            }
           : {}),
         decidedAt: isDecided ? (row.decidedAt ?? new Date()) : null,
       },
