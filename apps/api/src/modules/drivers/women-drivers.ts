@@ -7,6 +7,12 @@ import { Gender, WomenDriverPref } from '../../generated/prisma/enums.js';
  */
 export const PREFERRED_HEAD_START_MIN = 8;
 
+/** Driver cancel reason on a Butterfly ride booked for someone else: the person at the pickup is not a woman. */
+export const RIDER_NOT_WOMAN = 'Rider is not a woman';
+
+/** After this many such cancels, the account can no longer book Butterfly rides for someone else. */
+export const MAX_RIDER_NOT_WOMAN = 2;
+
 /** The ids among [driverIds] whose account says FEMALE. */
 export async function womenAmong(prisma: PrismaService, driverIds: readonly string[]): Promise<Set<string>> {
   if (driverIds.length === 0) return new Set();

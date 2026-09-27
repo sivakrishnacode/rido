@@ -324,6 +324,11 @@ model Trip {
   payer            ParcelPayer?
   /// Butterfly: offer the trip to women drivers first (PREFERRED) or only (ONLY).
   womenDriver      WomenDriverPref @default(NONE)
+  /// "Who's riding?": booked for someone else (e.g. a father for his daughter). The driver sees and calls the rider.
+  riderName        String?
+  riderPhone       String?
+  /// The rider (account holder, or [riderName]) is a woman: allows Butterfly.
+  riderIsWoman     Boolean         @default(false)
   rating           Int?
   cancelReason     String?
   /// Driver's distance from the pickup when marking "Arrived", and the reason given when outside `arrivalRadiusM`.

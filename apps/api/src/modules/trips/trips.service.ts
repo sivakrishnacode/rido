@@ -6,6 +6,7 @@ import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
 import { Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
+import { MAX_RIDER_NOT_WOMAN, RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
 import type { FareQuote } from '../fares/fare-engine.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
 import { DemandService } from '../geo/demand.service.js';
@@ -37,6 +38,9 @@ export interface VehicleAlternative {
 }
 
 /** Both sides see who they're riding with: the driver (with name / phone) and the passenger's name / phone. */
+/** "+919876543210" from "9876543210" or "+919876543210" (the DTO already checked it). */
+const normalisePhone = (phone: string): string => (phone.startsWith('+91') ? phone : `+91${phone}`);
+
 const TRIP_INCLUDE = {
   driver: { include: { user: { select: { id: true, name: true, phone: true, gender: true } } } },
   passenger: { select: { id: true, name: true, phone: true, identityStatus: true } },
@@ -63,11 +67,19 @@ export class TripsService {
     if (isGoods !== (dto.kind === TripKind.PARCEL)) throw new BadRequestException('Vehicle does not match trip kind');
     const [from, to] = await Promise.all([this.geo.locate(dto.pickup), this.geo.locate(dto.drop)]);
     if (!from.isServiceable || !to.isServiceable) throw new BadRequestException("Rido isn't in this area yet");
+    if (dto.rider && isGoods) throw new BadRequestException('Parcels are booked with sender and receiver details');
+    const riderIsWoman = dto.rider
+      ? dto.rider.isWoman
+      : (await this.prisma.user.findUnique({ where: { id: passengerId }, select: { gender: true } }))?.gender === Gender.FEMALE;
     const womenDriver = dto.womenDriver ?? WomenDriverPref.NONE;
     if (womenDriver !== WomenDriverPref.NONE) {
       if (isGoods) throw new BadRequestException('Butterfly is for rides only');
-      const rider = await this.prisma.user.findUnique({ where: { id: passengerId }, select: { gender: true } });
-      if (rider?.gender !== Gender.FEMALE) throw new BadRequestException('Butterfly is for women riders. Set your gender in Profile to use it');
+      if (!riderIsWoman) {
+        throw new BadRequestException(
+          dto.rider ? 'Butterfly is for women riders' : 'Butterfly is for women riders. Set your gender in Profile to use it',
+        );
+      }
+      if (dto.rider) await this.checkButterflyForOthers(passengerId);
     }
     const quote = await this.fares.quoteOne({ pickup: dto.pickup, drop: dto.drop, vehicleKind: dto.vehicleKind });
     const trip = await this.prisma.trip.create({
@@ -94,11 +106,24 @@ export class TripsService {
         parcel: dto.parcel as Prisma.InputJsonValue | undefined,
         payer: dto.payer,
         womenDriver,
+        riderName: dto.rider?.name.trim(),
+        riderPhone: dto.rider ? normalisePhone(dto.rider.phone) : undefined,
+        riderIsWoman,
       },
     });
     await this.demand.recordRequest(dto.pickup, passengerId);
     await this.dispatch.start(trip);
     return trip;
+  }
+
+  /** Drivers reported (by cancel reason) that the "woman" this account booked Butterfly for was not one. */
+  private async checkButterflyForOthers(passengerId: string): Promise<void> {
+    const reports = await this.prisma.trip.count({
+      where: { passengerId, riderName: { not: null }, cancelReason: RIDER_NOT_WOMAN },
+    });
+    if (reports >= MAX_RIDER_NOT_WOMAN) {
+      throw new ForbiddenException('Butterfly for someone else is off for your account after reports from drivers. Contact support.');
+    }
   }
 
   async history(user: AuthUser): Promise<Trip[]> {

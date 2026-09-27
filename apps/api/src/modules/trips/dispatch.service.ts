@@ -236,7 +236,10 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     const trip = asVehicle(booked, driver?.vehicleKind);
     return {
       trip: { ...trip, otp: '' },
-      passenger: { name: passenger?.name ?? 'Rido customer', phone: passenger?.phone ?? '', isVerified: passenger?.identityStatus === 'APPROVED' },
+      // Booked for someone else: the driver sees and calls the rider; the account holder is "booked by".
+      passenger: booked.riderName
+        ? { name: booked.riderName, phone: booked.riderPhone ?? '', isVerified: false, bookedBy: passenger?.name ?? undefined }
+        : { name: passenger?.name ?? 'Rido customer', phone: passenger?.phone ?? '', isVerified: passenger?.identityStatus === 'APPROVED' },
       pickupKm: at ? Math.round(roadKm(at, pickup) * 10) / 10 : null,
       pickupEtaMin: at ? await this.eta.minutes({ from: at, to: pickup, vehicleKind: trip.vehicleKind, useRoad }) : null,
     };
@@ -323,7 +326,8 @@ export function asVehicle(trip: Trip, kind: VehicleKind | undefined): Trip {
 export interface OfferDetails {
   trip: Trip;
   /** isVerified: the rider passed the optional Didit check (a badge on the request card). */
-  passenger: { name: string; phone: string; isVerified: boolean };
+  /** The rider: the account holder, or who they booked for ([bookedBy] = the account holder's name). */
+  passenger: { name: string; phone: string; isVerified: boolean; bookedBy?: string };
   pickupKm: number | null;
   pickupEtaMin: number | null;
 }

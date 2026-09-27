@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 27 Sep 2026 (Butterfly women-driver rides, pickup ETA on quotes)
+Last updated: 28 Sep 2026 ("Who's riding?": book for someone else, Butterfly for a woman rider)
 
 ---
 
@@ -251,6 +251,13 @@ Never commit real `.env` files.
      Preferred / Women only, shown only when the profile gender is female; Safety preferences "Prefer women
      driver" is its default. "Women only" re-quotes with `womenOnly`. The driver request card shows the
      butterfly on ONLY trips (`RideRequest.isWomenOnly`).
+     **"Who's riding?" (28 Sep 2026):** booking field `rider: { name, phone, isWoman }` (rides only) stores
+     `Trip.riderName / riderPhone / riderIsWoman`; Butterfly needs a woman *rider* (the account holder with gender
+     FEMALE, or `rider.isWoman`). The driver's offer shows the rider's name and phone (`passenger.bookedBy` = the
+     account holder). Abuse guard: a driver can cancel with the reason `Rider is not a woman` (`RIDER_NOT_WOMAN`,
+     no penalty: Rido has no driver cancel penalties); after 2 such cancels on trips booked for someone else the
+     account gets 403 for Butterfly-for-others (own Butterfly rides and normal rides still work). No SMS to the
+     rider yet: the account holder shares the ride OTP.
   5. The whole batch is assigned together (`assignBatch`: all trip–driver pairs by ETA, each driver to one rider),
      then each driver gets `offerSeconds` to accept; decline/timeout → next in that trip's queue.
   6. **Out of candidates (26 Sep 2026):** search again every 4 s. A driver who let the offer **time out** can be

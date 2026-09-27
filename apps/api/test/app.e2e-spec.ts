@@ -203,6 +203,40 @@ describe('Rido API (e2e)', () => {
     for (const d of [man, woman]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
   });
 
+  it('"Who\'s riding?": a father books Butterfly for his daughter; the driver sees her; reports switch it off', async () => {
+    const woman = await onlineDriver('AUTO', { lat: 11.0186, lng: 76.9728 }, 'FEMALE');
+    const father = await login(); // no gender set
+    const pax = { Authorization: `Bearer ${father}` };
+    const daughter = { name: 'Anjali', phone: '9876512345', isWoman: true };
+    const book = { kind: 'RIDE', vehicleKind: 'AUTO', pickup: GANDHIPURAM, drop: BROOKEFIELDS, womenDriver: 'ONLY' };
+
+    // Not a woman rider → refused; for a woman rider → booked with her details.
+    await http.post('/v1/trips').set(pax).send({ ...book, rider: { ...daughter, isWoman: false } }).expect(400);
+    await http.post('/v1/trips').set(pax).send({ ...book, rider: { ...daughter, phone: '123' } }).expect(400);
+    const trip = (await http.post('/v1/trips').set(pax).send({ ...book, rider: daughter }).expect(201)).body;
+    expect(trip).toMatchObject({ womenDriver: 'ONLY', riderName: 'Anjali', riderPhone: '+919876512345', riderIsWoman: true });
+
+    // The driver's request card shows the rider, "booked by" the account holder.
+    let offer: { passenger: { name: string; phone: string; bookedBy?: string } } | null = null;
+    for (let i = 0; i < 40 && !offer; i++) {
+      const res = await http.get('/v1/trips/offer').set('Authorization', `Bearer ${woman}`);
+      offer = res.status === 200 && res.body?.trip?.id === trip.id ? res.body : null;
+      if (!offer) await new Promise((r) => setTimeout(r, 250));
+    }
+    expect(offer?.passenger).toMatchObject({ name: 'Anjali', phone: '+919876512345' });
+    expect((await acceptWhenOffered(trip.id, woman)).status).toBe(200);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${woman}`).send({ reason: 'Rider is not a woman' }).expect(200);
+
+    // A second report switches Butterfly-for-others off for this account (own rides are not affected by it).
+    const second = (await http.post('/v1/trips').set(pax).send({ ...book, rider: daughter }).expect(201)).body;
+    await prisma.trip.update({ where: { id: second.id }, data: { status: 'CANCELLED', cancelReason: 'Rider is not a woman' } });
+    await http.post('/v1/trips').set(pax).send({ ...book, rider: daughter }).expect(403);
+    const plain = (await http.post('/v1/trips').set(pax).send({ ...book, womenDriver: undefined, rider: daughter }).expect(201)).body;
+    expect(plain.womenDriver).toBe('NONE');
+    await http.post(`/v1/trips/${plain.id}/cancel`).set(pax).send({}).expect(200);
+    await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${woman}`);
+  });
+
   it('"Book any": a slow cab search adds Auto, and the auto driver takes it at the auto fare', async () => {
     // Arrange: no cab nearby, an auto driver at the pickup.
     const passenger = await login();
