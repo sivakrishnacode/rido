@@ -15,6 +15,29 @@ enum WomenDriverPref {
   bool get isOn => this != none;
 }
 
+/// "Who's riding?": the person a ride is booked for when it isn't the account holder (e.g. a daughter).
+@immutable
+class OtherRider {
+  const OtherRider({required this.name, required this.phone, this.isWoman = false});
+
+  final String name;
+
+  /// 10 digits, "9876543210".
+  final String phone;
+
+  /// Lets the ride use Butterfly (women drivers).
+  final bool isWoman;
+
+  String get firstName => name.trim().split(' ').first;
+
+  @override
+  bool operator ==(Object other) =>
+      other is OtherRider && other.name == name && other.phone == phone && other.isWoman == isWoman;
+
+  @override
+  int get hashCode => Object.hash(name, phone, isWoman);
+}
+
 /// Someone the passenger (or driver) trusts in an emergency.
 @immutable
 class EmergencyContact {

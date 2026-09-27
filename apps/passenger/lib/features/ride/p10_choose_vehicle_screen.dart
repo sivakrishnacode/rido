@@ -8,6 +8,7 @@ import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
+import 'p10b_who_is_riding_sheet.dart';
 import 'p11_fare_details_sheet.dart';
 
 /// P-10 Choose vehicle: route map, Bike / Auto / Cab cards ("3 min away · Drop 9:24 PM", Fastest), payment note,
@@ -176,6 +177,14 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                   ),
                                 ],
                               ),
+                              _RiderRow(
+                                rider: state.rider,
+                                onTap: () async {
+                                  final me = ref.read(currentProfileProvider).firstName;
+                                  final choice = await P10bWhoIsRidingSheet.show(context, me: me, current: state.rider);
+                                  if (choice != null) flow.setRider(choice.rider);
+                                },
+                              ),
                               const SizedBox(height: RidoSpacing.s),
                               if (!quotesReady)
                                 _QuotesPending(error: state.quotesError, onRetry: flow.loadQuotes)
@@ -247,7 +256,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                               ),
                               if (flow.canUseButterfly) ...[
                                 const SizedBox(height: RidoSpacing.m),
-                                ButterflyCard(value: womenDriver, onChanged: flow.setWomenDriver),
+                                ButterflyCard(value: womenDriver, onChanged: flow.setWomenDriver, riderName: state.rider?.firstName),
                               ],
                               const SizedBox(height: RidoSpacing.s),
                             ],
@@ -290,11 +299,60 @@ VehicleKind? _fastestKind(List<FareQuote> quotes) {
   return known[0].at < known[1].at ? known[0].kind : null;
 }
 
+/// "Riding: Me" / "Riding: Anjali" chip that opens P-10b "Who's riding?".
+class _RiderRow extends StatelessWidget {
+  const _RiderRow({required this.rider, required this.onTap});
+  final OtherRider? rider;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    final r = rider;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: r == null ? RidoColors.inputBg : RidoColors.coral50,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(r == null ? Symbols.person_rounded : Symbols.group_rounded,
+                    size: 18, color: r == null ? RidoColors.navy700 : RidoColors.coral600, fill: 1),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    r == null ? 'Riding: Me' : 'Riding: ${r.firstName}',
+                    style: t.bodySmallMedium.copyWith(color: r == null ? RidoColors.navy700 : RidoColors.coral700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (r?.isWoman ?? false) ...[const SizedBox(width: 4), const ButterflyMark(size: 16)],
+                const Icon(Symbols.expand_more_rounded, size: 18, color: RidoColors.navy500),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Butterfly (women riders only): Off / Preferred / Only, with what each one means.
 class ButterflyCard extends StatelessWidget {
-  const ButterflyCard({super.key, required this.value, required this.onChanged});
+  const ButterflyCard({super.key, required this.value, required this.onChanged, this.riderName});
   final WomenDriverPref value;
   final ValueChanged<WomenDriverPref> onChanged;
+
+  /// Booked for someone else: "For Anjali: …".
+  final String? riderName;
 
   @override
   Widget build(BuildContext context) {
@@ -329,7 +387,7 @@ class ButterflyCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Butterfly', style: t.bodySemibold.copyWith(color: RidoColors.butterfly600, fontSize: 17)),
-                    Text('For women riders: ride with a woman driver',
+                    Text(riderName != null ? 'For $riderName: a woman driver' : 'For women riders: ride with a woman driver',
                         style: t.bodySmall.copyWith(color: RidoColors.navy700)),
                   ],
                 ),

@@ -75,6 +75,7 @@ class LiveTrips {
     PaymentMode paymentMode = PaymentMode.cash,
     ParcelDetails? parcel,
     WomenDriverPref womenDriver = WomenDriverPref.none,
+    OtherRider? rider,
   }) async {
     realtime.connect();
     final res = _map(await api.post('/trips', {
@@ -86,6 +87,7 @@ class LiveTrips {
       if (parcel != null) 'parcel': parcelToJson(parcel),
       if (parcel != null) 'payer': enumToApi(parcel.payer),
       if (womenDriver.isOn) 'womenDriver': enumToApi(womenDriver),
+      if (rider != null) 'rider': {'name': rider.name.trim(), 'phone': apiPhone(rider.phone), 'isWoman': rider.isWoman},
     }));
     final update = _update(res);
     unawaited(realtime.joinTrip(update.trip.id));

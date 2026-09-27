@@ -119,9 +119,10 @@ class _FakeTrips extends LiveTrips {
     PaymentMode paymentMode = PaymentMode.cash,
     ParcelDetails? parcel,
     WomenDriverPref womenDriver = WomenDriverPref.none,
+    OtherRider? rider,
   }) async {
     calls.add('book:${kind.name}:${vehicle.name}${parcel != null ? ':${parcel.receiverName}' : ''}'
-        '${womenDriver.isOn ? ':${womenDriver.name}' : ''}');
+        '${womenDriver.isOn ? ':${womenDriver.name}' : ''}${rider != null ? ':for ${rider.name}' : ''}');
     return update('SEARCHING');
   }
 
@@ -256,6 +257,34 @@ void main() {
     other.read(rideFlowProvider.notifier).setWomenDriver(WomenDriverPref.only);
     expect(other.read(rideFlowProvider.notifier).canUseButterfly, isFalse);
     expect(other.read(rideFlowProvider.notifier).womenDriver, WomenDriverPref.none);
+  });
+
+  test('"Who\'s riding?": a father books Butterfly for his daughter; the next ride is for him again', () async {
+    final c = ProviderContainer(overrides: [
+      isLiveApiProvider.overrideWithValue(true),
+      realtimeProvider.overrideWithValue(realtime),
+      liveTripsProvider.overrideWithValue(trips),
+      currentProfileProvider.overrideWithValue(Seed.priya.copyWith(name: 'Ravi Kumar', gender: Gender.male)),
+    ]);
+    addTearDown(c.dispose);
+    final f = c.read(rideFlowProvider.notifier);
+    expect(f.canUseButterfly, isFalse);
+
+    f.setRider(const OtherRider(name: 'Anjali', phone: '9876512345', isWoman: true));
+    expect(f.canUseButterfly, isTrue);
+    f.setWomenDriver(WomenDriverPref.only);
+    f.setDrop(Seed.brookefields);
+    expect(await f.book(), isNull);
+    expect(trips.calls, ['book:ride:bike:only:for Anjali']);
+
+    // Someone else who is not a woman: no Butterfly.
+    f.setRider(const OtherRider(name: 'Arun', phone: '9876512346'));
+    expect(f.womenDriver, WomenDriverPref.none);
+
+    trips.push(trips.update('COMPLETED', driver: _driver));
+    await _settle();
+    await f.finishRide();
+    expect(c.read(rideFlowProvider).rider, isNull);
   });
 
   test('Skip on P-20 sends no rating', () async {
