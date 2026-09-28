@@ -1,39 +1,18 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# rido_data
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+Data layer shared by both Flutter apps (`@rido/data`, not published to pub.dev).
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+| Folder / file | What |
+|---|---|
+| `models/` | Trip, driver, vehicle, place… |
+| `fare_engine.dart` | `max(minFare, (base + perKm·km + perMin·min) × multiplier)`, the same engine as the API. Both run the shared cases in `test/fixtures/fare_cases.json`, so change them together |
+| `api/` | `ApiClient` (REST `/v1`), `RealtimeClient` (Socket.IO `/rt`), `kApiBaseUrl` / `kUseLiveApi` dart-defines |
+| `repositories/` | Interfaces the screens use (`api/api_repositories.dart` implements them on the API) |
+| `mock/` | In-memory implementations on `seed.dart`, for mock mode and widget tests |
+| `simulation/` | Trip simulator and `RoadRouter` (Google → OSRM → curved line) for mock mode |
+| `maps/` | Google Places / Routes helpers, polyline codec |
+| `providers.dart` | Riverpod providers: live API by default, mock with `--dart-define=RIDO_LIVE_API=false` |
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
-
-## Features
-
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
-
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
-```dart
-const like = 'sample';
+```bash
+npx turbo run analyze test --filter=@rido/data
 ```
-
-## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.

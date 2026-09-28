@@ -1,0 +1,21 @@
+name: Feature or idea
+description: Suggest a feature, an improvement or a way to cut running costs
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who has this problem (rider, driver, admin, developer) and what gets in their way?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What you'd build. Screens, endpoints or settings it touches, if you know.
+  - type: textarea
+    id: cost
+    attributes:
+      label: Cost and scale
+      description: Does it add paid API calls, SMS or server load? Rido is free to use, so running cost matters.

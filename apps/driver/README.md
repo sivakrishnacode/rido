@@ -1,17 +1,25 @@
-# rido_driver
+# Rido Driver (driver app)
 
-A new Flutter project.
+Flutter app for ride and delivery drivers:
 
-## Getting Started
+- go online and see demand hexes;
+- take requests: swipe to accept, read aloud, up to 3 open at once;
+- navigate, collect the fare, view earnings;
+- identity checks at sign-up;
+- a floating bubble (`lib/overlay`, using the vendored
+  [`flutter_overlay_window`](../../packages/flutter_overlay_window)) that keeps requests coming while other apps are open.
 
-This project is a starting point for a Flutter application.
+Android id `com.rido.driver`. Workspace name `@rido/driver`.
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+sh ../../scripts/flutter.sh run                                              # talks to the default API
+sh ../../scripts/flutter.sh run --dart-define=RIDO_API_URL=http://10.0.2.2:3000/v1  # your local API (emulator)
+sh ../../scripts/flutter.sh run --dart-define=RIDO_LIVE_API=false            # no backend: seed data + simulator
+npx turbo run analyze test --filter=@rido/driver
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Test accounts on a local backend: `npm run seed:test-drivers -w @rido/api` (11 approved drivers, every vehicle type).
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Layout is the same as the passenger app (`router/`, `state/`, `features/<feature>/` named after design frames,
+`features/design_gallery/`), plus `overlay/` for the background bubble. Background behaviour and request handling:
+[using.tech.md §7c9 and §7d](../../docs/tech-docs/using.tech.md#7d-driver-app-in-the-background-appsdriverliboverlay).

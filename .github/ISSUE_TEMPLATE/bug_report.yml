@@ -1,0 +1,34 @@
+name: Bug report
+description: Something in the apps, API or admin panel doesn't work as it should
+labels: [bug]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Passenger app, Driver app, API, Admin panel, Shared packages, Docs / setup]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the passenger app
+        2. Book a bike ride from Gandhipuram to Brookefields
+        3. ...
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Device and Android version, live API or mock mode, commit or APK version, logs or screenshots.
+  - type: markdown
+    attributes:
+      value: "**Security issue?** Don't file it here. See [SECURITY.md](https://github.com/sivakrishnacode/rido/blob/main/SECURITY.md)."

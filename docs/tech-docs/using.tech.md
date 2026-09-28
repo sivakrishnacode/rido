@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 29 Sep 2026 (bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 29 Sep 2026 (open-source repo: AGPL-3.0, contributor docs, CI, COST_AND_SCALING.md; DEV_OTP_CODE for dev-mode sign-in; bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -55,10 +55,16 @@ apps/
 packages/
   rido_ui/            @rido/ui         theme, widgets, illustrations, bundled fonts
   rido_data/          @rido/data       models, seed, fare engine, repositories, simulator, road router
+  flutter_overlay_window/  vendored plugin (MIT) for the driver's floating bubble
 docs/
   tech-docs/using.tech.md  this file
-  BUSINESS_MODEL.md, PITCH.md, PLAN.md, UI_PROMPTS.md, FLUTTER_PROMPT.md, design/
+  COST_AND_SCALING.md      running cost per trip, free tiers, P-10 ETA and OSRM plans, scaling stages
+  GOOGLE_MAPS_SETUP.md     Google Maps keys
+  design/                  exported design frames + index
+  private/                 owner-only docs (business plan, pitch, build prompts): git-ignored, not published
+.github/              CI (analyze + test, API e2e), issue and PR templates
 scripts/              flutter.sh, dart.sh (SDK lookup), build_apks.sh
+LICENSE               AGPL-3.0; CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md next to it
 docker-compose.yml    postgres + redis + api + admin (+ tools profile)
 turbo.json            task pipeline
 ```
@@ -1179,6 +1185,9 @@ default, no row stored) (`fdb7f15..619b77e`). Checked live: `/health` 200, hotsp
 `GET/PUT /drivers/me/booking-preferences` and `GET /trips/offers` work for a test driver (prefs cleared after).
 `SHARE_BASE_URL` is set on the server. Drivers need the new APK for voice, swipe, preferences and stacked cards.
 
+**Deployed 29 Sep 2026:** `DEV_OTP_CODE` (secret 6 digits in `/opt/rido/.env`, value in the git-ignored
+`credentials.local.md`): staging no longer accepts any OTP. Checked live: a wrong code gets 401, the secret code 200.
+
 **Capacity (measured 26 Sep 2026, t3.small):** cached fare quotes at 50 concurrent connections: ~890 req/s average
 (peak 1,340), p50 43 ms, p99 ~200 ms, no errors; the API process used both vCPUs while Postgres/Redis stayed idle.
 Planning figures with headroom: ~300–400 req/s sustained, ~1,500–2,500 concurrent app users, ~300–500 online
@@ -1225,7 +1234,9 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | SOS / tracking link | **Done (28 Sep 2026)**: tracking link, server SOS and the admin SOS page, see 6d. Later: a realtime admin channel (the page polls), SMS to contacts from the server (paid, so the phone's SMS app is used) |
 | Women-driver preference | **Done (27 Sep 2026)** as Butterfly: booking sends `womenDriver`, dispatch filters (ONLY) or ranks (PREFERRED) by driver gender, see 7 Dispatch step 4 |
 | Selfie / DOB | **Sign-up selfie: Done (27 Sep 2026)**, by Didit's liveness check (date of birth is read from the ID). The daily selfie (S-13 / D-09) is still simulated; Didit Biometric Authentication ($0.10 a check, not in the free tier) could replace it |
-| CI | Add GitHub Actions: `npm ci`, `npm run check`, API e2e with service containers, APK build artifacts |
+| CI | **Done (29 Sep 2026)**: `.github/workflows/ci.yml` runs `npm ci`, `npm run check` and the API e2e suite (Postgres + Redis service containers) on every push and PR. Later: APK build artifacts |
+| Open source | **Done (29 Sep 2026)**: AGPL-3.0, CONTRIBUTING / CODE_OF_CONDUCT / SECURITY, issue and PR templates, real package READMEs; business docs moved to git-ignored `docs/private/`; debug builds allow cleartext HTTP to a local API (`src/debug/res/xml/network_security_config.xml`) |
+| Cost plan | See [COST_AND_SCALING.md](../COST_AND_SCALING.md): the P-10 ETA change (§5) and self-hosted OSRM (§6) are planned, not built |
 | Hosting | **Staging live (26 Sep 2026)**: see "9b. AWS deployment". **HTTPS: Done (27 Sep 2026)** via Caddy on sslip.io names. Later: real domain at launch, RDS/ElastiCache when load needs it |
 | Secrets | AWS Secrets Manager / SSM for `JWT_SECRET`, Google keys, DB password |
 | Observability | Structured logs → CloudWatch; health checks already exposed |

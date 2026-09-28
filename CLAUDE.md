@@ -2,7 +2,8 @@
 
 Rido is a free ride-hailing and parcel delivery platform for Coimbatore: 0% commission and no subscription for
 drivers. The owner pays the running costs; drivers and riders can contribute by UPI (Account › Contribute). Paid
-driver plans still exist in the code but are switched off (`driverPlansEnabled`).
+driver plans still exist in the code but are switched off (`driverPlansEnabled`). **The repo is public, AGPL-3.0**:
+nothing personal or secret goes into tracked files.
 
 This file holds the working rules plus a quick map of the repo. **The full technical reference is
 [docs/tech-docs/using.tech.md](docs/tech-docs/using.tech.md)** (stack versions, env vars, endpoints, H3, FCM, AWS).
@@ -22,8 +23,9 @@ Don't leave finished work uncommitted at the end of a task.
   Don't commit broken code without saying so.
 - **Stage files explicitly** (`git add <paths>`), not `git add -A`, so stray files don't get in.
 - **Never commit secrets:** `.env`, `.dart-defines.json`, `docs/tech-docs/credentials.local.md`,
-  `google-services.json`, Firebase service-account JSON, keystores. They are git-ignored; keep it that way.
-- Work on `main` unless the user asks for a branch. **Don't push** unless asked.
+  `google-services.json`, Firebase service-account JSON, keystores, anything in `docs/private/`. They are git-ignored; keep it that way.
+- Work on `main` unless the user asks for a branch. **Don't push** unless asked. (Outside contributors: fork, branch
+  and open a PR, see [CONTRIBUTING.md](CONTRIBUTING.md).)
 - Never use `--no-verify`, `--amend` on pushed commits, or force-push without explicit approval.
 
 **Message format** ([Conventional Commits](https://www.conventionalcommits.org)):
@@ -90,6 +92,9 @@ packages/
   rido_data/    @rido/data       models, seed, fare engine, repositories (mock + api), simulator
   flutter_overlay_window/        vendored plugin for the driver floating bubble
 docs/tech-docs/using.tech.md     technical reference (source of truth)
+docs/COST_AND_SCALING.md         running cost per trip, free tiers, P-10 ETA + OSRM plans, scaling stages
+docs/private/                    owner-only business docs (git-ignored, never publish)
+.github/                         CI workflow, issue + PR templates
 docs/design/                     exported design frames + index
 scripts/                         flutter.sh / dart.sh (SDK lookup), build_apks.sh
 docker-compose.yml               postgres + redis + api + admin (+ `tools` profile: Adminer, Redis Insight)
@@ -131,7 +136,9 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
 ## 4. Key facts
 
 - **Apps use the live API by default.** Mock mode: `--dart-define=RIDO_LIVE_API=false`.
-- **Dev login:** any 6-digit OTP except `000000` (`OTP_DEV_MODE=true`). Admin phone: `9000000001`. Ride OTP `4829`,
+- **Dev login:** `OTP_DEV_MODE=true` (no SMS). `DEV_OTP_CODE` is the only code when set (Docker `.env.example`: `123456`;
+  staging: a secret in `/opt/rido/.env` and `credentials.local.md`); without it (`start:dev`) any 6 digits except
+  `000000`, which production refuses to start with. Admin phone: `9000000001`. Ride OTP `4829`,
   delivery OTP `7153`.
 - **Fare engine** (same in the apps and the API): `max(minFare, (base + perKm·km + perMin·min) × multiplier)`,
   multiplier ≤ `maxMultiplier` (1.5) and never applied to the minimum-fare top-up,
@@ -152,3 +159,4 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
 |---|---|
 | 26 Sep 2026 | Created: working rules (commit every change, docs, checks), repo map, commands, key facts |
 | 26 Sep 2026 | Free app: intro updated (no subscription, contributions), `app-config` module added to the map |
+| 29 Sep 2026 | Open source (AGPL-3.0): contributor note, `DEV_OTP_CODE`, new docs and folders in the map |
