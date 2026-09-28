@@ -31,15 +31,19 @@ export class OtpService {
     return { expiresInSeconds: OTP_TTL_S };
   }
 
-  /** True if [code] is right. In dev mode any 6 digits except 000000 pass (like the prototype). */
+  /** True if [code] is right. Dev mode: only DEV_OTP_CODE when it is set, else any 6 digits except 000000. */
   async verify(phone: string, code: string): Promise<boolean> {
     const attempts = await this.redis.incr(`otp:attempts:${phone}`);
     if (attempts === 1) await this.redis.expire(`otp:attempts:${phone}`, OTP_TTL_S);
     if (attempts > MAX_ATTEMPTS) throw new HttpException('Too many wrong attempts. Request a new OTP.', HttpStatus.TOO_MANY_REQUESTS);
     const expected = await this.redis.get(`otp:code:${phone}`);
-    const isValid = this.env.isOtpDevMode ? code !== '000000' : expected !== null && expected === code;
+    const isValid = this.env.isOtpDevMode ? OtpService.isDevCode(code, this.env.devOtpCode) : expected !== null && expected === code;
     if (isValid) await this.redis.del(`otp:code:${phone}`, `otp:attempts:${phone}`);
     return isValid;
+  }
+
+  private static isDevCode(code: string, devOtpCode: string): boolean {
+    return devOtpCode ? code === devOtpCode : code !== '000000';
   }
 
   private deliver(phone: string, code: string): void {

@@ -29,7 +29,7 @@ Auto-created "Maps Platform API Key": delete it (unused).
 | Postgres | user `rido`, password `rido`, db `rido`, host port 5432 | `/.env` |
 | Redis | no password, host port 6380 | `/.env` |
 | JWT_SECRET (dev) | `change-me-to-a-long-random-string-32chars` (Docker), `dev-only-change-me` (local dev) | `/.env`, `apps/api/.env` |
-| OTP | dev mode: any 6 digits except `000000` | `OTP_DEV_MODE=true` |
+| OTP | dev mode: `DEV_OTP_CODE` (Docker: `123456`), or any 6 digits except `000000` under `npm run start:dev` | `OTP_DEV_MODE=true` |
 
 Production: generate a new JWT secret (`openssl rand -hex 32`), set a strong Postgres password and a Redis password.
 
@@ -45,5 +45,5 @@ The CARTO key is currently in source code as a default; move it to `.dart-define
 
 | App | Phone | OTP |
 |---|---|---|
-| Passenger / Driver | any valid Indian mobile | any 6 digits except `000000` |
+| Passenger / Driver | any valid Indian mobile | the dev OTP above |
 | Ride OTP / Delivery OTP (prototype seed) | – | `4829` / `7153` |

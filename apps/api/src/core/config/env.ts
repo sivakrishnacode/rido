@@ -8,8 +8,13 @@ export interface Env {
   readonly redisUrl: string;
   readonly jwtSecret: string;
   readonly jwtExpiresIn: string;
-  /** Dev/demo: accept any 6-digit OTP except 000000 (matches the prototype apps). */
+  /** Dev/demo: no SMS; the OTP check is relaxed (see [devOtpCode]). */
   readonly isOtpDevMode: boolean;
+  /**
+   * With [isOtpDevMode]: the one code that signs in (DEV_OTP_CODE, 6 digits). Empty = any 6 digits except 000000,
+   * allowed only outside production, so a public server never accepts any code.
+   */
+  readonly devOtpCode: string;
   readonly corsOrigins: readonly string[];
   /** Server-side Google Maps Platform key (Places, Geocoding, Routes). Empty = local fallback. */
   readonly googleMapsApiKey: string;
@@ -51,6 +56,12 @@ export function loadEnv(): Env {
   if (nodeEnv === 'production' && jwtSecret.length < 32) {
     throw new Error('JWT_SECRET must be at least 32 characters in production');
   }
+  const isOtpDevMode = (process.env.OTP_DEV_MODE ?? 'false') === 'true';
+  const devOtpCode = process.env.DEV_OTP_CODE ?? '';
+  if (devOtpCode && !/^\d{6}$/.test(devOtpCode)) throw new Error('DEV_OTP_CODE must be 6 digits');
+  if (nodeEnv === 'production' && isOtpDevMode && !devOtpCode) {
+    throw new Error('OTP_DEV_MODE in production needs DEV_OTP_CODE (a secret 6-digit code), or set OTP_DEV_MODE=false');
+  }
   return {
     nodeEnv,
     port: Number(process.env.PORT ?? 3000),
@@ -58,7 +69,8 @@ export function loadEnv(): Env {
     redisUrl: required('REDIS_URL'),
     jwtSecret,
     jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '30d',
-    isOtpDevMode: (process.env.OTP_DEV_MODE ?? 'false') === 'true',
+    isOtpDevMode,
+    devOtpCode,
     corsOrigins: (process.env.CORS_ORIGINS ?? '*').split(',').map((o) => o.trim()),
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY ?? '',
     adminPhones: (process.env.ADMIN_PHONES ?? '')

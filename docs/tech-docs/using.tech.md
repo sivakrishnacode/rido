@@ -130,7 +130,8 @@ Never commit real `.env` files.
 | `REDIS_URL` | API | set by compose | |
 | `JWT_SECRET` | API | dev placeholder | ≥ 32 chars in production (`openssl rand -hex 32`) |
 | `JWT_EXPIRES_IN` | API | 30d | |
-| `OTP_DEV_MODE` | API | true | true = any 6-digit OTP except 000000 works |
+| `OTP_DEV_MODE` | API | true | true = no SMS: `DEV_OTP_CODE` signs in; without it any 6 digits except 000000 (not allowed in production) |
+| `DEV_OTP_CODE` | API | empty (`.env.example`: 123456) | the only OTP that works in dev mode; **required** with `OTP_DEV_MODE` when `NODE_ENV=production`. Keep it secret on staging |
 | `CORS_ORIGINS` | API | `*` | comma-separated list in production |
 | `SEED_ON_START` | API container | true | re-runs the idempotent seed on boot |
 | `GOOGLE_MAPS_API_KEY` | API | empty | key 2 `rido-server` (IP-restricted): Places (New), Geocoding, Routes; empty = local fallback |

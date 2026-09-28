@@ -54,6 +54,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string-32chars}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-30d}
       OTP_DEV_MODE: ${OTP_DEV_MODE:-true}
+      # With OTP_DEV_MODE in production (NODE_ENV above) this 6-digit code is the only one that signs in. Required.
+      DEV_OTP_CODE: ${DEV_OTP_CODE:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       SEED_ON_START: ${SEED_ON_START:-true}
       # Server key for Places / Geocoding / Routes (restrict by IP). Empty = local fallback.
@@ -107,8 +109,8 @@ services:
     restart: unless-stopped
     depends_on: [api, admin]
     environment:
-      API_HOST: ${API_HOST:-api.65-0-233-253.sslip.io}
-      ADMIN_HOST: ${ADMIN_HOST:-admin.65-0-233-253.sslip.io}
+      API_HOST: ${API_HOST:-api.localhost}
+      ADMIN_HOST: ${ADMIN_HOST:-admin.localhost}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
