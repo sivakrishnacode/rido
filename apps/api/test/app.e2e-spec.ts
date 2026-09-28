@@ -132,7 +132,13 @@ describe('Rido API (e2e)', () => {
     }
     expect(accepted).toBe(200);
     await http.post(`/v1/trips/${trip.id}/arrived`).set(auth).expect(200);
-    await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: '0000' === trip.otp ? '1111' : '0000' }).expect(400);
+    const wrongOtp = { otp: '0000' === trip.otp ? '1111' : '0000' };
+    await http.post(`/v1/trips/${trip.id}/start`).set(auth).send(wrongOtp).expect(400);
+    // 5 tries a minute: the 5th wrong one locks the OTP, even the right one, until the minute is up.
+    for (let i = 0; i < 3; i++) await http.post(`/v1/trips/${trip.id}/start`).set(auth).send(wrongOtp).expect(400);
+    expect((await http.post(`/v1/trips/${trip.id}/start`).set(auth).send(wrongOtp).expect(429)).body.code).toBe('OTP_LOCKED');
+    await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: trip.otp }).expect(429);
+    await app.get(RedisService).del(`trip:otp-tries:${trip.id}`); // the minute is up
     await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: trip.otp }).expect(200);
     // A retried start is fine; the passenger can't cancel a ride that has started.
     expect((await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: trip.otp }).expect(200)).body.status).toBe('IN_PROGRESS');

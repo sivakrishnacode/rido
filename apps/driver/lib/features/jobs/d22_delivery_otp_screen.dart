@@ -23,7 +23,8 @@ class D22DeliveryOtpScreen extends ConsumerStatefulWidget {
   ConsumerState<D22DeliveryOtpScreen> createState() => _D22DeliveryOtpScreenState();
 }
 
-class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen> {
+class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen>
+    with OtpLockout<D22DeliveryOtpScreen> {
   late final RideRequest _job = ref.read(driverSessionProvider).job ?? Seed.deliveryRequest;
   late String _code = widget.showcase ? Seed.deliveryOtp : '';
   late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
@@ -49,7 +50,9 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen> {
         done = await runWithFarCheck(context, (r) => c.completeDelivery(otp: _code, farReason: r),
             target: _job.drop.location);
       } on ApiException catch (e) {
-        if (mounted) _fail(e.message);
+        if (!mounted) return;
+        lockIfOtpLocked(e);
+        _fail(e.message);
         return;
       } on Exception catch (e) {
         if (!mounted) return;
@@ -95,7 +98,7 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen> {
         shakeTrigger: _shake,
         onChanged: (v) => setState(() {
           _code = v;
-          _errorText = null;
+          if (!isOtpLocked) _errorText = null;
         }),
       ),
       error: _errorText,
@@ -138,7 +141,7 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen> {
       ),
       buttonLabel: 'Complete delivery',
       busy: _busy,
-      onSubmit: _code.length == 4 ? _complete : null,
+      onSubmit: _code.length == 4 && !isOtpLocked ? _complete : null,
     );
   }
 }

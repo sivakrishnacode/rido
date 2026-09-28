@@ -1,5 +1,33 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
+
+/// Too many wrong OTPs: the API answers 429 `OTP_LOCKED` and refuses the OTP for `details.retryInSeconds`.
+/// The screen keeps its button off (and the message up) until then.
+mixin OtpLockout<T extends StatefulWidget> on State<T> {
+  Timer? _lockTimer;
+
+  bool get isOtpLocked => _lockTimer?.isActive ?? false;
+
+  /// Starts the wait when [e] is the lockout; false for any other error.
+  bool lockIfOtpLocked(ApiException e) {
+    if (e.code != 'OTP_LOCKED') return false;
+    final seconds = (e.details['retryInSeconds'] as num?)?.toInt() ?? 60;
+    _lockTimer?.cancel();
+    _lockTimer = Timer(Duration(seconds: seconds.clamp(1, 600)), () {
+      if (mounted) setState(() {});
+    });
+    return true;
+  }
+
+  @override
+  void dispose() {
+    _lockTimer?.cancel();
+    super.dispose();
+  }
+}
 
 /// Shared D-17 / D-22a body: navy app bar, big title, 4-box OTP with error state,
 /// extra content and a bottom primary button.

@@ -20,6 +20,7 @@ import type { BookTripDto } from './dto/book-trip.dto.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
 import { checkNearStop } from './trip-position.js';
+import { TripOtpGuard } from './trip-otp-guard.js';
 import { canTransition, isFinished } from './trip-transitions.js';
 
 /** H3 resolution stored on trips for heatmaps. */
@@ -59,6 +60,7 @@ export class TripsService {
     private readonly demand: DemandService,
     private readonly notifier: NotifierService,
     private readonly settings: SettingsService,
+    private readonly otpGuard: TripOtpGuard,
   ) {}
 
   /** Quotes, stores and starts dispatching a trip. */
@@ -268,13 +270,13 @@ export class TripsService {
     return this.location.position(driverId);
   }
 
-  /** Ride: driver enters the passenger's OTP to start. Parcel: marks picked up. */
+  /** Ride: driver enters the passenger's OTP to start (5 tries a minute, [TripOtpGuard]). Parcel: marks picked up. */
   async start(driverId: string, tripId: string, otp?: string): Promise<Trip> {
     const trip = await this.driverTrip(driverId, tripId);
     // A retry (double tap, lost response) of a start that already went through.
     if (trip.status === TripStatus.IN_PROGRESS || trip.status === TripStatus.PICKED_UP) return this.current(tripId);
     if (trip.kind === TripKind.PARCEL) return this.move({ driverId, tripId, to: TripStatus.PICKED_UP, data: { startedAt: new Date() } });
-    if (otp !== trip.otp) throw new BadRequestException('Wrong OTP, please try again');
+    await this.otpGuard.check({ tripId, expected: trip.otp, given: otp, who: 'rider' });
     return this.move({ driverId, tripId, to: TripStatus.IN_PROGRESS, data: { startedAt: new Date() } });
   }
 
@@ -289,7 +291,7 @@ export class TripsService {
       await this.location.releaseBusy(driverId, tripId);
       return this.current(tripId);
     }
-    if (isParcel && body.otp !== trip.otp) throw new BadRequestException('Wrong OTP, please try again');
+    if (isParcel) await this.otpGuard.check({ tripId, expected: trip.otp, given: body.otp, who: 'receiver' });
     const check = checkNearStop({
       stop: 'drop',
       at: await this.driverPosition(driverId, body),

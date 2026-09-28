@@ -224,6 +224,11 @@ Never commit real `.env` files.
     through (double tap, lost response) returns the trip (200). Complete counts `Driver.ridesCount` in the same
     transaction as the guarded update (a double tap counts once). Cancel / complete free the driver
     (`driver:busy`) only while it still points at that trip. Cancelling a cancelled trip returns it.
+  - **Trip OTP tries (28 Sep 2026):** the 4-digit ride OTP (`/start`) and parcel delivery OTP (`/complete`) allow
+    5 tries a minute per trip (`TripOtpGuard`, counted before the compare; the right OTP resets it). Wrong →
+    400 `WRONG_OTP` `{details: {triesLeft}}`; the 5th wrong try and any try while locked → **429 `OTP_LOCKED`**
+    "Too many wrong OTPs. Ask the rider (receiver) to read it again in a minute" `{details: {retryInSeconds}}`.
+    Driver app (D-17 / D-22a): shows the message and keeps the button off until then (`OtpLockout`).
   - Global JWT/roles guards now skip non-HTTP contexts: sockets authenticate on connect. (Before this, `trip:join` and
     `driver:location` crashed in the guard, so live tracking never reached passengers.)
 - **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, IdentityVerification, Trip, Plan, Subscription,
@@ -242,6 +247,7 @@ Never commit real `.env` files.
 | `user:blocked:<userId>` | Blocked by an admin (checked on every request) | until unblocked |
 | `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer`, `dispatch:driver:<driverId>:offer` | Nearest-driver queue, current 15 s offer (both directions). The driver key is claimed with SET NX (one open offer per driver) and deleted only while it still names that trip | 10 min / 15 s |
 | `trip:chat:<tripId>` | In-trip chat messages | 24 h |
+| `trip:otp-tries:<tripId>` | Ride / delivery OTP tries this minute (5 allowed) | 60 s from the first try |
 | `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
 | `kyc:event:<event_id>` | Didit webhook already handled (idempotency) | 2 d |
 | `maps:ac:*`, `maps:pd:*`, `maps:rg:*`, `maps:rt:*` | Google response cache | 1 d / 30 d / 30 d / 6 h |

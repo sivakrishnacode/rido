@@ -26,7 +26,8 @@ class D17RideOtpScreen extends ConsumerStatefulWidget {
   ConsumerState<D17RideOtpScreen> createState() => _D17RideOtpScreenState();
 }
 
-class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
+class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
+    with OtpLockout<D17RideOtpScreen> {
   late final RideRequest _job = ref.read(driverSessionProvider).job ?? Seed.rideRequest;
   late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
   // Prefilled with the passenger's OTP for demos; the error frame shows a wrong code. The live app
@@ -52,7 +53,9 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
       try {
         await session.startTrip(otp: _code);
       } on ApiException catch (e) {
-        if (mounted) _fail(e.message);
+        if (!mounted) return;
+        lockIfOtpLocked(e);
+        _fail(e.message);
         return;
       } on Exception catch (e) {
         if (!mounted) return;
@@ -123,7 +126,7 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
         shakeTrigger: _shake,
         onChanged: (v) => setState(() {
           _code = v;
-          _errorText = null;
+          if (!isOtpLocked) _errorText = null;
         }),
       ),
       error: _errorText,
@@ -152,7 +155,7 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen> {
       ]),
       buttonLabel: 'Start ride',
       busy: _busy,
-      onSubmit: _code.length == 4 ? _start : null,
+      onSubmit: _code.length == 4 && !isOtpLocked ? _start : null,
     );
   }
 }
