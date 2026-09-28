@@ -27,7 +27,8 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
     "seed:demo-trips": "tsx prisma/seed-demo-trips.ts",
-    "seed:demo-people": "tsx prisma/seed-demo-people.ts"
+    "seed:demo-people": "tsx prisma/seed-demo-people.ts",
+    "seed:test-drivers": "tsx prisma/seed-test-drivers.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1141.0",

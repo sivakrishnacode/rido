@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -80,6 +80,7 @@ turbo.json            task pipeline
 | `npm run test:e2e -w @rido/api` | API end-to-end tests on an isolated `rido_test` database + Redis DB 1 (migrated and seeded each run; dev data untouched) |
 | `npm run seed:demo-trips -w @rido/api [-- --clear]` | Add (or remove) ~2,000 demo trips for heatmaps and dashboards |
 | `npm run seed:demo-people -w @rido/api [-- --clear]` | Add (or remove) 40 passengers, 32 drivers (KYC, subscriptions, payments) and 12 tickets; run after demo trips, which it spreads across them |
+| `npm run seed:test-drivers -w @rido/api [-- --photo <file>] [-- --clear]` | 8 approved, verified test drivers you can sign into (dev OTP): cab 9100000101/102 (102 is a woman, for Butterfly), goods bike 9100000201/202, truck 9100000301/302, mini truck 9100000401, pickup 9100000501. Each gets a 90-day trial so they can go online with paid plans on. `--photo` sets a stored profile photo (needed with Didit on). Idempotent; ids `test_drv_*` |
 | `npm run prisma:migrate -w @rido/api` | Create/apply a migration in development |
 | `npm run prisma:deploy -w @rido/api` | Apply migrations (CI / production) |
 | `npm run prisma:seed -w @rido/api` | Seed places and plan prices (idempotent) |
@@ -1090,6 +1091,14 @@ webhook URL. Plain `http://65.0.233.253:3000` / `:3001` still work until those p
 PGIP=$(ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' rido-postgres-1")
 ssh -i ~/.ssh/rido-key.pem -f -N -L 15432:$PGIP:5432 ubuntu@65.0.233.253
 DATABASE_URL="postgresql://rido:<POSTGRES_PASSWORD from /opt/rido/.env>@127.0.0.1:15432/rido" npm run seed:demo-people -w @rido/api
+```
+
+**Test drivers on staging** (28 Sep 2026): the image has the Prisma sources and `tsx`, so the seeder runs inside the
+API container with its own `DATABASE_URL`. Their shared placeholder photo is `kyc/test-driver-avatar.png` in the bucket.
+
+```bash
+scp -i ~/.ssh/rido-key.pem apps/api/prisma/seed-test-drivers.ts ubuntu@65.0.233.253:/tmp/
+ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'docker cp /tmp/seed-test-drivers.ts rido-api-1:/repo/apps/api/prisma/ && docker exec -w /repo/apps/api rido-api-1 npx tsx prisma/seed-test-drivers.ts --photo test-driver-avatar.png'
 ```
 
 Seeded 26 Sep 2026: 2,000 demo trips + demo people.
