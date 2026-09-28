@@ -23,6 +23,7 @@ export 'src/mock/mock_database.dart';
 export 'src/mock/mock_repositories.dart';
 export 'src/models/cancellation.dart';
 export 'src/models/driver.dart';
+export 'src/models/driver_fix.dart';
 export 'src/models/people.dart';
 export 'src/models/place.dart';
 export 'src/models/trip.dart';

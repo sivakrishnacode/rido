@@ -138,9 +138,10 @@ class DriverSessionState {
 ///
 /// Live API ([isLiveApiProvider]): going online needs a GPS fix; offers come from dispatch over the socket
 /// ([LiveJobs.offers], plus [LiveJobs.currentOffer] after a reconnect or resume); every job step is an API
-/// call; the phone's GPS moves the marker and is uploaded about every 5 s / 20 m (socket, with an HTTP
-/// heartbeat every 30 s while the socket is down). ETA comes from progress along the stored route, never
-/// from a routing call on a timer.
+/// call; the phone's GPS moves the marker and is uploaded about every 5 s / 20 m over the socket. While the socket
+/// is down those fixes are kept on the phone ([FixBuffer], up to 500) and sent in one batch: over HTTP every 30 s
+/// while requests get through (else a plain heartbeat), and over the socket as soon as it reconnects. ETA comes
+/// from progress along the stored route, never from a routing call on a timer.
 class DriverSessionController extends Notifier<DriverSessionState> {
   final TripSimulator _sim = TripSimulator(tick: SimTimings.tick);
 
@@ -160,6 +161,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   LatLng? _lastSent;
   DateTime? _lastSentAt;
   DateTime? _lastHeartbeat;
+  GpsFix? _lastFix;
+  final FixBuffer _buffer = FixBuffer();
+  bool _flushing = false;
   DateTime? _gpsRestartedAt;
   bool _fixInFlight = false;
   int _legMin = 0;
@@ -259,6 +263,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     }
     final pending = state.incoming;
     _stopTracking();
+    // Kept only while online or on a job.
+    if (!state.onJob) _buffer.clear();
     state = state.copyWith(online: false, clearIncoming: true, missedRequest: false, gpsLost: false);
     if (pending != null) _quiet(_jobs.decline(pending.id));
     // Keep showing where the driver is (offline preview, nothing uploaded).
@@ -607,6 +613,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _offerSub = _jobs.offers().listen(_onOffer, onError: (Object _) {});
     _connectionSub = ref.read(realtimeProvider).connection.listen((up) {
       if (!up) return;
+      unawaited(_flushBuffered(overSocket: true));
       unawaited(_recoverOffer());
       unawaited(_syncJob());
     });
@@ -673,6 +680,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final prev = _position;
     final p = fix.point;
     _position = p;
+    _lastFix = fix;
     _lastFixAt = DateTime.now();
     if (fix.heading != null) {
       _heading = fix.heading!;
@@ -684,11 +692,14 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (state.gpsLost) state = state.copyWith(gpsLost: false);
     final now = DateTime.now();
     if (upload && shouldSendFix(last: _lastSent, lastAt: _lastSentAt, next: p, now: now)) {
+      // Socket down: kept for the batch upload, so the trip's path has no hole.
       if (ref.read(realtimeProvider).isConnected) {
-        _jobs.sendLocation(p);
-        _lastSent = p;
-        _lastSentAt = now;
+        _jobs.sendLocation(fix.toUpload());
+      } else {
+        _buffer.add(fix.toUpload());
       }
+      _lastSent = p;
+      _lastSentAt = now;
     }
     _updateEta();
   }
@@ -712,10 +723,31 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final realtime = ref.read(realtimeProvider);
     if (realtime.isConnected) return;
     realtime.connect();
-    final p = _position;
-    if (p != null && (_lastHeartbeat == null || now.difference(_lastHeartbeat!) >= _heartbeatEvery)) {
+    final last = _lastFix;
+    if (last != null && (_lastHeartbeat == null || now.difference(_lastHeartbeat!) >= _heartbeatEvery)) {
       _lastHeartbeat = now;
-      _quiet(_jobs.heartbeat(p));
+      // The buffered fixes end with the latest one, so they double as the heartbeat.
+      if (_buffer.isEmpty) {
+        _quiet(_jobs.heartbeat(last.toUpload()));
+      } else {
+        unawaited(_flushBuffered(overSocket: false));
+      }
+    }
+  }
+
+  /// Sends the fixes kept while the socket was down in one batch (socket after a reconnect, else HTTP); they go
+  /// back into the buffer when the upload fails.
+  Future<void> _flushBuffered({required bool overSocket}) async {
+    if (_flushing || _buffer.isEmpty) return;
+    _flushing = true;
+    final fixes = _buffer.drain();
+    try {
+      final ok = overSocket ? await _jobs.sendBufferedLocations(fixes) : await _jobs.uploadLocations(fixes).then((_) => true);
+      if (!ok) _buffer.restore(fixes);
+    } catch (_) {
+      _buffer.restore(fixes);
+    } finally {
+      _flushing = false;
     }
   }
 

@@ -46,7 +46,8 @@ export class DriverLocationService {
     return `h3:drv:${kind}:${cell}`;
   }
 
-  async update(params: { driverId: string; kind: VehicleKind; lat: number; lng: number }): Promise<void> {
+  /** Moves the driver in the index. [at]: when the fix was taken (epoch ms, default now), stored in `driver:alive`. */
+  async update(params: { driverId: string; kind: VehicleKind; lat: number; lng: number; at?: number }): Promise<void> {
     const cell = cellAt(params.lat, params.lng, DRIVER_H3_RES);
     const prev = await this.redis.get(`driver:cell:${params.driverId}`);
     const next = `${params.kind}|${cell}`;
@@ -57,7 +58,7 @@ export class DriverLocationService {
     }
     tx.sadd(DriverLocationService.cellKey(params.kind, cell), params.driverId)
       .set(`driver:cell:${params.driverId}`, next)
-      .set(`driver:alive:${params.driverId}`, `${params.lat},${params.lng},${Date.now()}`, 'EX', ALIVE_TTL_S)
+      .set(`driver:alive:${params.driverId}`, `${params.lat},${params.lng},${params.at ?? Date.now()}`, 'EX', ALIVE_TTL_S)
       // Keeps the busy flag alive while the driver is on a trip (no-op when free).
       .expire(`driver:busy:${params.driverId}`, BUSY_TTL_S);
     await tx.exec();

@@ -539,6 +539,33 @@ describe('Rido API (e2e)', () => {
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${bike}`).expect(200);
   });
 
+  it('takes rich GPS fixes and buffered batches; an older batch never overwrites a newer position', async () => {
+    const redis = app.get(RedisService);
+    const token = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
+    const driver = { Authorization: `Bearer ${token}` };
+    const driverId = (await http.get('/v1/drivers/me').set(driver).expect(200)).body.id as string;
+    const now = Date.now();
+    // New apps send the phone's timestamp, accuracy, speed, heading and the mock flag; junk is refused.
+    await http.post('/v1/drivers/me/location').set(driver).send({ lat: 11.019, lng: 76.973, ts: now, acc: 6, spd: 4.2, hdg: 90, mock: false }).expect(204);
+    await http.post('/v1/drivers/me/location').set(driver).send({ lat: 11.019, lng: 76.973, acc: 'far' }).expect(400);
+    // A flush after an outage: sorted by time, the newest fix becomes the live position at its own time.
+    await new Promise((r) => setTimeout(r, 30));
+    const t = Date.now();
+    const fixes = [
+      { lat: 11.021, lng: 76.975, ts: t, acc: 5 },
+      { lat: 11.02, lng: 76.974, ts: t - 10, acc: 5 },
+      { lat: 0, lng: 0, ts: t - 5 },
+    ];
+    expect((await http.post('/v1/drivers/me/locations').set(driver).send({ fixes }).expect(200)).body).toEqual({ accepted: 2, isLive: true });
+    expect(await redis.get(`driver:alive:${driverId}`)).toBe(`11.021,76.975,${t}`);
+    const stale = await http.post('/v1/drivers/me/locations').set(driver).send({ fixes: [{ lat: 11.03, lng: 76.98, ts: now - 60_000 }] }).expect(200);
+    expect(stale.body).toEqual({ accepted: 1, isLive: false });
+    expect((await redis.get(`driver:alive:${driverId}`))?.startsWith('11.021,76.975,')).toBe(true);
+    // Offline drivers' uploads are ignored.
+    await http.post('/v1/drivers/me/offline').set(driver).expect(200);
+    expect((await http.post('/v1/drivers/me/locations').set(driver).send({ fixes: [{ lat: 11.02, lng: 76.97 }] }).expect(200)).body.accepted).toBe(0);
+  });
+
   it('falls back to seeded places and a curved route without a Google key', async () => {
     const ac = await http.get('/v1/places/autocomplete?q=brook&session=t1').expect(200);
     expect(ac.body.results.length).toBeGreaterThan(0);

@@ -82,13 +82,6 @@ export class DriversController {
     return this.drivers.goOffline(DriversController.driverId(user));
   }
 
-  @Roles(Role.DRIVER)
-  @Post('drivers/me/location')
-  @HttpCode(204)
-  location(@CurrentUser() user: AuthUser, @Body() body: LocationDto): Promise<void> {
-    return this.drivers.heartbeat({ driverId: DriversController.driverId(user), ...body });
-  }
-
   /** D-07 profile photo: multipart `file` (JPG / PNG / WebP ≤ 8 MB), matched to the verified selfie. */
   @Roles(Role.DRIVER)
   @Post('drivers/me/photo')

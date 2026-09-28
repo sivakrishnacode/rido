@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -370,8 +370,22 @@ Never commit real `.env` files.
   Body `womenOnly: true` counts women drivers only (Butterfly "only"). P-10 shows "3 min away · Drop 9:24 PM" and a
   Fastest chip from it. Stored trip fares don't carry it.
 - **Realtime (`/rt`):** connect with `auth: { token }`; rooms `user:<id>`, `driver:<id>`, `trip:<id>`. Events:
-  `trip.offer`, `trip.updated`, `trip.location`, `trip.message`, `trip.no_drivers`. Drivers stream `driver:location`;
-  clients `trip:join {tripId}` (participants only).
+  `trip.offer`, `trip.updated`, `trip.location {tripId, lat, lng, at, hdg}`, `trip.message`, `trip.no_drivers`.
+  Drivers stream `driver:location`; clients `trip:join {tripId}` (participants only).
+- **Driver GPS uploads (28 Sep 2026):** every fix is `{lat, lng, ts, acc, spd, hdg, mock}`: `ts` = when the phone
+  took it (epoch ms), `acc` accuracy m, `spd` m/s, `hdg` degrees, `mock` = Android's `Position.isMocked`. All but
+  lat / lng are optional, so old apps sending `{lat, lng}` still work (their `ts` = server time). Four ways in, one
+  path (`realtime/location-ingest.service.ts`): socket `driver:location <fix>`, socket `driver:locations {fixes}`
+  (acked `{ok, accepted, isLive}`), `POST /v1/drivers/me/location <fix>` (heartbeat, 204) and
+  `POST /v1/drivers/me/locations {fixes: [...]}` (≤ 500, 200 `{accepted, isLive}`). DTO `LocationDto` checks types;
+  `sanitizeFix` (`drivers/location-fix.ts`) drops bad or (0, 0) coordinates and fixes older than 12 h, clamps `ts` to
+  the server clock and ignores out-of-range extras. A batch is sorted by `ts`; only its newest fix may move the
+  driver in the index, and only when it is newer than the stored `driver:alive` time (so a late flush never
+  overwrites a live position). Live fixes are stamped with the server time; batch fixes with their own `ts`.
+  Offline drivers' uploads are ignored. The driver app keeps fixes (same 5 s / 20 m rule) in a `FixBuffer`
+  (rido_data, 500, oldest dropped) while the socket is down, uploads them over HTTP every 30 s instead of the plain
+  heartbeat (plain heartbeat when the buffer is empty), and over the socket on reconnect; a failed upload puts them
+  back. The buffer is cleared on going offline without a job.
 - **Fares:** same engine as the apps. Distance: measured demo routes, then Google Routes distance (cached), then
   haversine × 1.3; duration uses 18 km/h so prices stay predictable.
 - **Payments:** the app is free, so nothing is charged (6a). Plan payments, if plans are switched back on, are
@@ -680,7 +694,8 @@ suggestion's name.
   `onUnauthorized` (apps go to sign-in).
 - **Realtime:** `RealtimeClient` (socket_io_client, websocket, auto-reconnect, re-joins trip rooms). `LiveTrips`
   (passenger: book, status, driver GPS, chat, cancel, rate, restore) and `LiveJobs` (driver: online/offline, offers,
-  accept → arrived → start(OTP) → complete, GPS over the socket with an HTTP heartbeat fallback, chat, restore).
+  accept → arrived → start(OTP) → complete, GPS over the socket (`DriverFix`) with a buffered batch / HTTP heartbeat
+  fallback, chat, restore).
 - **Routes:** `RoadRouter.backend = backendRouter(api)` → `POST /v1/maps/route` (Google on the server, Redis-cached,
   two-wheeler for bikes via `travelModeFor`), then OSRM. The apps no longer need the app-side Google web-services key
   (key 3) in live mode; places search also goes through the API.

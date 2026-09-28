@@ -12,7 +12,7 @@ import type { Server, Socket } from 'socket.io';
 
 import type { JwtPayload } from '../../core/auth/auth-user.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
-import { DriverLocationService } from '../drivers/driver-location.service.js';
+import { type IngestResult, LocationIngestService } from './location-ingest.service.js';
 import { TripEventsService } from './trip-events.service.js';
 
 interface SocketData {
@@ -21,7 +21,8 @@ interface SocketData {
 
 /**
  * Socket.IO namespace `/rt`. Connect with `auth: { token: <JWT> }`.
- * Client → server: `trip:join {tripId}`, `driver:location {lat, lng}`.
+ * Client → server: `trip:join {tripId}`, `driver:location {lat, lng, ts?, acc?, spd?, hdg?, mock?}`,
+ * `driver:locations {fixes: [...]}` (fixes buffered while offline; acked with `{ok, accepted}`).
  * Server → client: `trip.offer`, `trip.updated`, `trip.location`, `trip.no_drivers`.
  */
 @WebSocketGateway({ namespace: '/rt', cors: { origin: '*' } })
@@ -31,7 +32,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
   constructor(
     private readonly jwt: JwtService,
     private readonly events: TripEventsService,
-    private readonly location: DriverLocationService,
+    private readonly ingest: LocationIngestService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -62,15 +63,19 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
     return { ok: isParticipant };
   }
 
-  /** Driver GPS: updates the GEO set and streams to the passenger of the active trip. */
+  /** Driver GPS: updates the dispatch index and streams to the passenger of the active trip. */
   @SubscribeMessage('driver:location')
-  async driverLocation(@ConnectedSocket() client: Socket, @MessageBody() body: { lat: number; lng: number }): Promise<void> {
+  async driverLocation(@ConnectedSocket() client: Socket, @MessageBody() body: unknown): Promise<void> {
     const user = (client.data as SocketData).user;
-    if (!user?.driverId || !Number.isFinite(body.lat) || !Number.isFinite(body.lng)) return;
-    const driver = await this.prisma.driver.findUnique({ where: { id: user.driverId } });
-    if (!driver?.isOnline) return;
-    await this.location.update({ driverId: driver.id, kind: driver.vehicleKind, lat: body.lat, lng: body.lng });
-    const tripId = await this.location.activeTrip(driver.id);
-    if (tripId) this.events.toTrip(tripId, 'trip.location', { tripId, lat: body.lat, lng: body.lng, at: Date.now() });
+    if (user?.driverId) await this.ingest.live(user.driverId, body);
+  }
+
+  /** Fixes the app buffered while the socket was down, oldest first. The ack tells it they can be dropped. */
+  @SubscribeMessage('driver:locations')
+  async driverLocations(@ConnectedSocket() client: Socket, @MessageBody() body: unknown): Promise<{ ok: boolean } & Partial<IngestResult>> {
+    const user = (client.data as SocketData).user;
+    if (!user?.driverId) return { ok: false };
+    const fixes = Array.isArray(body) ? body : (body as { fixes?: unknown } | null)?.fixes;
+    return { ok: true, ...(await this.ingest.batch(user.driverId, fixes)) };
   }
 }

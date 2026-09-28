@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/cancellation.dart';
 import '../models/driver.dart';
+import '../models/driver_fix.dart';
 import '../models/people.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
@@ -261,10 +262,18 @@ class LiveJobs {
   }
 
   /// GPS fix over the socket (no HTTP request per fix).
-  void sendLocation(LatLng p) => realtime.sendLocation(p.latitude, p.longitude);
+  void sendLocation(DriverFix fix) => realtime.sendLocation(fix.toJson());
+
+  /// Fixes buffered while the socket was down, over the socket once it is back. True when the server took them.
+  Future<bool> sendBufferedLocations(List<DriverFix> fixes) => realtime.sendLocations([for (final f in fixes) f.toJson()]);
+
+  /// The same over HTTP (socket still down, but requests get through). Throws when the upload failed.
+  Future<void> uploadLocations(List<DriverFix> fixes) => api.post('/drivers/me/locations', {
+        'fixes': [for (final f in fixes) f.toJson()],
+      });
 
   /// Keeps the dispatch index fresh when the socket is down.
-  Future<void> heartbeat(LatLng p) => api.post('/drivers/me/location', {'lat': p.latitude, 'lng': p.longitude});
+  Future<void> heartbeat(DriverFix fix) => api.post('/drivers/me/location', fix.toJson());
 
   Stream<ChatMessage> messages(String tripId) =>
       realtime.on('trip.message').where((j) => j['tripId'] == tripId).map((j) => chatFromJson(j, iAmDriver: true));

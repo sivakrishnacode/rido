@@ -52,10 +52,20 @@ final locationAccessProvider = NotifierProvider<LocationAccessController, Locati
 /// A GPS fix with the direction of travel (degrees, or null when standing still).
 @immutable
 class GpsFix {
-  const GpsFix(this.point, {this.heading, required this.at});
+  const GpsFix(this.point, {this.heading, required this.at, this.accuracy, this.speed, this.isMocked = false});
   final LatLng point;
   final double? heading;
   final DateTime at;
+
+  /// Horizontal accuracy (m) and speed (m/s) as the phone reported them, when known.
+  final double? accuracy;
+  final double? speed;
+
+  /// Android flagged the position as coming from a mock-location app.
+  final bool isMocked;
+
+  /// What goes up to the API.
+  DriverFix toUpload() => DriverFix(point, at: at, accuracy: accuracy, speed: speed, heading: heading, isMocked: isMocked);
 }
 
 /// The phone's GPS for the live driver session (geolocator). While online the stream runs as an Android
@@ -219,6 +229,9 @@ class DriverLocator {
         LatLng(p.latitude, p.longitude),
         heading: p.speed > 1 && p.heading >= 0 ? p.heading : null,
         at: p.timestamp,
+        accuracy: p.accuracy > 0 ? p.accuracy : null,
+        speed: p.speed >= 0 ? p.speed : null,
+        isMocked: p.isMocked,
       );
 }
 

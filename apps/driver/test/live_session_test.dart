@@ -47,12 +47,16 @@ LiveTripUpdate _update(String id, String status, {Map<String, Object?> extra = c
 class FakeRealtime extends RealtimeClient {
   FakeRealtime(super.api);
   final sent = <LatLng>[];
+  final payloads = <Map<String, Object>>[];
+  final batches = <List<Map<String, Object>>>[];
   bool connected = true;
+  bool batchAck = true;
+  final connectionCtl = StreamController<bool>.broadcast();
 
   @override
   bool get isConnected => connected;
   @override
-  Stream<bool> get connection => const Stream.empty();
+  Stream<bool> get connection => connectionCtl.stream;
   @override
   void connect() {}
   @override
@@ -60,7 +64,16 @@ class FakeRealtime extends RealtimeClient {
   @override
   Future<bool> joinTrip(String tripId) async => true;
   @override
-  void sendLocation(double lat, double lng) => sent.add(LatLng(lat, lng));
+  void sendLocation(Map<String, Object> fix) {
+    payloads.add(fix);
+    sent.add(LatLng(fix['lat']! as double, fix['lng']! as double));
+  }
+
+  @override
+  Future<bool> sendLocations(List<Map<String, Object>> fixes) async {
+    batches.add(fixes);
+    return batchAck;
+  }
 }
 
 class FakeJobs extends LiveJobs {
@@ -144,7 +157,7 @@ class FakeJobs extends LiveJobs {
   @override
   Future<LiveTripUpdate?> active() async => null;
   @override
-  Future<void> heartbeat(LatLng p) async => calls.add('heartbeat');
+  Future<void> heartbeat(DriverFix fix) async => calls.add('heartbeat');
 }
 
 class FakeLocator extends DriverLocator {
@@ -302,6 +315,50 @@ void main() {
     locator.fixes.add(GpsFix(offsetPoint(next, 5, 0), at: DateTime.now()));
     await pumpEventQueue();
     expect(realtime.sent, hasLength(1));
+  });
+
+  test('fixes carry time, accuracy, speed, heading and the mock flag', () async {
+    await session().goOnline();
+    final at = DateTime.fromMillisecondsSinceEpoch(1800000000000);
+    locator.fixes.add(GpsFix(offsetPoint(_here, 50, 0), at: at, accuracy: 6.44, speed: 7.5, heading: 92.26, isMocked: true));
+    await pumpEventQueue();
+    expect(realtime.payloads.single, {
+      'lat': realtime.sent.single.latitude,
+      'lng': realtime.sent.single.longitude,
+      'ts': 1800000000000,
+      'acc': 6.4,
+      'spd': 7.5,
+      'hdg': 92.3,
+      'mock': true,
+    });
+  });
+
+  test('socket down: fixes are buffered, then flushed as one batch on reconnect (kept if the flush fails)', () async {
+    await session().goOnline();
+    realtime.connected = false;
+    final next = offsetPoint(_here, 100, 0);
+    locator.fixes.add(GpsFix(next, at: DateTime.now(), accuracy: 5));
+    await pumpEventQueue();
+    expect(realtime.sent, isEmpty, reason: 'nothing goes up while the socket is down');
+
+    realtime.batchAck = false;
+    realtime.connected = true;
+    realtime.connectionCtl.add(true);
+    await pumpEventQueue();
+    expect(realtime.batches, hasLength(1));
+    expect(realtime.batches.single.single, containsPair('acc', 5.0));
+
+    realtime.batchAck = true;
+    realtime.connectionCtl.add(true);
+    await pumpEventQueue();
+    expect(realtime.batches, hasLength(2));
+    expect(realtime.batches.last, hasLength(1), reason: 'a failed flush keeps the fixes for the next one');
+    expect(realtime.batches.last.single['lat'], next.latitude);
+    expect(realtime.sent, isEmpty);
+
+    realtime.connectionCtl.add(true);
+    await pumpEventQueue();
+    expect(realtime.batches, hasLength(2), reason: 'the buffer is empty after a flush the server took');
   });
 
   test('GPS lost while Location is on: Fix now restarts the stream and a fresh fix clears the banner', () async {

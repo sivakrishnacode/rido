@@ -90,8 +90,19 @@ class RealtimeClient {
 
   void leaveTrip(String tripId) => _trips.remove(tripId);
 
-  /// Driver GPS fix: updates the dispatch index and streams to the passenger of the active trip.
-  void sendLocation(double lat, double lng) => _socket?.emit('driver:location', {'lat': lat, 'lng': lng});
+  /// Driver GPS fix ([DriverFix.toJson]): updates the dispatch index and streams to the passenger of the active trip.
+  void sendLocation(Map<String, Object> fix) => _socket?.emit('driver:location', fix);
+
+  /// Fixes buffered while the socket was down, in one event. True once the server has taken them (ack).
+  Future<bool> sendLocations(List<Map<String, Object>> fixes) {
+    final socket = _socket;
+    if (socket == null || !socket.connected) return Future.value(false);
+    final done = Completer<bool>();
+    socket.emitWithAck('driver:locations', {'fixes': fixes}, ack: (dynamic res) {
+      if (!done.isCompleted) done.complete(res is Map && res['ok'] == true);
+    });
+    return done.future.timeout(const Duration(seconds: 10), onTimeout: () => false);
+  }
 
   void dispose() {
     disconnect();

@@ -213,9 +213,4 @@ export class DriversService {
     await this.earnings.sessionEnded(driverId);
     return driver;
   }
-
-  async heartbeat(params: { driverId: string; lat: number; lng: number }): Promise<void> {
-    const driver = await this.prisma.driver.findUniqueOrThrow({ where: { id: params.driverId } });
-    if (driver.isOnline) await this.location.update({ ...params, kind: driver.vehicleKind });
-  }
 }
