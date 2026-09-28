@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "analyze": {
+      "inputs": ["src/**", "test/**", "prisma/**", "tsconfig.json", "oxlint.json", "package.json"],
+      "outputs": []
+    },
+    "test": {
+      "inputs": ["src/**", "test/**", "vitest.config.ts", "package.json", "$TURBO_ROOT$/packages/rido_data/test/fixtures/**"],
+      "outputs": []
+    }
+  }
+}
