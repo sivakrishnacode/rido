@@ -73,4 +73,17 @@ void main() {
     expect(swipes.every((s) => !s.enabled), isTrue);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('each card shows the seconds left and counts down, red at the end', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: RidoTheme.light(),
+      home: const Scaffold(body: Center(child: SecondsLeft(left: Duration(seconds: 7)))),
+    ));
+    expect(find.text('7s'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    final label = find.text('4s');
+    expect(label, findsOneWidget);
+    expect(tester.widget<Text>(label).style?.color, RidoColors.error);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

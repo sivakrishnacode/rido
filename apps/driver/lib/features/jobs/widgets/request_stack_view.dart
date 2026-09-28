@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rido_data/rido_data.dart';
@@ -245,7 +247,8 @@ class _RequestCard extends StatelessWidget {
               ],
             ]),
           ),
-          // ✕ inside this request's ring.
+          // ✕ inside this request's ring, the seconds left under it.
+          Column(mainAxisSize: MainAxisSize.min, children: [
           Semantics(
             button: true,
             label: 'Decline ${formatInr(r.fare)} request',
@@ -266,6 +269,8 @@ class _RequestCard extends StatelessWidget {
               ),
             ),
           ),
+          SecondsLeft(left: left, running: running && !locked),
+          ]),
         ]),
         const SizedBox(height: RidoSpacing.s),
         Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
@@ -378,6 +383,58 @@ class _Stop extends StatelessWidget {
           ),
         ),
       ]),
+    );
+  }
+}
+
+/// "12s": seconds until the request closes, ticking once a second (red for the last 5).
+class SecondsLeft extends StatefulWidget {
+  const SecondsLeft({super.key, required this.left, this.running = true});
+  final Duration left;
+  final bool running;
+
+  @override
+  State<SecondsLeft> createState() => _SecondsLeftState();
+}
+
+class _SecondsLeftState extends State<SecondsLeft> {
+  late int _secs = (widget.left.inMilliseconds / 1000).ceil();
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.running) {
+      _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted && _secs > 0) setState(() => _secs--);
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(SecondsLeft old) {
+    super.didUpdateWidget(old);
+    if (!widget.running) {
+      _tick?.cancel();
+      _tick = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final secs = _secs;
+    return ExcludeSemantics(
+      child: Text(
+        '${secs}s',
+        style: RidoTextStyles.tabular(context.type.bodySmallMedium)
+            .copyWith(color: secs <= 5 ? RidoColors.error : RidoColors.navy700),
+      ),
     );
   }
 }

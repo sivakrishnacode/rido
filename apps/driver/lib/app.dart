@@ -119,7 +119,10 @@ class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindi
       ref.listen(driverSessionProvider.select((s) => s.notice), (prev, next) {
         if (next != null && !identical(prev, next)) _onNotice(next);
       });
-      ref.listen(driverSessionProvider.select((s) => (s.online, s.incoming?.id, s.job?.id)), (_, _) {
+      // The stacked requests too: the overlay list and their notifications follow them.
+      ref.listen(
+          driverSessionProvider.select(
+              (s) => (s.online, s.incoming?.id, s.job?.id, s.queued.map((q) => q.request.id).join(','))), (_, _) {
         _background?.onSession();
       });
       // The job ended any way (cancelled by either side, found gone on reconnect, paid): no job screen may stay open,

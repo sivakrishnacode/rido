@@ -1033,7 +1033,8 @@ suggestion's name.
   App: `DriverSessionState.queued` (`QueuedOffer`) behind `incoming`. D-15 / D-20 always show `RequestStackView`
   (like Namma Yatri's; the coral single-request takeover is gone, 29 Sep 2026): with two or more a left rail of
   countdown rings with each fare (tap to jump); with one a single full-width card. A card per request, soonest to close on top, with rating / vehicle / parcel tags,
-  fare and ₹/km, pickup distance · min and address, trip km · min and drop address, a ✕ inside its own ring, and
+  fare and ₹/km, pickup distance · min and address, trip km · min and drop address, a ✕ inside its own ring with
+  the seconds left under it (red for the last 5), and
   its own "Swipe to accept" (`acceptOffer` / `declineOffer`; the others lock while one is being accepted). Each new
   request is read aloud. Decline, timeout, a failed accept or `trip.offer_closed` drop that card; none left → Home. Home pushes the card only when a request appears from none. In the background the
   overlay shows the same list: the app sends `{cmd: offer, offer, others}` whenever the stack changes, and the

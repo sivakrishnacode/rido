@@ -32,6 +32,9 @@ class BackgroundOffers {
   String? _offerOnOverlay;
   String? _alertFor;
   String? _lastOffer;
+
+  /// Offers that may have a request notification up (posted by the FCM handler or by us), to clear them all.
+  final Set<String> _maybeNotified = {};
   Future<void> _queue = Future.value();
 
   static const bubbleDp = 64.0;
@@ -89,7 +92,7 @@ class BackgroundOffers {
     }
   }
 
-  /// From a listener on the session (online, incoming request, job).
+  /// From a listener on the session (online, incoming request, stacked requests, job).
   void onSession() => _sync();
 
   void _sync({bool checkPermission = false}) {
@@ -151,6 +154,17 @@ class BackgroundOffers {
       _offerOnOverlay = null;
       await _send({OverlayMsg.cmd: OverlayMsg.bubble, ..._screen()});
     }
+
+    // Every open request can have a notification (the FCM handler posts one per offer). In front: clear them all, the
+    // in-app card shows them. In the background: clear the ones that closed.
+    final openIds = {?incoming?.id, for (final q in s.queued) q.request.id};
+    final inFront = surface != BackgroundSurface.requestOverlay && surface != BackgroundSurface.requestNotification;
+    if (_background) _maybeNotified.addAll(openIds);
+    final clear = inFront ? {..._maybeNotified, ...openIds} : _maybeNotified.difference(openIds);
+    for (final id in clear) {
+      if (id != _alertFor) await OfferAlerts.cancelOfferNotification(id);
+    }
+    _maybeNotified.removeAll(clear);
 
     // The ringing request notification (full screen on a locked phone), for the overlay card too.
     final ringFor = surface == BackgroundSurface.requestOverlay || surface == BackgroundSurface.requestNotification
