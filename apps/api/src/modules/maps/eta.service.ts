@@ -49,7 +49,7 @@ export class EtaService {
     const to = { lat: bLat, lng: bLng };
     // 2. Road ETA, 3. straight-line estimate.
     if (params.useRoad && this.maps.isGoogleEnabled) {
-      const road = await this.maps.route({ from, to, vehicleKind: params.vehicleKind });
+      const road = await this.maps.route({ from, to, vehicleKind: params.vehicleKind, fromIsStop: false });
       if (road) return Math.max(1, road.durationMin);
     }
     return etaMinutes(roadKm(from, to), FALLBACK_KMH);

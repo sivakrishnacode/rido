@@ -93,14 +93,22 @@ export class GoogleMapsClient {
   }
 
   /** Routes API computeRoutes (traffic-unaware = Essentials SKU). */
-  async route(params: { from: LatLngLiteral; to: LatLngLiteral; mode: TravelMode }): Promise<RoadRoute | null> {
-    const wp = (p: LatLngLiteral): object => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } } });
+  /**
+   * `vehicleStopover` snaps a stop to a road where a vehicle can pull over, not a flyover or highway passing
+   * above it: a drop pinned on the Ukkadam flyover was routed 16.5 km round via Podanur instead of 11.4 km along
+   * Trichy Road. [fromIsStop] false = the origin is a moving driver (ETA), who may really be on that highway.
+   */
+  async route(params: { from: LatLngLiteral; to: LatLngLiteral; mode: TravelMode; fromIsStop?: boolean }): Promise<RoadRoute | null> {
+    const wp = (p: LatLngLiteral, isStop: boolean): object => ({
+      location: { latLng: { latitude: p.lat, longitude: p.lng } },
+      ...(isStop && { vehicleStopover: true }),
+    });
     const json = await this.call<{ routes?: { distanceMeters?: number; duration?: string; polyline?: { encodedPolyline?: string } }[] }>(
       'https://routes.googleapis.com/directions/v2:computeRoutes',
       {
         method: 'POST',
         fieldMask: 'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline',
-        body: JSON.stringify({ origin: wp(params.from), destination: wp(params.to), travelMode: params.mode, routingPreference: params.mode === 'DRIVE' ? 'TRAFFIC_UNAWARE' : undefined, regionCode: 'in' }),
+        body: JSON.stringify({ origin: wp(params.from, params.fromIsStop ?? true), destination: wp(params.to, true), travelMode: params.mode, routingPreference: params.mode === 'DRIVE' ? 'TRAFFIC_UNAWARE' : undefined, regionCode: 'in' }),
       },
     );
     const r = json?.routes?.[0];

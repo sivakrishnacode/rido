@@ -41,7 +41,7 @@ export class MapsService {
   }
 
   /** Road route (Google when enabled; cached ~6 h on a ~100 m grid), else null. */
-  route(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind }): Promise<RoadRoute | null> {
+  route(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind; fromIsStop?: boolean }): Promise<RoadRoute | null> {
     const mode = MapsService.mode(params.vehicleKind);
     return this.cached(MapsService.routeKey(mode, params), TTL.route, () => this.google.route({ ...params, mode }));
   }
@@ -59,9 +59,10 @@ export class MapsService {
     return kind === VehicleKind.BIKE || kind === VehicleKind.GOODS_BIKE ? 'TWO_WHEELER' : 'DRIVE';
   }
 
-  private static routeKey(mode: TravelMode, p: { from: LatLngLiteral; to: LatLngLiteral }): string {
+  /** `rt2`: routes snap stops with `vehicleStopover` (older `maps:rt:` entries, some via a flyover, expire unused). */
+  private static routeKey(mode: TravelMode, p: { from: LatLngLiteral; to: LatLngLiteral; fromIsStop?: boolean }): string {
     const g = (q: LatLngLiteral): string => `${q.lat.toFixed(3)},${q.lng.toFixed(3)}`;
-    return `maps:rt:${mode}:${g(p.from)}:${g(p.to)}`;
+    return `maps:rt2:${mode}${p.fromIsStop === false ? ':drv' : ''}:${g(p.from)}:${g(p.to)}`;
   }
 
   /** Distance/duration for fares: measured demo routes first, then Google road distance, then haversine × 1.3. */
