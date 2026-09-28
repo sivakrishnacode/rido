@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import type { Env } from '../../core/config/env.js';
 import { ENV } from '../../core/config/env.token.js';
+import type { LatLngBounds } from '../geo/h3.util.js';
 import { decodePolyline, LatLngLiteral } from './polyline.js';
 
 /** One autocomplete suggestion (Places API New). */
@@ -9,6 +10,8 @@ export interface PlaceSuggestion {
   readonly placeId: string;
   readonly name: string;
   readonly address: string;
+  /** Autocomplete with an `origin` only: Google's road distance from it (`distanceMeters`), in km to 0.1. */
+  readonly distanceKm?: number | null;
 }
 
 /** A resolved place with coordinates. */
@@ -84,8 +87,6 @@ export type TravelMode = 'DRIVE';
 const TIMEOUT_MS = 5000;
 /** ETAs have fallbacks (learned speeds, estimate), so they give Google less time. */
 const ETA_TIMEOUT_MS = 2500;
-/** Bias results to Coimbatore (30 km). */
-const BIAS = { latitude: 11.0168, longitude: 76.9658, radius: 30_000 } as const;
 
 /**
  * Thin client for Google Maps Platform web services. Every call returns null on failure so callers
@@ -101,15 +102,22 @@ export class GoogleMapsClient {
     return this.env.googleMapsApiKey.length > 0;
   }
 
-  /** Places Autocomplete (New). Pass the same [sessionToken] until [placeDetails] ends the session. */
-  async autocomplete(params: { input: string; sessionToken: string }): Promise<PlaceSuggestion[] | null> {
+  /**
+   * Places Autocomplete (New). Pass the same [sessionToken] until [placeDetails] ends the session.
+   * [restriction]: only places inside this rectangle (the service area; `locationRestriction`, not a bias, so
+   * nothing Rido can't serve is suggested). [origin]: the pickup, so each suggestion carries `distanceMeters`.
+   * Neither changes the SKU (Autocomplete per session, ended by Place Details).
+   */
+  async autocomplete(params: { input: string; sessionToken: string; restriction: LatLngBounds; origin?: LatLngLiteral }): Promise<PlaceSuggestion[] | null> {
+    const { low, high } = params.restriction;
     const body = {
       input: params.input,
       sessionToken: params.sessionToken,
       includedRegionCodes: ['in'],
-      locationBias: { circle: { center: { latitude: BIAS.latitude, longitude: BIAS.longitude }, radius: BIAS.radius } },
+      locationRestriction: { rectangle: { low: { latitude: low.lat, longitude: low.lng }, high: { latitude: high.lat, longitude: high.lng } } },
+      ...(params.origin && { origin: { latitude: params.origin.lat, longitude: params.origin.lng } }),
     };
-    const json = await this.call<{ suggestions?: { placePrediction?: { placeId: string; structuredFormat?: { mainText?: { text: string }; secondaryText?: { text: string } } } }[] }>(
+    const json = await this.call<{ suggestions?: { placePrediction?: { placeId: string; distanceMeters?: number; structuredFormat?: { mainText?: { text: string }; secondaryText?: { text: string } } } }[] }>(
       'https://places.googleapis.com/v1/places:autocomplete',
       { method: 'POST', body: JSON.stringify(body) },
     );
@@ -117,7 +125,12 @@ export class GoogleMapsClient {
     return (json.suggestions ?? [])
       .map((s) => s.placePrediction)
       .filter((p): p is NonNullable<typeof p> => !!p)
-      .map((p) => ({ placeId: p.placeId, name: p.structuredFormat?.mainText?.text ?? '', address: p.structuredFormat?.secondaryText?.text ?? '' }));
+      .map((p) => ({
+        placeId: p.placeId,
+        name: p.structuredFormat?.mainText?.text ?? '',
+        address: p.structuredFormat?.secondaryText?.text ?? '',
+        distanceKm: typeof p.distanceMeters === 'number' ? Math.round(p.distanceMeters / 100) / 10 : null,
+      }));
   }
 
   /** Place Details (Essentials fields only); ends the autocomplete session. */

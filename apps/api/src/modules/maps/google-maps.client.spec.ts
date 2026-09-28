@@ -101,6 +101,38 @@ describe('GoogleMapsClient.reverseGeocode', () => {
   });
 });
 
+describe('GoogleMapsClient.autocomplete', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const client = new GoogleMapsClient({ googleMapsApiKey: 'test-key' } as unknown as Env);
+  const restriction = { low: { lat: 10.85, lng: 76.8 }, high: { lat: 11.15, lng: 77.15 } };
+
+  it('restricts to the service area, sends the pickup as origin and returns each distance in km', async () => {
+    const { bodies } = stubFetch({
+      suggestions: [
+        { placePrediction: { placeId: 'a', distanceMeters: 8674, structuredFormat: { mainText: { text: 'Ukkadam' }, secondaryText: { text: 'Coimbatore' } } } },
+        { placePrediction: { placeId: 'b', structuredFormat: { mainText: { text: 'Ukkadam Lake' } } } },
+      ],
+    });
+    const r = await client.autocomplete({ input: 'ukkadam', sessionToken: 's1', restriction, origin: from });
+    expect(bodies[0]).toMatchObject({
+      sessionToken: 's1',
+      locationRestriction: { rectangle: { low: { latitude: 10.85, longitude: 76.8 }, high: { latitude: 11.15, longitude: 77.15 } } },
+      origin: { latitude: from.lat, longitude: from.lng },
+    });
+    expect(bodies[0].locationBias).toBeUndefined();
+    expect(r).toEqual([
+      { placeId: 'a', name: 'Ukkadam', address: 'Coimbatore', distanceKm: 8.7 },
+      { placeId: 'b', name: 'Ukkadam Lake', address: '', distanceKm: null },
+    ]);
+  });
+
+  it('without an origin (older apps) sends none', async () => {
+    const { bodies } = stubFetch({ suggestions: [] });
+    await client.autocomplete({ input: 'ukkadam', sessionToken: 's1', restriction });
+    expect(bodies[0].origin).toBeUndefined();
+  });
+});
+
 describe('shortestRoute', () => {
   const r = (m: number, p = 'x'): { distanceMeters: number; polyline: { encodedPolyline: string } } => ({ distanceMeters: m, polyline: { encodedPolyline: p } });
 

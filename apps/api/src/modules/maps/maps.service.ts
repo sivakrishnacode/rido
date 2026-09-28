@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { RedisService } from '../../core/redis/redis.service.js';
 import { VehicleKind } from '../../generated/prisma/enums.js';
+import type { LatLngBounds } from '../geo/h3.util.js';
 import { estimateRoute, GeoPoint, type RouteEstimate } from '../fares/fare-engine.js';
 import { GoogleMapsClient, PlaceSuggestion, ResolvedPlace, RoadRoute, TravelMode } from './google-maps.client.js';
 import type { LatLngLiteral } from './polyline.js';
@@ -30,7 +31,7 @@ export class MapsService {
     return this.google.isEnabled;
   }
 
-  async autocomplete(params: { input: string; sessionToken: string }): Promise<PlaceSuggestion[] | null> {
+  async autocomplete(params: { input: string; sessionToken: string; restriction: LatLngBounds; origin?: LatLngLiteral }): Promise<PlaceSuggestion[] | null> {
     const input = params.input.trim().toLowerCase();
     if (input.length < 3) return [];
     return this.google.autocomplete({ ...params, input });

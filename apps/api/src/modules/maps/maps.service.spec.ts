@@ -1,5 +1,6 @@
 import type { RedisService } from '../../core/redis/redis.service.js';
 import type { GoogleMapsClient, RoadRoute } from './google-maps.client.js';
+import { COIMBATORE_BOUNDS } from '../geo/geo.service.js';
 import { MapsService } from './maps.service.js';
 
 /** In-memory stand-in for the Redis commands MapsService uses ([store] lets a test expire keys). */
@@ -80,8 +81,8 @@ describe('MapsService', () => {
     const autocomplete = vi.fn(async () => [{ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore' }]);
     const placeDetails = vi.fn(async () => ({ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore', lat: 10.99, lng: 76.96 }));
     const maps = new MapsService({ isEnabled: true, autocomplete, placeDetails } as unknown as GoogleMapsClient, fakeRedis());
-    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's' });
-    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's' });
+    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's', restriction: COIMBATORE_BOUNDS });
+    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's', restriction: COIMBATORE_BOUNDS });
     await maps.details({ placeId: 'p1', sessionToken: 's' });
     await maps.details({ placeId: 'p1', sessionToken: 's' });
     expect(autocomplete).toHaveBeenCalledTimes(2);

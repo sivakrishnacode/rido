@@ -93,10 +93,16 @@ class ApiPlacesRepository implements PlacesRepository {
   set currentLocation(Place place) => _current = place;
 
   @override
-  Future<List<Place>> search(String query) async {
+  Future<List<Place>> search(String query, {LatLng? origin}) async {
     final q = query.trim();
     if (q.isEmpty) return recentDestinations();
-    final res = _map(await api.get('/places/autocomplete', query: {'q': q, 'session': _session}));
+    // The same session token for every keystroke until [resolve]; the pickup as origin adds each distance.
+    final res = _map(await api.get('/places/autocomplete', query: {
+      'q': q,
+      'session': _session,
+      if (origin != null) 'lat': origin.latitude.toStringAsFixed(5),
+      if (origin != null) 'lng': origin.longitude.toStringAsFixed(5),
+    }));
     return [for (final r in _list(res['results'])) suggestionFromJson(r)];
   }
 

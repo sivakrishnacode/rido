@@ -5,7 +5,7 @@ import type { City, CityFareRule, Zone } from '../../generated/prisma/client.js'
 import { VehicleKind, ZoneKind } from '../../generated/prisma/enums.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { DemandService } from './demand.service.js';
-import { cellAt } from './h3.util.js';
+import { cellAt, cellsBounds, type LatLngBounds } from './h3.util.js';
 
 interface CityIndex {
   readonly city: City & { zones: Zone[]; fareRules: CityFareRule[] };
@@ -25,12 +25,19 @@ export interface PointInfo {
 const CACHE_MS = 30_000;
 
 /**
+ * Place search area when no city is configured: Coimbatore and its suburbs (≈ 30 km around the centre
+ * 11.0168, 76.9658; the old autocomplete bias circle as a rectangle).
+ */
+export const COIMBATORE_BOUNDS: LatLngBounds = { low: { lat: 10.75, lng: 76.69 }, high: { lat: 11.29, lng: 77.24 } };
+
+/**
  * H3-based service areas. Cities and zones are cached in memory (30 s, or until [invalidate]
  * after an admin change) so every fare quote and booking can check them cheaply.
  */
 @Injectable()
 export class GeoService {
   private cache: { at: number; cities: CityIndex[] } | null = null;
+  private bounds: { at: number; value: LatLngBounds } | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -70,6 +77,19 @@ export class GeoService {
       return { cityId: city.id, cell, isServiceable: !isBlocked, zones, multiplier };
     }
     return { cityId: null, cell: null, isServiceable: false, zones: [], multiplier: 1 };
+  }
+
+  /**
+   * The rectangle around every active city's service cells (+ ~1 km), for Places Autocomplete
+   * `locationRestriction`; [COIMBATORE_BOUNDS] when no city has cells. Recomputed with the city cache.
+   */
+  async serviceBounds(): Promise<LatLngBounds> {
+    const cities = await this.cities();
+    const at = this.cache?.at ?? 0;
+    if (this.bounds?.at !== at) {
+      this.bounds = { at, value: cellsBounds(cities.flatMap((c) => c.city.serviceCells)) ?? COIMBATORE_BOUNDS };
+    }
+    return this.bounds.value;
   }
 
   /** City-specific fare rates for a vehicle, if configured. */

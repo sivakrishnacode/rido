@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Place } from '../../generated/prisma/client.js';
-import { haversineMeters } from '../fares/fare-engine.js';
+import { estimateRoute, haversineMeters } from '../fares/fare-engine.js';
 import type { PlaceSuggestion, ResolvedPlace } from '../maps/google-maps.client.js';
 import { GeoService } from '../geo/geo.service.js';
 import { MapsService } from '../maps/maps.service.js';
@@ -28,12 +28,16 @@ export class PlacesService {
     });
   }
 
-  /** Google Places Autocomplete; falls back to seeded search (ids prefixed "local:"). */
-  async autocomplete(params: { input: string; sessionToken: string }): Promise<{ source: 'google' | 'local'; results: PlaceSuggestion[] }> {
-    const google = await this.maps.autocomplete(params);
+  /**
+   * Google Places Autocomplete inside the service area, with each suggestion's road distance from [origin] (the
+   * pickup) when given; falls back to seeded search (ids prefixed "local:", straight-line × 1.3 distance).
+   */
+  async autocomplete(params: { input: string; sessionToken: string; origin?: { lat: number; lng: number } }): Promise<{ source: 'google' | 'local'; results: PlaceSuggestion[] }> {
+    const google = await this.maps.autocomplete({ ...params, restriction: await this.geo.serviceBounds() });
     if (google) return { source: 'google', results: google };
     const local = await this.search(params.input);
-    return { source: 'local', results: local.map((p) => ({ placeId: `local:${p.id}`, name: p.name, address: p.address })) };
+    const km = (p: Place): number | null => (params.origin ? estimateRoute(params.origin, p).distanceKm : null);
+    return { source: 'local', results: local.map((p) => ({ placeId: `local:${p.id}`, name: p.name, address: p.address, distanceKm: km(p) })) };
   }
 
   /** Coordinates for an autocomplete result (ends the Google session). */

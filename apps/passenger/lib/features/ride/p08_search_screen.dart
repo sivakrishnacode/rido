@@ -80,7 +80,9 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
       _offline = false;
     });
     try {
-      final results = await ref.read(placesRepositoryProvider).search(q);
+      final pickup = ref.read(rideFlowProvider).pickup.location;
+      // Searching the pickup itself: no distance from it.
+      final results = await ref.read(placesRepositoryProvider).search(q, origin: _editingPickup ? null : pickup);
       if (!mounted || id != _request) return;
       setState(() {
         final pickupId = ref.read(rideFlowProvider).pickup.id;
@@ -318,8 +320,11 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
             icon: icon,
             title: p.name,
             subtitle: p.address,
-            // Search suggestions only get coordinates when picked (Place Details), so no distance for them.
-            trailingText: p.id.startsWith(_suggestionPrefix) ? null : formatKm(FareEngine.estimate(pickup, p).distanceKm),
+            // Search suggestions only get coordinates when picked (Place Details): the server's road distance from
+            // the pickup (Places `distanceMeters`) when it sent one.
+            trailingText: p.id.startsWith(_suggestionPrefix)
+                ? (p.distanceKm == null ? null : formatKm(p.distanceKm!))
+                : formatKm(FareEngine.estimate(pickup, p).distanceKm),
             onTap: () => _choose(p),
           ),
         );

@@ -58,6 +58,8 @@ Place suggestionFromJson(Json j) => Place(
       name: _s(j['name']),
       address: _s(j['address']),
       location: kCityCentre,
+      // Road distance from the pickup, when the app sent one (older servers: none).
+      distanceKm: j['distanceKm'] is num ? (j['distanceKm'] as num).toDouble() : null,
     );
 
 Place resolvedPlaceFromJson(Json j) => Place(

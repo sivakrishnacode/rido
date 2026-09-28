@@ -94,7 +94,7 @@ class MockPlacesRepository with _Latency implements PlacesRepository {
   Place get currentLocation => settings().outsideServiceArea ? Seed.outsideArea : Seed.gandhipuram;
 
   @override
-  Future<List<Place>> search(String query) async {
+  Future<List<Place>> search(String query, {LatLng? origin}) async {
     final q = query.trim().toLowerCase();
     final google = _client;
     final useGoogle = google != null && q.length >= GooglePlacesClient.minQueryLength;

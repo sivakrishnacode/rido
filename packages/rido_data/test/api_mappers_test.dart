@@ -122,6 +122,13 @@ void main() {
     expect(tripFromJson(_trip).pickup.landmark, isNull);
   });
 
+  test('search suggestions carry the road distance from the pickup when the server sends one', () {
+    final j = {'placeId': 'p1', 'name': 'Ukkadam', 'address': 'Coimbatore'};
+    expect(suggestionFromJson({...j, 'distanceKm': 8.7}).distanceKm, 8.7);
+    expect(suggestionFromJson({...j, 'distanceKm': null}).distanceKm, isNull);
+    expect(suggestionFromJson(j).distanceKm, isNull);
+  });
+
   test('chat direction depends on the side', () {
     final m = {'id': 'm1', 'from': 'DRIVER', 'text': 'On my way', 'at': '2026-09-26T05:31:00.000Z'};
     expect(chatFromJson(m, iAmDriver: true).fromMe, isTrue);

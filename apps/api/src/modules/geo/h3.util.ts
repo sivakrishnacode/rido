@@ -28,6 +28,27 @@ export function cellAt(lat: number, lng: number, resolution: number): string {
   return latLngToCell(lat, lng, resolution);
 }
 
+/** A lat/lng rectangle (south-west [low], north-east [high]), as Places `locationRestriction.rectangle` takes it. */
+export interface LatLngBounds {
+  readonly low: { readonly lat: number; readonly lng: number };
+  readonly high: { readonly lat: number; readonly lng: number };
+}
+
+/** The rectangle around every corner of [cells], widened by [marginDeg] (0.01° ≈ 1.1 km); null for no cells. */
+export function cellsBounds(cells: Iterable<string>, marginDeg = 0.01): LatLngBounds | null {
+  let [s, w, n, e] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const c of cells) {
+    for (const [lat, lng] of cellToBoundary(c)) {
+      s = Math.min(s, lat);
+      n = Math.max(n, lat);
+      w = Math.min(w, lng);
+      e = Math.max(e, lng);
+    }
+  }
+  if (s === Infinity) return null;
+  return { low: { lat: s - marginDeg, lng: w - marginDeg }, high: { lat: n + marginDeg, lng: e + marginDeg } };
+}
+
 /** Hexagon corners as [lat, lng] pairs. */
 export function cellPolygon(cell: string): [number, number][] {
   return cellToBoundary(cell);

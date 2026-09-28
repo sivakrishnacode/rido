@@ -46,7 +46,9 @@ abstract interface class AuthRepository {
 /// Search, saved places and reverse geocoding.
 abstract interface class PlacesRepository {
   Place get currentLocation;
-  Future<List<Place>> search(String query);
+
+  /// Places matching [query]. [origin] (the pickup): live suggestions then carry [Place.distanceKm].
+  Future<List<Place>> search(String query, {LatLng? origin});
 
   /// Completes a [search] result before it is used as a pickup / drop: Google suggestions
   /// (id `g:…`) only carry a placeholder location until their details are fetched. Seed places

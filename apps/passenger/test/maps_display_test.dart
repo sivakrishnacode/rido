@@ -38,6 +38,21 @@ class _TrafficRides extends MockRideRepository {
       ];
 }
 
+/// Live-style suggestions with Google's distance from the origin the screen sent.
+class _DistancePlaces extends MockPlacesRepository {
+  _DistancePlaces(super.db, super.settings);
+  final origins = <LatLng?>[];
+
+  @override
+  Future<List<Place>> search(String query, {LatLng? origin}) async {
+    origins.add(origin);
+    return [
+      const Place(id: 'api:u1', name: 'Ukkadam Bus stand', address: 'Ukkadam, Coimbatore', location: LatLng(11.0168, 76.9658), distanceKm: 8.7),
+      const Place(id: 'api:u2', name: 'Ukkadam Lake', address: 'Coimbatore', location: LatLng(11.0168, 76.9658)),
+    ];
+  }
+}
+
 Future<void> _openP10(WidgetTester tester, {int? travelMin}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await tester.runAsync(SharedPreferences.getInstance);
@@ -76,6 +91,17 @@ void main() {
     await _openWithPickup(tester, Routes.pinPickupOnMap);
     expect(find.byKey(const ValueKey('pin-landmark')), findsOneWidget);
     expect(find.text('Near Ukkadam Bus stand'), findsOneWidget);
+  });
+
+  testWidgets('P-08 sends the pickup with the search and shows each suggestion\'s distance', (tester) async {
+    late _DistancePlaces places;
+    await pumpRoute(tester, Routes.search, overrides: [
+      placesRepositoryProvider.overrideWith((ref) => places = _DistancePlaces(ref.watch(mockDatabaseProvider), () => ref.read(demoSettingsProvider))),
+    ]);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('8.7 km'), findsOneWidget);
+    expect(find.text('Ukkadam Lake'), findsOneWidget, reason: 'a suggestion without a distance shows none');
+    expect(places.origins.last, Seed.gandhipuram.location);
   });
 
   testWidgets('P-08 shows the landmark next to the pickup', (tester) async {
