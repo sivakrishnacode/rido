@@ -667,6 +667,8 @@ export interface Settings {
   readonly rankEnabled: boolean;
   readonly rankWeightAccept: number;
   readonly rankWeightCancel: number;
+  /** Cap on the record's penalty (0.5 → at most ETA × 1.5). */
+  readonly rankMaxPenalty: number;
   readonly rankIdleMaxBoost: number;
   readonly rankIdleFullMin: number;
   readonly rankMinOffers: number;

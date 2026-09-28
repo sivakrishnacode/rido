@@ -66,7 +66,7 @@ export function idleSince(lastTripEnd: string | null, onlineSince: string | null
   return times.length ? Math.max(...times) : null;
 }
 
-export type RankSettings = Pick<Settings, 'rankEnabled' | 'rankWeightAccept' | 'rankWeightCancel' | 'rankIdleMaxBoost' | 'rankIdleFullMin' | 'rankMinOffers'>;
+export type RankSettings = Pick<Settings, 'rankEnabled' | 'rankWeightAccept' | 'rankWeightCancel' | 'rankMaxPenalty' | 'rankIdleMaxBoost' | 'rankIdleFullMin' | 'rankMinOffers'>;
 
 /** How the score came out, for logs and the admin page. */
 export interface RankBreakdown {
@@ -93,10 +93,11 @@ export function reliability(stats: OfferStats, s: Pick<Settings, 'rankMinOffers'
 /**
  * Ranking minutes for one candidate (lower = offered first):
  *
- *   eta × (1 + wAccept·(1 − acceptRatio) + wCancel·cancelRatio) − idleBoost
+ *   eta × (1 + min(rankMaxPenalty, wAccept·(1 − acceptRatio) + wCancel·cancelRatio)) − idleBoost
  *   idleBoost = eta × rankIdleMaxBoost × min(1, idleMin ÷ rankIdleFullMin)
  *
- * The ratios count only from `rankMinOffers` offers. The idle boost is a share of the driver's own ETA (at most
+ * The penalty is capped at `rankMaxPenalty` (0.5 → at most ETA × 1.5), so a bad record never makes a rider wait for a
+ * much farther driver. The ratios count only from `rankMinOffers` offers. The idle boost is a share of the driver's own ETA (at most
  * `rankIdleMaxBoost`, 15 %), so waiting long never lets a far driver jump a much nearer one. `rankEnabled` off →
  * the plain ETA.
  */
@@ -104,7 +105,8 @@ export function rankScore(p: { etaMin: number; stats: OfferStats; idleSince: num
   const eta = Math.max(0, p.etaMin);
   if (!s.rankEnabled) return { score: eta, acceptRatio: null, cancelRatio: null, idleShare: 0 };
   const { acceptRatio, cancelRatio } = reliability(p.stats, s);
-  const penalty = Math.max(0, s.rankWeightAccept) * (1 - (acceptRatio ?? 1)) + Math.max(0, s.rankWeightCancel) * (cancelRatio ?? 0);
+  const raw = Math.max(0, s.rankWeightAccept) * (1 - (acceptRatio ?? 1)) + Math.max(0, s.rankWeightCancel) * (cancelRatio ?? 0);
+  const penalty = Math.min(raw, Math.max(0, s.rankMaxPenalty));
   const idleMin = p.idleSince === null ? 0 : Math.max(0, p.now - p.idleSince) / 60_000;
   const idleShare = clamp01(s.rankIdleMaxBoost) * (s.rankIdleFullMin > 0 ? Math.min(1, idleMin / s.rankIdleFullMin) : 1);
   return { score: eta * (1 + penalty) - eta * idleShare, acceptRatio, cancelRatio, idleShare };

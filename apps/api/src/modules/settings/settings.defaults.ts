@@ -54,6 +54,8 @@ export const SETTING_DEFAULTS = {
   rankEnabled: true,
   rankWeightAccept: 0.5,
   rankWeightCancel: 1.0,
+  /** Most the record can add, as a share of the ETA: 0.5 → a driver is ranked at most ETA × 1.5, so riders never wait much longer for it. */
+  rankMaxPenalty: 0.5,
   rankIdleMaxBoost: 0.15,
   rankIdleFullMin: 30,
   rankMinOffers: 10,

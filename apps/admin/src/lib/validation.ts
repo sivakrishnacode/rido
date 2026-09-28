@@ -35,6 +35,7 @@ const RULES: Record<string, (v: SettingValue) => string | null> = {
   rankEnabled: (v) => (typeof v === "boolean" ? null : "Ranking must be on or off"),
   rankWeightAccept: (v) => (inRange(v, 0, 3) ? null : "Ignored-offer weight must be 0–3"),
   rankWeightCancel: (v) => (inRange(v, 0, 3) ? null : "Cancel weight must be 0–3"),
+  rankMaxPenalty: (v) => (inRange(v, 0, 3) ? null : "Most penalty must be 0–3 (e.g. 0.5 = at most ETA × 1.5)"),
   rankIdleMaxBoost: (v) => (inRange(v, 0, 0.3) ? null : "Idle bonus must be 0–0.3 (e.g. 0.15 = 15 % of the ETA)"),
   rankIdleFullMin: (v) => (inRange(v, 1, 240, true) ? null : "Full idle bonus after must be 1–240 whole minutes"),
   rankMinOffers: (v) => (inRange(v, 1, 200, true) ? null : "Judge after must be 1–200 offers"),

@@ -189,7 +189,7 @@ Never commit real `.env` files.
   offerSeconds, maxCandidates, maxReassigns, notMovingMinMin, notMovingEtaFactor, notMovingMinProgressM,
   notMovingRecheckMin, noShowWaitMin, freeWaitMin, waitMaxCharge, cancellationFeeEnabled, cancellationFee,
   cancelRateMinTrips, cancelRateNudge, cancelRateBlock, cancelBlockHours, cancelBlockRepeatHours, rankEnabled, rankWeightAccept, rankWeightCancel,
-  rankIdleMaxBoost, rankIdleFullMin, rankMinOffers, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
+  rankMaxPenalty, rankIdleMaxBoost, rankIdleFullMin, rankMinOffers, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
   contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr, sosAdminAlert, stopRadiusM, stopMinutes, stopDedupeMin, deviationM, nightStartHour, nightEndHour (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
@@ -430,7 +430,9 @@ Never commit real `.env` files.
      drivers in one hexagon share one lookup.
      **Reliability ranking (28 Sep 2026, like Namma Yatri's intelligent pool; `trips/driver-rank.ts`,
      `trips/driver-offer-stats.service.ts`):** still one driver at a time, but the queue order uses ranking minutes
-     `eta × (1 + rankWeightAccept·(1 − acceptRatio) + rankWeightCancel·cancelRatio) − eta × idleShare`.
+     `eta × (1 + min(rankMaxPenalty, rankWeightAccept·(1 − acceptRatio) + rankWeightCancel·cancelRatio)) − eta × idleShare`.
+     The penalty cap `rankMaxPenalty` (0.5) keeps a bad record to at most ETA × 1.5, so a rider never waits for a much
+     farther driver (without it the defaults allowed ETA × 2.5).
      acceptRatio = accepted ÷ answered offers (accepted + declined + ignored), cancelRatio = driver-fault cancels ÷
      accepted, both over the last 7 days and only once the driver had `rankMinOffers` (10) offers (new drivers are
      neutral). idleShare = `rankIdleMaxBoost` (0.15) × min(1, idle minutes ÷ `rankIdleFullMin` (30)), idle since the
@@ -797,7 +799,7 @@ loaded, or if it can't be made, it falls back to a Google Maps link to the vehic
   (dynamicSurgeEnabled, surgeSensitivity, demandWindowMin, surgeMinRequests, maxMultiplier, currentMultiplier, with the
   formula and a live example: ratio 3 → 1 + 0.1 × 2 = 1.2×), "Dispatch & ETA" (batchWindowMs, useRoadEta,
   historicalEtaMinTrips, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds, offerSeconds, maxCandidates, maxReassigns), "Driver
-  ranking" (rankEnabled, rankWeightAccept, rankWeightCancel, rankIdleMaxBoost, rankIdleFullMin, rankMinOffers), Driver
+  ranking" (rankEnabled, rankWeightAccept, rankWeightCancel, rankMaxPenalty, rankIdleMaxBoost, rankIdleFullMin, rankMinOffers), Driver
   plans, Support, and any new key in
   "Other" (typed from the API value). Only changed keys are sent; values are validated client + server side.
 - **Trip page GPS path (28 Sep 2026):** finished trips show driven vs quoted km, km to the pickup, GPS points and mock

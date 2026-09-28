@@ -100,6 +100,17 @@ describe('rankScore', () => {
     expect(score(10, record(20, 20), 60)).toBeGreaterThan(score(5, record(20, 16), 0));
   });
 
+  it('caps the penalty at rankMaxPenalty: the worst record is at most ETA × 1.5', () => {
+    // 10 % accepted, cancels every ride: uncapped 1 + 0.5·0.9 + 1·1 = × 2.45.
+    const worst = stats({ offered: 20, accepted: 2, cancelled: 2, ignored: 18 });
+    expect(score(10, worst)).toBeCloseTo(15);
+    expect(score(10, worst, null, { ...s, rankMaxPenalty: 3 })).toBeCloseTo(24.5);
+    // A bad driver 3 min away still beats a clean one 7 min away (uncapped: 7.35 vs 7).
+    expect(score(3, worst)).toBeLessThan(score(7, record(20, 20)));
+    // Below the cap nothing changes.
+    expect(score(10, record(10, 5, 1))).toBeCloseTo(14.5);
+  });
+
   it('ETA 0 (at the pickup) stays 0 whatever the record', () => {
     expect(score(0, record(20, 0, 0))).toBe(0);
   });
