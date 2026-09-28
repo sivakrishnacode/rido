@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 
-/// Rido palette (UI_PROMPTS.md Part 1). Screens must use these instead of literal colours.
+/// Rido palette (design system board: docs/design/system). Screens must use these instead of literal colours.
 abstract final class RidoColors {
   // Primary: coral
   static const coral500 = Color(0xFFF4511E);

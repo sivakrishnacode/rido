@@ -2,10 +2,14 @@
 node_modules/
 .turbo/
 *.log
+*.tsbuildinfo
+coverage/
 
 # Build output
 dist/
 **/build/
+*.apk
+*.aab
 
 # Flutter / Dart
 **/.dart_tool/
@@ -14,12 +18,18 @@ dist/
 **/.widget_preview/
 **/.pub-cache/
 **/.pub/
+
+# Editors and AI tools (per machine)
 *.iml
 .idea/
 .vscode/*
 !.vscode/extensions.json
+.claude/
+.agents/
+.windsurf/
+graphify-out/
 
-# Android
+# Android signing and local SDK paths
 **/android/.gradle/
 **/android/local.properties
 **/android/app/debug
@@ -31,6 +41,7 @@ dist/
 
 # OS
 .DS_Store
+Thumbs.db
 
 # Env files and generated code
 .env
@@ -41,16 +52,20 @@ apps/api/src/generated/
 # Local Flutter compile-time keys (copy from .dart-defines.example.json)
 .dart-defines.json
 
-# Credentials kept alongside the tech docs (never commit)
+# Secrets: credentials doc, SSH keys, Firebase config and service accounts
 docs/tech-docs/credentials*
 !docs/tech-docs/credentials.example.md
+*.pem
+**/google-services.json
+**/GoogleService-Info.plist
+*firebase-adminsdk*.json
+firebase-sa.json
+
+# Owner-only docs (business plan, pitch, build prompts): kept locally, not published
+docs/private/
 
 # KYC uploads (local dev)
 apps/api/uploads/
 
-# Firebase config (per machine) and service-account keys: never commit
-**/google-services.json
-*firebase-adminsdk*.json
-firebase-sa.json
-
+# Local tooling
 sync_config.jsonc
