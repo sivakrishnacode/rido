@@ -7,19 +7,21 @@ import { RolesGuard } from './auth/roles.guard.js';
 import { loadEnv } from './config/env.js';
 import { EnvModule } from './config/env.module.js';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter.js';
+import { JobsModule } from './jobs/jobs.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { FileStorageService } from './storage/file-storage.service.js';
 
 const env = loadEnv();
 
-/** Cross-cutting setup: config, database, Redis, JWT, file storage, global guards, validation and error filter. */
+/** Cross-cutting setup: config, database, Redis, durable jobs, JWT, file storage, global guards, validation and error filter. */
 @Global()
 @Module({
   imports: [
     EnvModule,
     PrismaModule,
     RedisModule,
+    JobsModule,
     JwtModule.register({ global: true, secret: env.jwtSecret, signOptions: { expiresIn: env.jwtExpiresIn as never } }),
   ],
   providers: [

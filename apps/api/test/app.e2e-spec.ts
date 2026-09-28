@@ -7,6 +7,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/core/prisma/prisma.service.js';
+import { JobsService } from '../src/core/jobs/jobs.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
 import { SettingsService } from '../src/modules/settings/settings.service.js';
 import { DEMAND_RES } from '../src/modules/geo/demand.service.js';
@@ -72,7 +73,7 @@ describe('Rido API (e2e)', () => {
     const redis = app.get(RedisService);
     const otpKeys = await redis.keys('otp:*');
     if (otpKeys.length) await redis.del(...otpKeys);
-    const keys = [...(await redis.keys('h3:*')), ...(await redis.keys('hexstats:*')), ...(await redis.keys('driver:*')), ...(await redis.keys('dispatch:*'))];
+    const keys = [...(await redis.keys('h3:*')), ...(await redis.keys('hexstats:*')), ...(await redis.keys('driver:*')), ...(await redis.keys('dispatch:*')), ...(await redis.keys('jobs:*'))];
     if (keys.length) await redis.del(...keys);
     http = request(app.getHttpServer());
   });
@@ -350,6 +351,34 @@ describe('Rido API (e2e)', () => {
     await http.post(`/v1/trips/${other}/cancel`).set('Authorization', `Bearer ${bike}`).send({}).expect(200);
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${bike}`).expect(200);
   }, 45_000);
+
+  it('keeps offer timeouts as durable Redis jobs', async () => {
+    // Arrange: the only bike driver gets the offer.
+    const redis = app.get(RedisService);
+    const jobs = app.get(JobsService);
+    const cells = await redis.keys('h3:drv:BIKE:*');
+    if (cells.length) await redis.del(...cells);
+    const bike = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
+    const driverId = (await http.get('/v1/drivers/me').set('Authorization', `Bearer ${bike}`).expect(200)).body.id as string;
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+    for (let i = 0; i < 40 && (await redis.get(`dispatch:${trip.id}:offer`)) !== driverId; i++) await new Promise((r) => setTimeout(r, 250));
+
+    // Assert: the timeout is a job in Redis (survives a restart), due after offerSeconds.
+    const due = await jobs.scheduledAt('offer.expire', trip.id);
+    expect(due).not.toBeNull();
+    expect(due! - Date.now()).toBeGreaterThan(5_000);
+    expect(await redis.zscore('jobs:due', `offer.expire|${trip.id}`)).not.toBeNull();
+
+    // Act: time passes (run the due jobs as if 20 s later): the offer times out and moves on.
+    await jobs.runDue(Date.now() + 20_000);
+    expect(await redis.get(`dispatch:${trip.id}:offer`)).not.toBe(driverId);
+    await http.post(`/v1/trips/${trip.id}/accept`).set('Authorization', `Bearer ${bike}`).expect(409);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+    expect(await jobs.scheduledAt('offer.expire', trip.id)).toBeNull();
+    expect(await jobs.scheduledAt('dispatch.research', trip.id)).toBeNull();
+    await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${bike}`).expect(200);
+  });
 
   it('falls back to seeded places and a curved route without a Google key', async () => {
     const ac = await http.get('/v1/places/autocomplete?q=brook&session=t1').expect(200);

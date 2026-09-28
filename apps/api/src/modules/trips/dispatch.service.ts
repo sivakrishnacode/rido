@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
+import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Trip } from '../../generated/prisma/client.js';
@@ -19,6 +20,9 @@ const LOCK_KEY = 'dispatch:lock';
 const SWEEP_LOCK_KEY = 'dispatch:sweep:lock';
 /** The offer key outlives the offer timer so the timeout handler still sees whose offer it was. */
 const OFFER_GRACE_S = 5;
+/** Durable jobs (see JobsService): an offer's timeout, and the next search when the queue ran out. */
+export const OFFER_EXPIRE_JOB = 'offer.expire';
+export const RESEARCH_JOB = 'dispatch.research';
 /** Out of candidates: search again after this long (drivers who timed out may be offered again). */
 const RESEARCH_AFTER_MS = 4_000;
 const SWEEP_EVERY_MS = 15_000;
@@ -36,13 +40,13 @@ const SWEEP_EVERY_MS = 15_000;
  * 6. Out of candidates → search again every few seconds (a driver who let the offer time out can get it again; one who
  *    declined can't) until [searchWindowMs] has passed since the search started (or a vehicle was added), then
  *    NO_DRIVERS.
- *    A sweep re-queues or closes searching trips that lost their timers (e.g. after a restart).
+ * Offer timeouts and re-searches are durable jobs in Redis ([JobsService]), so an API restart doesn't lose them. A
+ * sweep still re-queues or closes searching trips that fell through the cracks.
  * A Redis lock makes only one API instance run a batch at a time.
  */
 @Injectable()
 export class DispatchService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DispatchService.name);
-  private readonly timers = new Map<string, NodeJS.Timeout>();
   private ticker: NodeJS.Timeout | null = null;
   private sweeper: NodeJS.Timeout | null = null;
   private isTicking = false;
@@ -55,9 +59,12 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     private readonly settings: SettingsService,
     private readonly eta: EtaService,
     private readonly notifier: NotifierService,
+    private readonly jobs: JobsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
+    this.jobs.register<{ driverId: string }>(OFFER_EXPIRE_JOB, (job) => this.onTimeout(job.id, job.payload.driverId));
+    this.jobs.register(RESEARCH_JOB, async (job) => void (await this.redis.sadd(PENDING_KEY, job.id)));
     const windowMs = await this.settings.get('batchWindowMs');
     this.ticker = setInterval(() => void this.tick(), Math.max(250, windowMs));
     this.sweeper = setInterval(() => void this.sweep().catch((e: Error) => this.logger.warn(`Sweep failed: ${e.message}`)), SWEEP_EVERY_MS);
@@ -66,7 +73,6 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   onModuleDestroy(): void {
     if (this.ticker) clearInterval(this.ticker);
     if (this.sweeper) clearInterval(this.sweeper);
-    for (const t of this.timers.values()) clearTimeout(t);
   }
 
   /** Queues a booking for the next batch. */
@@ -95,6 +101,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     // Only while it is still this trip's offer: the driver may already have one for another trip.
     if (driverId) await this.redis.eval(DEL_IF_EQUALS, 1, `dispatch:driver:${driverId}:offer`, tripId);
     await this.redis.del(`dispatch:${tripId}:offer`);
+    await this.jobs.cancel(OFFER_EXPIRE_JOB, tripId);
   }
 
   /** The driver said no: never offer them this trip again, try the next candidate. */
@@ -111,15 +118,13 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
 
   /** Stops dispatching (trip accepted or cancelled). */
   async stop(tripId: string): Promise<void> {
-    clearTimeout(this.timers.get(tripId));
-    this.timers.delete(tripId);
+    await this.jobs.cancel(RESEARCH_JOB, tripId);
     await this.redis.srem(PENDING_KEY, tripId);
     await this.clearOffer(tripId);
     await this.redis.del(
       `dispatch:${tripId}:queue`,
       `dispatch:${tripId}:declined`,
       `dispatch:${tripId}:offered`,
-      `dispatch:${tripId}:retry`,
       `dispatch:${tripId}:since`,
     );
   }
@@ -135,8 +140,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
       await this.redis.sadd(PENDING_KEY, tripId);
       return;
     }
-    clearTimeout(this.timers.get(tripId));
-    this.timers.delete(tripId);
+    await this.jobs.cancel(RESEARCH_JOB, tripId);
     await this.redis.sadd(PENDING_KEY, tripId);
   }
 
@@ -224,8 +228,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     this.events.toDriver(driverId, 'trip.offer', { ...details, expiresInSeconds: offerSeconds });
     // Also as a push: the driver app may be in the background or killed.
     void this.notifier.offer({ driverId, trip, pickupEtaMin: details.pickupEtaMin, expiresInSeconds: offerSeconds });
-    clearTimeout(this.timers.get(tripId));
-    this.timers.set(tripId, setTimeout(() => void this.onTimeout(tripId, driverId), offerSeconds * 1000));
+    await this.jobs.schedule(OFFER_EXPIRE_JOB, tripId, Date.now() + offerSeconds * 1000, { driverId });
   }
 
   /** What the driver sees on the request card: the trip (without the OTP), the customer and the pickup distance. */
@@ -274,9 +277,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
       if (atMax && trip.alsoKinds.length === 0) return this.giveUp(trip);
     }
     if (!(await this.searchedLongEnough(trip))) {
-      await this.redis.set(`dispatch:${trip.id}:retry`, '1', 'PX', RESEARCH_AFTER_MS * 3);
-      clearTimeout(this.timers.get(trip.id));
-      this.timers.set(trip.id, setTimeout(() => void this.redis.sadd(PENDING_KEY, trip.id), RESEARCH_AFTER_MS));
+      await this.jobs.schedule(RESEARCH_JOB, trip.id, Date.now() + RESEARCH_AFTER_MS);
       return;
     }
     await this.giveUp(trip);
@@ -292,7 +293,8 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Safety net (one instance at a time): a SEARCHING trip with no open offer, no pending batch and no scheduled
-   * re-search lost its timers (e.g. the API restarted) → queue it again, or end it if it has searched long enough.
+   * re-search fell through the cracks (e.g. its offer key expired while the API was down) → queue it again, or end
+   * it if it has searched long enough.
    */
   async sweep(): Promise<void> {
     if (!(await this.redis.set(SWEEP_LOCK_KEY, '1', 'PX', SWEEP_EVERY_MS - 1_000, 'NX'))) return;
@@ -301,7 +303,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
       const [offer, pending, retry] = await Promise.all([
         this.offeredTo(trip.id),
         this.redis.sismember(PENDING_KEY, trip.id),
-        this.redis.exists(`dispatch:${trip.id}:retry`),
+        this.jobs.scheduledAt(RESEARCH_JOB, trip.id),
       ]);
       if (offer || pending || retry) continue;
       if (await this.searchedLongEnough(trip)) await this.giveUp(trip);
@@ -310,7 +312,6 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async onTimeout(tripId: string, driverId: string): Promise<void> {
-    this.timers.delete(tripId);
     if ((await this.offeredTo(tripId)) !== driverId) return;
     this.logger.debug(`Offer for ${tripId} to ${driverId} timed out`);
     await this.next(tripId);

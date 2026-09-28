@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -151,7 +151,7 @@ Never commit real `.env` files.
 
 ## 6. Backend (apps/api)
 
-- **Modules:** core (config, Prisma, Redis, JWT guard, roles guard, validation pipe, error filter), settings, geo (H3),
+- **Modules:** core (config, Prisma, Redis, durable jobs, JWT guard, roles guard, validation pipe, error filter), settings, geo (H3),
   health, auth, users, places, maps, fares, drivers, kyc (Didit identity checks, 6c), subscriptions, trips (dispatch),
   realtime, support, admin.
 - **H3 service areas:** each `City` stores its service area as H3 cells (`serviceCells`, default resolution 8 ≈ 0.74 km²
@@ -237,6 +237,17 @@ Never commit real `.env` files.
     Driver app (D-17 / D-22a): shows the message and keeps the button off until then (`OtpLockout`).
   - Global JWT/roles guards now skip non-HTTP contexts: sockets authenticate on connect. (Before this, `trip:join` and
     `driver:location` crashed in the guard, so live tracking never reached passengers.)
+- **Durable jobs (28 Sep 2026, `core/jobs`, like Namma Yatri's `lib/scheduler`):** `JobsService.schedule(kind, id,
+  runAt, payload?)` / `cancel(kind, id)` / `scheduledAt(kind, id)`; modules `register(kind, handler, {maxAttempts = 3,
+  backoffMs = 5000})` in `onModuleInit`. Stored in Redis: sorted set `jobs:due` (member `kind|id`, score = run time in
+  epoch ms) + hash `jobs:data` (payload, failed attempts). One entry per kind + id (scheduling again replaces it).
+  Every instance polls once a second; a Lua script claims due jobs atomically and **leases** them (score moved 60 s
+  ahead) so a process that dies mid-run lets the job run again instead of losing it; finish / retry only act while the
+  lease is still theirs (a handler may schedule its own key again). A throwing handler is logged and retried with
+  backoff `backoffMs × 2^(n-1)`, then dropped with an error log. No BullMQ / extra dependency. Kinds in use:
+  `offer.expire` (an offer's `offerSeconds` timeout, payload `{driverId}`) and `dispatch.research` (search again 4 s
+  after the queue ran out); both are cancelled when the search stops. Before, these were in-memory `setTimeout`s and an
+  API restart lost every open offer until the 15 s sweep. `runDue(now)` runs due jobs directly (tests).
 - **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, IdentityVerification, Trip, Plan, Subscription,
   Payment, SupportTicket. Money in whole rupees (Int). Migrations in `apps/api/prisma/migrations`.
 - **Redis keys:**
@@ -253,6 +264,7 @@ Never commit real `.env` files.
 | `user:blocked:<userId>` | Blocked by an admin (checked on every request) | until unblocked |
 | `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer`, `dispatch:driver:<driverId>:offer` | Nearest-driver queue, current 15 s offer (both directions). The driver key is claimed with SET NX (one open offer per driver) and deleted only while it still names that trip | 10 min / 15 s |
 | `trip:chat:<tripId>` | In-trip chat messages | 24 h |
+| `jobs:due`, `jobs:data` | Durable jobs: `kind\|id` → run time (sorted set) and payload (hash), see "Durable jobs" | until run / cancelled |
 | `trip:otp-tries:<tripId>` | Ride / delivery OTP tries this minute (5 allowed) | 60 s from the first try |
 | `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
 | `kyc:event:<event_id>` | Didit webhook already handled (idempotency) | 2 d |
@@ -295,9 +307,10 @@ Never commit real `.env` files.
      (`dispatch:<id>:declined`). `NO_DRIVERS` after 90 s if any driver was offered it, else after 30 s, but never
      before the radius has widened fully plus 15 s (60 s with the defaults), counted from the booking or the last
      added vehicle (`dispatch:<id>:since`); or at once when a fresh search at the maximum radius finds only drivers
-     who declined. A sweep every 15 s re-queues or ends
-     SEARCHING trips that lost their timers (restarts). Fix: the offer key now outlives the offer timer by 5 s
-     (before, both expired together, the timeout handler saw no offer and the trip stayed SEARCHING forever).
+     who declined. Offer timeouts and re-searches are durable jobs (`offer.expire`, `dispatch.research`, since 28 Sep
+     2026), so they survive an API restart. A sweep every 15 s still re-queues or ends SEARCHING trips with no open
+     offer, pending batch or scheduled re-search (safety net). The offer key outlives the offer timer by 5 s so the
+     timeout handler still sees whose offer it was.
 - **Pickup ETA on quotes (27 Sep 2026):** `POST /v1/fares/quote` adds `pickupEtaMin` to each quote: road ETA of the
   fastest of the 3 nearest free drivers of that vehicle within `maxSearchRadiusKm`, or `null` when nobody is near.
   Body `womenOnly: true` counts women drivers only (Butterfly "only"). P-10 shows "3 min away · Drop 9:24 PM" and a
