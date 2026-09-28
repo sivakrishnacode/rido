@@ -15,6 +15,7 @@ import '../../state/driver_location.dart';
 import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import '../jobs/widgets/job_map.dart';
+import '../states/s10_account_on_hold_screen.dart';
 import '../states/s11_missed_request_banner.dart';
 import '../states/s16_gps_weak_banner.dart';
 import 'widgets/demand_layer.dart';
@@ -22,7 +23,7 @@ import 'widgets/home_parts.dart';
 import 'widgets/navy_header.dart';
 
 /// Designed states of the home screen (D-13, D-14, D-14b, D-25a, D-25b, S-11, S-12, S-16).
-enum HomeVariant { live, offline, online, tripBanner, grace, expired, missedRequest, quiet, gpsLost }
+enum HomeVariant { live, offline, online, tripBanner, grace, expired, missedRequest, quiet, gpsLost, cancelWarning }
 
 /// D-13 Home. One screen for D-13 (offline), D-14 (online), D-14b (trip-in-progress banner),
 /// D-25a / D-25b (plan grace / expired), S-11 (missed request), S-12 (online, quiet) and
@@ -150,8 +151,13 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       );
     } on ApiException catch (e) {
       if (!mounted) return;
+      final pausedUntil = e.tempBlockedUntil;
       // An admin put the account on hold ("Account is on_hold"): S-10 explains it.
-      if (e.status == 403 && e.message.contains('on_hold')) {
+      if (pausedUntil != null) {
+        // Too many cancellations: S-10b says until when.
+        ref.invalidate(cancelRateProvider);
+        context.push(Routes.accountPaused(pausedUntil));
+      } else if (e.status == 403 && e.message.contains('on_hold')) {
         context.push(Routes.accountOnHold);
       } else {
         showRidoSnack(context, e.message);
@@ -230,6 +236,10 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     final price = plan?.monthlyPrice ?? 2000;
     final planEnd = plan?.nextDebit ?? Seed.nextDebit;
     final vehicleType = (job?.vehicle ?? profile.vehicleKind).mapType;
+    final cancelRate = _live
+        ? (_api ? ref.watch(cancelRateProvider).value : null)
+        : (_v == HomeVariant.cancelWarning ? _demoCancelRate : null);
+    final pausedUntil = cancelRate != null && cancelRate.isPausedAt(DateTime.now()) ? cancelRate.blockedUntil : null;
 
     // ---------------------------------------------------------------- header
     final String subtitle;
@@ -320,6 +330,22 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
             (missing.length > 1 ? ' (${missing.length - 1} more after this)' : ''),
         actionLabel: 'Allow',
         onAction: () => ref.read(missingPermissionsProvider.notifier).fix(p),
+      );
+    } else if (pausedUntil != null && !online) {
+      topCard = RidoBanner(
+        type: RidoBannerType.error,
+        icon: Symbols.pause_circle_rounded,
+        title: "You're paused ${pausedUntilLabel(pausedUntil, DateTime.now())}",
+        message: 'You cancelled too many rides this week. You can go online again after that.',
+        actionLabel: 'Details',
+        onAction: () => context.push(Routes.accountPaused(pausedUntil)),
+      );
+    } else if (cancelRate != null && cancelRate.shouldWarn && job == null) {
+      topCard = RidoBanner(
+        type: RidoBannerType.warning,
+        icon: Symbols.warning_rounded,
+        title: cancelRate.title!,
+        message: cancelRate.body,
       );
     } else if (!online && status == PlanStatus.grace) {
       topCard = GraceBanner(
@@ -649,3 +675,13 @@ String _jobBannerTitle(RideRequest job, JobPhase phase, int eta) {
     JobPhase.toDrop || JobPhase.none => '$kind in progress$minutes',
   };
 }
+
+/// S-17 (design gallery): 2 of the last 5 rides cancelled.
+const _demoCancelRate = DriverCancelRate(
+  cancelled: 2,
+  assigned: 5,
+  rate: 0.4,
+  level: CancelRateLevel.nudge,
+  title: "You've cancelled 2 of your last 5 rides",
+  body: "If you cancel 50% of your rides, you can't go online for 24 h. Only accept rides you can reach",
+);

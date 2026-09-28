@@ -48,6 +48,11 @@ export async function setDriverStatus(driverId: string, status: DriverStatus): P
   return plain(await run(() => adminApi.setDriverStatus(driverId, status), label, [`/drivers/${driverId}`, "/drivers", "/"]));
 }
 
+/** Ends the driver's cancellation pause now (POST /admin/drivers/:id/lift-block, audit logged). */
+export async function liftDriverBlock(driverId: string): Promise<ActionResult> {
+  return plain(await run(() => adminApi.liftDriverBlock(driverId), "Pause lifted. The driver can go online again", [`/drivers/${driverId}`, "/drivers"]));
+}
+
 export async function reviewDocument(
   driverId: string,
   type: KycDocType,

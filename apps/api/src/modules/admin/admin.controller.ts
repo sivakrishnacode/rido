@@ -1,8 +1,11 @@
 import { Body, Controller, Get, Param, ParseEnumPipe, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 
+import type { AuthUser } from '../../core/auth/auth-user.js';
+import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Roles } from '../../core/auth/roles.decorator.js';
-import type { Driver, KycDocument, Plan, SupportTicket, Trip, User } from '../../generated/prisma/client.js';
+import type { Driver, DriverBlock, KycDocument, Plan, SupportTicket, Trip, User } from '../../generated/prisma/client.js';
 import { KycDocType, Role } from '../../generated/prisma/enums.js';
+import { type CancelRateStats, DriverBlocksService } from '../trips/driver-blocks.service.js';
 import { AdminStatsService } from './admin-stats.service.js';
 import { AdminService } from './admin.service.js';
 import type { AdminStats, Paged } from './admin.types.js';
@@ -22,6 +25,7 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly statsService: AdminStatsService,
+    private readonly blocks: DriverBlocksService,
   ) {}
 
   @Get('stats')
@@ -35,8 +39,14 @@ export class AdminController {
   }
 
   @Get('drivers/:id')
-  driver(@Param('id') id: string): Promise<Driver> {
+  driver(@Param('id') id: string): Promise<Driver & { cancelRate: CancelRateStats }> {
     return this.admin.driver(id);
+  }
+
+  /** Ends the driver's current cancellation pause now (audit logged). 409 when they aren't paused. */
+  @Post('drivers/:id/lift-block')
+  liftBlock(@Param('id') id: string, @CurrentUser() user: AuthUser): Promise<DriverBlock> {
+    return this.blocks.lift(id, user.userId);
   }
 
   @Patch('drivers/:id')

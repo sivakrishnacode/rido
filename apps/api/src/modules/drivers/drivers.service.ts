@@ -105,6 +105,15 @@ export class DriversService {
   async goOnline(params: { driverId: string; lat: number; lng: number }): Promise<Driver> {
     const driver = await this.prisma.driver.findUniqueOrThrow({ where: { id: params.driverId } });
     if (driver.status !== DriverStatus.APPROVED) throw new ForbiddenException(`Account is ${driver.status.toLowerCase()}`);
+    // Paused for too many cancellations (trips/driver-blocks.service.ts).
+    if (driver.blockedUntil && driver.blockedUntil.getTime() > Date.now()) {
+      const until = driver.blockedUntil.toISOString();
+      throw new ForbiddenException({
+        code: 'DRIVER_TEMP_BLOCKED',
+        message: `You cancelled too many rides, so you can't go online until ${driver.blockedUntil.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true, day: 'numeric', month: 'short' })}`,
+        details: { until },
+      });
+    }
     if (!(await this.subs.canGoOnline(driver.id))) throw new ForbiddenException('Plan expired. Renew to go online again');
     // Riders see the driver's photo (the verified selfie), so it is required once identity checks are on.
     if (this.didit.isEnabled && !driver.photoFile) {

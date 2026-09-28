@@ -15,6 +15,7 @@ import type {
   City,
   CityDetail,
   CancellationDue,
+  DriverBlock,
   CityFare,
   CityFareRule,
   CityListItem,
@@ -185,6 +186,7 @@ export const adminApi = {
 
   drivers: (q: ListQuery = {}) => apiFetch<Paged<Driver>>("/admin/drivers", { query: listQuery(q) }),
   driver: (id: string) => orNotFound(apiFetch<DriverDetail>(`/admin/drivers/${encodeURIComponent(id)}`)),
+  liftDriverBlock: (id: string) => apiFetch<DriverBlock>(`/admin/drivers/${encodeURIComponent(id)}/lift-block`, { method: "POST" }),
   setDriverStatus: (id: string, status: DriverStatus) =>
     apiFetch<Driver>(`/admin/drivers/${encodeURIComponent(id)}`, { method: "PATCH", body: { status } }),
   reviewDocument: (id: string, type: KycDocType, status: "VERIFIED" | "REJECTED", reason?: string) =>

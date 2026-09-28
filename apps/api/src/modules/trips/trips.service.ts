@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 
 import type { AuthUser } from '../../core/auth/auth-user.js';
@@ -30,6 +30,7 @@ import { checkNearStop, positionForCheck } from './trip-position.js';
 import { averageRating } from './driver-rating.js';
 import { fareReviewNotes, mergeReviewNote } from './fare-review.js';
 import { TripOtpGuard } from './trip-otp-guard.js';
+import { DriverBlocksService } from './driver-blocks.service.js';
 import { canReassign, canTransition, isFinished } from './trip-transitions.js';
 import { ALL_TRIP_JOBS, noShowAt, pickupCapAt, pickupCheckAt, stuckAt, TRIP_JOBS } from './trip-timeouts.js';
 
@@ -82,6 +83,8 @@ const hideOtp = <T extends Trip>(trip: T): T => ({ ...trip, otp: '' });
 /** Rides and parcels: booking, the status lifecycle, cancel and rating. */
 @Injectable()
 export class TripsService {
+  private readonly logger = new Logger(TripsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly fares: FaresService,
@@ -96,6 +99,7 @@ export class TripsService {
     private readonly jobs: JobsService,
     private readonly eta: EtaService,
     private readonly track: TripTrackService,
+    private readonly blocks: DriverBlocksService,
   ) {}
 
   /** Quotes, stores and starts dispatching a trip. */
@@ -508,6 +512,7 @@ export class TripsService {
       return true;
     });
     if (!applied) return null;
+    this.checkCancelRate(trip, judged);
     await this.clearTripJobs(trip.id);
     await this.location.releaseBusy(driverId, trip.id);
     await this.dispatch.restart(trip.id, driverId);
@@ -546,7 +551,17 @@ export class TripsService {
       if (count === 0) return false;
       await this.recordCancellation(tx, trip, history, false, judged);
       return true;
+    }).then((applied) => {
+      if (applied) this.checkCancelRate(trip, judged);
+      return applied;
     });
+  }
+
+  /** A cancellation held against the driver: their rate may now call for a nudge or a pause (in the background). */
+  private checkCancelRate(trip: Trip, judged: Judged): void {
+    if (!trip.driverId || judged.verdict.fault !== CancelFault.DRIVER) return;
+    const driverId = trip.driverId;
+    this.blocks.afterCancel(driverId).catch((e: Error) => this.logger.warn(`Cancel rate check for ${driverId} failed: ${e.message}`));
   }
 
   /** Who was at fault for [c] on [trip] as it is now ([faultVerdict]); the driver's distance comes from their last fix. */

@@ -21,6 +21,11 @@ class ApiException implements Exception {
   /// The driver is too far from the pickup / drop and must give a reason to continue.
   TooFar? get tooFar => code == 'TOO_FAR' ? TooFar.fromDetails(details, message) : null;
 
+  /// 403 `DRIVER_TEMP_BLOCKED` from going online: paused for too many cancellations until then.
+  DateTime? get tempBlockedUntil => code == 'DRIVER_TEMP_BLOCKED' && details['until'] is String
+      ? DateTime.tryParse(details['until'] as String)?.toLocal()
+      : null;
+
   @override
   String toString() => message;
 }

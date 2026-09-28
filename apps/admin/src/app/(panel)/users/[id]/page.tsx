@@ -88,6 +88,14 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
               <Field label="Identity (Didit)">
                 <StatusBadge status={u.identityStatus ?? "NOT_STARTED"} label={u.identityStatus === "APPROVED" ? "Verified" : undefined} />
               </Field>
+              {u.cancelRate && (
+                <Field label="Cancelled (30 days)">
+                  {Math.round(u.cancelRate.rate * 100)}% · {u.cancelRate.cancelled} of {u.cancelRate.booked} bookings
+                  <span className="block text-xs text-muted-foreground">
+                    {u.cancelRate.atFault} judged the passenger&apos;s fault (shown only, passengers are never paused)
+                  </span>
+                </Field>
+              )}
             </dl>
           </CardContent>
         </Card>

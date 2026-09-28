@@ -121,6 +121,8 @@ final List<GalleryEntry> galleryEntries = [
   // Part 7
   _e('S-09', 'KYC rejected', _p7, (_) => const S09KycRejectedScreen(showcase: true)),
   _e('S-10', 'Account on hold', _p7, (_) => const S10AccountOnHoldScreen(showcase: true)),
+  _e('S-10b', 'Paused for cancellations', _p7,
+      (_) => S10AccountOnHoldScreen(showcase: true, pausedUntil: DateTime.now().add(const Duration(hours: 24)))),
   _e('S-11', 'Missed ride request', _p7, (_) => const D13HomeScreen(variant: HomeVariant.missedRequest, showcase: true)),
   _e('S-12', 'No ride requests yet', _p7, (_) => const D13HomeScreen(variant: HomeVariant.quiet, showcase: true)),
   _e('S-13', 'Selfie check before going online', _p7, (_) => const S13SelfieCheckScreen(showcase: true)),
@@ -128,6 +130,8 @@ final List<GalleryEntry> galleryEntries = [
       (_) => const ShowcaseFrame.dialog(title: 'S-14 Payment failed', child: S14PaymentFailedDialog(showcase: true))),
   _e('S-15', 'Empty earnings', _p7, (_) => const _EmptyEarningsFrame()),
   _e('S-16', 'GPS weak / location off', _p7, (_) => const D13HomeScreen(variant: HomeVariant.gpsLost, showcase: true)),
+  _e('S-17', 'Cancellation rate warning', _p7,
+      (_) => const D13HomeScreen(variant: HomeVariant.cancelWarning, showcase: true)),
 ];
 
 /// Looks up a frame by its ID ("P-10"); null when unknown.

@@ -198,6 +198,15 @@ export class NotifierService {
     }
   }
 
+  /** Account notices to a driver: cancellation-rate nudge, pause, pause over ([kind] in the data). */
+  driverAccount(params: { driverId: string; kind: string; title: string; body: string }): Promise<void> {
+    return this.safeAsync(`driver ${params.kind}`, async () => {
+      const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
+      if (!driver) return;
+      this.push.toUser(driver.userId, AppKind.DRIVER, { title: params.title, body: params.body, channel: 'account', data: { type: 'account', kind: params.kind } });
+    });
+  }
+
   /** A profile photo went to admin review: tell the driver it is being checked. */
   photoSubmitted(driverId: string): Promise<void> {
     return this.safeAsync('photo submitted', async () => {

@@ -190,8 +190,50 @@ export interface Driver extends DriverBase {
 }
 
 /** GET /admin/drivers/:id: all subscriptions with payments, last 20 trips. */
+/** Why a driver was paused (API `DriverBlockReason`). */
+export type DriverBlockReason = "CANCELLATION_RATE";
+
+/** A temporary pause of a driver (too many cancellations); lifted early when [liftedAt] is set. */
+export interface DriverBlock {
+  readonly id: string;
+  readonly driverId: string;
+  readonly reason: DriverBlockReason;
+  readonly fromAt: string;
+  readonly untilAt: string;
+  readonly liftedBy: string | null;
+  readonly liftedAt: string | null;
+  readonly details: { readonly cancelled?: number; readonly assigned?: number; readonly rate?: number } | null;
+}
+
+/** The driver's cancellation rate now (7 days, restarting after a pause; trips/driver-blocks.service.ts). */
+export interface DriverCancelRate {
+  readonly since: string;
+  readonly cancelled: number;
+  readonly assigned: number;
+  readonly rate: number;
+  readonly level: "OK" | "NUDGE" | "BLOCK";
+  readonly blockedUntil: string | null;
+  readonly minTrips: number;
+  readonly nudgeAt: number;
+  readonly blockAt: number;
+}
+
+/** A passenger's cancellations over the last 30 days (shown only; passengers are never blocked). */
+export interface PassengerCancelRate {
+  readonly since: string;
+  readonly booked: number;
+  readonly cancelled: number;
+  readonly atFault: number;
+  readonly rate: number;
+  readonly faultRate: number;
+}
+
 export interface DriverDetail extends Driver {
   readonly trips: TripBase[];
+  /** Pauses, newest first (up to 20), and the rate now. */
+  readonly blocks?: DriverBlock[];
+  readonly cancelRate?: DriverCancelRate;
+  readonly blockedUntil?: string | null;
   /** Newest first (up to 5). */
   readonly user: User & { readonly identityChecks: IdentityVerification[] };
 }
@@ -502,6 +544,7 @@ export interface UserDetail extends User {
   readonly savedPlaces: SavedPlace[];
   readonly trips: TripBase[];
   readonly tickets: SupportTicketBase[];
+  readonly cancelRate?: PassengerCancelRate;
 }
 
 /** GET /admin/kyc item. */
@@ -590,6 +633,12 @@ export interface Settings {
   /** Cancellation fee (off by default): owed after a passenger cancels once the driver arrived and waited. */
   readonly cancellationFeeEnabled: boolean;
   readonly cancellationFee: number;
+  /** Driver cancellation rate (7 days): judged from minTrips assigned trips, nudge / pause thresholds, pause hours. */
+  readonly cancelRateMinTrips: number;
+  readonly cancelRateNudge: number;
+  readonly cancelRateBlock: number;
+  readonly cancelBlockHours: number;
+  readonly cancelBlockRepeatHours: number;
   readonly stuckTripMinMin: number;
   readonly stuckDurationFactor: number;
   readonly pickupHardCapMin: number;

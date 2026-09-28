@@ -23,7 +23,9 @@ import {
   vehicleLabel,
 } from "@/lib/format";
 import { KYC_DOC_TYPES, type KycDocument } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
+import { LiftBlockButton } from "./block-actions";
 import { DocumentActions, DriverStatusActions, PhotoReviewActions } from "./driver-actions";
 
 export async function generateMetadata({ params }: PageProps<"/drivers/[id]">): Promise<Metadata> {
@@ -51,6 +53,9 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
       },
   );
   const payments = d.subscriptions.flatMap((s) => (s.payments ?? []).map((p) => ({ ...p, plan: s.plan })));
+  const rate = d.cancelRate;
+  const blocks = d.blocks ?? [];
+  const pausedUntil = rate?.blockedUntil ?? null;
 
   return (
     <>
@@ -135,6 +140,18 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
               <Field label="KYC">
                 <KycProgress verified={kyc.verified} total={kyc.total} />
               </Field>
+              <Field label="Cancelled (7 days)">
+                {rate ? (
+                  <span className={cn("font-heading text-xl font-semibold", rate.level === "BLOCK" ? "text-error" : rate.level === "NUDGE" && "text-warning-text")}>
+                    {Math.round(rate.rate * 100)}%
+                    <span className="block font-sans text-xs font-normal text-muted-foreground">
+                      {rate.cancelled} of {rate.assigned} rides{rate.assigned < rate.minTrips ? ` · judged from ${rate.minTrips}` : ""}
+                    </span>
+                  </span>
+                ) : (
+                  "–"
+                )}
+              </Field>
               <Field label="Current plan">
                 {d.subscriptions[0] ? (
                   <span className="flex items-center gap-2">
@@ -148,6 +165,38 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
           </CardContent>
         </Card>
       </div>
+
+      {(pausedUntil || blocks.length > 0) && (
+        <Card className="mt-4 gap-0">
+          <CardHeader className="border-b">
+            <CardTitle className="flex flex-wrap items-center justify-between gap-2 font-semibold">
+              <span>Pauses</span>
+              {pausedUntil && <LiftBlockButton driverId={d.id} />}
+            </CardTitle>
+            <CardDescription>
+              {pausedUntil
+                ? `Paused until ${formatDateTime(pausedUntil)}: can't go online, skipped by dispatch.`
+                : "Paused for too many cancellations (driver's fault ÷ assigned trips, 7 days)."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <ul className="space-y-2">
+              {blocks.map((b) => (
+                <li key={b.id} className="rounded-lg border px-3 py-2 text-sm">
+                  <span className="font-medium text-navy-900">
+                    {formatDateTime(b.fromAt)} → {formatDateTime(b.untilAt)}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {humanize(b.reason)}
+                    {b.details?.assigned ? ` · ${b.details.cancelled} of ${b.details.assigned} rides cancelled` : ""}
+                    {b.liftedAt ? ` · lifted by an admin ${formatDateTime(b.liftedAt)}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="mt-4 gap-0">
         <CardHeader className="border-b">

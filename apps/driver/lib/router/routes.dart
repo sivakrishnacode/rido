@@ -21,6 +21,10 @@ abstract final class Routes {
   static String autopaySuccess({String purpose = 'setup'}) => '/autopay/success?purpose=$purpose';
   static const kycRejected = '/kyc-rejected';
   static const accountOnHold = '/account-on-hold';
+
+  /// Paused for too many cancellations until [until] (S-10b).
+  static const accountPausedPath = '/account-paused';
+  static String accountPaused(DateTime until) => '$accountPausedPath?until=${Uri.encodeQueryComponent(until.toUtc().toIso8601String())}';
   static const selfieCheck = '/selfie-check';
   static const dailySelfie = '/selfie-check/camera';
   static String legal(String doc) => '/legal/$doc';

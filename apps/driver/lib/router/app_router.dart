@@ -86,6 +86,10 @@ GoRouter createDriverRouter({String initialLocation = Routes.splash}) => GoRoute
         _full('/autopay/success', (s) => D12bAutopaySuccessScreen(purpose: _purpose(s))),
         _full(Routes.kycRejected, (_) => const S09KycRejectedScreen()),
         _full(Routes.accountOnHold, (_) => const S10AccountOnHoldScreen()),
+        _full(
+          Routes.accountPausedPath,
+          (s) => S10AccountOnHoldScreen(pausedUntil: DateTime.tryParse(s.uri.queryParameters['until'] ?? '')?.toLocal()),
+        ),
         _full(Routes.selfieCheck, (_) => const S13SelfieCheckScreen()),
         _full(Routes.dailySelfie, (_) => const D09SelfieScreen(dailyCheck: true)),
         _full('/legal/:doc', (s) => LegalScreen(doc: s.pathParameters['doc'] ?? 'terms')),

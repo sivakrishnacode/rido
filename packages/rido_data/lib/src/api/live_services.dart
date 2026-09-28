@@ -201,6 +201,19 @@ class LiveJobs {
 
   Future<void> goOffline() => api.post('/drivers/me/offline');
 
+  /// The driver's cancellation rate (Home banner) and pause.
+  Future<DriverCancelRate> cancelRate() async => DriverCancelRate.fromJson(_map(await api.get('/drivers/me/cancel-rate')));
+
+  /// The server paused this driver for too many cancellations (`driver.blocked`): until when.
+  Stream<DateTime> pauses() {
+    realtime.connect();
+    return realtime
+        .on('driver.blocked')
+        .map((j) => j['until'] is String ? DateTime.tryParse(j['until'] as String)?.toLocal() : null)
+        .where((d) => d != null)
+        .cast<DateTime>();
+  }
+
   Stream<LiveOffer> offers() {
     realtime.connect();
     return realtime.on('trip.offer').map(_offer);

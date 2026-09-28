@@ -82,6 +82,9 @@ class FakeJobs extends LiveJobs {
   final offersCtl = StreamController<LiveOffer>.broadcast();
   final updatesCtl = StreamController<LiveTripUpdate>.broadcast();
   final nudgesCtl = StreamController<TripNudge>.broadcast();
+  final pausesCtl = StreamController<DateTime>.broadcast();
+  @override
+  Stream<DateTime> pauses() => pausesCtl.stream;
   @override
   Stream<TripNudge> nudges(String tripId) => nudgesCtl.stream.where((n) => n.tripId == tripId);
   final calls = <String>[];
@@ -258,6 +261,26 @@ void main() {
       throwsA(isA<ApiException>().having((e) => e.message, 'message', 'Plan expired. Renew to go online again')),
     );
     expect(state().online, isFalse);
+  });
+
+  test('paused for cancellations: going online is refused with the end time', () async {
+    final until = DateTime.utc(2026, 9, 29, 10, 10);
+    jobs.onlineError = ApiException(403, "You cancelled too many rides, so you can't go online until 3:40 pm",
+        code: 'DRIVER_TEMP_BLOCKED', details: {'until': until.toIso8601String()});
+    await expectLater(
+      session().goOnline(),
+      throwsA(isA<ApiException>().having((e) => e.tempBlockedUntil, 'tempBlockedUntil', until.toLocal())),
+    );
+    expect(state().online, isFalse);
+  });
+
+  test('a pause from the server while online takes the driver offline with a notice', () async {
+    await session().goOnline();
+    expect(state().online, isTrue);
+    jobs.pausesCtl.add(DateTime.now().add(const Duration(hours: 24)));
+    await Future<void>.delayed(Duration.zero);
+    expect(state().online, isFalse);
+    expect(state().notice?.message, contains('paused'));
   });
 
   test('ride: offer → accept → arrived → wrong OTP → start → complete → collect', () async {

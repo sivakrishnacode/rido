@@ -4,7 +4,11 @@ import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js'
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { KycDocument, Prisma, User } from '../../generated/prisma/client.js';
-import { KycStatus, Role } from '../../generated/prisma/enums.js';
+import { CancelFault, CancelledBy, KycStatus, Role } from '../../generated/prisma/enums.js';
+import { type PassengerCancelRate, passengerCancelRate } from '../trips/cancel-rate.js';
+
+/** Window of the passenger cancellation rate on the admin user page. */
+const PASSENGER_RATE_DAYS = 30;
 import type { Paged } from './admin.types.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
 import type { UpdateUserDto } from './dto/update-user.dto.js';
@@ -38,7 +42,19 @@ export class AdminUsersService {
     return { items, total, page, pageSize };
   }
 
-  user(id: string): Promise<User> {
+  /** With the passenger's cancellation rate over the last 30 days (shown only; passengers are never blocked). */
+  async user(id: string): Promise<User & { cancelRate: PassengerCancelRate }> {
+    const since = new Date(Date.now() - PASSENGER_RATE_DAYS * 86_400_000);
+    const [user, booked, cancelled, atFault] = await Promise.all([
+      this.userRow(id),
+      this.prisma.trip.count({ where: { passengerId: id, createdAt: { gte: since } } }),
+      this.prisma.tripCancellation.count({ where: { passengerId: id, by: CancelledBy.PASSENGER, createdAt: { gte: since } } }),
+      this.prisma.tripCancellation.count({ where: { passengerId: id, fault: CancelFault.PASSENGER, createdAt: { gte: since } } }),
+    ]);
+    return { ...user, cancelRate: passengerCancelRate({ since, booked, cancelled, atFault }) };
+  }
+
+  private userRow(id: string) {
     return this.prisma.user.findUniqueOrThrow({
       where: { id },
       include: {

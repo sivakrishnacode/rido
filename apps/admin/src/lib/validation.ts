@@ -27,6 +27,11 @@ const RULES: Record<string, (v: SettingValue) => string | null> = {
   waitMaxCharge: (v) => (inRange(v, 0, 1000, true) ? null : "Waiting cap must be ₹0–₹1,000 (whole rupees)"),
   cancellationFeeEnabled: (v) => (typeof v === "boolean" ? null : "Cancellation fee must be on or off"),
   cancellationFee: (v) => (inRange(v, 0, 500, true) ? null : "Cancellation fee must be ₹0–₹500 (whole rupees)"),
+  cancelRateMinTrips: (v) => (inRange(v, 1, 100, true) ? null : "Minimum trips must be 1–100"),
+  cancelRateNudge: (v) => (inRange(v, 0.05, 1) ? null : "Warn at must be 0.05–1 (e.g. 0.3 = 30 %)"),
+  cancelRateBlock: (v) => (inRange(v, 0.05, 1) ? null : "Pause at must be 0.05–1 (e.g. 0.5 = 50 %)"),
+  cancelBlockHours: (v) => (inRange(v, 1, 720, true) ? null : "Pause length must be 1–720 whole hours"),
+  cancelBlockRepeatHours: (v) => (inRange(v, 1, 720, true) ? null : "Repeat pause length must be 1–720 whole hours"),
   stuckTripMinMin: (v) => (inRange(v, 30, 720, true) ? null : "Stuck trip must be 30–720 whole minutes"),
   stuckDurationFactor: (v) => (inRange(v, 1, 10) ? null : "Stuck factor must be 1–10"),
   pickupHardCapMin: (v) => (inRange(v, 15, 240, true) ? null : "Cancel after must be 15–240 whole minutes"),
@@ -69,6 +74,11 @@ export function validateSettings(s: SettingsInput): SettingsErrors {
   const r1 = s.maxSearchRadiusKm;
   if (!e.searchRadiusKm && !e.maxSearchRadiusKm && typeof r0 === "number" && typeof r1 === "number" && r1 < r0) {
     e.maxSearchRadiusKm = "Maximum search radius can't be below the start radius";
+  }
+  const nudge = s.cancelRateNudge;
+  const pause = s.cancelRateBlock;
+  if (!e.cancelRateNudge && !e.cancelRateBlock && typeof nudge === "number" && typeof pause === "number" && nudge > pause) {
+    e.cancelRateNudge = "Warn at can't be above Pause at";
   }
   return e;
 }

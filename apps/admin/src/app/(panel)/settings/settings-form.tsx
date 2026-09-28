@@ -94,6 +94,18 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
+    group: "Driver cancellations",
+    description:
+      "Driver-fault cancellations ÷ assigned trips over 7 days (counting restarts after a pause). Judged from the minimum trips; from Warn at the driver gets a push and a Home banner, from Pause at they can't go online for the pause length (the repeat length if they were paused in the last 7 days). Admins can lift a pause on the driver page. Passengers are never paused.",
+    fields: [
+      { key: "cancelRateMinTrips", label: "Judge after", hint: "Assigned trips in the window before a rate counts", step: "1", suffix: "trips" },
+      { key: "cancelRateNudge", label: "Warn at", hint: "Share cancelled (0.3 = 30 %)", step: "0.05", suffix: "×" },
+      { key: "cancelRateBlock", label: "Pause at", hint: "Share cancelled (0.5 = 50 %)", step: "0.05", suffix: "×" },
+      { key: "cancelBlockHours", label: "Pause length", hint: "First pause", step: "1", suffix: "h" },
+      { key: "cancelBlockRepeatHours", label: "Repeat pause length", hint: "When paused in the last 7 days", step: "1", suffix: "h" },
+    ],
+  },
+  {
     group: "Driver plans",
     description: "Off = Rido is free: drivers see no plans and can always go online. Trial and grace apply to new subscriptions when plans are on.",
     fields: [

@@ -14,6 +14,7 @@ import { TripEventsService } from '../realtime/trip-events.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { assignBatch, BatchRequest } from './batch-assign.js';
 import { searchRadiusAt, searchWindowMs } from './search-radius.js';
+import { DriverBlocksService } from './driver-blocks.service.js';
 
 const PENDING_KEY = 'dispatch:pending';
 const LOCK_KEY = 'dispatch:lock';
@@ -57,6 +58,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     private readonly location: DriverLocationService,
     private readonly events: TripEventsService,
     private readonly settings: SettingsService,
+    private readonly blocks: DriverBlocksService,
     private readonly eta: EtaService,
     private readonly notifier: NotifierService,
     private readonly jobs: JobsService,
@@ -207,7 +209,9 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
       ),
       this.redis.smembers(`dispatch:${trip.id}:declined`),
     ]);
-    const nearby = perKind.flat().filter((d) => !declined.includes(d.driverId));
+    // Paused drivers (too many cancellations) are offline anyway; this covers an index entry left behind.
+    const paused = await this.blocks.pausedAmong(perKind.flat().map((d) => d.driverId));
+    const nearby = perKind.flat().filter((d) => !declined.includes(d.driverId) && !paused.has(d.driverId));
     const withEta = await Promise.all(
       nearby.map(async (d) => ({
         driverId: d.driverId,

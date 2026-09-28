@@ -154,6 +154,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   // Live API only.
   StreamSubscription<GpsFix>? _gps;
   StreamSubscription<LiveOffer>? _offerSub;
+  StreamSubscription<DateTime>? _pauseSub;
   StreamSubscription<bool>? _connectionSub;
   StreamSubscription<LiveTripUpdate>? _jobSub;
   StreamSubscription<TripNudge>? _nudgeSub;
@@ -637,6 +638,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _stopPreview();
     _listenGps();
     _offerSub = _jobs.offers().listen(_onOffer, onError: (Object _) {});
+    _pauseSub = _jobs.pauses().listen(_onPaused, onError: (Object _) {});
     _connectionSub = ref.read(realtimeProvider).connection.listen((up) {
       if (!up) return;
       unawaited(_flushBuffered(overSocket: true));
@@ -688,16 +690,35 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     }
   }
 
+  /// `driver.blocked`: paused for too many cancellations. The server already took the driver offline; the app
+  /// follows (Home shows the pause from [cancelRateProvider]).
+  void _onPaused(DateTime until) {
+    if (!ref.mounted || state.onJob) return;
+    _sim.cancelAll();
+    _stopTracking();
+    _buffer.clear();
+    state = state.copyWith(
+      online: false,
+      clearIncoming: true,
+      missedRequest: false,
+      gpsLost: false,
+      notice: const SessionNotice("You cancelled too many rides, so you're paused for a while"),
+    );
+    ref.invalidate(cancelRateProvider);
+  }
+
   /// S-16 "Fix now" with Location on: get GPS going again without going offline.
   void restartGps() => _healGps(force: true);
 
   void _stopTracking() {
     _gps?.cancel();
     _offerSub?.cancel();
+    _pauseSub?.cancel();
     _connectionSub?.cancel();
     _ticker?.cancel();
     _gps = null;
     _offerSub = null;
+    _pauseSub = null;
     _connectionSub = null;
     _ticker = null;
   }
@@ -848,6 +869,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _legKey = null;
     state = state.copyWith(clearJob: true, phase: JobPhase.none, route: const [], etaMin: 0, notice: notice);
     unawaited(_recoverOffer());
+    // A cancel (theirs, or the ride taken off them) may have moved their cancellation rate (Home banner).
+    ref.invalidate(cancelRateProvider);
   }
 
   /// Draws the leg [from] → [to] now (curved stand-in or cached road) and swaps in the road route once
@@ -872,6 +895,16 @@ class DriverSessionController extends Notifier<DriverSessionState> {
 
 final driverSessionProvider =
     NotifierProvider<DriverSessionController, DriverSessionState>(DriverSessionController.new);
+
+/// D-13 banner: the driver's cancellation rate and pause (live API only; null in mock mode or when it can't load).
+final cancelRateProvider = FutureProvider<DriverCancelRate?>((ref) async {
+  if (!ref.watch(isLiveApiProvider)) return null;
+  try {
+    return await ref.watch(liveJobsProvider).cancelRate();
+  } on Exception {
+    return null;
+  }
+});
 
 /// Earnings for the Today / Week / Month tabs.
 final earningsProvider = FutureProvider.family<EarningsSummary, EarningsPeriod>((ref, period) {

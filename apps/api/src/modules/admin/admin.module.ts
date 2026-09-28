@@ -13,10 +13,11 @@ import { AdminService } from './admin.service.js';
 import { AnnouncementsController } from './announcements.controller.js';
 import { AuditInterceptor } from './audit.interceptor.js';
 import { KycModule } from '../kyc/kyc.module.js';
+import { TripsModule } from '../trips/trips.module.js';
 
 /** Admin panel API (ADMIN role only) and public announcements. */
 @Module({
-  imports: [KycModule],
+  imports: [KycModule, TripsModule],
   controllers: [AdminController, AdminCitiesController, AdminUsersController, AdminOpsController, AnnouncementsController],
   providers: [AdminService, AdminStatsService, AdminCitiesService, AdminUsersService, AdminOpsService, AdminHeatmapService, AuditInterceptor],
 })

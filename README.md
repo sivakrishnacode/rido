@@ -115,7 +115,7 @@ npm run test:e2e -w @rido/api       # full ride lifecycle against the real DB + 
 | places | `GET /places/autocomplete?q&session`, `GET /places/details/:id`, `GET /places/reverse?lat&lng` |
 | maps | `POST /maps/route` (road polyline, once per leg) |
 | fares | `POST /fares/quote` (same engine as the apps: ₹35 / ₹66 / ₹132, no peak by default) |
-| drivers | `POST /drivers`, `GET /drivers/me`, KYC `POST /drivers/me/documents/:type`, `POST /drivers/me/online|offline|location`, admin `POST /admin/drivers/:id/review` |
+| drivers | `POST /drivers`, `GET /drivers/me`, KYC `POST /drivers/me/documents/:type`, `POST /drivers/me/online|offline|location` (online → 403 `DRIVER_TEMP_BLOCKED` while paused for cancellations), `GET /drivers/me/cancel-rate`, admin `POST /admin/drivers/:id/review`, `POST /admin/drivers/:id/lift-block` |
 | trips | `POST /trips`, `GET /trips`, `GET /trips/:id`, `POST /trips/:id/accept|decline|arrived|start|complete|cancel|rate` |
 | app-config | `GET /app-config` (public: plans switch, contribute page UPI ID and monthly cost) |
 | subscriptions | `GET /plans`, `GET /subscriptions/me`, `POST /subscriptions`, `POST /subscriptions/me/pause|resume|cancel` (unused while `driverPlansEnabled` is off) |

@@ -36,6 +36,16 @@ export const SETTING_DEFAULTS = {
    */
   cancellationFeeEnabled: false,
   cancellationFee: 10,
+  /**
+   * Driver cancellation rate over a sliding 7 days: driver-fault cancellations ÷ assigned trips. Judged only from
+   * [cancelRateMinTrips] assigned trips; from [cancelRateNudge] the driver is warned, from [cancelRateBlock] paused
+   * for [cancelBlockHours] ([cancelBlockRepeatHours] if they were paused in the last 7 days).
+   */
+  cancelRateMinTrips: 5,
+  cancelRateNudge: 0.3,
+  cancelRateBlock: 0.5,
+  cancelBlockHours: 24,
+  cancelBlockRepeatHours: 72,
   /** A started trip still running after max(this, stuckDurationFactor × estimated minutes) is flagged for admins. */
   stuckTripMinMin: 120,
   stuckDurationFactor: 4,

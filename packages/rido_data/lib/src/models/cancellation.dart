@@ -53,3 +53,67 @@ enum CancelCode {
     return null;
   }
 }
+
+/// Where a driver's cancellation rate stands (API `level`): fine, warned, or paused.
+enum CancelRateLevel {
+  ok,
+  nudge,
+  block;
+
+  static CancelRateLevel fromApi(Object? v) => switch (v) {
+        'NUDGE' => nudge,
+        'BLOCK' => block,
+        _ => ok,
+      };
+}
+
+/// `GET /drivers/me/cancel-rate`: the driver's cancellations held against them ÷ assigned trips over 7 days
+/// (restarting after a pause), with the banner text and the pause end.
+class DriverCancelRate {
+  const DriverCancelRate({
+    required this.cancelled,
+    required this.assigned,
+    required this.rate,
+    required this.level,
+    this.blockedUntil,
+    this.title,
+    this.body,
+    this.blockAt = 0.5,
+    this.blockHours = 24,
+  });
+
+  factory DriverCancelRate.fromJson(Map<String, dynamic> j) {
+    final message = j['message'] is Map ? (j['message'] as Map).cast<String, dynamic>() : null;
+    final until = j['blockedUntil'] is String ? DateTime.tryParse(j['blockedUntil'] as String)?.toLocal() : null;
+    return DriverCancelRate(
+      cancelled: (j['cancelled'] as num?)?.toInt() ?? 0,
+      assigned: (j['assigned'] as num?)?.toInt() ?? 0,
+      rate: (j['rate'] as num?)?.toDouble() ?? 0,
+      level: CancelRateLevel.fromApi(j['level']),
+      blockedUntil: until,
+      title: message?['title'] as String?,
+      body: message?['body'] as String?,
+      blockAt: (j['blockAt'] as num?)?.toDouble() ?? 0.5,
+      blockHours: (j['blockHours'] as num?)?.toInt() ?? 24,
+    );
+  }
+
+  final int cancelled;
+  final int assigned;
+  final double rate;
+  final CancelRateLevel level;
+
+  /// Paused until then (null = not paused).
+  final DateTime? blockedUntil;
+
+  /// "You've cancelled 2 of your last 5 rides" and what happens next (null when [level] is ok).
+  final String? title;
+  final String? body;
+  final double blockAt;
+  final int blockHours;
+
+  bool isPausedAt(DateTime now) => blockedUntil != null && blockedUntil!.isAfter(now);
+
+  /// Show the warning banner on Home.
+  bool get shouldWarn => level != CancelRateLevel.ok && title != null;
+}

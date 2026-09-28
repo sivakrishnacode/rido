@@ -11,6 +11,7 @@ import { DriverStateCache } from '../src/core/driver-state/driver-state.cache.js
 import { JobsService } from '../src/core/jobs/jobs.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
 import { SettingsService } from '../src/modules/settings/settings.service.js';
+import { DriverBlocksService } from '../src/modules/trips/driver-blocks.service.js';
 import { DEMAND_RES } from '../src/modules/geo/demand.service.js';
 import { cellAt } from '../src/modules/geo/h3.util.js';
 import { haversineMeters } from '../src/modules/fares/fare-engine.js';
@@ -557,6 +558,101 @@ describe('Rido API (e2e)', () => {
       await settings.update({ cancellationFeeEnabled: false });
     }
   }, 60_000);
+
+  it('nudges, then pauses a driver who cancels too often; the pause ends by the job or an admin', async () => {
+    const settings = app.get(SettingsService);
+    const redis = app.get(RedisService);
+    const jobs = app.get(JobsService);
+    const cells = await redis.keys('h3:drv:BIKE:*');
+    if (cells.length) await redis.del(...cells);
+    const at = { lat: 11.0185, lng: 76.9727 };
+    const token = await onlineDriver('BIKE', at);
+    const driver = { Authorization: `Bearer ${token}` };
+    const driverId = (await http.get('/v1/drivers/me').set(driver).expect(200)).body.id as string;
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const passengerId = (await http.get('/v1/me').set(pax).expect(200)).body.id as string;
+    // Two rides this week that went fine (made directly, as completed trips).
+    const done = { kind: 'RIDE' as const, vehicleKind: 'BIKE' as const, passengerId, driverId, status: 'COMPLETED' as const, fare: {}, fareTotal: 35, otp: '1234' };
+    const place = { pickupName: 'A', pickupAddr: '', pickupLat: 11.0183, pickupLng: 76.9725, dropName: 'B', dropAddr: '', dropLat: 11.009, dropLng: 76.96, distanceKm: 4.2, durationMin: 14 };
+    for (let i = 0; i < 2; i++) await prisma.trip.create({ data: { ...done, ...place, assignedAt: new Date(), endedAt: new Date() } });
+    /** Books a bike ride, this driver accepts it and drops it (it searches again; the rider then gives up). */
+    const acceptAndDrop = async () => {
+      const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+      expect((await acceptWhenOffered(trip.id, token)).status).toBe(200);
+      await http.post(`/v1/trips/${trip.id}/cancel`).set(driver).send({ code: 'VEHICLE_ISSUE' }).expect(200);
+      await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({ code: 'WAIT_TOO_LONG' }).expect(200);
+    };
+    /** The rate check runs in the background after the cancel. */
+    const rate = async (want: string) => {
+      let r = (await http.get('/v1/drivers/me/cancel-rate').set(driver).expect(200)).body;
+      for (let i = 0; i < 20 && r.level !== want; i++) {
+        await new Promise((res) => setTimeout(res, 100));
+        r = (await http.get('/v1/drivers/me/cancel-rate').set(driver).expect(200)).body;
+      }
+      return r;
+    };
+    await settings.update({ cancelRateMinTrips: 3 });
+    try {
+      // 1 of 3: 33 % → a nudge (push once a day) and the banner text.
+      await acceptAndDrop();
+      const nudged = await rate('NUDGE');
+      expect(nudged).toMatchObject({ cancelled: 1, assigned: 3, level: 'NUDGE', blockedUntil: null });
+      expect(nudged.message.title).toBe("You've cancelled 1 of your last 3 rides");
+      for (let i = 0; i < 20 && !(await redis.exists(`driver:cancel-nudged:${driverId}`)); i++) await new Promise((res) => setTimeout(res, 100));
+      expect(await redis.exists(`driver:cancel-nudged:${driverId}`)).toBe(1);
+
+      // 2 of 4: 50 % → paused for 24 h: offline, can't go online, skipped by dispatch, unblock job at the end.
+      await acceptAndDrop();
+      let paused = await prisma.driver.findUniqueOrThrow({ where: { id: driverId } });
+      for (let i = 0; i < 20 && !paused.blockedUntil; i++) {
+        await new Promise((res) => setTimeout(res, 100));
+        paused = await prisma.driver.findUniqueOrThrow({ where: { id: driverId } });
+      }
+      const until = paused.blockedUntil!.getTime();
+      expect(until - Date.now()).toBeGreaterThan(23.9 * 3_600_000);
+      expect(paused.isOnline).toBe(false);
+      expect(await prisma.driverBlock.findMany({ where: { driverId } })).toMatchObject([{ reason: 'CANCELLATION_RATE', details: { cancelled: 2, assigned: 4 } }]);
+      expect(await jobs.scheduledAt('driver.unblock', driverId)).toBe(until);
+      expect(Number(await redis.get(`driver:tblock:${driverId}`))).toBe(until);
+      const refused = await http.post('/v1/drivers/me/online').set(driver).send(at).expect(403);
+      expect(refused.body).toMatchObject({ code: 'DRIVER_TEMP_BLOCKED', details: { until: new Date(until).toISOString() } });
+      expect((await http.get('/v1/drivers/me/cancel-rate').set(driver).expect(200)).body.blockedUntil).toBe(new Date(until).toISOString());
+
+      // The job at the end lifts it: online again, and counting starts over.
+      await jobs.runDue(until);
+      expect((await prisma.driver.findUniqueOrThrow({ where: { id: driverId } })).blockedUntil).toBeNull();
+      expect(await redis.exists(`driver:tblock:${driverId}`)).toBe(0);
+      await http.post('/v1/drivers/me/online').set(driver).send(at).expect(200);
+
+      // Paused again this week → 72 h; an admin lifts it (audit logged).
+      const trip = await prisma.trip.findFirstOrThrow({ where: { driverId } });
+      await prisma.tripCancellation.createMany({
+        data: Array.from({ length: 3 }, () => ({ tripId: trip.id, driverId, passengerId, by: 'DRIVER' as const, code: 'TOO_FAR' as const, fromStatus: 'DRIVER_ASSIGNED' as const, reassigned: true, isDriverFault: true, fault: 'DRIVER' as const })),
+      });
+      await prisma.driverBlock.updateMany({ where: { driverId }, data: { untilAt: new Date(Date.now() - 60_000) } }); // so the window starts before these rows
+      expect(await app.get(DriverBlocksService).afterCancel(driverId)).toBe('BLOCK');
+      const again = (await prisma.driver.findUniqueOrThrow({ where: { id: driverId } })).blockedUntil!.getTime();
+      expect(again - Date.now()).toBeGreaterThan(71.9 * 3_600_000);
+      const admin = await adminAuth();
+      const detail = (await http.get(`/v1/admin/drivers/${driverId}`).set(admin).expect(200)).body;
+      expect(detail.blocks).toHaveLength(2);
+      expect(detail.cancelRate.blockedUntil).not.toBeNull();
+      const lifted = (await http.post(`/v1/admin/drivers/${driverId}/lift-block`).set(admin).expect(201)).body;
+      expect(lifted.liftedAt).not.toBeNull();
+      await http.post(`/v1/admin/drivers/${driverId}/lift-block`).set(admin).expect(409);
+      expect(await jobs.scheduledAt('driver.unblock', driverId)).toBeNull();
+      expect(await prisma.auditLog.count({ where: { action: { contains: 'lift-block' }, entityId: driverId } })).toBeGreaterThanOrEqual(1);
+      await http.post('/v1/drivers/me/online').set(driver).send(at).expect(200);
+
+      // Passengers are only measured (admin user page), never blocked.
+      const user = (await http.get(`/v1/admin/users/${passengerId}`).set(admin).expect(200)).body;
+      expect(user.cancelRate).toMatchObject({ cancelled: 2 });
+      expect(user.cancelRate.booked).toBeGreaterThanOrEqual(4);
+    } finally {
+      await settings.update({ cancelRateMinTrips: 5 });
+      await http.post('/v1/drivers/me/offline').set(driver);
+    }
+  }, 90_000);
 
   it('charges waiting past the free minutes at start, as its own fare line (not surged)', async () => {
     const { trip, driver } = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });

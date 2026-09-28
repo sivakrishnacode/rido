@@ -9,6 +9,7 @@ import type { ListQueryDto } from './dto/list-query.dto.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { DriverApprovalService } from '../kyc/driver-approval.service.js';
 import { REQUIRED_DOCS } from '../kyc/driver-approval.js';
+import { type CancelRateStats, DriverBlocksService } from '../trips/driver-blocks.service.js';
 
 function paging(q: ListQueryDto): { skip: number; take: number; page: number; pageSize: number } {
   const page = q.page ?? 1;
@@ -28,6 +29,7 @@ export class AdminService {
     private readonly notifier: NotifierService,
     private readonly approval: DriverApprovalService,
     private readonly driverState: DriverStateCache,
+    private readonly blocks: DriverBlocksService,
   ) {}
 
   async drivers(q: ListQueryDto): Promise<Paged<Driver>> {
@@ -48,10 +50,12 @@ export class AdminService {
     return { items, total, page, pageSize };
   }
 
-  driver(id: string): Promise<Driver> {
-    return this.prisma.driver.findUniqueOrThrow({
+  /** With the pause history and the cancellation rate now (7 days, trips/driver-blocks.service.ts). */
+  async driver(id: string): Promise<Driver & { cancelRate: CancelRateStats }> {
+    const driver = await this.prisma.driver.findUniqueOrThrow({
       where: { id },
       include: {
+        blocks: { orderBy: { fromAt: 'desc' }, take: 20 },
         // Identity checks (Didit): newest first; the admin page shows the latest result and its reasons.
         user: { include: { identityChecks: { orderBy: { createdAt: 'desc' }, take: 5 } } },
         documents: { where: { type: { in: [...REQUIRED_DOCS] } }, orderBy: { type: 'asc' } },
@@ -59,6 +63,7 @@ export class AdminService {
         trips: { orderBy: { createdAt: 'desc' }, take: 20 },
       },
     });
+    return { ...driver, cancelRate: await this.blocks.stats(id) };
   }
 
   async setDriverStatus(id: string, status: DriverStatus): Promise<Driver> {

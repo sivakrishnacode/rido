@@ -6,16 +6,31 @@ import 'package:rido_ui/rido_ui.dart';
 import '../../router/routes.dart';
 import '../onboarding/widgets/signup_widgets.dart';
 
-/// S-10 Account on hold (temporary): reason and "Contact support".
+/// "until 3:40 PM" today, "until 3:40 PM tomorrow", else "until 3:40 PM, 30 Sep".
+String pausedUntilLabel(DateTime until, DateTime now) {
+  final day = DateTime(until.year, until.month, until.day);
+  final today = DateTime(now.year, now.month, now.day);
+  final days = day.difference(today).inDays;
+  final when = switch (days) { 0 => formatTime(until), 1 => '${formatTime(until)} tomorrow', _ => '${formatTime(until)}, ${formatShortDate(until)}' };
+  return 'until $when';
+}
+
+/// S-10 Account on hold (temporary): reason and "Contact support". S-10b with [pausedUntil]: paused for too many
+/// cancellations (403 `DRIVER_TEMP_BLOCKED` when going online), with the time it ends.
 class S10AccountOnHoldScreen extends StatelessWidget {
-  const S10AccountOnHoldScreen({super.key, this.showcase = false});
+  const S10AccountOnHoldScreen({super.key, this.showcase = false, this.pausedUntil});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
 
+  /// Paused for too many cancellations until then (S-10b); null = on hold by an admin (S-10).
+  final DateTime? pausedUntil;
+
   @override
   Widget build(BuildContext context) {
     final t = context.type;
+    final until = pausedUntil;
+    final isPaused = until != null;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -59,9 +74,9 @@ class S10AccountOnHoldScreen extends StatelessWidget {
                             )),
                           ),
                           const SizedBox(height: RidoSpacing.xl),
-                          const Center(child: StatusPill(StatusKind.paused, label: 'On hold')),
+                          Center(child: StatusPill(StatusKind.paused, label: isPaused ? 'Paused' : 'On hold')),
                           const SizedBox(height: RidoSpacing.m),
-                          Text('Your account is on hold',
+                          Text(isPaused ? "You're paused ${pausedUntilLabel(until, DateTime.now())}" : 'Your account is on hold',
                               textAlign: TextAlign.center, style: t.display.copyWith(color: Colors.white)),
                         ],
                       ),
@@ -95,9 +110,15 @@ class S10AccountOnHoldScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Multiple ride complaints under review', style: t.bodySemibold),
+                            Text(isPaused ? 'Too many cancelled rides' : 'Multiple ride complaints under review',
+                                style: t.bodySemibold),
                             const SizedBox(height: 2),
-                            Text("You can't go online until the review is complete. Your plan days are paused, not lost.",
+                            Text(
+                                isPaused
+                                    ? 'You cancelled half or more of the rides you accepted this week. You can go online again '
+                                        '${pausedUntilLabel(until, DateTime.now())}. Only accept rides you can reach; '
+                                        "a passenger who doesn't come after the wait doesn't count against you."
+                                    : "You can't go online until the review is complete. Your plan days are paused, not lost.",
                                 style: t.bodySmall.copyWith(color: RidoColors.navy700)),
                           ],
                         ),

@@ -13,6 +13,6 @@ import { DriversService } from './drivers.service.js';
   imports: [AuthModule, SubscriptionsModule, KycModule],
   controllers: [DriversController],
   providers: [DriversService, DriverLocationService, DriverEarningsService],
-  exports: [DriversService, DriverLocationService],
+  exports: [DriversService, DriverLocationService, DriverEarningsService],
 })
 export class DriversModule {}
