@@ -20,6 +20,7 @@ import type { BookTripDto } from './dto/book-trip.dto.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
 import { checkNearStop } from './trip-position.js';
+import { averageRating } from './driver-rating.js';
 import { TripOtpGuard } from './trip-otp-guard.js';
 import { canTransition, isFinished } from './trip-transitions.js';
 
@@ -336,16 +337,27 @@ export class TripsService {
     return this.publish(tripId, user.driverId && trip.driverId === user.driverId ? 'DRIVER' : 'PASSENGER');
   }
 
-  /** Passenger rates the driver; updates the driver's running average. */
+  /**
+   * Passenger rates the driver: the trip's rating is set only while it is still empty (a second tap → 409), and
+   * the driver's rating becomes ratingSum / ratingCount, in one transaction.
+   */
   async rate(passengerId: string, tripId: string, rating: number): Promise<Trip> {
-    const trip = await this.prisma.trip.findUnique({ where: { id: tripId }, include: { driver: true } });
+    const trip = await this.prisma.trip.findUnique({ where: { id: tripId } });
     if (!trip || trip.passengerId !== passengerId) throw new NotFoundException('Trip not found');
-    if (!isFinished(trip.status) || trip.status === TripStatus.CANCELLED || !trip.driver) throw new BadRequestException('Only finished trips can be rated');
-    if (trip.rating) throw new ConflictException('Already rated');
-    const d = trip.driver;
-    const newRating = Math.round(((d.rating * d.ridesCount + rating) / (d.ridesCount + 1)) * 100) / 100;
-    await this.prisma.driver.update({ where: { id: d.id }, data: { rating: newRating } });
-    return this.prisma.trip.update({ where: { id: tripId }, data: { rating } });
+    if (!isFinished(trip.status) || trip.status === TripStatus.CANCELLED || !trip.driverId) throw new BadRequestException('Only finished trips can be rated');
+    const driverId = trip.driverId;
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.trip.updateMany({ where: { id: tripId, rating: null }, data: { rating } });
+      if (count === 0) throw new ConflictException('Already rated');
+      // The increment locks the driver row, so ratings of two trips at once both count.
+      const d = await tx.driver.update({
+        where: { id: driverId },
+        data: { ratingSum: { increment: rating }, ratingCount: { increment: 1 } },
+        select: { ratingSum: true, ratingCount: true },
+      });
+      await tx.driver.update({ where: { id: driverId }, data: { rating: averageRating({ sum: d.ratingSum, count: d.ratingCount }) } });
+      return tx.trip.findUniqueOrThrow({ where: { id: tripId } });
+    });
   }
 
   private async driverTrip(driverId: string, tripId: string): Promise<Trip> {

@@ -254,7 +254,10 @@ model Driver {
   vehicleColor      String         @default("")
   plate             String         @unique
   upiId             String
+  /// Average of passengers' ratings (ratingSum / ratingCount, 2 decimals); 5 until the first rating.
   rating            Float          @default(5)
+  ratingSum         Int            @default(0)
+  ratingCount       Int            @default(0)
   ridesCount        Int            @default(0)
   status            DriverStatus   @default(PENDING)
   /// Profile photo riders see on their trip (taken in the app, matched to [selfieFile]). Private storage file.

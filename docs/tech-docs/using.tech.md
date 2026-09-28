@@ -224,6 +224,10 @@ Never commit real `.env` files.
     through (double tap, lost response) returns the trip (200). Complete counts `Driver.ridesCount` in the same
     transaction as the guarded update (a double tap counts once). Cancel / complete free the driver
     (`driver:busy`) only while it still points at that trip. Cancelling a cancelled trip returns it.
+  - **Driver rating (28 Sep 2026):** `POST /trips/:id/rate` sets `Trip.rating` only while it is empty (guarded
+    update; second rating → 409) and, in the same transaction, adds to `Driver.ratingSum` / `ratingCount`;
+    `Driver.rating` = sum / count (2 decimals; 5 until the first rating). Before, it was averaged over `ridesCount`,
+    which counts unrated rides. Migration `20260928120000_driver_rating_sum` backfills from rated trips.
   - **Trip OTP tries (28 Sep 2026):** the 4-digit ride OTP (`/start`) and parcel delivery OTP (`/complete`) allow
     5 tries a minute per trip (`TripOtpGuard`, counted before the compare; the right OTP resets it). Wrong →
     400 `WRONG_OTP` `{details: {triesLeft}}`; the 5th wrong try and any try while locked → **429 `OTP_LOCKED`**

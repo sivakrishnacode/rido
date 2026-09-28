@@ -139,6 +139,12 @@ async function main(): Promise<void> {
   await prisma.$executeRaw`
     UPDATE "Driver" dr SET "ridesCount" = (SELECT count(*) FROM "Trip" t WHERE t."driverId" = dr.id AND t.status IN ('COMPLETED', 'DELIVERED'))
     WHERE dr.id LIKE 'demo\_%'`;
+  // Rating = mean of the demo trips' ratings (drivers without any keep their seeded rating).
+  await prisma.$executeRaw`
+    UPDATE "Driver" dr SET "ratingSum" = r.total, "ratingCount" = r.n, "rating" = ROUND(r.total::numeric / r.n, 2)
+    FROM (SELECT "driverId", SUM("rating")::int AS total, COUNT(*)::int AS n FROM "Trip"
+          WHERE "rating" IS NOT NULL AND "driverId" LIKE 'demo\_%' GROUP BY "driverId") r
+    WHERE dr.id = r."driverId"`;
 
   // Support tickets, some linked to a trip.
   const trips = await prisma.trip.findMany({ where: { id: { startsWith: 'demo_' }, status: { in: ['COMPLETED', 'DELIVERED'] } }, select: { id: true, passengerId: true, createdAt: true }, take: 12 });

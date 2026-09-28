@@ -151,7 +151,10 @@ describe('Rido API (e2e)', () => {
     ]);
     expect([done.status, again.status]).toEqual([200, 200]);
     expect((await prisma.driver.findUniqueOrThrow({ where: { id: reg.body.driver.id } })).ridesCount).toBe(1);
-    await http.post(`/v1/trips/${trip.id}/rate`).set('Authorization', `Bearer ${passenger}`).send({ rating: 5 }).expect(200);
+    // Rating = mean of the ratings given (not averaged over rides); a second rating is refused.
+    await http.post(`/v1/trips/${trip.id}/rate`).set('Authorization', `Bearer ${passenger}`).send({ rating: 4 }).expect(200);
+    await http.post(`/v1/trips/${trip.id}/rate`).set('Authorization', `Bearer ${passenger}`).send({ rating: 1 }).expect(409);
+    expect(await prisma.driver.findUniqueOrThrow({ where: { id: reg.body.driver.id } })).toMatchObject({ rating: 4, ratingSum: 4, ratingCount: 1 });
 
     // Assert
     expect(trip.fareTotal).toBe(35);
