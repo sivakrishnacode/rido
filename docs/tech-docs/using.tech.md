@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -416,7 +416,7 @@ Never commit real `.env` files.
 | `trip:otp-tries:<tripId>` | Ride / delivery OTP tries this minute (5 allowed) | 60 s from the first try |
 | `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
 | `kyc:event:<event_id>` | Didit webhook already handled (idempotency) | 2 d |
-| `maps:rg2:*`, `maps:rt3:*`, `maps:tt:*`, `eta:road:<mode>:*` | Google response cache: reverse geocode with its `landmark` (~11 m grid), fare routes (`vehicleStopover` stops, shortest of `computeAlternativeRoutes`, `TRAFFIC_AWARE`, ~11 m grid; kept 6 h so a quote and its booking price the same route), the fare route's traffic-aware minutes (`maps:tt:<mode>:<from>:<to>`, **15 min**, then one Pro call refreshes the minutes only), ETAs (`maps:rt3:DRIVE:eta:*` and `eta:*`, cell centres, no stopover, no path, `TRAFFIC_UNAWARE`). Autocomplete and Place Details are **not** cached (Places terms allow storing only place IDs; Place Details also ends the session so keystrokes aren't billed singly) | 30 d / 6 h / 15 min / 10 min |
+| `maps:rg2:*`, `maps:rt3:*`, `maps:tt:*`, `eta:road:<mode>:*` | Google response cache: reverse geocode with its `landmark` (~11 m grid), fare routes (`vehicleStopover` stops, shortest of `computeAlternativeRoutes`, `TRAFFIC_AWARE`, ~11 m grid; kept 6 h so a quote and its booking price the same route), the fare route's traffic-aware minutes (`maps:tt:<mode>:<from>:<to>`, **15 min**, then one Pro call refreshes the minutes only), ETAs (`maps:rt3:DRIVE:eta:*` from single lookups, and `eta:*` also filled by the Route Matrix, cell centres, no stopover, no path, `TRAFFIC_UNAWARE`). Autocomplete and Place Details are **not** cached (Places terms allow storing only place IDs; Place Details also ends the session so keystrokes aren't billed singly) | 30 d / 6 h / 15 min / 10 min |
 
 - **Dispatch (Uber-style, see owner ref "How Uber finds your driver"):**
   1. Drivers are indexed by H3 cell (res 8) in Redis sets `h3:drv:<kind>:<cell>`; no distance scan over all drivers.
@@ -427,7 +427,11 @@ Never commit real `.env` files.
      (45 s) while nobody accepts (`search-radius.ts`), for the booked vehicle and any added ones ("Book any").
   4. Candidates are ranked by **road ETA**, not straight-line distance (`EtaService`: Google Routes when
      `useRoadEta` and a key are set, else a 20 km/h × 1.3 estimate), cached per H3 cell pair for 10 min so all
-     drivers in one hexagon share one lookup.
+     drivers in one hexagon share one lookup. All candidates go through `EtaService.minutesMany` together: learned
+     speed → `eta:road:<mode>:<a>:<b>` cache → **one** `computeRouteMatrix` call for every missing cell (origins =
+     the cells' centres, destination = the pickup cell's centre, ≤ 49 origins per call) → estimate for elements
+     Google left out or marked `ROUTE_NOT_FOUND`. P-10's `withPickupEta` does the same for every vehicle's 3
+     nearest drivers at once.
      **Reliability ranking (28 Sep 2026, like Namma Yatri's intelligent pool; `trips/driver-rank.ts`,
      `trips/driver-offer-stats.service.ts`):** still one driver at a time, but the queue order uses ranking minutes
      `eta × (1 + min(rankMaxPenalty, rankWeightAccept·(1 − acceptRatio) + rankWeightCancel·cancelRatio)) − eta × idleShare`.
@@ -849,6 +853,19 @@ loaded, or if it can't be made, it falls back to a Google Maps link to the vehic
 | Route line / distance | Routes API: fare routes ask for alternatives (`computeAlternativeRoutes`, field `routes.routeLabels`) and keep the **shortest** by `distanceMeters`, so the map, the cache and `Trip.routePolyline` show the route that is charged | API (`/maps/route`, fares) and app | once per trip leg; cached on a ~11 m grid |
 | Live tracking | Driver GPS over Socket.IO | driver app → API → passenger | every few seconds, **no Google calls** |
 
+**Google billing (India list, per 1,000; free monthly calls in brackets):** Routes Essentials $1.50 (70k), Routes Pro
+$3 (35k); Route Matrix bills **per element** at the same tiers. Pro is triggered by `vehicleStopover` / `sideOfRoad` /
+`heading` and by `TRAFFIC_AWARE`; Enterprise by `TWO_WHEELER`, tolls or traffic on polylines (none used). What Rido sends:
+
+| Call | Fields / options | SKU |
+|---|---|---|
+| Fare route (`/fares/quote`, booking, `/maps/route`) | `vehicleStopover`, `TRAFFIC_AWARE`, `computeAlternativeRoutes` (shortest kept), mask `routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.routeLabels` | Routes Pro (alternatives and traffic add nothing: Pro already) |
+| Travel-minutes refresh (`maps:tt` older than 15 min, route still cached) | same request | Routes Pro, at most once per pair per 15 min |
+| Single ETA (offer card, trip ETA) | no stopover, `TRAFFIC_UNAWARE`, mask `routes.distanceMeters,routes.duration` | Routes Essentials |
+| Driver ETAs (P-10 vehicle list, dispatch ranking) | `computeRouteMatrix`, `TRAFFIC_UNAWARE`, DRIVE, mask `originIndex,destinationIndex,duration,distanceMeters,condition` | Route Matrix Essentials, per missing cell |
+| Reverse geocode | `language=en&extra_computations=ADDRESS_DESCRIPTORS` | Geocoding (address descriptors are not a separate SKU on the SKU page) |
+| Autocomplete / Place Details | `locationRestriction`, `origin`; details mask `id,formattedAddress,location` | Autocomplete session + Place Details Essentials |
+
 **Cost rules (do not break):**
 1. Never call Directions/Routes on a timer during a trip; ETA comes from the driver's GPS progress along the stored polyline.
 2. Use autocomplete session tokens; end each session with one Place Details call.
@@ -1151,6 +1168,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Google logo padding | **Done**: `RidoMap.mapPadding` (→ `GoogleMap.padding`) on map screens with sheets; the shared camera-fit still ignores it (passenger works around it with `sheetMapInsets`) |
 | Two-wheeler routing | **Changed (28 Sep 2026)**: the backend routes every vehicle as DRIVE. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3× Essentials, 7k free); bike fares are priced on the car route so the booked fare matches P-10. Google Routes billing: `vehicleStopover` (fare routes) bills at Pro; ETAs stay Essentials |
 | Google search in pickers | **Done**: saved-place editor and parcel picker search through the API |
+| Google Maps improvements | **Done (28 Sep 2026)**: shortest-route fares (`computeAlternativeRoutes`), traffic-aware travel time for display (`travelMin`, fare unchanged), "Near X" pickup landmarks (address descriptors → `Trip.pickupLandmark`), service-area-restricted search with distances, and one Route Matrix call for driver ETAs. Billing table in 7. Later: a phone check of P-09 / D-16 with real landmarks; reverse geocode still returns plus-code addresses for some pins (e.g. "X2JR+9H, ELGI Nagar": those results are not typed `plus_code`) |
 | H3 | See plan below |
 
 ---

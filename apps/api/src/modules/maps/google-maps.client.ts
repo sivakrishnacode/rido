@@ -78,6 +78,44 @@ export function shortestRoute(routes: readonly GoogleRoute[]): GoogleRoute | und
     .reduce<GoogleRoute | undefined>((best, r) => (!best || r.distanceMeters! < best.distanceMeters! ? r : best), undefined);
 }
 
+/** One computeRouteMatrix element (only the fields we ask for). */
+export interface MatrixElement {
+  readonly originIndex?: number;
+  readonly destinationIndex?: number;
+  readonly duration?: string;
+  readonly distanceMeters?: number;
+  readonly condition?: string;
+}
+
+/** A matrix leg: road km and minutes. */
+export interface MatrixLeg {
+  readonly distanceKm: number;
+  readonly durationMin: number;
+}
+
+/**
+ * Google's limit for one matrix request is 50 waypoints (origins + destinations) and 625 elements; one destination
+ * leaves 49 origins.
+ */
+export const MATRIX_MAX_ORIGINS = 49;
+
+/**
+ * computeRouteMatrix elements (any order; one destination) → a leg per origin index, null where Google sent no
+ * element, no route (`condition` ≠ ROUTE_EXISTS) or no duration.
+ */
+export function parseMatrix(elements: readonly MatrixElement[], origins: number): (MatrixLeg | null)[] {
+  const legs: (MatrixLeg | null)[] = Array.from({ length: origins }, () => null);
+  for (const e of Array.isArray(elements) ? elements : []) {
+    const i = e.originIndex ?? 0; // proto3 JSON omits a 0 index
+    if (i < 0 || i >= origins || (e.destinationIndex ?? 0) !== 0) continue;
+    if (e.condition !== 'ROUTE_EXISTS' || e.duration === undefined) continue;
+    const seconds = Number(e.duration.replace('s', ''));
+    if (!Number.isFinite(seconds)) continue;
+    legs[i] = { distanceKm: Math.round(((e.distanceMeters ?? 0) / 1000) * 10) / 10, durationMin: Math.max(1, Math.round(seconds / 60)) };
+  }
+  return legs;
+}
+
 /**
  * Every route drives. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3×
  * Essentials, 7k free a month); bikes are priced on the car route anyway so the fare matches P-10.
@@ -225,6 +263,31 @@ export class GoogleMapsClient {
       encodedPolyline: encoded,
       points: encoded ? decodePolyline(encoded) : [],
     };
+  }
+
+  /**
+   * Routes API computeRouteMatrix: road distance and time from each of [origins] to [destination], in ONE call
+   * (billed per element: origins × 1, Essentials: `TRAFFIC_UNAWARE`, DRIVE, no stopover, no toll or traffic
+   * fields). Returns one entry per origin, in the same order: null for an element Google left out or could not
+   * route (`condition` ROUTE_NOT_FOUND). Null for the whole call on failure. At most [MATRIX_MAX_ORIGINS] origins.
+   */
+  async routeMatrix(params: { origins: readonly LatLngLiteral[]; destination: LatLngLiteral; mode: TravelMode }): Promise<(MatrixLeg | null)[] | null> {
+    if (params.origins.length === 0) return [];
+    if (params.origins.length > MATRIX_MAX_ORIGINS) throw new RangeError(`routeMatrix takes at most ${MATRIX_MAX_ORIGINS} origins`);
+    const wp = (p: LatLngLiteral): object => ({ waypoint: { location: { latLng: { latitude: p.lat, longitude: p.lng } } } });
+    const json = await this.call<MatrixElement[]>('https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix', {
+      method: 'POST',
+      fieldMask: 'originIndex,destinationIndex,duration,distanceMeters,condition',
+      timeoutMs: ETA_TIMEOUT_MS,
+      body: JSON.stringify({
+        origins: params.origins.map(wp),
+        destinations: [wp(params.destination)],
+        travelMode: params.mode,
+        routingPreference: 'TRAFFIC_UNAWARE',
+        regionCode: 'in',
+      }),
+    });
+    return json ? parseMatrix(json, params.origins.length) : null;
   }
 
   private async call<T>(url: string, opts: { method: 'GET' | 'POST'; body?: string; fieldMask?: string; isKeyInUrl?: boolean; timeoutMs?: number }): Promise<T | null> {

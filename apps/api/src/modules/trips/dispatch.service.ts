@@ -9,7 +9,7 @@ import { DEL_IF_EQUALS, DriverLocationService } from '../drivers/driver-location
 import { applyWomenPref, womenAmong } from '../drivers/women-drivers.js';
 import { roadKm } from '../geo/eta-model.js';
 import { NotifierService } from '../notifications/notifier.service.js';
-import { EtaService } from '../maps/eta.service.js';
+import { EtaService, etasByMode } from '../maps/eta.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { assignBatch, BatchRequest } from './batch-assign.js';
@@ -228,12 +228,12 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     // Paused drivers (too many cancellations) are offline anyway; this covers an index entry left behind.
     const paused = await this.blocks.pausedAmong(perKind.flat().map((d) => d.driverId));
     const nearby = perKind.flat().filter((d) => !declined.includes(d.driverId) && !paused.has(d.driverId));
-    const withEta = await Promise.all(
-      nearby.map(async (d) => ({
-        driverId: d.driverId,
-        etaMin: await this.eta.minutes({ from: d, to: pickup, vehicleKind: d.kind, useRoad: s.useRoadEta }),
-      })),
+    // One ETA lookup for every candidate (per-cell cache, then a single Route Matrix call for the misses).
+    const etas = await etasByMode(
+      nearby.map((d) => ({ at: d, vehicleKind: d.kind })),
+      (froms, vehicleKind) => this.eta.minutesMany({ froms, to: pickup, vehicleKind, useRoad: s.useRoadEta }),
     );
+    const withEta = nearby.map((d, i) => ({ driverId: d.driverId, etaMin: etas[i] }));
     // Ranking minutes: the ETA adjusted for the driver's 7-day offer record and wait (driver-rank.ts). The Butterfly
     // head start and the batch assignment both work on these.
     const now = Date.now();

@@ -4,7 +4,7 @@ import { RedisService } from '../../core/redis/redis.service.js';
 import { VehicleKind } from '../../generated/prisma/enums.js';
 import type { LatLngBounds } from '../geo/h3.util.js';
 import { estimateRoute, GeoPoint, type RouteEstimate } from '../fares/fare-engine.js';
-import { GoogleMapsClient, PlaceSuggestion, ResolvedPlace, RoadRoute, TravelMode } from './google-maps.client.js';
+import { GoogleMapsClient, type MatrixLeg, PlaceSuggestion, ResolvedPlace, RoadRoute, TravelMode } from './google-maps.client.js';
 import type { LatLngLiteral } from './polyline.js';
 
 const DAY_S = 86_400;
@@ -90,6 +90,15 @@ export class MapsService {
   async cachedRoute(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind }): Promise<RoadRoute | null> {
     const hit = await this.redis.get(MapsService.routeKey(MapsService.travelMode(params.vehicleKind), params));
     return hit ? (JSON.parse(hit) as RoadRoute) : null;
+  }
+
+  /**
+   * Road ETAs from many points to one (a single computeRouteMatrix call, Essentials), for [EtaService.minutesMany].
+   * Not cached here: the caller caches per cell pair. Null without Google or when the call fails.
+   */
+  etaMatrix(params: { origins: readonly LatLngLiteral[]; destination: LatLngLiteral; vehicleKind?: VehicleKind }): Promise<(MatrixLeg | null)[] | null> {
+    if (!this.isGoogleEnabled) return Promise.resolve(null);
+    return this.google.routeMatrix({ origins: params.origins, destination: params.destination, mode: MapsService.travelMode(params.vehicleKind) });
   }
 
   /** Google travel mode for a vehicle: always DRIVE (see [TravelMode]); kept per vehicle for cache keys. */

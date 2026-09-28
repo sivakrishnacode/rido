@@ -1,5 +1,5 @@
 import type { Env } from '../../core/config/env.js';
-import { GoogleMapsClient, landmarkLabel, shortestRoute } from './google-maps.client.js';
+import { GoogleMapsClient, landmarkLabel, parseMatrix, shortestRoute } from './google-maps.client.js';
 
 const from = { lat: 10.98085, lng: 77.04175 };
 const ukkadamFlyover = { lat: 10.98833, lng: 76.96269 };
@@ -176,5 +176,37 @@ describe('landmarkLabel', () => {
     expect(landmarkLabel({ landmarks: [{ display_name: { text: 'Far Mall' }, spatial_relationship: 'NEAR', straight_line_distance_meters: 450 }] })).toBeNull();
     expect(landmarkLabel({ landmarks: [{ display_name: { text: ' ' }, straight_line_distance_meters: 10 }] })).toBeNull();
     expect(landmarkLabel(undefined)).toBeNull();
+  });
+});
+
+describe('GoogleMapsClient.routeMatrix', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const client = new GoogleMapsClient({ googleMapsApiKey: 'test-key' } as unknown as Env);
+
+  it('asks for every origin to one pickup in one Essentials call and keeps the origin order', async () => {
+    const { bodies, urls } = stubFetch([
+      { originIndex: 1, destinationIndex: 0, distanceMeters: 10629, duration: '1128s', condition: 'ROUTE_EXISTS' },
+      { destinationIndex: 0, distanceMeters: 12057, duration: '1752s', condition: 'ROUTE_EXISTS' },
+    ]);
+    const legs = await client.routeMatrix({ origins: [{ lat: 11.0183, lng: 76.9725 }, { lat: 10.9545, lng: 77.0076 }], destination: from, mode: 'DRIVE' });
+    expect(urls).toEqual(['https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix']);
+    expect(bodies[0]).toMatchObject({ travelMode: 'DRIVE', routingPreference: 'TRAFFIC_UNAWARE', fieldMask: 'originIndex,destinationIndex,duration,distanceMeters,condition' });
+    expect(JSON.stringify(bodies[0])).not.toContain('vehicleStopover');
+    expect(legs).toEqual([{ distanceKm: 12.1, durationMin: 29 }, { distanceKm: 10.6, durationMin: 19 }]);
+  });
+});
+
+describe('parseMatrix', () => {
+  it('leaves null where an element is missing or has no route', () => {
+    const legs = parseMatrix(
+      [
+        { originIndex: 0, duration: '600s', distanceMeters: 4000, condition: 'ROUTE_EXISTS' },
+        { originIndex: 2, condition: 'ROUTE_NOT_FOUND' },
+        { originIndex: 3, duration: '60s', distanceMeters: 300, condition: 'ROUTE_EXISTS', destinationIndex: 1 },
+      ],
+      4,
+    );
+    expect(legs).toEqual([{ distanceKm: 4, durationMin: 10 }, null, null, null]);
+    expect(parseMatrix({} as never, 2)).toEqual([null, null]);
   });
 });

@@ -45,4 +45,27 @@ describe('FaresService', () => {
     await fares.quoteOne({ pickup, drop, vehicleKind: VehicleKind.GOODS_BIKE });
     expect(estimate.mock.calls.map((c) => (c[0] as { vehicleKind: VehicleKind }).vehicleKind)).toEqual([VehicleKind.THREE_WHEELER, VehicleKind.THREE_WHEELER]);
   });
+
+  it("measures every vehicle's nearest drivers with one ETA lookup", async () => {
+    const { fares } = service();
+    const quotes = await fares.quoteAll({ pickup, drop, kind: TripKind.RIDE });
+    const nearby = vi.fn(async (p: { kind: VehicleKind }) =>
+      p.kind === VehicleKind.CAB ? [] : [{ driverId: `${p.kind}-1`, lat: 11.0, lng: 77.0, distanceKm: 2 }, { driverId: `${p.kind}-2`, lat: 10.99, lng: 77.02, distanceKm: 1 }],
+    );
+    const minutesMany = vi.fn(async (p: { froms: unknown[] }) => p.froms.map((_, i) => 10 + i));
+    const withEta = new FaresService(
+      {} as never,
+      {} as never,
+      { nearby } as never,
+      { minutesMany } as never,
+      { all: vi.fn(async () => SETTING_DEFAULTS) } as unknown as SettingsService,
+      {} as never,
+    );
+    const out = await withEta.withPickupEta(quotes, pickup, { womenOnly: false });
+    expect(minutesMany).toHaveBeenCalledTimes(1);
+    expect((minutesMany.mock.calls[0][0] as { froms: unknown[] }).froms).toHaveLength(4);
+    const byKind = Object.fromEntries(out.map((q) => [q.vehicleKind, q.pickupEtaMin]));
+    // Bike's drivers are origins 0-1, auto's 2-3 (nearest first); nobody near for a cab.
+    expect(byKind).toEqual({ [VehicleKind.BIKE]: 10, [VehicleKind.AUTO]: 12, [VehicleKind.CAB]: null });
+  });
 });

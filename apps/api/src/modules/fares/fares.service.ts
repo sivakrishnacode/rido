@@ -5,7 +5,7 @@ import { TripKind, VehicleKind } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { womenAmong } from '../drivers/women-drivers.js';
 import { GeoService } from '../geo/geo.service.js';
-import { EtaService } from '../maps/eta.service.js';
+import { EtaService, etasByMode } from '../maps/eta.service.js';
 import { MapsService } from '../maps/maps.service.js';
 import type { Settings } from '../settings/settings.defaults.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -39,25 +39,33 @@ export class FaresService {
     private readonly prisma: PrismaService,
   ) {}
 
-  /** Adds each vehicle's pickup ETA (P-10 "3 min away", "Drop 9:24 PM", Fastest). [womenOnly]: Butterfly "only". */
+  /**
+   * Adds each vehicle's pickup ETA (P-10 "3 min away", "Drop 9:24 PM", Fastest). [womenOnly]: Butterfly "only".
+   * Every vehicle's nearest drivers are measured together: one [EtaService.minutesMany] (so at most one Route Matrix
+   * call) per travel mode, which is one for all vehicles today (all DRIVE).
+   */
   async withPickupEta(quotes: readonly FareQuote[], pickup: GeoPoint, opts: { womenOnly: boolean }): Promise<QuoteWithEta[]> {
     const s = await this.settings.all();
     const radiusKm = Math.max(s.searchRadiusKm, s.maxSearchRadiusKm);
-    return Promise.all(
-      quotes.map(async (q): Promise<QuoteWithEta> => {
+    const nearestPer = await Promise.all(
+      quotes.map(async (q) => {
         let drivers = await this.location.nearby({ kind: q.vehicleKind, ...pickup, radiusKm, limit: ETA_SAMPLE * 2 });
         if (opts.womenOnly) {
           const women = await womenAmong(this.prisma, drivers.map((d) => d.driverId));
           drivers = drivers.filter((d) => women.has(d.driverId));
         }
-        const nearest = [...drivers].sort((a, b) => a.distanceKm - b.distanceKm).slice(0, ETA_SAMPLE);
-        if (nearest.length === 0) return { ...q, pickupEtaMin: null };
-        const etas = await Promise.all(
-          nearest.map((d) => this.eta.minutes({ from: d, to: pickup, vehicleKind: q.vehicleKind, useRoad: s.useRoadEta })),
-        );
-        return { ...q, pickupEtaMin: Math.min(...etas) };
+        return [...drivers].sort((a, b) => a.distanceKm - b.distanceKm).slice(0, ETA_SAMPLE);
       }),
     );
+    const etas = await etasByMode(
+      quotes.flatMap((q, i) => nearestPer[i].map((d) => ({ at: d, vehicleKind: q.vehicleKind }))),
+      (froms, vehicleKind) => this.eta.minutesMany({ froms, to: pickup, vehicleKind, useRoad: s.useRoadEta }),
+    );
+    let next = 0;
+    return quotes.map((q, i): QuoteWithEta => {
+      const mine = etas.slice(next, (next += nearestPer[i].length));
+      return { ...q, pickupEtaMin: mine.length === 0 ? null : Math.min(...mine) };
+    });
   }
 
   async quoteAll(params: { pickup: GeoPoint; drop: GeoPoint; kind: TripKind }): Promise<FareQuote[]> {
