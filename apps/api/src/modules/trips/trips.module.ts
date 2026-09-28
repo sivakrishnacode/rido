@@ -4,6 +4,7 @@ import { DriversModule } from '../drivers/drivers.module.js';
 import { FaresModule } from '../fares/fares.module.js';
 import { MapsModule } from '../maps/maps.module.js';
 import { RealtimeModule } from '../realtime/realtime.module.js';
+import { SafetyModule } from '../safety/safety.module.js';
 import { DispatchService } from './dispatch.service.js';
 import { DriverBlocksController } from './driver-blocks.controller.js';
 import { DriverBlocksService } from './driver-blocks.service.js';
@@ -16,7 +17,7 @@ import { TripsService } from './trips.service.js';
 
 /** Booking, dispatch and the trip lifecycle. */
 @Module({
-  imports: [FaresModule, DriversModule, RealtimeModule, MapsModule],
+  imports: [FaresModule, DriversModule, RealtimeModule, MapsModule, SafetyModule],
   controllers: [TripsController, DriverBlocksController],
   providers: [TripsService, DispatchService, TripChatService, TripOtpGuard, TripTimeoutsService, DriverBlocksService, DriverOfferStatsService],
   exports: [DriverBlocksService, DriverOfferStatsService],

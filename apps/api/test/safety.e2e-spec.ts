@@ -180,4 +180,39 @@ describe('Rido safety (e2e)', () => {
     expect(audit.map((a) => a.action).sort()).toEqual(['POST /v1/admin/sos/:id/ack', 'POST /v1/admin/sos/:id/resolve']);
     await http.post('/v1/drivers/me/offline').set(t.driver);
   }, 45_000);
+
+  /** [n] fixes 5 s apart at [at] with a few metres of GPS noise, the last one [endAgoMs] before now. */
+  function standing(at: { lat: number; lng: number }, n: number, endAgoMs = 0) {
+    const t0 = Date.now() - endAgoMs - (n - 1) * 5000;
+    return Array.from({ length: n }, (_, i) => ({ lat: at.lat + (i % 2 ? 0.00005 : -0.00005), lng: at.lng, ts: t0 + i * 5000, acc: 6 }));
+  }
+
+  it('a long stop mid-ride asks the passenger "Is everything OK?" once; "Get help" raises an SOS', async () => {
+    const t = await assignedBikeTrip();
+    await startRide(t);
+    expect(await redis.hget(`trip:safety:${t.trip.id}`, 'pid')).toBeTruthy();
+    // ~700 m from both ends, standing still for 5 min (flushed as one batch), then 3 more minutes there.
+    const mid = { lat: 11.0137, lng: 76.9663 };
+    await http.post('/v1/drivers/me/locations').set(t.driver).send({ fixes: standing(mid, 61, 3 * 60_000) }).expect(200);
+    await http.post('/v1/drivers/me/locations').set(t.driver).send({ fixes: standing(mid, 30) }).expect(200);
+    const stops = await prisma.safetyEvent.findMany({ where: { tripId: t.trip.id, kind: 'STOP' } });
+    expect(stops).toHaveLength(1);
+    expect(stops[0].payload).toMatchObject({ pushed: true });
+    expect((stops[0].payload as { minutes: number }).minutes).toBeGreaterThanOrEqual(4);
+
+    // "I'm OK" is kept on the event; "Get help" raises an SOS from the check. Only the passenger answers.
+    await http.post(`/v1/trips/${t.trip.id}/safety-check`).set(t.driver).send({ answer: 'OK', eventId: stops[0].id }).expect(403);
+    expect((await http.post(`/v1/trips/${t.trip.id}/safety-check`).set(t.pax).send({ answer: 'OK', eventId: stops[0].id }).expect(200)).body).toEqual({ answer: 'OK', sos: null });
+    expect((await prisma.safetyEvent.findUniqueOrThrow({ where: { id: stops[0].id } })).payload).toMatchObject({ answer: 'OK' });
+    const help = (await http.post(`/v1/trips/${t.trip.id}/safety-check`).set(t.pax).send({ answer: 'HELP', eventId: stops[0].id }).expect(200)).body;
+    expect(help.sos.sos).toMatchObject({ source: 'CHECK', role: 'PASSENGER', status: 'OPEN' });
+    await http.post(`/v1/trips/${t.trip.id}/safety-check`).set(t.pax).send({ answer: 'OK', eventId: 'nope' }).expect(404);
+
+    // Waiting at the drop is not a stop; the state is dropped when the ride ends.
+    await http.post('/v1/drivers/me/locations').set(t.driver).send({ fixes: standing({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }, 70) }).expect(200);
+    expect(await prisma.safetyEvent.count({ where: { tripId: t.trip.id, kind: 'STOP' } })).toBe(1);
+    await http.post(`/v1/trips/${t.trip.id}/complete`).set(t.driver).send({}).expect(200);
+    expect(await redis.exists(`trip:safety:${t.trip.id}`)).toBe(0);
+    await http.post('/v1/drivers/me/offline').set(t.driver);
+  }, 45_000);
 });

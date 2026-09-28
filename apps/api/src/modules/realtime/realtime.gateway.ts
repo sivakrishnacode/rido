@@ -23,7 +23,7 @@ interface SocketData {
  * Socket.IO namespace `/rt`. Connect with `auth: { token: <JWT> }`.
  * Client → server: `trip:join {tripId}`, `driver:location {lat, lng, ts?, acc?, spd?, hdg?, mock?}`,
  * `driver:locations {fixes: [...]}` (fixes buffered while offline; acked with `{ok, accepted}`).
- * Server → client: `trip.offer`, `trip.updated`, `trip.location`, `trip.no_drivers`.
+ * Server → client: `trip.offer`, `trip.updated`, `trip.location`, `trip.no_drivers`, `safety.check` (passenger).
  */
 @WebSocketGateway({ namespace: '/rt', cors: { origin: '*' } })
 export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {

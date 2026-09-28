@@ -280,6 +280,22 @@ export class NotifierService {
     });
   }
 
+  /**
+   * A ride safety check to the passenger ("Is everything OK?" after a long stop or a route change at night, "Did
+   * you reach safely?" after a night ride). Tapping it opens the I'm OK / Get help sheet (`type: 'safety'`).
+   */
+  safetyCheck(params: { passengerId: string; tripId: string; kind: string; eventId: string; title: string; message: string }): void {
+    this.safe(`safety ${params.kind}`, () =>
+      this.push.toUser(params.passengerId, AppKind.PASSENGER, {
+        title: params.title,
+        body: params.message,
+        channel: 'safety',
+        data: { type: 'safety', kind: params.kind, tripId: params.tripId, eventId: params.eventId },
+        isUrgent: true,
+      }),
+    );
+  }
+
   /** Admin announcement → the matching topic. */
   announcement(a: Announcement): void {
     this.safe('announcement', () => this.sendAnnouncement(a));

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import 'features/ride/safety_check_sheet.dart';
 import 'router/app_router.dart';
 import 'router/routes.dart';
 import 'state/app_notice.dart';
@@ -24,6 +25,11 @@ class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
   late final GoRouter _router = widget.router ?? createPassengerRouter();
   StreamSubscription<void>? _unauthorized;
   StreamSubscription<PushData>? _pushTaps;
+  StreamSubscription<SafetyCheck>? _safetyChecks;
+
+  /// Safety checks already shown (the socket event and the push tap are the same check), and one at a time.
+  final _shownChecks = <String>{};
+  bool _isShowingCheck = false;
 
   @override
   void initState() {
@@ -35,6 +41,8 @@ class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
         resetSignedInState(ref);
         ref.read(appNoticeProvider.notifier).show('Please sign in again', goTo: Routes.login);
       });
+      // "Is everything OK?" while the app is open (socket), over whatever screen is up.
+      _safetyChecks = ref.read(liveSafetyProvider).checks().listen((c) => _showSafetyCheck(c, openTrip: false));
       final push = ref.read(pushProvider);
       if (push != null) {
         // Trip progress is already on screen while the app is open; chat and announcements still show.
@@ -48,15 +56,42 @@ class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
     }
   }
 
-  /// A tapped notification about a trip or its chat opens that trip's screen.
+  /// A tapped notification about a trip or its chat opens that trip's screen; a safety check opens its sheet.
   Future<void> _onPushTap(PushData data) async {
+    if (data['type'] == 'safety') {
+      final check = SafetyCheck.fromJson(data);
+      return _showSafetyCheck(check, openTrip: !check.isArrival);
+    }
     if (data['type'] != 'trip' && data['type'] != 'chat') return;
     final route = await restoreActiveTrip(ref);
     if (mounted && route != null) _router.go(route);
   }
 
+  /// The I'm OK / Get help sheet for [check] (once per check); "Get help" opens the SOS screen. [openTrip]: go to
+  /// the ride first (a tapped push while the app was elsewhere).
+  Future<void> _showSafetyCheck(SafetyCheck check, {required bool openTrip}) async {
+    final key = check.eventId ?? '${check.tripId}:${check.kind}';
+    if (_isShowingCheck || _shownChecks.contains(key)) return;
+    _isShowingCheck = true;
+    _shownChecks.add(key);
+    try {
+      if (openTrip) {
+        final route = await restoreActiveTrip(ref);
+        if (mounted && route != null) _router.go(route);
+        await WidgetsBinding.instance.endOfFrame;
+      }
+      final context = rootNavigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+      final answer = await SafetyCheckSheet.show(context, check);
+      if (answer == SafetyAnswer.help && mounted) unawaited(_router.push(Routes.sos));
+    } finally {
+      _isShowingCheck = false;
+    }
+  }
+
   @override
   void dispose() {
+    _safetyChecks?.cancel();
     _unauthorized?.cancel();
     _pushTaps?.cancel();
     super.dispose();

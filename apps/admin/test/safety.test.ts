@@ -28,4 +28,13 @@ describe("safetyEventLine", () => {
     expect(safetyEventLine({ kind: "SOS_LINKED", payload: { role: "DRIVER", source: "BUTTON", sosId: "x" } })).toEqual({ title: "SOS", detail: "Driver · Pressed SOS" });
     expect(safetyEventLine({ kind: "SOS_LINKED", payload: null }).detail).toBe("Passenger · Pressed SOS");
   });
+
+  it("words a long stop and the rider's answer", () => {
+    expect(safetyEventLine({ kind: "STOP", payload: { minutes: 6, pushed: true } })).toEqual({
+      title: "Long stop",
+      detail: 'Stopped 6 min away from pickup and drop · rider asked "Is everything OK?"',
+    });
+    expect(safetyEventLine({ kind: "STOP", payload: { minutes: 5, pushed: true, answer: "HELP" } }).detail).toMatch(/rider asked for help$/);
+    expect(safetyEventLine({ kind: "STOP", payload: { minutes: 5, pushed: false } }).detail).toBe("Stopped 5 min away from pickup and drop");
+  });
 });

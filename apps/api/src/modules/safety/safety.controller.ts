@@ -3,6 +3,7 @@ import { Body, Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/commo
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Public } from '../../core/auth/public.decorator.js';
+import { SafetyCheckDto } from './dto/safety-check.dto.js';
 import { SosDto } from './dto/sos.dto.js';
 import { clientIp } from './rate-limit.js';
 import { type SosResult, SosService } from './sos.service.js';
@@ -26,6 +27,13 @@ export class SafetyController {
   @HttpCode(200)
   raiseSos(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: SosDto): Promise<SosResult> {
     return this.sos.create(user, id, body);
+  }
+
+  /** Passenger: "I'm OK" / "Get help" to a safety check push (long stop, route change, night arrival). HELP → SOS. */
+  @Post('trips/:id/safety-check')
+  @HttpCode(200)
+  answerCheck(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: SafetyCheckDto): ReturnType<SosService['answerCheck']> {
+    return this.sos.answerCheck(user, id, body);
   }
 
   /** Passenger: a signed live-tracking link to send to someone (valid until 30 min after the trip ends). */

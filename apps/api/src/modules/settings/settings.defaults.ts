@@ -86,6 +86,13 @@ export const SETTING_DEFAULTS = {
   dropRadiusM: 400,
   /** Safety (safety module): push every admin's phone when someone presses SOS (the admin SOS page lists them either way). */
   sosAdminAlert: true,
+  /**
+   * Stop during a ride: the driver stays within [stopRadiusM] for [stopMinutes] more than 300 m from pickup and drop →
+   * the passenger is asked "Is everything OK?" (at most once per [stopDedupeMin]).
+   */
+  stopRadiusM: 30,
+  stopMinutes: 4,
+  stopDedupeMin: 10,
   /** Support phone shown in the apps. */
   supportPhone: '+91 422 000 0000',
   /** Paid driver plans. Off = the app is free: no plan screens, no plan check when going online. */

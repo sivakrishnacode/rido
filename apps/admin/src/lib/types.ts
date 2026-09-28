@@ -689,6 +689,10 @@ export interface Settings {
   readonly historicalEtaMinTrips: number;
   /** Safety: push every admin's phone on an SOS. */
   readonly sosAdminAlert: boolean;
+  /** Stop during a ride: within stopRadiusM for stopMinutes (away from pickup and drop) → "Is everything OK?", once per stopDedupeMin. */
+  readonly stopRadiusM: number;
+  readonly stopMinutes: number;
+  readonly stopDedupeMin: number;
   readonly supportPhone: string;
   /** Off = free app: no plan screens and no plan check when going online. */
   readonly driverPlansEnabled: boolean;

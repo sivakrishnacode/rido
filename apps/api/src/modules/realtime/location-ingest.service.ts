@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import type { VehicleKind } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
+import { SAFETY_CHECK_EVENT, SafetyMonitorService } from '../safety/safety-monitor.service.js';
 import { type LocationFix, sanitizeBatch } from '../drivers/location-fix.js';
 import { TripEventsService } from './trip-events.service.js';
 import { TripTrackService } from './trip-track.service.js';
@@ -16,7 +17,8 @@ export interface IngestResult {
 /**
  * One path for every driver GPS upload (socket `driver:location` / `driver:locations`, HTTP heartbeat and batch):
  * validates the fixes, moves the driver in the dispatch index with the newest one, streams it to the trip room and
- * records all of them on the driver's active trip (breadcrumbs, [TripTrackService]).
+ * records all of them on the driver's active trip (breadcrumbs, [TripTrackService]) and runs the ride safety checks
+ * ([SafetyMonitorService]).
  * A batch (fixes buffered while the socket was down) is processed oldest first; an older fix never overwrites a
  * newer live position.
  */
@@ -27,6 +29,7 @@ export class LocationIngestService {
     private readonly location: DriverLocationService,
     private readonly events: TripEventsService,
     private readonly track: TripTrackService,
+    private readonly safety: SafetyMonitorService,
   ) {}
 
   /** A live fix: stamped with the server time in the index (it just arrived). */
@@ -48,7 +51,13 @@ export class LocationIngestService {
     if (!driver?.isOnline || driver.isBlocked) return { accepted: 0, isLive: false };
     const newest = fixes[fixes.length - 1];
     const [last, tripId] = await Promise.all([this.location.lastFix(driverId), this.location.activeTrip(driverId)]);
-    if (tripId) await this.track.append(tripId, fixes);
+    if (tripId) {
+      await this.track.append(tripId, fixes);
+      // Ride safety checks (long stop): "Is everything OK?" to the passenger's screen as well as the push.
+      for (const c of await this.safety.onFixes(tripId, fixes)) {
+        this.events.toUser(c.passengerId, SAFETY_CHECK_EVENT, { tripId: c.tripId, kind: c.kind, eventId: c.eventId, title: c.title, message: c.message });
+      }
+    }
     const at = isLiveUpload ? now : newest.ts;
     // An older fix (a late flush) never overwrites a newer live position.
     if (last?.at != null && last.at > at) return { accepted: fixes.length, isLive: false };

@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -191,7 +191,7 @@ Never commit real `.env` files.
   cancelRateMinTrips, cancelRateNudge, cancelRateBlock, cancelBlockHours, cancelBlockRepeatHours, rankEnabled, rankWeightAccept, rankWeightCancel,
   rankIdleMaxBoost, rankIdleFullMin, rankMinOffers, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
-  contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr, sosAdminAlert (defaults in `settings.defaults.ts`, cached
+  contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr, sosAdminAlert, stopRadiusM, stopMinutes, stopDedupeMin (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
   and contribute keys.
 - **Admin API (`/v1/admin`, ADMIN role; phones in `ADMIN_PHONES`):** stats, live (online drivers + active trips), drivers
@@ -498,7 +498,8 @@ Never commit real `.env` files.
   Body `womenOnly: true` counts women drivers only (Butterfly "only"). P-10 shows "3 min away · Drop 9:24 PM" and a
   Fastest chip from it. Stored trip fares don't carry it.
 - **Realtime (`/rt`):** connect with `auth: { token }`; rooms `user:<id>`, `driver:<id>`, `trip:<id>`. Events:
-  `trip.offer`, `trip.updated`, `trip.location {tripId, lat, lng, at, hdg}`, `trip.message`, `trip.no_drivers`.
+  `trip.offer`, `trip.updated`, `trip.location {tripId, lat, lng, at, hdg}`, `trip.message`, `trip.no_drivers`,
+  `safety.check {tripId, kind, eventId, title, message}` (passenger's user room, 6d).
   Drivers stream `driver:location`; clients `trip:join {tripId}` (participants only).
 - **Driver GPS uploads (28 Sep 2026):** every fix is `{lat, lng, ts, acc, spd, hdg, mock}`: `ts` = when the phone
   took it (epoch ms), `acc` accuracy m, `spd` m/s, `hdg` degrees, `mock` = Android's `Position.isMocked`. All but
@@ -681,6 +682,21 @@ Apps: passenger P-17 raises the SOS on opening (during a trip) and shows whether
 call fails it says so (Try again) and the phone's own options stay: Call 112 and "Text my location" (the SMS carries
 the live link, else a maps link). Driver D-18b (the SOS button on the in-trip screen) calls the same endpoint with the
 GPS position; if it fails, or there is no job, it falls back to a "Safety concern" support ticket.
+
+**Stop detection during a ride (28 Sep 2026, like Namma Yatri's StopDetection).** Runs on every driver GPS fix of a
+trip that is IN_PROGRESS / PICKED_UP, without a database read: at start `SafetyMonitorService.rideStarted` writes
+the Redis hash `trip:safety:<id>` (passenger, kind, pickup, drop; 12 h TTL, deleted with the trip's jobs) and
+`LocationIngestService` passes each upload (socket, heartbeat, buffered batch) to `onFixes`. `stepStop`
+(`stop-detector.ts`) keeps an anchor (`aLat`, `aLng`, `aT` in the hash): a fix more than `stopRadiusM` (30) away moves
+it; staying within it for `stopMinutes` (4) with the anchor more than 300 m (constant) from both pickup and drop is a
+stop. Deduped by `SET NX` on `trip:safety:stop:<id>` for `stopDedupeMin` (10) minutes. A stop writes a `SafetyEvent`
+STOP `{lat, lng, since, minutes, pushed}` and, for rides, pushes the passenger "Is everything OK?" (`type: safety`,
+`kind: STOP`, `eventId`) and emits `safety.check` to their socket room. Parcels get the event only.
+
+The answer: `POST /v1/trips/:id/safety-check {answer: OK|HELP, eventId?, lat?, lng?}` (the trip's passenger). It is
+stored on the event (`answer`, `answeredAt`); HELP raises an SOS (source CHECK) and returns it. Passenger app: the
+socket event or a tapped push opens the I'm OK / Get help sheet (`SafetyCheckSheet`, once per check, over any
+screen; a tapped push reopens the ride first); Get help then opens P-17.
 
 Passenger app: P-18 "Share trip" shares the API link (WhatsApp, SMS, copy, the system share sheet). Until it has
 loaded, or if it can't be made, it falls back to a Google Maps link to the vehicle. With **Auto-share trips** on
@@ -907,6 +923,7 @@ suggestion's name.
 | KYC document rejected (with reason) / all verified ("You're approved!", "Go online to start earning"; mentions plans only when `driverPlansEnabled`) | Driver | `account` |
 | Admin announcement (active, already started) | Topic `all`, `passengers` or `drivers` | `announcements` |
 | SOS (button, "Get help", "not reached safely"; urgent; setting `sosAdminAlert`) | Every ADMIN user's phones (both apps) | `safety` |
+| "Is everything OK?" after a long stop mid-ride (urgent; also `safety.check` on the socket) | Passenger (rides only) | `safety` |
 
 - **Apps (`RidoPush` in rido_data):** Firebase init in `main()` (live mode), Android channels with the same ids,
   notification permission (Android 13+) after sign-in, token registered whenever the session token changes (incl.

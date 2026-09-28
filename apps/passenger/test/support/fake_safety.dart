@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:rido_data/rido_data.dart';
 
 /// [LiveSafety] without a network: answers (or fails) and records the calls.
@@ -10,8 +12,28 @@ class FakeSafety implements LiveSafety {
   int shareCalls = 0;
   final sosCalls = <({String tripId, LatLng? at})>[];
 
+  final answers = <({String kind, String? eventId, bool ok})>[];
+  final _checks = StreamController<SafetyCheck>.broadcast();
+  bool failAnswer = false;
+
   @override
   ApiClient get api => throw UnimplementedError();
+
+  @override
+  RealtimeClient? get realtime => null;
+
+  /// Sends [check] as if the server emitted `safety.check`.
+  void emit(SafetyCheck check) => _checks.add(check);
+
+  @override
+  Stream<SafetyCheck> checks() => _checks.stream;
+
+  @override
+  Future<SosAlert?> answer(SafetyCheck check, {required bool ok, LatLng? at}) async {
+    answers.add((kind: check.kind, eventId: check.eventId, ok: ok));
+    if (failAnswer) throw const OfflineException();
+    return ok ? null : SosAlert(id: 'sos-2', status: 'OPEN', shareUrl: shareUrl);
+  }
 
   @override
   Future<TripShareLink> shareLink(String tripId) async {

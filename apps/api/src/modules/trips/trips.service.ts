@@ -24,6 +24,7 @@ import type { CancelTripDto } from './dto/cancel-trip.dto.js';
 import { resolveCancel } from './cancel-codes.js';
 import { cancelSignals, type CancelSignals, faultVerdict, type FaultVerdict } from './cancel-fault.js';
 import { cancellationDueAmount, withCancellationFee } from './cancellation-dues.js';
+import { SafetyMonitorService } from '../safety/safety-monitor.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
 import { checkNearStop, positionForCheck } from './trip-position.js';
@@ -100,6 +101,7 @@ export class TripsService {
     private readonly eta: EtaService,
     private readonly track: TripTrackService,
     private readonly blocks: DriverBlocksService,
+    private readonly safety: SafetyMonitorService,
   ) {}
 
   /** Quotes, stores and starts dispatching a trip. */
@@ -341,6 +343,8 @@ export class TripsService {
     const waiting = await this.waitingFare(trip, startedAt);
     const updated = await this.move({ driverId, tripId, to, data: { startedAt, ...waiting } });
     await this.track.setPhase(tripId, 't');
+    // Ride safety checks on the GPS stream from here (stop detection, safety module).
+    await this.safety.rideStarted(updated).catch((e: Error) => this.logger.warn(`Safety state for ${tripId} not set: ${e.message}`));
     await Promise.all([this.jobs.cancel(TRIP_JOBS.noShow, tripId), this.jobs.cancel(TRIP_JOBS.pickupCap, tripId)]);
     await this.jobs.schedule(TRIP_JOBS.stuck, tripId, stuckAt(startedAt.getTime(), trip.durationMin, await this.settings.all()), { driverId });
     return updated;
@@ -532,9 +536,9 @@ export class TripsService {
     return this.publish(trip.id, 'SYSTEM', trip.driverId ?? undefined);
   }
 
-  /** Drops every pending timeout and the GPS breadcrumbs of the trip (it ended, or changed driver). */
+  /** Drops every pending timeout, the GPS breadcrumbs and the ride safety state of the trip (it ended, or changed driver). */
   private async clearTripJobs(tripId: string): Promise<void> {
-    await Promise.all([...ALL_TRIP_JOBS.map((kind) => this.jobs.cancel(kind, tripId)), this.track.clear(tripId)]);
+    await Promise.all([...ALL_TRIP_JOBS.map((kind) => this.jobs.cancel(kind, tripId)), this.track.clear(tripId), this.safety.clear(tripId)]);
   }
 
   /**

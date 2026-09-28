@@ -86,6 +86,32 @@ export class SosService {
     });
   }
 
+  /**
+   * The passenger answered a safety check: the answer is kept on its event; "HELP" raises an SOS (source CHECK, or
+   * ARRIVAL for "Did you reach safely?"), so admins are alerted.
+   */
+  async answerCheck(user: Caller, tripId: string, body: { answer: 'OK' | 'HELP'; eventId?: string; lat?: number; lng?: number }): Promise<{ answer: 'OK' | 'HELP'; sos: SosResult | null }> {
+    const trip = await this.prisma.trip.findUnique({ where: { id: tripId }, select: { passengerId: true } });
+    if (!trip) throw new NotFoundException('Trip not found');
+    if (trip.passengerId !== user.userId) throw new ForbiddenException();
+    let source: SosSource = 'CHECK';
+    let what = 'safety check';
+    if (body.eventId) {
+      const event = await this.prisma.safetyEvent.findFirst({ where: { id: body.eventId, tripId } });
+      if (!event) throw new NotFoundException('Safety check not found');
+      const payload = (event.payload ?? {}) as Record<string, unknown>;
+      if (event.kind === SafetyEventKind.NIGHT_CHECK && payload.check === 'SAFE_ARRIVAL') source = 'ARRIVAL';
+      what = event.kind === SafetyEventKind.STOP ? 'long stop' : event.kind === SafetyEventKind.DEVIATION ? 'route change' : source === 'ARRIVAL' ? 'reached safely?' : 'night check';
+      await this.prisma.safetyEvent.update({
+        where: { id: event.id },
+        data: { payload: { ...payload, answer: body.answer, answeredAt: new Date().toISOString() } as Prisma.InputJsonValue },
+      });
+    }
+    if (body.answer === 'OK') return { answer: 'OK', sos: null };
+    const note = source === 'ARRIVAL' ? 'Answered "No / Need help" to "Did you reach safely?"' : `Asked for help after the ${what} check`;
+    return { answer: 'HELP', sos: await this.create(user, tripId, { lat: body.lat, lng: body.lng, note }, source) };
+  }
+
   // ------------------------------------------------------------------------------------------------ admin
 
   /** Newest first; ?status=OPEN|ACKNOWLEDGED|RESOLVED|FALSE_ALARM, or "active" (open + acknowledged). */

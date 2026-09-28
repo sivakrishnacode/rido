@@ -79,7 +79,7 @@ final liveTripsProvider = Provider<LiveTrips>((ref) => LiveTrips(ref.watch(apiCl
 final liveJobsProvider = Provider<LiveJobs>((ref) => LiveJobs(ref.watch(apiClientProvider), ref.watch(realtimeProvider)));
 
 /// Both apps: trip safety (share links, SOS, "Is everything OK?" answers). Tests override it with a fake.
-final liveSafetyProvider = Provider<LiveSafety>((ref) => LiveSafety(ref.watch(apiClientProvider)));
+final liveSafetyProvider = Provider<LiveSafety>((ref) => LiveSafety(ref.watch(apiClientProvider), ref.watch(realtimeProvider)));
 
 /// A driver's verified photo from the API (with the session token), or null (no photo yet, or seed data).
 /// Only the driver, admins and riders who had a trip with them may load it.
