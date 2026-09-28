@@ -24,6 +24,17 @@ void main() {
     expect(w.chargeAt(at.add(const Duration(minutes: 5, seconds: 30))), 3);
   });
 
+  testWidgets('P-22 shows the trip once (no repeated details block)', (tester) async {
+    await pumpRoute(tester, Routes.galleryView('P-22'));
+    // Tall enough that the lazy list builds every section at once.
+    tester.view.physicalSize = Size(390 * tester.view.devicePixelRatio, 4000 * tester.view.devicePixelRatio);
+    await tester.pumpAndSettle();
+    expect(find.text('Subtotal'), findsOneWidget);
+    expect(find.text('Base fare'), findsOneWidget);
+    expect(find.text('Rido commission'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('P-22 keeps the waiting line as charged and still adds up to the fare', () {
     final q = FareEngine.withWaiting(FareEngine.quote(Seed.bike, const RouteEstimate(distanceKm: 4.2, durationMin: 14)), 3);
     final trip = Trip(
