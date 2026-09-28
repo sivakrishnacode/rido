@@ -22,6 +22,21 @@ export interface RoadRoute {
   readonly points: LatLngLiteral[];
 }
 
+/** One route of a computeRoutes answer (only the fields we ask for). */
+interface GoogleRoute {
+  readonly distanceMeters?: number;
+  readonly duration?: string;
+  readonly polyline?: { encodedPolyline?: string };
+  readonly routeLabels?: string[];
+}
+
+/** The shortest route with a path (the default and its alternates); a tie keeps Google's order (default first). */
+export function shortestRoute(routes: readonly GoogleRoute[]): GoogleRoute | undefined {
+  return routes
+    .filter((r) => (r.distanceMeters ?? 0) > 0 && r.polyline?.encodedPolyline)
+    .reduce<GoogleRoute | undefined>((best, r) => (!best || r.distanceMeters! < best.distanceMeters! ? r : best), undefined);
+}
+
 /**
  * Every route drives. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3×
  * Essentials, 7k free a month); bikes are priced on the car route anyway so the fare matches P-10.
@@ -101,12 +116,17 @@ export class GoogleMapsClient {
     return { placeId: first.place_id, name: area?.long_name ?? first.formatted_address.split(',')[0], address: first.formatted_address, ...point };
   }
 
-  /** Routes API computeRoutes (traffic-unaware = Essentials SKU). */
   /**
+   * Routes API computeRoutes.
+   *
    * `vehicleStopover` snaps a stop to a road where a vehicle can pull over, not a flyover or highway passing
    * above it: a drop pinned on the Ukkadam flyover was routed 16.5 km round via Podanur instead of 11.4 km along
    * Trichy Road. It bills the request at Routes Pro (Essentials without it), so only fare routes set [stops];
    * ETAs (cell centre to cell centre, often a moving driver) leave it off.
+   *
+   * Fare routes also ask for `computeAlternativeRoutes` (up to 3 alternates, no SKU change: Pro is already set by the
+   * stopovers) and keep the **shortest** by `distanceMeters`: the fare is charged per km, so the map, the cached route
+   * and the trip's `routePolyline` are the route the rider pays for (Google's default is the fastest).
    */
   async route(params: { from: LatLngLiteral; to: LatLngLiteral; mode: TravelMode; stops?: boolean }): Promise<RoadRoute | null> {
     const isEta = params.stops === false;
@@ -114,17 +134,24 @@ export class GoogleMapsClient {
       location: { latLng: { latitude: p.lat, longitude: p.lng } },
       ...(isStop && { vehicleStopover: true }),
     });
-    const json = await this.call<{ routes?: { distanceMeters?: number; duration?: string; polyline?: { encodedPolyline?: string } }[] }>(
+    const json = await this.call<{ routes?: GoogleRoute[] }>(
       'https://routes.googleapis.com/directions/v2:computeRoutes',
       {
         method: 'POST',
         // An ETA needs no path (smaller answer, same SKU).
-        fieldMask: isEta ? 'routes.distanceMeters,routes.duration' : 'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline',
+        fieldMask: isEta ? 'routes.distanceMeters,routes.duration' : 'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.routeLabels',
         timeoutMs: isEta ? ETA_TIMEOUT_MS : TIMEOUT_MS,
-        body: JSON.stringify({ origin: wp(params.from, params.stops ?? true), destination: wp(params.to, params.stops ?? true), travelMode: params.mode, routingPreference: params.mode === 'DRIVE' ? 'TRAFFIC_UNAWARE' : undefined, regionCode: 'in' }),
+        body: JSON.stringify({
+          origin: wp(params.from, !isEta),
+          destination: wp(params.to, !isEta),
+          travelMode: params.mode,
+          routingPreference: 'TRAFFIC_UNAWARE',
+          ...(!isEta && { computeAlternativeRoutes: true }),
+          regionCode: 'in',
+        }),
       },
     );
-    const r = json?.routes?.[0];
+    const r = isEta ? json?.routes?.[0] : shortestRoute(json?.routes ?? []);
     const encoded = r?.polyline?.encodedPolyline ?? '';
     if (!r?.distanceMeters || (!isEta && !encoded)) return null;
     const seconds = Number((r.duration ?? '0s').replace('s', ''));

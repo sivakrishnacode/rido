@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -416,7 +416,7 @@ Never commit real `.env` files.
 | `trip:otp-tries:<tripId>` | Ride / delivery OTP tries this minute (5 allowed) | 60 s from the first try |
 | `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
 | `kyc:event:<event_id>` | Didit webhook already handled (idempotency) | 2 d |
-| `maps:rg:*`, `maps:rt2:*`, `eta:road:<mode>:*` | Google response cache: reverse geocode (~11 m grid), fare routes (`vehicleStopover` stops, ~11 m grid), ETAs (`maps:rt2:DRIVE:eta:*` and `eta:*`, cell centres, no stopover, no path). Autocomplete and Place Details are **not** cached (Places terms allow storing only place IDs; Place Details also ends the session so keystrokes aren't billed singly) | 30 d / 6 h / 10 min |
+| `maps:rg:*`, `maps:rt3:*`, `eta:road:<mode>:*` | Google response cache: reverse geocode (~11 m grid), fare routes (`vehicleStopover` stops, shortest of `computeAlternativeRoutes`, ~11 m grid), ETAs (`maps:rt3:DRIVE:eta:*` and `eta:*`, cell centres, no stopover, no path). Autocomplete and Place Details are **not** cached (Places terms allow storing only place IDs; Place Details also ends the session so keystrokes aren't billed singly) | 30 d / 6 h / 10 min |
 
 - **Dispatch (Uber-style, see owner ref "How Uber finds your driver"):**
   1. Drivers are indexed by H3 cell (res 8) in Redis sets `h3:drv:<kind>:<cell>`; no distance scan over all drivers.
@@ -517,7 +517,8 @@ Never commit real `.env` files.
   (rido_data, 500, oldest dropped) while the socket is down, uploads them over HTTP every 30 s instead of the plain
   heartbeat (plain heartbeat when the buffer is empty), and over the socket on reconnect; a failed upload puts them
   back. The buffer is cleared on going offline without a job.
-- **Fares:** same engine as the apps. Distance: measured demo routes, then Google Routes distance (cached), then
+- **Fares:** same engine as the apps. Distance: measured demo routes, then Google Routes distance (the shortest of the
+  default and alternative routes, cached), then
   haversine × 1.3; duration uses 18 km/h so prices stay predictable.
 - **Payments:** the app is free, so nothing is charged (6a). Plan payments, if plans are switched back on, are
   simulated (`Payment` rows with `providerRef sim_*`); plug Razorpay Subscriptions / UPI Autopay into
@@ -834,7 +835,7 @@ loaded, or if it can't be made, it falls back to a Google Maps link to the vehic
 | Admin maps | Maps JavaScript API (Dynamic Maps, billed per map load) | admin panel browser (`NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY`) | each page with a map; search goes through the API, not the client Places library |
 | Search places | Places Autocomplete (New) + Place Details | API (`/places/autocomplete`, `/places/details`) and app | per search session (session token), ≥ 3 chars, debounced |
 | Pin → address | Geocoding API | API (`/places/reverse`) and app | when the pin stops moving; cached on an ~11 m grid |
-| Route line / distance | Routes API (traffic-unaware) | API (`/maps/route`, fares) and app | once per trip leg; cached on a ~100 m grid |
+| Route line / distance | Routes API: fare routes ask for alternatives (`computeAlternativeRoutes`, field `routes.routeLabels`) and keep the **shortest** by `distanceMeters`, so the map, the cache and `Trip.routePolyline` show the route that is charged | API (`/maps/route`, fares) and app | once per trip leg; cached on a ~11 m grid |
 | Live tracking | Driver GPS over Socket.IO | driver app → API → passenger | every few seconds, **no Google calls** |
 
 **Cost rules (do not break):**

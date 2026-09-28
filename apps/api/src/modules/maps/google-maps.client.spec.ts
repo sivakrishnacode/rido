@@ -1,5 +1,5 @@
 import type { Env } from '../../core/config/env.js';
-import { GoogleMapsClient } from './google-maps.client.js';
+import { GoogleMapsClient, shortestRoute } from './google-maps.client.js';
 
 const from = { lat: 10.98085, lng: 77.04175 };
 const ukkadamFlyover = { lat: 10.98833, lng: 76.96269 };
@@ -44,6 +44,26 @@ describe('GoogleMapsClient.route', () => {
     expect(r).toMatchObject({ distanceKm: 5.2, durationMin: 13, points: [] });
   });
 
+  it('asks a fare route for alternatives and keeps the shortest, with its path', async () => {
+    const { bodies } = stubFetch({
+      routes: [
+        { distanceMeters: 16500, duration: '1500s', polyline: { encodedPolyline: 'fastest' }, routeLabels: ['DEFAULT_ROUTE'] },
+        { distanceMeters: 11425, duration: '1900s', polyline: { encodedPolyline: '_p~iF~ps|U' }, routeLabels: ['DEFAULT_ROUTE_ALTERNATE'] },
+        { distanceMeters: 13100, duration: '1700s', polyline: { encodedPolyline: 'middle' }, routeLabels: ['DEFAULT_ROUTE_ALTERNATE'] },
+      ],
+    });
+    const r = await client.route({ from, to: ukkadamFlyover, mode: 'DRIVE' });
+    expect(bodies[0]).toMatchObject({ computeAlternativeRoutes: true });
+    expect(bodies[0].fieldMask).toContain('routes.routeLabels');
+    expect(r).toMatchObject({ distanceKm: 11.4, durationMin: 32, encodedPolyline: '_p~iF~ps|U' });
+  });
+
+  it('ETAs ask for no alternatives', async () => {
+    const { bodies } = stubFetch({ routes: [{ distanceMeters: 5200, duration: '780s' }] });
+    await client.route({ from, to: ukkadamFlyover, mode: 'DRIVE', stops: false });
+    expect(bodies[0].computeAlternativeRoutes).toBeUndefined();
+  });
+
   it('a fare route without a path is no route', async () => {
     stubFetch({ routes: [{ distanceMeters: 5200, duration: '780s' }] });
     expect(await client.route({ from, to: ukkadamFlyover, mode: 'DRIVE' })).toBeNull();
@@ -71,5 +91,18 @@ describe('GoogleMapsClient.reverseGeocode', () => {
     const p = await client.reverseGeocode(from);
     expect(p).toMatchObject({ placeId: 'real', name: 'Ondipudur' });
     expect(urls[0]).toContain('language=en');
+  });
+});
+
+describe('shortestRoute', () => {
+  const r = (m: number, p = 'x'): { distanceMeters: number; polyline: { encodedPolyline: string } } => ({ distanceMeters: m, polyline: { encodedPolyline: p } });
+
+  it('picks the shortest of three routes', () => {
+    expect(shortestRoute([r(16500, 'a'), r(11400, 'b'), r(13000, 'c')])?.polyline?.encodedPolyline).toBe('b');
+  });
+
+  it('skips a route without a path and keeps the default on a tie', () => {
+    expect(shortestRoute([r(9000, 'default'), { distanceMeters: 5000 }, r(9000, 'alt')])?.polyline?.encodedPolyline).toBe('default');
+    expect(shortestRoute([])).toBeUndefined();
   });
 });

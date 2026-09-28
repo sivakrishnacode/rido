@@ -62,13 +62,16 @@ export class MapsService {
     return 'DRIVE';
   }
 
-  /** `rt2`: fare routes snap stops with `vehicleStopover` (older `maps:rt:` entries, some via a flyover, expire unused); `:eta` = no stopover. */
+  /**
+   * `rt3`: fare routes snap stops with `vehicleStopover` and keep the shortest of Google's alternatives (older
+   * `maps:rt:` / `maps:rt2:` entries, the default or a flyover route, expire unused); `:eta` = no stopover.
+   */
   private static routeKey(mode: TravelMode, p: { from: LatLngLiteral; to: LatLngLiteral; stops?: boolean }): string {
     // Fare routes on a ~11 m grid: Google snaps the first asker's exact pins, so a coarser square could hand a pin
     // on the street the route computed for one on the flyover. ETAs go cell centre to cell centre (already shared).
     const d = p.stops === false ? 3 : 4;
     const g = (q: LatLngLiteral): string => `${q.lat.toFixed(d)},${q.lng.toFixed(d)}`;
-    return `maps:rt2:${mode}${p.stops === false ? ':eta' : ''}:${g(p.from)}:${g(p.to)}`;
+    return `maps:rt3:${mode}${p.stops === false ? ':eta' : ''}:${g(p.from)}:${g(p.to)}`;
   }
 
   /** Distance/duration for fares: measured demo routes first, then Google road distance, then haversine × 1.3. */
