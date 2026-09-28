@@ -257,3 +257,17 @@ export async function rebuildHexStats(): Promise<ActionResult> {
     await run(() => adminApi.rebuildHexStats(), (r) => `Rebuilt: ${r.pairs.toLocaleString("en-IN")} hex-pair/hour rows from ${r.trips.toLocaleString("en-IN")} trips`, ["/travel-speeds"]),
   );
 }
+
+/** Someone is on this SOS (POST /admin/sos/:id/ack, audit logged). */
+export async function acknowledgeSos(id: string, tripId: string): Promise<ActionResult> {
+  return plain(await run(() => adminApi.acknowledgeSos(id), "SOS acknowledged", ["/safety", `/trips/${tripId}`]));
+}
+
+/** Closes an SOS as resolved or a false alarm, with a note (POST /admin/sos/:id/resolve, audit logged). */
+export async function resolveSos(id: string, tripId: string, status: "RESOLVED" | "FALSE_ALARM", note?: string): Promise<ActionResult> {
+  if (status !== "RESOLVED" && status !== "FALSE_ALARM") return { ok: false, error: "Unknown status" };
+  const trimmed = note?.trim() || undefined;
+  if (trimmed && trimmed.length > 500) return { ok: false, error: "Keep the note under 500 characters" };
+  if (status === "RESOLVED" && !trimmed) return { ok: false, error: "Add a note: what happened and what you did" };
+  return plain(await run(() => adminApi.resolveSos(id, status, trimmed), status === "RESOLVED" ? "SOS resolved" : "Marked as a false alarm", ["/safety", `/trips/${tripId}`]));
+}

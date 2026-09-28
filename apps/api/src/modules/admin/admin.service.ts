@@ -132,6 +132,9 @@ export class AdminService {
         tickets: true,
         // Every cancel, including drivers who dropped the trip before another took it.
         cancellations: { orderBy: { createdAt: 'asc' }, include: { driver: { select: { id: true, plate: true, user: { select: { name: true } } } } } },
+        // Safety: SOS alerts and signals (long stops, deviations, check-ins), newest first.
+        sos: { orderBy: { createdAt: 'desc' } },
+        safetyEvents: { orderBy: { at: 'desc' }, take: 50 },
       },
     });
   }

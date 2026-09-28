@@ -11,7 +11,7 @@ import 'api_client.dart';
 /// Which app this is (the API keeps one device list per app).
 enum PushApp { passenger, driver }
 
-/// A notification's data: `type` (trip, chat, offer, kyc, announcement), `tripId`, `status`, `channel`.
+/// A notification's data: `type` (trip, chat, offer, kyc, announcement, safety, sos), `tripId`, `status`, `channel`.
 typedef PushData = Map<String, String>;
 
 /// Android channels; ids match the API's `PushChannel`.
@@ -23,6 +23,8 @@ const _channels = [
   AndroidNotificationChannel('chat', 'Messages', description: 'Chat during a trip', importance: Importance.high),
   AndroidNotificationChannel('account', 'Account', description: 'Documents, approval and plan', importance: Importance.defaultImportance),
   AndroidNotificationChannel('announcements', 'Announcements', description: 'News and offers from Rido', importance: Importance.defaultImportance),
+  AndroidNotificationChannel('safety', 'Safety',
+      description: 'SOS alerts and "Is everything OK?" checks during a ride', importance: Importance.max, playSound: true, enableVibration: true),
 ];
 
 /// Firebase Cloud Messaging for the Rido apps.

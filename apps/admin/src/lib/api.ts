@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { ApiError, apiBaseUrl, apiUrl, errorMessage } from "./api-core";
 import type { QueryInput } from "./paging";
+import type { SosPage, SosRecord } from "./safety";
 import { TOKEN_COOKIE, USER_COOKIE, getToken } from "./session";
 import type {
   AdminStats,
@@ -212,6 +213,12 @@ export const adminApi = {
     apiFetch<Plan>(`/admin/plans/${encodeURIComponent(id)}`, { method: "PATCH", body: data }),
 
   tickets: (q: ListQuery = {}) => apiFetch<Paged<SupportTicket>>("/admin/tickets", { query: listQuery(q) }),
+
+  /** SOS queue (open first); ?status=OPEN|ACKNOWLEDGED|RESOLVED|FALSE_ALARM|active. */
+  sos: (q: ListQuery = {}) => apiFetch<SosPage>("/admin/sos", { query: listQuery(q) }),
+  acknowledgeSos: (id: string) => apiFetch<SosRecord>(`/admin/sos/${encodeURIComponent(id)}/ack`, { method: "POST" }),
+  resolveSos: (id: string, status: "RESOLVED" | "FALSE_ALARM", note?: string) =>
+    apiFetch<SosRecord>(`/admin/sos/${encodeURIComponent(id)}/resolve`, { method: "POST", body: { status, note } }),
   setTicketStatus: (id: string, status: TicketStatus) =>
     apiFetch<SupportTicket>(`/admin/tickets/${encodeURIComponent(id)}`, { method: "PATCH", body: { status } }),
 

@@ -10,6 +10,7 @@ import { RedisService } from '../src/core/redis/redis.service.js';
 
 const GANDHIPURAM = { lat: 11.0183, lng: 76.9725, placeId: 'gandhipuram', name: 'Gandhipuram Central Bus Stand' };
 const BROOKEFIELDS = { lat: 11.009, lng: 76.96, placeId: 'brookefields', name: 'Brookefields Mall' };
+const ADMIN_PHONE = '9000000001';
 /** A stored photo so drivers approved directly in the database may go online. */
 const E2E_PHOTO = '00000000-0000-4000-8000-00000000e2e0.jpg';
 
@@ -32,6 +33,7 @@ describe('Rido safety (e2e)', () => {
 
   beforeAll(async () => {
     process.env.OTP_DEV_MODE = 'true';
+    process.env.ADMIN_PHONES = ADMIN_PHONE;
     process.env.GOOGLE_MAPS_API_KEY = '';
     process.env.DIDIT_API_KEY = '';
     process.env.SHARE_BASE_URL = 'https://track.example.test';
@@ -54,6 +56,13 @@ describe('Rido safety (e2e)', () => {
     await http.post('/v1/auth/otp').send({ phone: p }).expect(200);
     const res = await http.post('/v1/auth/verify').send({ phone: p, code: '123456' }).expect(200);
     return { Authorization: `Bearer ${res.body.accessToken as string}` };
+  }
+
+  let admin: Auth | null = null;
+  /** The admin's token, signed in once (OTP sends are limited per phone). */
+  async function adminAuth(): Promise<Auth> {
+    admin ??= await login(ADMIN_PHONE);
+    return admin;
   }
 
   /** Only this bike driver is indexed, online at the pickup; a new rider books a bike ride and the driver accepts. */
@@ -130,4 +139,45 @@ describe('Rido safety (e2e)', () => {
     for (let i = 0; i < 60; i++) await http.get('/v1/share/nope.1.aaaaaaaaaaaaaaaaaaaaaa').set('x-forwarded-for', '10.9.8.7').expect(404);
     expect((await http.get('/v1/share/nope.1.aaaaaaaaaaaaaaaaaaaaaa').set('x-forwarded-for', '10.9.8.7').expect(429)).body.code).toBe('RATE_LIMITED');
   });
+
+  it('SOS: passenger or driver raises it, admins acknowledge and resolve it (audit logged)', async () => {
+    const t = await assignedBikeTrip();
+    const adm = await adminAuth();
+    const stranger = await login();
+    await http.post(`/v1/trips/${t.trip.id}/sos`).set(stranger).send({}).expect(403);
+
+    // The passenger presses SOS with the phone's fix: recorded, linked on the trip, answered with a live link.
+    const res = (await http.post(`/v1/trips/${t.trip.id}/sos`).set(t.pax).send({ lat: 11.0184, lng: 76.9726 }).expect(200)).body;
+    expect(res.sos).toMatchObject({ tripId: t.trip.id, role: 'PASSENGER', status: 'OPEN', source: 'BUTTON', lat: 11.0184, lng: 76.9726 });
+    expect(res.shareUrl).toMatch(/^https:\/\/track\.example\.test\/track\//);
+    // A double tap returns the same SOS.
+    expect((await http.post(`/v1/trips/${t.trip.id}/sos`).set(t.pax).send({}).expect(200)).body.sos.id).toBe(res.sos.id);
+    // The driver's SOS has no fix from the phone: their last GPS fix is used.
+    await http.post('/v1/drivers/me/location').set(t.driver).send({ lat: 11.019, lng: 76.9731 }).expect(204);
+    const drv = (await http.post(`/v1/trips/${t.trip.id}/sos`).set(t.driver).send({ note: 'Passenger is aggressive' }).expect(200)).body.sos;
+    expect(drv).toMatchObject({ role: 'DRIVER', lat: 11.019, lng: 76.9731, note: 'Passenger is aggressive' });
+
+    // Admin queue: open ones first; the trip page shows the SOS and its SOS_LINKED events.
+    const list = (await http.get('/v1/admin/sos?status=active').set(adm).expect(200)).body;
+    expect(list.open).toBeGreaterThanOrEqual(2);
+    expect(list.items.map((i: { id: string }) => i.id)).toEqual(expect.arrayContaining([res.sos.id, drv.id]));
+    const tripPage = (await http.get(`/v1/admin/trips/${t.trip.id}`).set(adm).expect(200)).body;
+    expect(tripPage.sos).toHaveLength(2);
+    expect(tripPage.safetyEvents.filter((e: { kind: string }) => e.kind === 'SOS_LINKED')).toHaveLength(2);
+
+    // Acknowledge (once), then resolve with a note; a closed SOS can't be resolved again. Both are audit logged.
+    expect((await http.post(`/v1/admin/sos/${res.sos.id}/ack`).set(adm).expect(200)).body.status).toBe('ACKNOWLEDGED');
+    await http.post(`/v1/admin/sos/${res.sos.id}/ack`).set(adm).expect(409);
+    const done = (await http.post(`/v1/admin/sos/${res.sos.id}/resolve`).set(adm).send({ status: 'RESOLVED', note: 'Called the rider, all fine' }).expect(200)).body;
+    expect(done).toMatchObject({ status: 'RESOLVED', note: 'Called the rider, all fine' });
+    expect(done.resolvedBy).toBeTruthy();
+    await http.post(`/v1/admin/sos/${res.sos.id}/resolve`).set(adm).send({ status: 'FALSE_ALARM' }).expect(409);
+    expect((await http.post(`/v1/admin/sos/${drv.id}/resolve`).set(adm).send({ status: 'FALSE_ALARM' }).expect(200)).body).toMatchObject({ status: 'FALSE_ALARM' });
+    await http.post(`/v1/admin/sos/${drv.id}/resolve`).set(t.pax).send({ status: 'RESOLVED' }).expect(403);
+    // The audit interceptor writes after the response.
+    await new Promise((r) => setTimeout(r, 200));
+    const audit = await prisma.auditLog.findMany({ where: { entity: 'sos', entityId: res.sos.id } });
+    expect(audit.map((a) => a.action).sort()).toEqual(['POST /v1/admin/sos/:id/ack', 'POST /v1/admin/sos/:id/resolve']);
+    await http.post('/v1/drivers/me/offline').set(t.driver);
+  }, 45_000);
 });

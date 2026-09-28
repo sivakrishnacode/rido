@@ -12,26 +12,10 @@ import 'package:rido_passenger/state/ride_flow.dart';
 import 'package:rido_passenger/state/trip_safety.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import 'support/fake_safety.dart';
 import 'support/harness.dart';
 
 const _url = 'https://admin.rido.test/track/trip1.abc.SIGNATURE';
-
-/// Answers share-link requests (or fails) and counts them.
-class FakeSafety implements LiveSafety {
-  FakeSafety({this.fail = false});
-  final bool fail;
-
-  @override
-  ApiClient get api => throw UnimplementedError();
-  int shareCalls = 0;
-
-  @override
-  Future<TripShareLink> shareLink(String tripId) async {
-    shareCalls++;
-    if (fail) throw const ApiException(503, 'offline');
-    return TripShareLink(url: _url, expiresAt: DateTime(2026, 9, 28, 23));
-  }
-}
 
 /// A ride in progress (no simulator, no network).
 class FixedRide extends RideFlowController {
@@ -84,7 +68,7 @@ void main() {
   });
 
   testWidgets('P-18 falls back to a maps link when the link could not be made', (tester) async {
-    await _pump(tester, const Scaffold(body: SingleChildScrollView(child: P18ShareTripSheet())), _live(FakeSafety(fail: true)));
+    await _pump(tester, const Scaffold(body: SingleChildScrollView(child: P18ShareTripSheet())), _live(FakeSafety(failShare: true)));
     expect(find.textContaining('maps.google.com/?q='), findsOneWidget);
   });
 

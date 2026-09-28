@@ -45,6 +45,9 @@ const TONES: Record<string, Tone> = {
   // Ticket
   OPEN: "warning",
   RESOLVED: "success",
+  // SOS (OPEN / RESOLVED as tickets)
+  ACKNOWLEDGED: "brand",
+  FALSE_ALARM: "neutral",
   // Payment
   PAID: "success",
   FAILED: "error",

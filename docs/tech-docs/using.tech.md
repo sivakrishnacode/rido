@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -191,13 +191,13 @@ Never commit real `.env` files.
   cancelRateMinTrips, cancelRateNudge, cancelRateBlock, cancelBlockHours, cancelBlockRepeatHours, rankEnabled, rankWeightAccept, rankWeightCancel,
   rankIdleMaxBoost, rankIdleFullMin, rankMinOffers, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
-  contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr (defaults in `settings.defaults.ts`, cached
+  contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr, sosAdminAlert (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
   and contribute keys.
 - **Admin API (`/v1/admin`, ADMIN role; phones in `ADMIN_PHONES`):** stats, live (online drivers + active trips), drivers
   (+ per-document KYC review, status), kyc queue, users (role, block/unblock → Redis `user:blocked:<id>` checked by the
   JWT guard), trips, passengers, plans, tickets, payments, cities / service-cells / zones / fares, announcements,
-  settings, audit log, CSV exports (trips, drivers, payments). Every admin POST/PUT/PATCH/DELETE is written to `AuditLog`.
+  settings, audit log, CSV exports (trips, drivers, payments), SOS queue (`/admin/sos`, 6d). Every admin POST/PUT/PATCH/DELETE is written to `AuditLog`.
 - **Heatmaps:** trips store `pickupCell` / `dropCell` (H3 res 8, indexed). `GET /v1/admin/heatmap?metric=pickups|drops|unmet|fares
   &from&to&kind&vehicleKind&hourFrom&hourTo&resolution` aggregates per cell in SQL (hour filter in IST; resolution < 8
   rolls up to parent hexes). Demo data: `npm run seed:demo-trips -w @rido/api` (~2,000 trips, ids `demo_…`;
@@ -659,6 +659,29 @@ trip runs), pickup and drop (name + point), a straight-line ETA (free, no Google
 
 The link opens the public page `/track/<token>` in the admin app (6b), outside the signed-in panel.
 
+**SOS (28 Sep 2026, like Namma Yatri's Safety `Sos`).** `POST /v1/trips/:id/sos {lat?, lng?, note?}`, allowed for
+the trip's passenger or driver while it runs and up to 6 h after it ended. It writes an `Sos` row (tripId, userId,
+role PASSENGER|DRIVER, lat/lng = the phone's fix, else the driver's last GPS fix while the trip runs; status
+OPEN → ACKNOWLEDGED → RESOLVED | FALSE_ALARM; source BUTTON | CHECK | ARRIVAL; note; acknowledged / resolved at + by)
+and a `SafetyEvent` SOS_LINKED on the trip, pushes every ADMIN user's phones (urgent, channel `safety`; setting
+`sosAdminAlert`, default on; the admin web panel has no realtime channel, so its SOS page polls every 10 s) and
+answers `{sos, shareUrl, shareExpiresAt}` (the live link above, for the SMS to contacts). A repeat by the same person
+within 2 min returns the same SOS (double taps).
+
+Admin API: `GET /v1/admin/sos?status=OPEN|ACKNOWLEDGED|RESOLVED|FALSE_ALARM|active&page&pageSize` (open first, then
+newest; `open` = open count), `POST /v1/admin/sos/:id/ack` (only while OPEN, else 409), `POST /v1/admin/sos/:id/resolve
+{status: RESOLVED|FALSE_ALARM, note?}` (409 once closed). Both are written to `AuditLog` (entity `sos`). The admin trip
+(`GET /v1/admin/trips/:id`) includes `sos` and `safetyEvents`.
+
+Admin panel: **SOS** page (`/safety`, Operations; red badge = open count): open rows highlighted, who (and the other
+side's phone), trip, a map link, Acknowledge / Resolve (note required) / False alarm, auto-refresh every 10 s. The trip
+page has a Safety card (SOS + events) and a red banner while an SOS is open.
+
+Apps: passenger P-17 raises the SOS on opening (during a trip) and shows whether the safety team was alerted; if the
+call fails it says so (Try again) and the phone's own options stay: Call 112 and "Text my location" (the SMS carries
+the live link, else a maps link). Driver D-18b (the SOS button on the in-trip screen) calls the same endpoint with the
+GPS position; if it fails, or there is no job, it falls back to a "Safety concern" support ticket.
+
 Passenger app: P-18 "Share trip" shares the API link (WhatsApp, SMS, copy, the system share sheet). Until it has
 loaded, or if it can't be made, it falls back to a Google Maps link to the vehicle. With **Auto-share trips** on
 (Account › Safety, `User.autoShareTrips`), P-16 opens the share sheet once when the ride starts.
@@ -883,6 +906,7 @@ suggestion's name.
 | Chat message | The other side | `chat` |
 | KYC document rejected (with reason) / all verified ("You're approved!", "Go online to start earning"; mentions plans only when `driverPlansEnabled`) | Driver | `account` |
 | Admin announcement (active, already started) | Topic `all`, `passengers` or `drivers` | `announcements` |
+| SOS (button, "Get help", "not reached safely"; urgent; setting `sosAdminAlert`) | Every ADMIN user's phones (both apps) | `safety` |
 
 - **Apps (`RidoPush` in rido_data):** Firebase init in `main()` (live mode), Android channels with the same ids,
   notification permission (Android 13+) after sign-in, token registered whenever the session token changes (incl.
@@ -1049,7 +1073,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Cancellations follow-ups | Waiting charge, fault verdict, cancellation fee (off) and driver pauses **Done (28 Sep 2026)**. Later: decide the fee policy (then tell passengers before they cancel: the cancel sheet should say "₹10 fee"), a way to waive a due, a "moving away" signal from the pickup-progress job and ETA growth (today: straight-line distance vs accept), per-city thresholds, a pause appeal flow |
 | Driver ranking | **Done (28 Sep 2026)**: 7-day offer record + idle bonus, see 6 Dispatch step 4. Later: per-city weights, an actual-pickup-distance term (Namma Yatri has one), show drivers their own acceptance rate in the app, backfill the counters from `TripCancellation` after a Redis flush |
 | Trip `updatedAt` | Add to Trip JSON so apps can order pushed updates reliably (apps guard with a status order today) |
-| SOS / tracking link | Tracking link **Done (28 Sep 2026)**, see 6d. No SOS service yet (apps raise a "Safety concern" ticket + dialer) |
+| SOS / tracking link | **Done (28 Sep 2026)**: tracking link, server SOS and the admin SOS page, see 6d. Later: a realtime admin channel (the page polls), SMS to contacts from the server (paid, so the phone's SMS app is used) |
 | Women-driver preference | **Done (27 Sep 2026)** as Butterfly: booking sends `womenDriver`, dispatch filters (ONLY) or ranks (PREFERRED) by driver gender, see 7 Dispatch step 4 |
 | Selfie / DOB | **Sign-up selfie: Done (27 Sep 2026)**, by Didit's liveness check (date of birth is read from the ID). The daily selfie (S-13 / D-09) is still simulated; Didit Biometric Authentication ($0.10 a check, not in the free tier) could replace it |
 | CI | Add GitHub Actions: `npm ci`, `npm run check`, API e2e with service containers, APK build artifacts |

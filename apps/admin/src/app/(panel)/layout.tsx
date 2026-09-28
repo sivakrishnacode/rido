@@ -26,6 +26,20 @@ async function KycBadge() {
   );
 }
 
+/** Open SOS alerts, shown in red next to "SOS". Never breaks the layout. */
+async function SosBadge() {
+  const open = await adminApi
+    .sos({ status: "OPEN", pageSize: 1 })
+    .then((r) => r.open)
+    .catch(() => 0);
+  if (!open) return null;
+  return (
+    <span className="animate-pulse rounded-full bg-error px-1.5 py-px text-[11px] font-semibold text-white tabular-nums">
+      {open > 99 ? "99+" : open}
+    </span>
+  );
+}
+
 export default function PanelLayout({ children }: LayoutProps<"/">) {
   return (
     <AppShell
@@ -38,6 +52,11 @@ export default function PanelLayout({ children }: LayoutProps<"/">) {
         "/kyc": (
           <Suspense fallback={null}>
             <KycBadge />
+          </Suspense>
+        ),
+        "/safety": (
+          <Suspense fallback={null}>
+            <SosBadge />
           </Suspense>
         ),
       }}

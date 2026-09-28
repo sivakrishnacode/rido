@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Announcement, Trip } from '../../generated/prisma/client.js';
-import { AnnouncementAudience, AppKind, TripKind, TripStatus } from '../../generated/prisma/enums.js';
+import { AnnouncementAudience, AppKind, Role, TripKind, TripStatus } from '../../generated/prisma/enums.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { CANCEL_CODE_LABEL } from '../trips/cancel-codes.js';
 import { PUSH_TOPICS, PushService } from './push.service.js';
@@ -253,6 +253,29 @@ export class NotifierService {
           channel: 'account',
           data,
         });
+      }
+    });
+  }
+
+  /**
+   * SOS (or "Get help" / "not reached safely") → every admin's phone (the Rido apps an admin number is signed in to;
+   * the admin web panel has no push and polls its SOS page). Urgent, on the `safety` channel.
+   */
+  sosAlert(params: { sosId: string; tripId: string; who: 'PASSENGER' | 'DRIVER'; name: string | null; source: string; lat: number | null; lng: number | null }): Promise<void> {
+    return this.safeAsync('sos alert', async () => {
+      const admins = await this.prisma.user.findMany({ where: { role: Role.ADMIN, isBlocked: false }, select: { id: true } });
+      const where = params.lat !== null && params.lng !== null ? ` at ${params.lat.toFixed(5)}, ${params.lng.toFixed(5)}` : '';
+      const what = params.source === 'ARRIVAL' ? 'says they did not reach safely' : params.source === 'CHECK' ? 'asked for help' : 'pressed SOS';
+      const msg = {
+        title: `🚨 SOS: ${params.who === 'DRIVER' ? 'driver' : 'passenger'} ${first(params.name, '')}`.trim(),
+        body: `${params.who === 'DRIVER' ? 'The driver' : 'The passenger'} ${what}${where}. Open the admin SOS page`,
+        channel: 'safety' as const,
+        data: { type: 'sos', sosId: params.sosId, tripId: params.tripId },
+        isUrgent: true,
+      };
+      for (const a of admins) {
+        this.push.toUser(a.id, AppKind.PASSENGER, msg);
+        this.push.toUser(a.id, AppKind.DRIVER, msg);
       }
     });
   }

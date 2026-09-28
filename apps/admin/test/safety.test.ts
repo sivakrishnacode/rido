@@ -1,0 +1,31 @@
+import { describe, expect, it } from "vitest";
+
+import { isSosActive, safetyEventLine, sosMapUrl, sosSourceLabel } from "@/lib/safety";
+
+describe("SOS helpers", () => {
+  it("labels where an SOS came from", () => {
+    expect(sosSourceLabel("BUTTON")).toBe("Pressed SOS");
+    expect(sosSourceLabel("CHECK")).toBe("Asked for help (safety check)");
+    expect(sosSourceLabel("ARRIVAL")).toBe("Didn't reach safely");
+    expect(sosSourceLabel("something")).toBe("Pressed SOS");
+  });
+
+  it("links to the map only with a position", () => {
+    expect(sosMapUrl({ lat: 11.01834, lng: 76.97251 })).toBe("https://maps.google.com/?q=11.01834,76.97251");
+    expect(sosMapUrl({ lat: null, lng: 76.9 })).toBeNull();
+  });
+
+  it("open and acknowledged still need someone", () => {
+    expect(isSosActive("OPEN")).toBe(true);
+    expect(isSosActive("ACKNOWLEDGED")).toBe(true);
+    expect(isSosActive("RESOLVED")).toBe(false);
+    expect(isSosActive("FALSE_ALARM")).toBe(false);
+  });
+});
+
+describe("safetyEventLine", () => {
+  it("words an SOS event", () => {
+    expect(safetyEventLine({ kind: "SOS_LINKED", payload: { role: "DRIVER", source: "BUTTON", sosId: "x" } })).toEqual({ title: "SOS", detail: "Driver · Pressed SOS" });
+    expect(safetyEventLine({ kind: "SOS_LINKED", payload: null }).detail).toBe("Passenger · Pressed SOS");
+  });
+});

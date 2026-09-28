@@ -1,17 +1,32 @@
-import { Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
 
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Public } from '../../core/auth/public.decorator.js';
+import { SosDto } from './dto/sos.dto.js';
 import { clientIp } from './rate-limit.js';
+import { type SosResult, SosService } from './sos.service.js';
 import { type ShareLink, ShareService, type ShareView } from './share.service.js';
 
 type Req = { headers: Record<string, string | string[] | undefined>; ip?: string };
 
-/** Trip safety for the apps: live share links (and the public read behind the tracking page). */
+/** Trip safety for the apps: SOS, live share links (and the public read behind the tracking page). */
 @Controller()
 export class SafetyController {
-  constructor(private readonly share: ShareService) {}
+  constructor(
+    private readonly share: ShareService,
+    private readonly sos: SosService,
+  ) {}
+
+  /**
+   * SOS from the trip's passenger or driver, with the phone's position: recorded, pushed to admins, and answered with
+   * a live share link to text to emergency contacts. A repeat within 2 min returns the same SOS.
+   */
+  @Post('trips/:id/sos')
+  @HttpCode(200)
+  raiseSos(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: SosDto): Promise<SosResult> {
+    return this.sos.create(user, id, body);
+  }
 
   /** Passenger: a signed live-tracking link to send to someone (valid until 30 min after the trip ends). */
   @Post('trips/:id/share')

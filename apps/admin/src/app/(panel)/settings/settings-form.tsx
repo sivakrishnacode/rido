@@ -119,6 +119,12 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
+    group: "Safety",
+    description:
+      "SOS from either app is recorded and listed on the SOS page (it refreshes every 10 s). Phones signed in with an admin number also get an urgent push.",
+    fields: [{ key: "sosAdminAlert", label: "SOS push to admins", hint: "Off = the SOS page only" }],
+  },
+  {
     group: "Driver plans",
     description: "Off = Rido is free: drivers see no plans and can always go online. Trial and grace apply to new subscriptions when plans are on.",
     fields: [

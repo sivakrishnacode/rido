@@ -1,3 +1,5 @@
+import type { SafetyEvent, SosRecord } from "./safety";
+
 // Response shapes of the Rido admin API (apps/api/src/modules/admin, apps/api/prisma/schema.prisma).
 // Dates arrive as ISO strings; money is whole rupees.
 
@@ -375,6 +377,9 @@ export interface TripCancellation {
 export interface TripDetail extends Trip {
   readonly tickets: SupportTicketBase[];
   readonly cancellations?: TripCancellation[];
+  /** Safety: SOS alerts and events (long stops, deviations, check-ins), newest first. */
+  readonly sos?: SosRecord[];
+  readonly safetyEvents?: SafetyEvent[];
 }
 
 export interface SupportTicketBase {
@@ -682,6 +687,8 @@ export interface Settings {
   readonly surgeMinRequests: number;
   /** Learned hex-to-hex ETA is used once a pair has this many trips (0 = off). */
   readonly historicalEtaMinTrips: number;
+  /** Safety: push every admin's phone on an SOS. */
+  readonly sosAdminAlert: boolean;
   readonly supportPhone: string;
   /** Off = free app: no plan screens and no plan check when going online. */
   readonly driverPlansEnabled: boolean;

@@ -14,8 +14,9 @@ import 'widgets/job_common.dart';
 /// D-18b Driver SOS: "Emergency help", Call 112 (confirm → "Calling 112"), the emergency
 /// contact gets "Live location sent ✓", the safety team is notified, and the shared trip
 /// details are listed. "I'm safe" goes back.
-/// Live API: Call 112 and the contact's call button open the dialer, and the safety team is alerted with
-/// a "Safety concern" ticket carrying the trip and the GPS position (there is no SMS to the contact yet).
+/// Live API: Call 112 and the contact's call button open the dialer. On a job the SOS goes to the server
+/// (`POST /trips/:id/sos` with the GPS position: admins get a push and the SOS page lists it); if that fails, or
+/// there is no job, the safety team gets a "Safety concern" ticket with the trip and position instead.
 class D18bDriverSosScreen extends ConsumerStatefulWidget {
   const D18bDriverSosScreen({super.key, this.showcase = false});
 
@@ -35,7 +36,8 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
 
   late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
 
-  /// Live API: the ticket id once the safety team has been alerted, or the error.
+  /// Live API: the SOS id (or the fallback ticket id) once the safety team has been alerted, or the error.
+  String? _sosId;
   String? _ticketId;
   bool _alertFailed = false;
 
@@ -80,6 +82,15 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
     final where = at == null
         ? 'Location unknown'
         : 'Location: https://maps.google.com/?q=${at.latitude.toStringAsFixed(6)},${at.longitude.toStringAsFixed(6)}';
+    if (job != null) {
+      try {
+        final sos = await ref.read(liveSafetyProvider).sos(job.id, at: at);
+        if (mounted) setState(() => _sosId = sos.id);
+        return;
+      } catch (_) {
+        // Fall back to a support ticket below.
+      }
+    }
     try {
       final ticket = await ref.read(supportRepositoryProvider).raiseTicket(
             topic: 'Safety concern',
@@ -233,7 +244,15 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
                   child: _api
-                      ? (_ticketId != null
+                      ? (_sosId != null
+                          ? const RidoBanner(
+                              key: ValueKey('sos'),
+                              type: RidoBannerType.success,
+                              icon: Symbols.verified_user_rounded,
+                              title: 'Rido safety team has been alerted',
+                              message: 'They can see your trip and location. Call 112 if you are in danger.',
+                            )
+                          : _ticketId != null
                           ? RidoBanner(
                               key: const ValueKey('ticket'),
                               type: RidoBannerType.success,

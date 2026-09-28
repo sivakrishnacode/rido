@@ -139,6 +139,29 @@ enum DriverBlockReason {
   CANCELLATION_RATE
 }
 
+/// Who pressed SOS on a trip.
+enum SafetyParty {
+  PASSENGER
+  DRIVER
+}
+
+/// An SOS in the admin queue: OPEN → ACKNOWLEDGED (someone is on it) → RESOLVED or FALSE_ALARM.
+enum SosStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  FALSE_ALARM
+}
+
+/// A safety signal on a trip (safety module): a long stop mid-ride, a route deviation, a night check-in push, or an
+/// SOS raised on it.
+enum SafetyEventKind {
+  STOP
+  DEVIATION
+  NIGHT_CHECK
+  SOS_LINKED
+}
+
 enum PaymentMode {
   CASH
   UPI
@@ -230,6 +253,7 @@ model User {
   devices            DeviceToken[]
   identityChecks     IdentityVerification[]
   cancellationDues   CancellationDue[]
+  sosAlerts          Sos[]
 }
 
 /// One Didit verification session. Only the last 4 digits of the document number are kept.
@@ -453,6 +477,8 @@ model Trip {
   /// Cancellation fees from this (cancelled) trip, and the fees this (completed) ride's fare collected.
   dues               CancellationDue[]  @relation("DueTrip")
   collectedDues      CancellationDue[]  @relation("DueAppliedTrip")
+  sos                Sos[]
+  safetyEvents       SafetyEvent[]
 
   @@index([passengerId, createdAt])
   @@index([driverId, createdAt])
@@ -518,6 +544,49 @@ model CancellationDue {
   @@index([passengerId, status])
   @@index([owedToDriverId, createdAt])
   @@index([status, createdAt])
+}
+
+/// An SOS from the passenger or driver app (safety/sos.service.ts): where they were, and what the Rido team did.
+/// Admins are pushed at once (setting `sosAdminAlert`) and work the queue on the admin SOS page.
+model Sos {
+  id             String      @id @default(cuid())
+  tripId         String
+  userId         String
+  role           SafetyParty
+  /// Where they were (the app's fix, else the driver's last GPS fix); null when unknown.
+  lat            Float?
+  lng            Float?
+  status         SosStatus   @default(OPEN)
+  /// What raised it: BUTTON (the SOS screen), CHECK ("Get help" on an "Is everything OK?" push), ARRIVAL ("No" to
+  /// "Did you reach safely?").
+  source         String      @default("BUTTON")
+  /// The admin's note when resolving (or the check that raised it).
+  note           String?
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  resolvedAt     DateTime?
+  /// Admin user id who resolved it (or marked it a false alarm).
+  resolvedBy     String?
+  createdAt      DateTime    @default(now())
+  trip           Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([tripId])
+}
+
+/// A safety signal on a trip, shown on the admin trip page. [payload] depends on [kind] (e.g. STOP: where and how
+/// long; DEVIATION: metres off the route; NIGHT_CHECK: which push and the answer; SOS_LINKED: the SOS id).
+model SafetyEvent {
+  id      String          @id @default(cuid())
+  tripId  String
+  kind    SafetyEventKind
+  payload Json?
+  at      DateTime        @default(now())
+  trip    Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, at])
+  @@index([kind, at])
 }
 
 /// Price list: one row per vehicle and period (daily / weekly / monthly).

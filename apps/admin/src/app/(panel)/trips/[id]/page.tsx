@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, EyeOffIcon, LifeBuoyIcon, NavigationIcon, PackageIcon, StarIcon } from "lucide-react";
+import { ArrowLeftIcon, EyeOffIcon, LifeBuoyIcon, NavigationIcon, PackageIcon, ShieldAlertIcon, StarIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { adminApi } from "@/lib/api";
 import { cancelSummary, faultSummary, type CancelFault } from "@/lib/cancel";
 import { formatKm } from "@/lib/polyline";
+import { isSosActive, safetyEventLine, sosMapUrl, sosSourceLabel } from "@/lib/safety";
 import { displayName, formatDateTime, formatInr, formatPhone, humanize, shortId, vehicleLabel } from "@/lib/format";
 import type { FareBreakdown } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,9 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
   const isCancelled = t.status === "CANCELLED" || t.status === "NO_DRIVERS";
   const endLabel = t.status === "CANCELLED" ? "Cancelled" : t.status === "NO_DRIVERS" ? "No drivers" : isParcel ? "Delivered" : "Completed";
   const cancellations = t.cancellations ?? [];
+  const sos = t.sos ?? [];
+  const safetyEvents = t.safetyEvents ?? [];
+  const activeSos = sos.filter((x) => isSosActive(x.status));
 
   return (
     <>
@@ -78,6 +82,16 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
         }
         description={`${isParcel ? "Parcel" : "Ride"} · ${vehicleLabel(t.vehicleKind)} · booked ${formatDateTime(t.createdAt)} · ${t.paymentMode === "UPI" ? "UPI" : "Cash"}`}
       />
+
+      {activeSos.length > 0 && (
+        <Link
+          href="/safety?status=active"
+          className="mb-4 flex items-center gap-3 rounded-xl border border-error bg-error-tint px-4 py-3 text-sm font-medium text-error hover:underline"
+        >
+          <ShieldAlertIcon className="size-5 shrink-0" aria-hidden />
+          {activeSos.length === 1 ? "An SOS on this trip is still open" : `${activeSos.length} SOS on this trip are still open`}: open the SOS page
+        </Link>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -371,6 +385,75 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
             </CardContent>
           </Card>
         )}
+
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-semibold">
+              <ShieldAlertIcon className="size-4 text-coral-600" /> Safety
+            </CardTitle>
+            <CardDescription>
+              SOS alerts and ride checks (long stops, route changes, night check-ins).{" "}
+              <Link href="/safety" className="text-coral-600 hover:underline">
+                All SOS
+              </Link>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase">SOS</p>
+              {sos.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No SOS on this trip.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {sos.map((x) => {
+                    const map = sosMapUrl(x);
+                    return (
+                      <li key={x.id} className={cn("rounded-lg border p-3", x.status === "OPEN" && "border-error bg-error-tint/50")}>
+                        <p className="flex items-center justify-between gap-2 text-sm font-medium text-navy-900">
+                          {humanize(x.role)} · {sosSourceLabel(x.source)} <StatusBadge status={x.status} />
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatDateTime(x.createdAt)}
+                          {map && (
+                            <>
+                              {" · "}
+                              <a href={map} target="_blank" rel="noreferrer" className="text-coral-600 hover:underline">
+                                Where
+                              </a>
+                            </>
+                          )}
+                          {x.resolvedAt && ` · closed ${formatDateTime(x.resolvedAt)}`}
+                        </p>
+                        {x.note && <p className="mt-1 text-sm text-navy-700">{x.note}</p>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase">Events</p>
+              {safetyEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No safety events.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {safetyEvents.map((e) => {
+                    const line = safetyEventLine(e);
+                    return (
+                      <li key={e.id} className="flex items-start justify-between gap-3 text-sm">
+                        <span>
+                          <span className="font-medium text-navy-900">{line.title}</span>
+                          {line.detail && <span className="block text-navy-700">{line.detail}</span>}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{formatDateTime(e.at)}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className={isParcel ? "" : "lg:col-span-2"}>
           <CardHeader>

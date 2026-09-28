@@ -12,9 +12,14 @@ import '../../common/phone.dart';
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
+import '../../state/trip_safety.dart';
 
 /// P-17 SOS · Emergency help (full-screen modal): Call 112, live location sent to each
 /// emergency contact one by one, safety team notified, the trip details shared, and "I'm safe".
+///
+/// Live API, during a trip: opening it raises the SOS on the server first (`POST /trips/:id/sos`: admins are
+/// alerted, the answer carries a live tracking link). If that fails (offline), the phone's own apps still work:
+/// Call 112 and "Text my location" (the SMS carries the live link when there is one, else a maps link).
 class P17SosScreen extends ConsumerStatefulWidget {
   const P17SosScreen({super.key, this.showcase = false});
 
@@ -30,6 +35,11 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
   int _sent = 0;
   Timer? _timer;
 
+  /// Live API: the server SOS (null until it answered), whether it is being sent, and whether it failed.
+  SosAlert? _alert;
+  bool _alerting = false;
+  bool _alertFailed = false;
+
   @override
   void initState() {
     super.initState();
@@ -37,8 +47,11 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
       _sent = _maxContacts;
       return;
     }
-    // Live API: nothing is sent automatically (there is no SOS service yet); the passenger texts contacts.
-    if (ref.read(isLiveApiProvider)) return;
+    // Live API: the SOS goes to the server at once; the passenger texts contacts from their own phone.
+    if (ref.read(isLiveApiProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _raiseSos());
+      return;
+    }
     final stagger = ref.read(simTimingProvider)(SimTimings.sosContactStagger);
     _timer = Timer.periodic(stagger, (t) {
       if (!mounted) return;
@@ -51,6 +64,25 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  /// Live API: records the SOS for the active trip (admins get a push). No trip → nothing to raise it on.
+  Future<void> _raiseSos() async {
+    final ride = ref.read(rideFlowProvider);
+    if (!mounted || !ride.isActive || _alerting) return;
+    setState(() {
+      _alerting = true;
+      _alertFailed = false;
+    });
+    try {
+      final at = ref.read(rideFlowProvider.notifier).vehicle.value?.position;
+      final alert = await ref.read(liveSafetyProvider).sos(ride.tripId, at: at);
+      if (mounted) setState(() => _alert = alert);
+    } catch (_) {
+      if (mounted) setState(() => _alertFailed = true);
+    } finally {
+      if (mounted) setState(() => _alerting = false);
+    }
   }
 
   void _close() {
@@ -78,9 +110,12 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
   Future<void> _textContacts(List<EmergencyContact> contacts, RideFlowState ride) async {
     final pos = ref.read(rideFlowProvider.notifier).vehicle.value?.position ?? ride.pickup.location;
     final me = ref.read(currentProfileProvider).firstName;
-    final body = ride.isActive
-        ? 'SOS from $me. ${tripShareText(riderName: me, driver: ride.driver, vehicleLabel: ride.vehicle.label, drop: ride.drop, vehicleAt: pos)}'
-        : 'SOS from $me. I need help. My location: https://maps.google.com/?q=${pos.latitude.toStringAsFixed(5)},${pos.longitude.toStringAsFixed(5)}';
+    final body = sosSmsBody(
+      me: me,
+      ride: ride,
+      at: pos,
+      liveUrl: _alert?.shareUrl ?? (ride.isActive ? ref.read(tripShareLinkProvider(ride.tripId)).value?.url : null),
+    );
     await openSms(context, body, to: contacts.map((c) => apiPhone(c.phone)).join(','));
   }
 
@@ -197,6 +232,10 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
                   ],
                 ],
                 const SizedBox(height: 20),
+                if (live && ride.isActive) ...[
+                  _SafetyTeamBanner(alerting: _alerting, alerted: _alert != null, failed: _alertFailed, onRetry: _raiseSos),
+                  const SizedBox(height: 12),
+                ],
                 if (live)
                   RidoCard(
                     onTap: () => context.push(Routes.newTicket(topic: 'Safety concern', tripId: ride.isActive ? ride.tripId : null)),
@@ -361,6 +400,64 @@ class _InfoRow extends StatelessWidget {
             child: Text(value, style: t.bodySemibold, textAlign: TextAlign.end),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The SMS to emergency contacts: who, the live tracking link (else a maps link to [at]) and the trip details.
+String sosSmsBody({required String me, required RideFlowState ride, required LatLng at, String? liveUrl}) {
+  final where = 'https://maps.google.com/?q=${at.latitude.toStringAsFixed(5)},${at.longitude.toStringAsFixed(5)}';
+  if (!ride.isActive) return 'SOS from $me. I need help. My location: $where';
+  final trip = tripShareText(
+    riderName: me,
+    driver: ride.driver,
+    vehicleLabel: ride.vehicle.label,
+    drop: ride.drop,
+    vehicleAt: liveUrl == null ? at : null,
+    status: liveUrl == null ? null : 'Track live: $liveUrl',
+  );
+  return 'SOS from $me. I need help.\n$trip';
+}
+
+/// Live API: whether the Rido safety team got the SOS (sending / alerted / failed with Try again).
+class _SafetyTeamBanner extends StatelessWidget {
+  const _SafetyTeamBanner({required this.alerting, required this.alerted, required this.failed, required this.onRetry});
+  final bool alerting;
+  final bool alerted;
+  final bool failed;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    final (Color bg, Color fg, IconData icon, String title, String body) = alerted
+        ? (RidoColors.successTint, RidoColors.successText, Symbols.verified_user_rounded, 'Rido safety team has been alerted',
+            'They can see your trip and location. Call 112 if you are in danger.')
+        : failed
+            ? (RidoColors.sos.withValues(alpha: 0.08), RidoColors.sos, Symbols.wifi_off_rounded, "Couldn't reach Rido",
+                'Call 112 and text your contacts below.')
+            : (RidoColors.inputBg, RidoColors.navy700, Symbols.shield_rounded, 'Alerting Rido safety team…', 'Sending your trip and location.');
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        key: ValueKey(alerted ? 'sos-alerted' : failed ? 'sos-failed' : 'sos-alerting'),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: bg, borderRadius: RidoRadii.cardRadius, border: Border.all(color: fg.withValues(alpha: 0.5))),
+        child: Row(children: [
+          if (alerting && !alerted)
+            const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
+          else
+            Icon(icon, fill: 1, color: fg, size: 28),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: t.bodySemibold),
+              Text(body, style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+            ]),
+          ),
+          if (failed && !alerting) TextButton(onPressed: onRetry, child: const Text('Try again')),
+        ]),
       ),
     );
   }
