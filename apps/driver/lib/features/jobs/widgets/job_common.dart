@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../../router/routes.dart';
 
-/// Cancel reason on a Butterfly (women only) ride when the person at the pickup is not a woman. The API counts these
-/// on rides booked for someone else and switches Butterfly-for-others off for accounts with repeat reports.
-const kRiderNotWoman = 'Rider is not a woman';
+/// Cancel reason on a Butterfly (women only) ride when the person at the pickup is not a woman
+/// ([CancelCode.butterflyMismatch]). The API counts these on rides booked for someone else and switches
+/// Butterfly-for-others off for accounts with repeat reports. It never counts against the driver.
+const kRiderNotWoman = CancelCode.butterflyMismatch;
 
 /// Pops the current screen, or goes Home when it was opened directly (deep link / test).
 void popOrHome(BuildContext context) {

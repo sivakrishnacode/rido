@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:latlong2/latlong.dart';
 
+import '../models/cancellation.dart';
 import '../models/driver.dart';
 import '../models/people.dart';
 import '../models/place.dart';
@@ -25,6 +26,10 @@ class LiveTripUpdate {
   final Json json;
 
   bool get isNoDrivers => status == 'NO_DRIVERS';
+
+  /// Cancelled (or ended with no drivers): by whom and why.
+  CancelledBy? get cancelledBy => CancelledBy.fromApi(json['cancelledBy']);
+  CancelCode? get cancelCode => CancelCode.fromApi(json['cancelCode']);
 
   /// "Book any": vehicles the passenger added to the search besides [Trip.vehicle].
   List<VehicleKind> get alsoVehicles => [for (final k in (json['alsoKinds'] as List?) ?? const []) vehicleKindFromApi(k)];
@@ -132,8 +137,9 @@ class LiveTrips {
     return update;
   }
 
-  Future<LiveTripUpdate> cancel(String tripId, {String? reason}) async =>
-      _update(_map(await api.post('/trips/$tripId/cancel', {'reason': ?reason})));
+  /// Cancels with a reason [code] (S-03) and an optional [note].
+  Future<LiveTripUpdate> cancel(String tripId, {CancelCode code = CancelCode.other, String? note}) async =>
+      _update(_map(await api.post('/trips/$tripId/cancel', {'code': code.api, 'note': ?note})));
 
   /// While searching: other vehicles with drivers in range, cheapest first ("Book any").
   Future<List<VehicleAlternative>> alternatives(String tripId) async => [
@@ -213,8 +219,9 @@ class LiveJobs {
   Future<LiveTripUpdate> complete(String tripId, {String? otp, LatLng? at, String? farReason}) async =>
       LiveTrips._update(_map(await api.post('/trips/$tripId/complete', {'otp': ?otp, ..._position(at, farReason)})));
 
-  Future<LiveTripUpdate> cancel(String tripId, {String? reason}) async =>
-      LiveTrips._update(_map(await api.post('/trips/$tripId/cancel', {'reason': ?reason})));
+  /// Cancels with a reason [code] (D-16) and an optional [note].
+  Future<LiveTripUpdate> cancel(String tripId, {CancelCode code = CancelCode.other, String? note}) async =>
+      LiveTrips._update(_map(await api.post('/trips/$tripId/cancel', {'code': code.api, 'note': ?note})));
 
   /// The job this driver is on (restores the app after a restart), or null.
   Future<LiveTripUpdate?> active() async {

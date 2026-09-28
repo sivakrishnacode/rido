@@ -1,6 +1,8 @@
 // Response shapes of the Rido admin API (apps/api/src/modules/admin, apps/api/prisma/schema.prisma).
 // Dates arrive as ISO strings; money is whole rupees.
 
+import type { CancelCode, CancelledBy } from "./cancel";
+
 export type Role = "PASSENGER" | "DRIVER" | "ADMIN";
 export type Gender = "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";
 export type WorkType = "RIDES" | "DELIVERIES";
@@ -233,7 +235,12 @@ export interface TripBase {
   readonly parcel: Record<string, unknown> | null;
   readonly payer: ParcelPayer | null;
   readonly rating: number | null;
+  /** Free-text note with the cancel (older apps sent only this). */
   readonly cancelReason: string | null;
+  /** Who cancelled (also SYSTEM on NO_DRIVERS), the reason code and when. */
+  readonly cancelledBy?: CancelledBy | null;
+  readonly cancelCode?: CancelCode | null;
+  readonly cancelledAt?: string | null;
   /** Butterfly: women drivers first (PREFERRED) or only (ONLY). */
   readonly womenDriver?: "NONE" | "PREFERRED" | "ONLY";
   /** Booked for someone else ("Who's riding?"): the driver met and called this person. */
@@ -248,6 +255,7 @@ export interface TripBase {
   readonly endFarReason?: string | null;
   readonly createdAt: string;
   readonly assignedAt: string | null;
+  readonly arrivedAt?: string | null;
   readonly startedAt: string | null;
   readonly endedAt: string | null;
 }
@@ -258,9 +266,24 @@ export interface Trip extends TripBase {
   readonly driver: (DriverBase & { readonly user: User }) | null;
 }
 
+/** One cancel of a trip (a driver's cancel that sent it back to searching is kept here too). */
+export interface TripCancellation {
+  readonly id: string;
+  readonly driverId: string | null;
+  readonly by: CancelledBy;
+  readonly code: CancelCode;
+  readonly note: string | null;
+  readonly fromStatus: TripStatus;
+  readonly reassigned: boolean;
+  readonly isDriverFault: boolean;
+  readonly createdAt: string;
+  readonly driver: { readonly id: string; readonly plate: string; readonly user: { readonly name: string | null } } | null;
+}
+
 /** GET /admin/trips/:id. */
 export interface TripDetail extends Trip {
   readonly tickets: SupportTicketBase[];
+  readonly cancellations?: TripCancellation[];
 }
 
 export interface SupportTicketBase {

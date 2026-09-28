@@ -4,6 +4,7 @@ import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Announcement, Trip } from '../../generated/prisma/client.js';
 import { AnnouncementAudience, AppKind, TripKind, TripStatus } from '../../generated/prisma/enums.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { CANCEL_CODE_LABEL } from '../trips/cancel-codes.js';
 import { PUSH_TOPICS, PushService } from './push.service.js';
 
 type Party = { name: string | null; phone?: string | null };
@@ -20,6 +21,12 @@ const DOC_LABEL: Record<string, string> = {
   INSURANCE: 'Vehicle insurance',
   POLICE_VERIFICATION: 'Police verification',
 };
+
+/** The passenger's note, else the label of their cancel code (nothing for OTHER without a note). */
+function cancelWhy(trip: Trip): string | null {
+  if (trip.cancelReason) return trip.cancelReason;
+  return trip.cancelCode && trip.cancelCode !== 'OTHER' ? CANCEL_CODE_LABEL[trip.cancelCode] : null;
+}
 
 function first(name: string | null | undefined, fallback: string): string {
   return (name ?? '').trim().split(/\s+/)[0] || fallback;
@@ -99,7 +106,7 @@ export class NotifierService {
         if (by === 'PASSENGER' && trip.driver) {
           this.push.toUser(trip.driver.userId, AppKind.DRIVER, {
             title: `${isParcel ? 'Delivery' : 'Ride'} cancelled`,
-            body: `${first(trip.passenger?.name, 'The customer')} cancelled${trip.cancelReason ? `: ${trip.cancelReason}` : ''}`,
+            body: `${first(trip.passenger?.name, 'The customer')} cancelled${cancelWhy(trip) ? `: ${cancelWhy(trip)}` : ''}`,
             channel: 'trip_updates',
             data,
           });

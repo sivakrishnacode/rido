@@ -577,7 +577,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
     _cancelledByMe = true;
     state = state.copyWith(busy: true);
     try {
-      await ref.read(liveTripsProvider).cancel(state.tripId, reason: 'Cancelled by sender');
+      await ref.read(liveTripsProvider).cancel(state.tripId, code: CancelCode.changedMind, note: 'Cancelled by sender');
     } catch (e) {
       _cancelledByMe = false;
       state = state.copyWith(busy: false);

@@ -639,8 +639,8 @@ class RideFlowController extends Notifier<RideFlowState> {
   // ----------------------------------------------------------------- ending
   /// Passenger cancelled (S-03). Mock: adds a Cancelled trip to Activity. Live: cancels on the server.
   /// Returns a user-facing error (the ride goes on), or null.
-  Future<String?> cancelRide({String? reason}) async {
-    if (_live) return _cancelLive(reason);
+  Future<String?> cancelRide({CancelCode code = CancelCode.other, String? note}) async {
+    if (_live) return _cancelLive(code, note: note);
     _sim.cancelAll();
     if (state.phase != RidePhase.planning) {
       await ref.read(rideRepositoryProvider).addTrip(_trip(TripStatus.cancelled));
@@ -690,14 +690,14 @@ class RideFlowController extends Notifier<RideFlowState> {
         state = state.copyWith(phase: RidePhase.planning, tripQuote: null);
         return null;
       }
-      return _cancelLive('Cancelled while searching');
+      return _cancelLive(CancelCode.changedMind, note: 'Cancelled while searching');
     }
     _sim.cancelAll();
     state = state.copyWith(phase: RidePhase.planning);
     return null;
   }
 
-  Future<String?> _cancelLive(String? reason) async {
+  Future<String?> _cancelLive(CancelCode code, {String? note}) async {
     if (!state.isActive) {
       state = state.copyWith(phase: RidePhase.planning);
       return null;
@@ -705,7 +705,7 @@ class RideFlowController extends Notifier<RideFlowState> {
     _cancelledByMe = true;
     state = state.copyWith(busy: true);
     try {
-      await ref.read(liveTripsProvider).cancel(state.tripId, reason: reason);
+      await ref.read(liveTripsProvider).cancel(state.tripId, code: code, note: note);
     } catch (e) {
       _cancelledByMe = false;
       state = state.copyWith(busy: false);

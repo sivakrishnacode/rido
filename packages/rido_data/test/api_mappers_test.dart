@@ -177,4 +177,20 @@ void main() {
     expect(d.hasPendingPhoto, isTrue);
     expect(driverFromJson({'id': 'd2', 'vehicleKind': 'BIKE', 'user': {}}).photoPath, isNull);
   });
+
+  test('cancel codes: API names round-trip; a cancelled update says who and why', () {
+    for (final c in CancelCode.values) {
+      expect(CancelCode.fromApi(c.api), c);
+    }
+    expect(CancelCode.fromApi('NOPE'), isNull);
+    expect(CancelCode.forPassenger, isNot(contains(CancelCode.passengerNoShow)));
+    expect(CancelCode.forDriver, isNot(contains(CancelCode.driverTooFar)));
+    final u = LiveTripUpdate(
+      tripFromJson({..._trip, 'status': 'CANCELLED'}),
+      'CANCELLED',
+      {..._trip, 'status': 'CANCELLED', 'cancelledBy': 'DRIVER', 'cancelCode': 'VEHICLE_ISSUE'},
+    );
+    expect(u.cancelledBy, CancelledBy.driver);
+    expect(u.cancelCode, CancelCode.vehicleIssue);
+  });
 }

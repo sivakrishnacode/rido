@@ -1,29 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../state/ride_flow.dart';
 
-/// S-03 Cancel ride: reason list, red "Cancel ride" (enabled once a reason is picked) and "Keep ride".
-/// Pops with the chosen reason, or null to keep the ride.
+/// S-03 Cancel ride: reason list ([CancelCode.forPassenger]), red "Cancel ride" (enabled once a reason is picked) and
+/// "Keep ride". Pops with the chosen code (sent to the API), or null to keep the ride.
 class S03CancelRideDialog extends ConsumerStatefulWidget {
   const S03CancelRideDialog({super.key, this.showcase = false});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
 
-  static const reasons = ['Driver too far', 'Changed my plan', 'Booked by mistake', 'Other'];
+  static const reasons = CancelCode.forPassenger;
 
-  /// Opens the dialog. Returns the reason when the passenger confirms, null to keep the ride.
-  static Future<String?> show(BuildContext context) =>
-      showDialog<String>(context: context, builder: (_) => const S03CancelRideDialog());
+  /// Opens the dialog. Returns the reason code when the passenger confirms, null to keep the ride.
+  static Future<CancelCode?> show(BuildContext context) =>
+      showDialog<CancelCode>(context: context, builder: (_) => const S03CancelRideDialog());
 
   @override
   ConsumerState<S03CancelRideDialog> createState() => _S03CancelRideDialogState();
 }
 
 class _S03CancelRideDialogState extends ConsumerState<S03CancelRideDialog> {
-  late String? _reason = widget.showcase ? 'Changed my plan' : null;
+  late CancelCode? _reason = widget.showcase ? CancelCode.changedMind : null;
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +58,7 @@ class _S03CancelRideDialogState extends ConsumerState<S03CancelRideDialog> {
                       ),
                       const SizedBox(width: 14),
                       Expanded(
-                        child: Text(r, style: r == _reason ? t.bodySemibold : t.body),
+                        child: Text(r.label, style: r == _reason ? t.bodySemibold : t.body),
                       ),
                     ],
                   ),

@@ -29,14 +29,6 @@ class D16NavigateToPickupScreen extends ConsumerStatefulWidget {
 }
 
 class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupScreen> {
-  static const _cancelReasons = [
-    'Passenger not reachable',
-    'Passenger asked me to cancel',
-    'Pickup is too far',
-    'Vehicle problem',
-    'Other reason',
-  ];
-
   late final RideRequest _job = ref.read(driverSessionProvider).job ?? Seed.rideRequest;
   late final List<LatLng> _fallbackRoute =
       roadPath(Seed.driverHome, _job.pickup.location, bend: -0.2, mode: travelModeFor(_job.vehicle));
@@ -75,19 +67,19 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
 
   Future<void> _cancel() async {
     // Butterfly (women only): the rider at the pickup may turn out not to be a woman.
-    final reasons = [if (_job.isWomenOnly) kRiderNotWoman, ..._cancelReasons];
-    final reason = await showDialog<String>(context: context, builder: (_) => _CancelReasonDialog(reasons: reasons));
+    final reasons = [if (_job.isWomenOnly) kRiderNotWoman, ...CancelCode.forDriver];
+    final reason = await showDialog<CancelCode>(context: context, builder: (_) => _CancelReasonDialog(reasons: reasons));
     if (reason == null || !mounted) return;
     if (_live) {
       try {
-        await ref.read(driverSessionProvider.notifier).cancelJob(reason: reason);
+        await ref.read(driverSessionProvider.notifier).cancelJob(code: reason);
       } on Exception catch (e) {
         if (mounted) showRidoSnack(context, userMessage(e));
         return;
       }
       if (!mounted) return;
     }
-    showRidoSnack(context, 'Ride cancelled · $reason');
+    showRidoSnack(context, 'Ride cancelled · ${reason.label}');
     context.go(Routes.home);
   }
 
@@ -255,17 +247,17 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
       r.pickup.id == Seed.gandhipuram.id ? 'Gate 2, opposite Annapoorna hotel' : r.pickup.address;
 }
 
-/// Radio list of cancel reasons. Returns the chosen reason, or null for "Keep ride".
+/// Radio list of cancel reasons. Returns the chosen code, or null for "Keep ride".
 class _CancelReasonDialog extends StatefulWidget {
   const _CancelReasonDialog({required this.reasons});
-  final List<String> reasons;
+  final List<CancelCode> reasons;
 
   @override
   State<_CancelReasonDialog> createState() => _CancelReasonDialogState();
 }
 
 class _CancelReasonDialogState extends State<_CancelReasonDialog> {
-  String? _reason;
+  CancelCode? _reason;
 
   @override
   Widget build(BuildContext context) => RidoDialog(
@@ -273,16 +265,16 @@ class _CancelReasonDialogState extends State<_CancelReasonDialog> {
         message: 'Frequent cancellations can lower your rating.',
         icon: Symbols.cancel_rounded,
         destructive: true,
-        content: RadioGroup<String>(
+        content: RadioGroup<CancelCode>(
           groupValue: _reason,
           onChanged: (v) => setState(() => _reason = v),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             for (final r in widget.reasons)
-              RadioListTile<String>(
+              RadioListTile<CancelCode>(
                 value: r,
                 contentPadding: EdgeInsets.zero,
                 dense: true,
-                title: Text(r, style: context.type.body),
+                title: Text(r.label, style: context.type.body),
               ),
           ]),
         ),

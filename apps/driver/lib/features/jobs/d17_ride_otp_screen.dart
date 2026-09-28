@@ -96,7 +96,7 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
     if (ok != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      await ref.read(driverSessionProvider.notifier).cancelJob(reason: kRiderNotWoman);
+      await ref.read(driverSessionProvider.notifier).cancelJob(code: kRiderNotWoman);
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
@@ -104,7 +104,7 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
       return;
     }
     if (!mounted) return;
-    showRidoSnack(context, 'Ride cancelled · $kRiderNotWoman');
+    showRidoSnack(context, 'Ride cancelled · ${kRiderNotWoman.label}');
     context.go(Routes.home);
   }
 

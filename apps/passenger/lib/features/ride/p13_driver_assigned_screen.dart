@@ -34,7 +34,7 @@ class P13DriverAssignedScreen extends ConsumerWidget {
   Future<void> _cancel(BuildContext context, WidgetRef ref) async {
     final reason = await S03CancelRideDialog.show(context);
     if (reason == null || !context.mounted) return;
-    final error = await ref.read(rideFlowProvider.notifier).cancelRide(reason: reason);
+    final error = await ref.read(rideFlowProvider.notifier).cancelRide(code: reason);
     if (!context.mounted) return;
     if (error != null) {
       showRidoSnack(context, error);

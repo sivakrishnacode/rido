@@ -7,6 +7,7 @@ import { PlateBadge, StatusBadge } from "@/components/common/status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { adminApi } from "@/lib/api";
+import { cancelSummary } from "@/lib/cancel";
 import { displayName, formatDateTime, formatInr, formatPhone, humanize, shortId, vehicleLabel } from "@/lib/format";
 import type { FareBreakdown } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,9 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
   const t = await adminApi.trip(id);
   const fare = t.fare ?? {};
   const isParcel = t.kind === "PARCEL";
-  const endLabel = t.status === "CANCELLED" ? "Cancelled" : isParcel ? "Delivered" : "Completed";
+  const isCancelled = t.status === "CANCELLED" || t.status === "NO_DRIVERS";
+  const endLabel = t.status === "CANCELLED" ? "Cancelled" : t.status === "NO_DRIVERS" ? "No drivers" : isParcel ? "Delivered" : "Completed";
+  const cancellations = t.cancellations ?? [];
 
   return (
     <>
@@ -168,14 +171,43 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                 Ended {formatMetres(t.endDistanceM)} from the drop: {t.endFarReason}
               </p>
             )}
-            {t.cancelReason && (
+            {isCancelled && (t.cancelledBy || t.cancelReason) && (
               <p className="rounded-lg bg-error-tint px-3 py-2 text-sm text-error">
-                Cancel reason: {t.cancelReason}
-                {t.cancelReason === "Rider is not a woman" &&
+                {t.status === "NO_DRIVERS" ? "Ended" : "Cancelled"} by {cancelSummary(t.cancelledBy, t.cancelCode)}
+                {t.cancelledAt && <span className="text-error/80"> · {formatDateTime(t.cancelledAt)}</span>}
+                {t.cancelReason && <span className="block">Note: {t.cancelReason}</span>}
+                {t.cancelCode === "BUTTERFLY_MISMATCH" &&
                   (t.riderName
                     ? " (reported by the driver; 2 reports turn off Butterfly-for-others on this account)"
                     : " (reported by the driver)")}
               </p>
+            )}
+            {cancellations.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Cancellations</p>
+                <ul className="space-y-2">
+                  {cancellations.map((c) => (
+                    <li key={c.id} className="rounded-lg border px-3 py-2 text-sm">
+                      <span className="font-medium text-navy-900">{cancelSummary(c.by, c.code)}</span>
+                      {c.driver && (
+                        <>
+                          {" · "}
+                          <Link href={`/drivers/${c.driver.id}`} className="hover:text-coral-600 hover:underline">
+                            {c.driver.user.name ?? "Driver"}
+                          </Link>{" "}
+                          <PlateBadge plate={c.driver.plate} />
+                        </>
+                      )}
+                      <span className="block text-xs text-muted-foreground">
+                        {formatDateTime(c.createdAt)} · was {humanize(c.fromStatus).toLowerCase()}
+                        {c.reassigned && " · sent back to search for another driver"}
+                        {c.isDriverFault && " · counts against the driver"}
+                      </span>
+                      {c.note && <span className="block text-xs text-navy-700">Note: {c.note}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -224,8 +256,9 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
               steps={[
                 { label: "Booked", at: t.createdAt },
                 { label: "Driver assigned", at: t.assignedAt },
+                { label: "Driver arrived", at: t.arrivedAt ?? null },
                 { label: isParcel ? "Picked up" : "Ride started", at: t.startedAt },
-                { label: endLabel, at: t.endedAt },
+                { label: endLabel, at: isCancelled ? (t.cancelledAt ?? t.endedAt) : t.endedAt },
               ]}
             />
           </CardContent>

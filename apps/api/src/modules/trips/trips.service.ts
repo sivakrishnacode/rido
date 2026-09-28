@@ -4,9 +4,9 @@ import { randomInt } from 'node:crypto';
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
-import { Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
+import { CancelCode, CancelledBy, Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
-import { MAX_RIDER_NOT_WOMAN, RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
+import { MAX_RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
 import type { FareQuote } from '../fares/fare-engine.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
 import { DemandService } from '../geo/demand.service.js';
@@ -17,6 +17,8 @@ import { NotifierService, type TripWithPeople } from '../notifications/notifier.
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { asVehicle, DispatchService } from './dispatch.service.js';
 import type { BookTripDto } from './dto/book-trip.dto.js';
+import type { CancelTripDto } from './dto/cancel-trip.dto.js';
+import { isDriverFault, resolveCancel } from './cancel-codes.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
 import { checkNearStop, positionForCheck } from './trip-position.js';
@@ -119,10 +121,10 @@ export class TripsService {
     return trip;
   }
 
-  /** Drivers reported (by cancel reason) that the "woman" this account booked Butterfly for was not one. */
+  /** Drivers reported (cancel code BUTTERFLY_MISMATCH) that the "woman" this account booked Butterfly for was not one. */
   private async checkButterflyForOthers(passengerId: string): Promise<void> {
     const reports = await this.prisma.trip.count({
-      where: { passengerId, riderName: { not: null }, cancelReason: RIDER_NOT_WOMAN },
+      where: { passengerId, riderName: { not: null }, cancelCode: CancelCode.BUTTERFLY_MISMATCH },
     });
     if (reports >= MAX_RIDER_NOT_WOMAN) {
       throw new ForbiddenException('Butterfly for someone else is off for your account after reports from drivers. Contact support.');
@@ -262,7 +264,12 @@ export class TripsService {
       radiusM: await this.settings.get('arrivalRadiusM'),
       farReason: pos.farReason,
     });
-    return this.move({ driverId, tripId, to: TripStatus.DRIVER_ARRIVED, data: { arrivedDistanceM: check.distanceM, arrivedFarReason: check.farReason } });
+    return this.move({
+      driverId,
+      tripId,
+      to: TripStatus.DRIVER_ARRIVED,
+      data: { arrivedAt: new Date(), arrivedDistanceM: check.distanceM, arrivedFarReason: check.farReason },
+    });
   }
 
   /** The server's fresh GPS fix, else the one sent with the request (see [positionForCheck]). */
@@ -314,26 +321,52 @@ export class TripsService {
   /**
    * Cancels, guarded on the status it was checked in: if the trip moved meanwhile (a driver accepted or started),
    * it is checked again, so a cancel never overwrites a ride that has started. Cancelling twice returns the trip.
+   * [body]: a cancel code (one this side may use, else OTHER) and an optional note, or an old client's `reason`.
    */
-  async cancel(user: AuthUser, tripId: string, reason?: string): Promise<Trip> {
+  async cancel(user: AuthUser, tripId: string, body: CancelTripDto = {}): Promise<Trip> {
     let trip = await this.get(user, tripId);
+    const by = user.driverId && trip.driverId === user.driverId ? CancelledBy.DRIVER : CancelledBy.PASSENGER;
+    const { code, note } = resolveCancel({ by, ...body });
     for (let attempt = 1; ; attempt++) {
       if (trip.status === TripStatus.CANCELLED) return trip;
       if (isFinished(trip.status) || !canTransition({ kind: trip.kind, from: trip.status, to: TripStatus.CANCELLED })) {
         throw new BadRequestException('This trip can no longer be cancelled');
       }
-      const { count } = await this.prisma.trip.updateMany({
-        where: { id: tripId, status: trip.status },
-        data: { status: TripStatus.CANCELLED, cancelReason: reason },
-      });
-      if (count === 1) break;
+      if (await this.markCancelled(trip, { by, code, note })) break;
       if (attempt >= 3) throw new ConflictException('This trip is changing right now. Please try again');
       trip = await this.get(user, tripId);
     }
     await this.dispatch.stop(tripId);
     // The status matched, so this is the driver the trip had; free them only if they are still on it.
     if (trip.driverId) await this.location.releaseBusy(trip.driverId, tripId);
-    return this.publish(tripId, user.driverId && trip.driverId === user.driverId ? 'DRIVER' : 'PASSENGER');
+    return this.publish(tripId, by);
+  }
+
+  /**
+   * CANCELLED with who / why / when, guarded on [trip]'s status, plus its history row, in one transaction. False when
+   * the trip had moved on (nothing written).
+   */
+  private async markCancelled(trip: Trip, c: { by: CancelledBy; code: CancelCode; note: string | null }): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.trip.updateMany({
+        where: { id: trip.id, status: trip.status },
+        data: { status: TripStatus.CANCELLED, cancelledBy: c.by, cancelCode: c.code, cancelReason: c.note, cancelledAt: new Date() },
+      });
+      if (count === 0) return false;
+      await tx.tripCancellation.create({
+        data: {
+          tripId: trip.id,
+          driverId: trip.driverId,
+          passengerId: trip.passengerId,
+          by: c.by,
+          code: c.code,
+          note: c.note,
+          fromStatus: trip.status,
+          isDriverFault: trip.driverId !== null && isDriverFault(c.by, c.code),
+        },
+      });
+      return true;
+    });
   }
 
   /**
@@ -406,7 +439,7 @@ export class TripsService {
   }
 
   /** Emits the fresh trip to both sides (socket + push) and returns it. [by] caused the change. */
-  private async publish(tripId: string, by: 'PASSENGER' | 'DRIVER'): Promise<Trip> {
+  private async publish(tripId: string, by: 'PASSENGER' | 'DRIVER' | 'SYSTEM'): Promise<Trip> {
     const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE });
     // Also the driver's own room: a cancel must reach the driver even if their trip-room join was lost.
     this.events.toTrip(tripId, 'trip.updated', { ...trip, otp: '' }, trip.driverId);

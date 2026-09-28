@@ -132,8 +132,8 @@ class FakeJobs extends LiveJobs {
   }
 
   @override
-  Future<LiveTripUpdate> cancel(String tripId, {String? reason}) async {
-    calls.add('cancel:$reason');
+  Future<LiveTripUpdate> cancel(String tripId, {CancelCode code = CancelCode.other, String? note}) async {
+    calls.add('cancel:${code.api}');
     return _update(tripId, 'CANCELLED');
   }
 
@@ -415,9 +415,9 @@ void main() {
     jobs.offersCtl.add(_offer('t1'));
     await pumpEventQueue();
     await session().acceptRequest();
-    await session().cancelJob(reason: 'Vehicle problem');
+    await session().cancelJob(code: CancelCode.vehicleIssue);
     expect(state().job, isNull);
-    expect(jobs.calls.last, 'cancel:Vehicle problem');
+    expect(jobs.calls.last, 'cancel:VEHICLE_ISSUE');
   });
 
   test('going offline stops offers and tells the API', () async {

@@ -108,7 +108,7 @@ export class AdminOpsService {
     if (entity === 'trips') {
       return this.prisma.trip.findMany({
         take: 5000, orderBy: { createdAt: 'desc' },
-        select: { id: true, createdAt: true, kind: true, status: true, vehicleKind: true, pickupName: true, dropName: true, distanceKm: true, durationMin: true, fareTotal: true, paymentMode: true, passengerId: true, driverId: true, rating: true, cancelReason: true },
+        select: { id: true, createdAt: true, kind: true, status: true, vehicleKind: true, pickupName: true, dropName: true, distanceKm: true, durationMin: true, fareTotal: true, paymentMode: true, passengerId: true, driverId: true, rating: true, cancelledBy: true, cancelCode: true, cancelReason: true, cancelledAt: true },
       });
     }
     if (entity === 'drivers') {

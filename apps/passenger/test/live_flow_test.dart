@@ -144,8 +144,8 @@ class _FakeTrips extends LiveTrips {
   }
 
   @override
-  Future<LiveTripUpdate> cancel(String tripId, {String? reason}) async {
-    calls.add('cancel:$reason');
+  Future<LiveTripUpdate> cancel(String tripId, {CancelCode code = CancelCode.other, String? note}) async {
+    calls.add('cancel:${code.api}');
     final u = update('CANCELLED');
     push(u);
     return u;
@@ -352,9 +352,9 @@ void main() {
 
   test('passenger cancel goes to the API and shows no "cancelled" notice', () async {
     await flow().book();
-    expect(await flow().cancelRide(reason: 'Changed my plan'), isNull);
+    expect(await flow().cancelRide(code: CancelCode.changedMind), isNull);
     await _settle();
-    expect(trips.calls.last, 'cancel:Changed my plan');
+    expect(trips.calls.last, 'cancel:CHANGED_MIND');
     expect(ride().phase, RidePhase.planning);
     expect(container.read(appNoticeProvider), isNull);
   });

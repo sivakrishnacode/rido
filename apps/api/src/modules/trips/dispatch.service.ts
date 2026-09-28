@@ -4,7 +4,7 @@ import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Trip } from '../../generated/prisma/client.js';
-import { TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
+import { CancelCode, CancelledBy, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DEL_IF_EQUALS, DriverLocationService } from '../drivers/driver-location.service.js';
 import { applyWomenPref, womenAmong } from '../drivers/women-drivers.js';
 import { roadKm } from '../geo/eta-model.js';
@@ -284,7 +284,10 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async giveUp(trip: Trip): Promise<void> {
-    const { count } = await this.prisma.trip.updateMany({ where: { id: trip.id, status: TripStatus.SEARCHING }, data: { status: TripStatus.NO_DRIVERS } });
+    const { count } = await this.prisma.trip.updateMany({
+      where: { id: trip.id, status: TripStatus.SEARCHING },
+      data: { status: TripStatus.NO_DRIVERS, cancelledBy: CancelledBy.SYSTEM, cancelCode: CancelCode.NO_DRIVERS, cancelledAt: new Date() },
+    });
     await this.stop(trip.id);
     if (count === 0) return;
     this.events.toUser(trip.passengerId, 'trip.no_drivers', { tripId: trip.id });

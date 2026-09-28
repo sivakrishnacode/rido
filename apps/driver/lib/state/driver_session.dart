@@ -473,11 +473,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _scheduleRequest(_t(SimTimings.nextRequest));
   }
 
-  /// D-16 overflow → Cancel ride → reason. Back to D-14 online. Live API: throws when the API refuses.
-  Future<void> cancelJob({String? reason}) async {
+  /// D-16 overflow → Cancel ride → reason [code]. Back to D-14 online. Live API: throws when the API refuses.
+  Future<void> cancelJob({CancelCode code = CancelCode.other, String? note}) async {
     final job = state.job;
     if (_live) {
-      if (job != null) await _jobs.cancel(job.id, reason: reason);
+      if (job != null) await _jobs.cancel(job.id, code: code, note: note);
       if (!ref.mounted) return;
       _endJob();
       return;

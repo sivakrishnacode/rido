@@ -7,10 +7,10 @@ import { Gender, WomenDriverPref } from '../../generated/prisma/enums.js';
  */
 export const PREFERRED_HEAD_START_MIN = 8;
 
-/** Driver cancel reason on a Butterfly ride booked for someone else: the person at the pickup is not a woman. */
-export const RIDER_NOT_WOMAN = 'Rider is not a woman';
-
-/** After this many such cancels, the account can no longer book Butterfly rides for someone else. */
+/**
+ * After this many driver cancels with code BUTTERFLY_MISMATCH (the person at the pickup is not a woman) on Butterfly
+ * rides booked for someone else, the account can no longer book Butterfly rides for someone else.
+ */
 export const MAX_RIDER_NOT_WOMAN = 2;
 
 /** The ids among [driverIds] whose account says FEMALE. */

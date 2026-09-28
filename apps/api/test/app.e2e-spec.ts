@@ -132,7 +132,7 @@ describe('Rido API (e2e)', () => {
       if (accepted !== 200) await new Promise((r) => setTimeout(r, 250));
     }
     expect(accepted).toBe(200);
-    await http.post(`/v1/trips/${trip.id}/arrived`).set(auth).expect(200);
+    expect((await http.post(`/v1/trips/${trip.id}/arrived`).set(auth).expect(200)).body.arrivedAt).not.toBeNull();
     const wrongOtp = { otp: '0000' === trip.otp ? '1111' : '0000' };
     await http.post(`/v1/trips/${trip.id}/start`).set(auth).send(wrongOtp).expect(400);
     // 5 tries a minute: the 5th wrong one locks the OTP, even the right one, until the minute is up.
@@ -249,11 +249,14 @@ describe('Rido API (e2e)', () => {
     }
     expect(offer?.passenger).toMatchObject({ name: 'Anjali', phone: '+919876512345' });
     expect((await acceptWhenOffered(trip.id, woman)).status).toBe(200);
-    await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${woman}`).send({ reason: 'Rider is not a woman' }).expect(200);
+    // An older driver app sends only the reason text: it becomes the Butterfly-mismatch code (no fault).
+    const reported = (await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${woman}`).send({ reason: 'Rider is not a woman' }).expect(200)).body;
+    expect(reported).toMatchObject({ status: 'CANCELLED', cancelledBy: 'DRIVER', cancelCode: 'BUTTERFLY_MISMATCH', cancelReason: 'Rider is not a woman' });
+    expect(await prisma.tripCancellation.findMany({ where: { tripId: trip.id } })).toMatchObject([{ by: 'DRIVER', code: 'BUTTERFLY_MISMATCH', isDriverFault: false }]);
 
     // A second report switches Butterfly-for-others off for this account (own rides are not affected by it).
     const second = (await http.post('/v1/trips').set(pax).send({ ...book, rider: daughter }).expect(201)).body;
-    await prisma.trip.update({ where: { id: second.id }, data: { status: 'CANCELLED', cancelReason: 'Rider is not a woman' } });
+    await prisma.trip.update({ where: { id: second.id }, data: { status: 'CANCELLED', cancelledBy: 'DRIVER', cancelCode: 'BUTTERFLY_MISMATCH' } });
     await http.post('/v1/trips').set(pax).send({ ...book, rider: daughter }).expect(403);
     const plain = (await http.post('/v1/trips').set(pax).send({ ...book, womenDriver: undefined, rider: daughter }).expect(201)).body;
     expect(plain.womenDriver).toBe('NONE');
@@ -283,7 +286,13 @@ describe('Rido API (e2e)', () => {
     expect(accepted.status).toBe(200);
     expect(accepted.body.vehicleKind).toBe('AUTO');
     expect(accepted.body.fareTotal).toBe(66);
-    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+    // A passenger cancel with a code and a note; a driver-only code from a passenger becomes OTHER.
+    const cancelled = (await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({ code: 'WAIT_TOO_LONG', note: 'Too slow' }).expect(200)).body;
+    expect(cancelled).toMatchObject({ cancelledBy: 'PASSENGER', cancelCode: 'WAIT_TOO_LONG', cancelReason: 'Too slow' });
+    expect(new Date(cancelled.cancelledAt).getTime()).toBeGreaterThan(Date.now() - 60_000);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({ code: 'NOT_A_CODE' }).expect(400);
+    const other = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'CAB', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+    expect((await http.post(`/v1/trips/${other.id}/cancel`).set(pax).send({ code: 'PASSENGER_NO_SHOW' }).expect(200)).body.cancelCode).toBe('OTHER');
   });
 
   it('widens the search radius: a cab 7 km away (outside the 5 km start) still gets the request', async () => {

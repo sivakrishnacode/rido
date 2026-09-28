@@ -32,7 +32,7 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
       Navigator.of(context).maybePop();
       return;
     }
-    final error = await ref.read(rideFlowProvider.notifier).cancelRide(reason: 'Driver cancelled');
+    final error = await ref.read(rideFlowProvider.notifier).cancelRide(code: CancelCode.waitTooLong, note: 'After the driver cancelled');
     if (!mounted) return;
     if (error != null) {
       showRidoSnack(context, error);

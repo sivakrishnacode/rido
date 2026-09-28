@@ -90,7 +90,16 @@ export class AdminService {
   }
 
   trip(id: string): Promise<Trip> {
-    return this.prisma.trip.findUniqueOrThrow({ where: { id }, include: { passenger: true, driver: { include: { user: true } }, tickets: true } });
+    return this.prisma.trip.findUniqueOrThrow({
+      where: { id },
+      include: {
+        passenger: true,
+        driver: { include: { user: true } },
+        tickets: true,
+        // Every cancel, including drivers who dropped the trip before another took it.
+        cancellations: { orderBy: { createdAt: 'asc' }, include: { driver: { select: { id: true, plate: true, user: { select: { name: true } } } } } },
+      },
+    });
   }
 
   async passengers(q: ListQueryDto): Promise<Paged<User>> {

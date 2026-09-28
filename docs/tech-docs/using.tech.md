@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -235,6 +235,22 @@ Never commit real `.env` files.
     400 `WRONG_OTP` `{details: {triesLeft}}`; the 5th wrong try and any try while locked → **429 `OTP_LOCKED`**
     "Too many wrong OTPs. Ask the rider (receiver) to read it again in a minute" `{details: {retryInSeconds}}`.
     Driver app (D-17 / D-22a): shows the message and keeps the button off until then (`OtpLockout`).
+  - **Structured cancellations (28 Sep 2026, like Namma Yatri's `CancellationReason`):** `POST /trips/:id/cancel`
+    takes `{code, note?}`; `code` is a `CancelCode` the caller's side may use (`trips/cancel-codes.ts`), anything else
+    becomes `OTHER`. Passenger: `CHANGED_MIND`, `DRIVER_TOO_FAR`, `DRIVER_ASKED_TO_CANCEL`, `WAIT_TOO_LONG`,
+    `BOOKED_BY_MISTAKE`, `OTHER`. Driver: `PASSENGER_NO_SHOW`, `PASSENGER_UNREACHABLE`, `PASSENGER_ASKED_TO_CANCEL`,
+    `VEHICLE_ISSUE`, `TOO_FAR`, `BUTTERFLY_MISMATCH` (was the reason text `Rider is not a woman`), `OTHER`. System:
+    `NO_DRIVERS`, `DRIVER_NOT_MOVING`, `STUCK`. **Backward compatible:** an old app sending only `{reason}` gets its
+    text mapped to the code (unknown text → `OTHER`) and kept as the note. The trip stores `cancelledBy`
+    (`PASSENGER` / `DRIVER` / `SYSTEM` / `ADMIN`), `cancelCode`, `cancelledAt` and the note in `cancelReason`;
+    `NO_DRIVERS` trips get `SYSTEM` / `NO_DRIVERS`. Every cancel also writes a `TripCancellation` row (trip,
+    driver, passenger, by, code, note, `fromStatus`, `reassigned`, `isDriverFault`; indexed by driver and passenger
+    + time) for cancellation rates: `isDriverFault` = a driver's cancel except `PASSENGER_NO_SHOW` /
+    `BUTTERFLY_MISMATCH`, or the system's `DRIVER_NOT_MOVING`. Migration `20260928140000_structured_cancellations`
+    backfills `cancelledBy` / `cancelCode` / `cancelledAt` from the old reason texts and history rows for old cancels.
+    `Trip.arrivedAt` is set on "Arrived". Apps: S-03 / D-16 / D-17 send codes (`CancelCode` in rido_data, with the
+    sheet labels and per-side lists); admin trip page shows who / why / when, the note, every cancellation and the
+    arrival time; the trips CSV has the new columns. The Butterfly-for-others report count uses the code.
   - Global JWT/roles guards now skip non-HTTP contexts: sockets authenticate on connect. (Before this, `trip:join` and
     `driver:location` crashed in the guard, so live tracking never reached passengers.)
 - **Durable jobs (28 Sep 2026, `core/jobs`, like Namma Yatri's `lib/scheduler`):** `JobsService.schedule(kind, id,
@@ -248,7 +264,7 @@ Never commit real `.env` files.
   `offer.expire` (an offer's `offerSeconds` timeout, payload `{driverId}`) and `dispatch.research` (search again 4 s
   after the queue ran out); both are cancelled when the search stops. Before, these were in-memory `setTimeout`s and an
   API restart lost every open offer until the 15 s sweep. `runDue(now)` runs due jobs directly (tests).
-- **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, IdentityVerification, Trip, Plan, Subscription,
+- **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, IdentityVerification, Trip, TripCancellation, Plan, Subscription,
   Payment, SupportTicket. Money in whole rupees (Int). Migrations in `apps/api/prisma/migrations`.
 - **Redis keys:**
 
@@ -291,7 +307,7 @@ Never commit real `.env` files.
      **"Who's riding?" (28 Sep 2026):** booking field `rider: { name, phone, isWoman }` (rides only) stores
      `Trip.riderName / riderPhone / riderIsWoman`; Butterfly needs a woman *rider* (the account holder with gender
      FEMALE, or `rider.isWoman`). The driver's offer shows the rider's name and phone (`passenger.bookedBy` = the
-     account holder). Abuse guard: a driver can cancel with the reason `Rider is not a woman` (`RIDER_NOT_WOMAN`,
+     account holder). Abuse guard: a driver can cancel with the code `BUTTERFLY_MISMATCH` ("Rider is not a woman",
      no penalty: Rido has no driver cancel penalties); after 2 such cancels on trips booked for someone else the
      account gets 403 for Butterfly-for-others (own Butterfly rides and normal rides still work). No SMS to the
      rider yet: the account holder shares the ride OTP. Apps: P-10 "Riding: Me ▾" chip → P-10b sheet (name, mobile,

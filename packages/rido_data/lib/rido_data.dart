@@ -21,6 +21,7 @@ export 'src/maps/google_places_client.dart';
 export 'src/maps/polyline_codec.dart';
 export 'src/mock/mock_database.dart';
 export 'src/mock/mock_repositories.dart';
+export 'src/models/cancellation.dart';
 export 'src/models/driver.dart';
 export 'src/models/people.dart';
 export 'src/models/place.dart';

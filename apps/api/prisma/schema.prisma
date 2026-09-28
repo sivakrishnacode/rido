@@ -90,6 +90,36 @@ enum TripStatus {
   CANCELLED
 }
 
+/// Who ended (or gave up on) a trip.
+enum CancelledBy {
+  PASSENGER
+  DRIVER
+  SYSTEM
+  ADMIN
+}
+
+/// Why a trip was cancelled. Passenger: CHANGED_MIND, DRIVER_TOO_FAR, DRIVER_ASKED_TO_CANCEL, WAIT_TOO_LONG,
+/// BOOKED_BY_MISTAKE. Driver: PASSENGER_NO_SHOW (only after the wait, see noShowWaitMin), PASSENGER_UNREACHABLE,
+/// PASSENGER_ASKED_TO_CANCEL, VEHICLE_ISSUE, TOO_FAR, BUTTERFLY_MISMATCH (Butterfly rider is not a woman). System:
+/// NO_DRIVERS, DRIVER_NOT_MOVING, STUCK. OTHER for anyone. See trips/cancel-codes.ts.
+enum CancelCode {
+  CHANGED_MIND
+  DRIVER_TOO_FAR
+  DRIVER_ASKED_TO_CANCEL
+  WAIT_TOO_LONG
+  BOOKED_BY_MISTAKE
+  PASSENGER_NO_SHOW
+  PASSENGER_UNREACHABLE
+  PASSENGER_ASKED_TO_CANCEL
+  VEHICLE_ISSUE
+  TOO_FAR
+  BUTTERFLY_MISMATCH
+  NO_DRIVERS
+  DRIVER_NOT_MOVING
+  STUCK
+  OTHER
+}
+
 enum PaymentMode {
   CASH
   UPI
@@ -246,20 +276,20 @@ model Place {
 }
 
 model Driver {
-  id                String         @id @default(cuid())
-  userId            String         @unique
-  workType          WorkType       @default(RIDES)
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  workType          WorkType           @default(RIDES)
   vehicleKind       VehicleKind
   vehicleModel      String
-  vehicleColor      String         @default("")
-  plate             String         @unique
+  vehicleColor      String             @default("")
+  plate             String             @unique
   upiId             String
   /// Average of passengers' ratings (ratingSum / ratingCount, 2 decimals); 5 until the first rating.
-  rating            Float          @default(5)
-  ratingSum         Int            @default(0)
-  ratingCount       Int            @default(0)
-  ridesCount        Int            @default(0)
-  status            DriverStatus   @default(PENDING)
+  rating            Float              @default(5)
+  ratingSum         Int                @default(0)
+  ratingCount       Int                @default(0)
+  ridesCount        Int                @default(0)
+  status            DriverStatus       @default(PENDING)
   /// Profile photo riders see on their trip (taken in the app, matched to [selfieFile]). Private storage file.
   photoFile         String?
   photoUpdatedAt    DateTime?
@@ -271,12 +301,13 @@ model Driver {
   photoMatchScore   Float?
   /// Why an admin rejected the last photo.
   photoRejectReason String?
-  isOnline          Boolean        @default(false)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isOnline          Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents         KycDocument[]
   trips             Trip[]
+  cancellations     TripCancellation[]
   subscriptions     Subscription[]
 }
 
@@ -294,9 +325,9 @@ model KycDocument {
 }
 
 model Trip {
-  id               String          @id @default(cuid())
+  id               String             @id @default(cuid())
   kind             TripKind
-  status           TripStatus      @default(SEARCHING)
+  status           TripStatus         @default(SEARCHING)
   passengerId      String
   driverId         String?
   vehicleKind      VehicleKind
@@ -318,41 +349,75 @@ model Trip {
   fareTotal        Int
   /// "Book any" (like Namma Yatra): other vehicles the passenger added while searching, and their quotes by kind.
   /// The first driver of any of them to accept takes the trip at that vehicle's fare.
-  alsoKinds        VehicleKind[]   @default([])
+  alsoKinds        VehicleKind[]      @default([])
   alsoFares        Json?
   otp              String
-  paymentMode      PaymentMode     @default(CASH)
+  paymentMode      PaymentMode        @default(CASH)
   /// Parcel only: category, weight band, sender/receiver details.
   parcel           Json?
   payer            ParcelPayer?
   /// Butterfly: offer the trip to women drivers first (PREFERRED) or only (ONLY).
-  womenDriver      WomenDriverPref @default(NONE)
+  womenDriver      WomenDriverPref    @default(NONE)
   /// "Who's riding?": booked for someone else (e.g. a father for his daughter). The driver sees and calls the rider.
   riderName        String?
   riderPhone       String?
   /// The rider (account holder, or [riderName]) is a woman: allows Butterfly.
-  riderIsWoman     Boolean         @default(false)
+  riderIsWoman     Boolean            @default(false)
   rating           Int?
+  /// Free-text note with a cancel (older clients sent only this).
   cancelReason     String?
+  /// Who cancelled, why (code) and when. Also set by the system on NO_DRIVERS.
+  cancelledBy      CancelledBy?
+  cancelCode       CancelCode?
+  cancelledAt      DateTime?
   /// Driver's distance from the pickup when marking "Arrived", and the reason given when outside `arrivalRadiusM`.
   arrivedDistanceM Int?
   arrivedFarReason String?
   /// Distance from the drop when the trip was completed, and the reason when outside `dropRadiusM`.
   endDistanceM     Int?
   endFarReason     String?
-  createdAt        DateTime        @default(now())
+  createdAt        DateTime           @default(now())
   assignedAt       DateTime?
+  /// When the driver marked "Arrived" (starts the passenger no-show wait).
+  arrivedAt        DateTime?
   startedAt        DateTime?
   endedAt          DateTime?
-  passenger        User            @relation("PassengerTrips", fields: [passengerId], references: [id])
-  driver           Driver?         @relation(fields: [driverId], references: [id])
+  passenger        User               @relation("PassengerTrips", fields: [passengerId], references: [id])
+  driver           Driver?            @relation(fields: [driverId], references: [id])
   tickets          SupportTicket[]
+  cancellations    TripCancellation[]
 
   @@index([passengerId, createdAt])
   @@index([driverId, createdAt])
   @@index([status])
   @@index([pickupCell])
   @@index([dropCell])
+}
+
+/// Every cancel of a trip, including a driver's cancel that sent the trip back to searching (the trip row keeps only
+/// the last). Counts cancellation rates per driver / passenger: [isDriverFault] marks the ones held against the driver
+/// (not a no-show after the wait, not a Butterfly mismatch).
+model TripCancellation {
+  id            String      @id @default(cuid())
+  tripId        String
+  /// The driver the trip had when it was cancelled (null while searching).
+  driverId      String?
+  passengerId   String
+  by            CancelledBy
+  code          CancelCode
+  note          String?
+  /// Trip status when it was cancelled (DRIVER_ASSIGNED, DRIVER_ARRIVED, …).
+  fromStatus    TripStatus
+  /// The trip went back to searching for another driver instead of ending.
+  reassigned    Boolean     @default(false)
+  isDriverFault Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  trip          Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  driver        Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  @@index([tripId])
+  @@index([driverId, createdAt])
+  @@index([passengerId, createdAt])
 }
 
 /// Price list: one row per vehicle and period (daily / weekly / monthly).
