@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -187,7 +187,8 @@ Never commit real `.env` files.
 - **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds,
   offerSeconds, maxCandidates, maxReassigns, notMovingMinMin, notMovingEtaFactor, notMovingMinProgressM,
   notMovingRecheckMin, noShowWaitMin, freeWaitMin, waitMaxCharge, cancellationFeeEnabled, cancellationFee,
-  cancelRateMinTrips, cancelRateNudge, cancelRateBlock, cancelBlockHours, cancelBlockRepeatHours, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
+  cancelRateMinTrips, cancelRateNudge, cancelRateBlock, cancelBlockHours, cancelBlockRepeatHours, rankEnabled, rankWeightAccept, rankWeightCancel,
+  rankIdleMaxBoost, rankIdleFullMin, rankMinOffers, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
   contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
@@ -326,7 +327,9 @@ Never commit real `.env` files.
     - **Admin:** the driver page shows the 7-day rate, a Pauses card (history) and **Lift pause** (`POST
       /v1/admin/drivers/:id/lift-block` → the block with `liftedBy` = the admin's user id, `liftedAt`; 409 when not
       paused; cancels the job; audit logged like every admin POST). `GET /admin/drivers/:id` adds `blocks` and
-      `cancelRate`. Settings › Driver cancellations.
+      `cancelRate`. Settings › Driver cancellations. The driver page also shows **Offers (7 days)** from `GET
+      /v1/admin/drivers/:id/offer-stats` → `{days, offered, accepted, declined, ignored, cancelled, acceptRate,
+      isRanked, minOffers}` (the ranking counters). Settings › Driver ranking.
     - **Passengers are never paused:** `GET /admin/users/:id` adds `cancelRate` (last 30 days: `booked` trips,
       `cancelled` by them, `atFault` = verdict PASSENGER, `rate`, `faultRate`), shown on the admin user page.
     - Driver app: D-13 banner (warning at NUDGE; "You're paused until …" with Details while paused), the 403 opens
@@ -397,6 +400,8 @@ Never commit real `.env` files.
 | `driver:alive:<driverId>` | Heartbeat `lat,lng,epochMs`; stale drivers are skipped | 90 s |
 | `driver:state:<driverId>` | `online\|vehicleKind\|blocked` (e.g. `1\|BIKE\|0`) for the GPS path, so no database read per fix (`core/driver-state`). Written on go online / offline; dropped when an admin changes the driver's status or blocks / unblocks the user, on KYC status changes and profile edits; a miss reads the database | 60 s |
 | `driver:busy:<driverId>` | Active trip id; claimed with SET NX on accept (one trip per driver), freed by compare-and-delete | 6 h, refreshed by each GPS update; a stale one is cleared on go-online |
+| `drv:stats:<driverId>:<yyyymmdd>` | Offer counters for ranking (`o` offered, `a` accepted, `d` declined, `i` ignored, `c` driver-fault cancel after accept), UTC day | 8 days |
+| `drv:lastTripEnd:<driverId>`, `drv:onlineSince:<driverId>` | Epoch ms; the idle bonus in ranking waits from the later one | 1 day |
 | `user:blocked:<userId>` | Blocked by an admin (checked on every request) | until unblocked |
 | `driver:tblock:<driverId>` | Paused for too many cancellations (value = end, epoch ms); dispatch skips these drivers | until the pause ends; deleted when it is lifted |
 | `driver:cancel-rate:<driverId>` | Cached `GET /drivers/me/cancel-rate` stats | 5 min; deleted on each of their cancellations |
@@ -422,6 +427,19 @@ Never commit real `.env` files.
   4. Candidates are ranked by **road ETA**, not straight-line distance (`EtaService`: Google Routes when
      `useRoadEta` and a key are set, else a 20 km/h × 1.3 estimate), cached per H3 cell pair for 10 min so all
      drivers in one hexagon share one lookup.
+     **Reliability ranking (28 Sep 2026, like Namma Yatri's intelligent pool; `trips/driver-rank.ts`,
+     `trips/driver-offer-stats.service.ts`):** still one driver at a time, but the queue order uses ranking minutes
+     `eta × (1 + rankWeightAccept·(1 − acceptRatio) + rankWeightCancel·cancelRatio) − eta × idleShare`.
+     acceptRatio = accepted ÷ answered offers (accepted + declined + ignored), cancelRatio = driver-fault cancels ÷
+     accepted, both over the last 7 days and only once the driver had `rankMinOffers` (10) offers (new drivers are
+     neutral). idleShare = `rankIdleMaxBoost` (0.15) × min(1, idle minutes ÷ `rankIdleFullMin` (30)), idle since the
+     later of the last trip end (`driver:busy` released) and going online (offline → online): a share of the driver's
+     own ETA, so a long wait never beats a driver more than 15 % nearer. Defaults `rankWeightAccept` 0.5,
+     `rankWeightCancel` 1.0; `rankEnabled` off = plain ETA. Counters: Redis hash `drv:stats:<id>:<yyyymmdd>` (UTC
+     day; fields `o` offered at send, `a` accepted when the guarded write wins, `d` declined, `i` offer expired,
+     `c` cancel after accept judged DRIVER), 8-day TTL, read for all candidates in one pipeline (7 HGETALL + 2 GET
+     each). The Butterfly head start and `assignBatch` work on the ranking minutes. The trip is re-read (still
+     SEARCHING) in `offerNext` right before each offer, after the slow ETA/ranking step, so no extra check was needed.
      **Butterfly (27 Sep 2026):** `Trip.womenDriver` (`NONE` / `PREFERRED` / `ONLY`, booking field `womenDriver`,
      women riders only: the passenger's `gender` must be `FEMALE`, rides only). `ONLY` keeps women drivers
      (driver `user.gender = FEMALE`) and never falls back; `PREFERRED` ranks men as if 8 min further
@@ -439,7 +457,7 @@ Never commit real `.env` files.
      rider yet: the account holder shares the ride OTP. Apps: P-10 "Riding: Me ▾" chip → P-10b sheet (name, mobile,
      "She's a woman"); it resets to Me after a finished ride. Driver: request card shows the rider with "Booked by …",
      and D-16 / D-17 offer the cancel reason on women-only rides. Admin trip page shows the rider and Butterfly.
-  5. The whole batch is assigned together (`assignBatch`: all trip–driver pairs by ETA, each driver to one rider),
+  5. The whole batch is assigned together (`assignBatch`: all trip–driver pairs by ranking minutes, each driver to one rider),
      then each driver gets `offerSeconds` to accept; decline/timeout → next in that trip's queue.
      **One offer, one trip (28 Sep 2026):** a driver who is busy or still deciding on another request is skipped
      (next candidate; they come back in a later search). Accept claims `driver:busy` atomically before the database
@@ -691,7 +709,8 @@ accepts unknown subtype names without error, so use only catalog names (read the
 - **Settings (`/settings`):** renders every key `GET /v1/admin/settings` returns: "Pricing & surge"
   (dynamicSurgeEnabled, surgeSensitivity, demandWindowMin, surgeMinRequests, maxMultiplier, currentMultiplier, with the
   formula and a live example: ratio 3 → 1 + 0.1 × 2 = 1.2×), "Dispatch & ETA" (batchWindowMs, useRoadEta,
-  historicalEtaMinTrips, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds, offerSeconds, maxCandidates, maxReassigns), Driver
+  historicalEtaMinTrips, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds, offerSeconds, maxCandidates, maxReassigns), "Driver
+  ranking" (rankEnabled, rankWeightAccept, rankWeightCancel, rankIdleMaxBoost, rankIdleFullMin, rankMinOffers), Driver
   plans, Support, and any new key in
   "Other" (typed from the API value). Only changed keys are sent; values are validated client + server side.
 - **Trip page GPS path (28 Sep 2026):** finished trips show driven vs quoted km, km to the pickup, GPS points and mock
@@ -1002,6 +1021,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Driver re-search | **Done (28 Sep 2026)**: a driver cancel before pickup sends the trip back to searching (≤ `maxReassigns`), see 6 "Reassign on driver cancel" |
 | GPS path follow-ups | Breadcrumbs, actual distance and fare flags **Done (28 Sep 2026)**. Later: admin settings for the thresholds (50 m, 120 km/h, 2 km gap, max(1.2 km, 25 %)), snap-to-road for a nicer path, a per-driver mock-GPS count across trips |
 | Cancellations follow-ups | Waiting charge, fault verdict, cancellation fee (off) and driver pauses **Done (28 Sep 2026)**. Later: decide the fee policy (then tell passengers before they cancel: the cancel sheet should say "₹10 fee"), a way to waive a due, a "moving away" signal from the pickup-progress job and ETA growth (today: straight-line distance vs accept), per-city thresholds, a pause appeal flow |
+| Driver ranking | **Done (28 Sep 2026)**: 7-day offer record + idle bonus, see 6 Dispatch step 4. Later: per-city weights, an actual-pickup-distance term (Namma Yatri has one), show drivers their own acceptance rate in the app, backfill the counters from `TripCancellation` after a Redis flush |
 | Trip `updatedAt` | Add to Trip JSON so apps can order pushed updates reliably (apps guard with a status order today) |
 | SOS / tracking link | No SOS service (apps raise a "Safety concern" ticket + dialer) and no public trip-tracking page yet |
 | Women-driver preference | **Done (27 Sep 2026)** as Butterfly: booking sends `womenDriver`, dispatch filters (ONLY) or ranks (PREFERRED) by driver gender, see 7 Dispatch step 4 |

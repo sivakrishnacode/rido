@@ -12,6 +12,7 @@ import { JobsService } from '../src/core/jobs/jobs.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
 import { SettingsService } from '../src/modules/settings/settings.service.js';
 import { DriverBlocksService } from '../src/modules/trips/driver-blocks.service.js';
+import { statsKey } from '../src/modules/trips/driver-rank.js';
 import { DEMAND_RES } from '../src/modules/geo/demand.service.js';
 import { cellAt } from '../src/modules/geo/h3.util.js';
 import { haversineMeters } from '../src/modules/fares/fare-engine.js';
@@ -384,6 +385,48 @@ describe('Rido API (e2e)', () => {
     await http.post(`/v1/trips/${other}/cancel`).set('Authorization', `Bearer ${other === a.id ? paxA : paxB}`).send({}).expect(200);
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${bike}`).expect(200);
   }, 45_000);
+
+  it('ranks equidistant drivers by their 7-day offer record: the one who ignores offers is asked second', async () => {
+    // Arrange: only these two bike drivers are indexed, at the same spot; one ignored most offers this week.
+    const redis = app.get(RedisService);
+    const cells = await redis.keys('h3:drv:BIKE:*');
+    if (cells.length) await redis.del(...cells);
+    const at = { lat: 11.0185, lng: 76.9727 };
+    const [flaky, steady] = [await onlineDriver('BIKE', at), await onlineDriver('BIKE', at)];
+    const idOf = async (t: string) => (await http.get('/v1/drivers/me').set('Authorization', `Bearer ${t}`).expect(200)).body.id as string;
+    const [flakyId, steadyId] = [await idOf(flaky), await idOf(steady)];
+    const today = statsKey(flakyId, Date.now()).slice(-8);
+    await redis.hset(`drv:stats:${flakyId}:${today}`, { o: 20, a: 4, d: 6, i: 10 });
+    await redis.hset(`drv:stats:${steadyId}:${today}`, { o: 20, a: 19, i: 1 });
+    const since = String(Date.now());
+    for (const id of [flakyId, steadyId]) await redis.set(`drv:onlineSince:${id}`, since, 'EX', 600);
+    const pax = await login();
+    const trip = (await http.post('/v1/trips').set('Authorization', `Bearer ${pax}`).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+    const offerOf = async (t: string) => {
+      const res = await http.get('/v1/trips/offer').set('Authorization', `Bearer ${t}`);
+      return res.status === 200 ? ((res.body?.trip?.id as string | undefined) ?? null) : null;
+    };
+
+    // Act + assert: the steady driver gets it first; the flaky one only after the steady one declines.
+    let first: string | null = null;
+    for (let i = 0; i < 40 && !first; i++) {
+      if ((await offerOf(steady)) === trip.id) first = steadyId;
+      else if ((await offerOf(flaky)) === trip.id) first = flakyId;
+      else await new Promise((r) => setTimeout(r, 250));
+    }
+    expect(first).toBe(steadyId);
+    await http.post(`/v1/trips/${trip.id}/decline`).set('Authorization', `Bearer ${steady}`).expect((r) => expect(r.status).toBeLessThan(300));
+    expect((await acceptWhenOffered(trip.id, flaky)).status).toBe(200);
+
+    // The admin sees the counters: the decline and the accept were recorded.
+    const admin = await adminAuth();
+    const steadyStats = (await http.get(`/v1/admin/drivers/${steadyId}/offer-stats`).set(admin).expect(200)).body;
+    expect(steadyStats).toMatchObject({ offered: 21, accepted: 19, declined: 1, isRanked: true, days: 7 });
+    const flakyStats = (await http.get(`/v1/admin/drivers/${flakyId}/offer-stats`).set(admin).expect(200)).body;
+    expect(flakyStats).toMatchObject({ offered: 21, accepted: 5 });
+    await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${pax}`).send({}).expect(200);
+    for (const d of [flaky, steady]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`).expect(200);
+  }, 30_000);
 
   it('a driver cancel before pickup finds another driver; the reassign limit then cancels the trip', async () => {
     // Arrange: only these two bike drivers are indexed; one rider.

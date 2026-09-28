@@ -5,6 +5,7 @@ import { RedisService } from '../../core/redis/redis.service.js';
 import type { VehicleKind } from '../../generated/prisma/enums.js';
 import { haversineMeters } from '../fares/fare-engine.js';
 import { cellAt } from '../geo/h3.util.js';
+import { IDLE_KEY_TTL_S, lastTripEndKey, onlineSinceKey } from '../trips/driver-rank.js';
 
 /** Resolution used to index drivers (≈0.74 km² hexes, ~0.9 km between neighbouring centres). */
 export const DRIVER_H3_RES = 8;
@@ -96,9 +97,18 @@ export class DriverLocationService {
     return (await this.redis.eval(CLAIM, 1, `driver:busy:${driverId}`, tripId, BUSY_TTL_S)) === 1;
   }
 
-  /** Frees the driver only if they are still busy with [tripId] (not with a trip they have moved on to). */
-  async releaseBusy(driverId: string, tripId: string): Promise<void> {
-    await this.redis.eval(DEL_IF_EQUALS, 1, `driver:busy:${driverId}`, tripId);
+  /**
+   * Frees the driver only if they are still busy with [tripId] (not with a trip they have moved on to). [tripEnded]:
+   * their wait for the next trip starts now (the idle bonus in dispatch ranking, trips/driver-rank.ts).
+   */
+  async releaseBusy(driverId: string, tripId: string, tripEnded = true): Promise<void> {
+    const freed = await this.redis.eval(DEL_IF_EQUALS, 1, `driver:busy:${driverId}`, tripId);
+    if (freed === 1 && tripEnded) await this.redis.set(lastTripEndKey(driverId), String(Date.now()), 'EX', IDLE_KEY_TTL_S);
+  }
+
+  /** The driver went online (from offline): their wait for a trip starts now, for the idle bonus in ranking. */
+  async markOnline(driverId: string): Promise<void> {
+    await this.redis.set(onlineSinceKey(driverId), String(Date.now()), 'EX', IDLE_KEY_TTL_S);
   }
 
   activeTrip(driverId: string): Promise<string | null> {

@@ -46,6 +46,17 @@ export const SETTING_DEFAULTS = {
   cancelRateBlock: 0.5,
   cancelBlockHours: 24,
   cancelBlockRepeatHours: 72,
+  /**
+   * Dispatch ranking (trips/driver-rank.ts): eta × (1 + rankWeightAccept·(1 − accept ratio) + rankWeightCancel·cancel
+   * ratio) − an idle bonus of up to [rankIdleMaxBoost] of the ETA at [rankIdleFullMin] minutes without a trip. Ratios
+   * over 7 days, counted from [rankMinOffers] offers (new drivers are neutral). [rankEnabled] off = plain road ETA.
+   */
+  rankEnabled: true,
+  rankWeightAccept: 0.5,
+  rankWeightCancel: 1.0,
+  rankIdleMaxBoost: 0.15,
+  rankIdleFullMin: 30,
+  rankMinOffers: 10,
   /** A started trip still running after max(this, stuckDurationFactor × estimated minutes) is flagged for admins. */
   stuckTripMinMin: 120,
   stuckDurationFactor: 4,

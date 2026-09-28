@@ -35,7 +35,8 @@ export async function generateMetadata({ params }: PageProps<"/drivers/[id]">): 
 
 export default async function DriverPage({ params }: PageProps<"/drivers/[id]">) {
   const { id } = await params;
-  const d = await adminApi.driver(id);
+  // The offer record is extra: the page still renders without it.
+  const [d, offers] = await Promise.all([adminApi.driver(id), adminApi.driverOfferStats(id).catch(() => null)]);
   const identity = d.user.identityChecks?.[0] ?? null;
   const kyc = kycProgress(d.documents, d.user.identityStatus ?? "NOT_STARTED");
   const name = displayName(d.user);
@@ -146,6 +147,20 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
                     {Math.round(rate.rate * 100)}%
                     <span className="block font-sans text-xs font-normal text-muted-foreground">
                       {rate.cancelled} of {rate.assigned} rides{rate.assigned < rate.minTrips ? ` · judged from ${rate.minTrips}` : ""}
+                    </span>
+                  </span>
+                ) : (
+                  "–"
+                )}
+              </Field>
+              <Field label="Offers (7 days)" className="col-span-2">
+                {offers ? (
+                  <span className="font-heading text-xl font-semibold">
+                    {offers.acceptRate === null ? "–" : `${Math.round(offers.acceptRate * 100)}% accepted`}
+                    <span className="block font-sans text-xs font-normal text-muted-foreground">
+                      {offers.offered} offered · {offers.accepted} accepted · {offers.declined} declined · {offers.ignored} ignored ·{" "}
+                      {offers.cancelled} cancelled after accepting
+                      {offers.isRanked ? "" : ` · ranked from ${offers.minOffers} offers`}
                     </span>
                   </span>
                 ) : (

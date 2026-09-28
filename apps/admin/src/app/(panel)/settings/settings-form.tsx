@@ -106,6 +106,19 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
+    group: "Driver ranking",
+    description:
+      "Who is offered a trip first (still one driver at a time): road ETA × (1 + ignored weight × share of offers not accepted + cancel weight × share of accepted rides cancelled by the driver's fault), minus an idle bonus for drivers waiting long since their last trip or going online. Offers over the last 7 days; drivers with fewer offers than Judge after are neutral. The idle bonus is a share of the driver's own ETA, so nearer drivers still come first. Off = plain ETA.",
+    fields: [
+      { key: "rankEnabled", label: "Rank by record", hint: "Off = nearest driver (ETA) first" },
+      { key: "rankWeightAccept", label: "Ignored-offer weight", hint: "0.5: never accepting = ETA × 1.5", step: "0.1", suffix: "×" },
+      { key: "rankWeightCancel", label: "Cancel weight", hint: "1.0: cancelling every ride = ETA × 2", step: "0.1", suffix: "×" },
+      { key: "rankIdleMaxBoost", label: "Idle bonus", hint: "Most taken off the ETA (0.15 = 15 %)", step: "0.05", suffix: "×" },
+      { key: "rankIdleFullMin", label: "Full idle bonus after", hint: "Minutes waiting", step: "1", suffix: "min" },
+      { key: "rankMinOffers", label: "Judge after", hint: "Offers in 7 days before the record counts", step: "1", suffix: "offers" },
+    ],
+  },
+  {
     group: "Driver plans",
     description: "Off = Rido is free: drivers see no plans and can always go online. Trial and grace apply to new subscriptions when plans are on.",
     fields: [

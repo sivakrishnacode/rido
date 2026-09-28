@@ -15,6 +15,8 @@ import { SettingsService } from '../settings/settings.service.js';
 import { assignBatch, BatchRequest } from './batch-assign.js';
 import { searchRadiusAt, searchWindowMs } from './search-radius.js';
 import { DriverBlocksService } from './driver-blocks.service.js';
+import { DriverOfferStatsService } from './driver-offer-stats.service.js';
+import { EMPTY_STATS, rankScore } from './driver-rank.js';
 
 const PENDING_KEY = 'dispatch:pending';
 const LOCK_KEY = 'dispatch:lock';
@@ -34,8 +36,9 @@ const SWEEP_EVERY_MS = 15_000;
  * 2. For each booking, drivers are found by H3 rings around the pickup (pickup hexagon, then neighbours…), for the
  *    booked vehicle and any the passenger added ("Book any", [widen]). The radius grows from `searchRadiusKm` to
  *    `maxSearchRadiusKm` over `searchExpandSeconds` (see search-radius.ts).
- * 3. Candidates are ranked by road ETA (cached per hex pair), not straight-line distance. Butterfly trips keep only
- *    women drivers (ONLY) or give them a head start (PREFERRED), see women-drivers.ts.
+ * 3. Candidates are ranked by road ETA (cached per hex pair), not straight-line distance, adjusted for how reliably
+ *    each driver took offers over 7 days and how long they have waited (driver-rank.ts; ETA stays dominant).
+ *    Butterfly trips keep only women drivers (ONLY) or give them a head start (PREFERRED), see women-drivers.ts.
  * 4. The whole batch is assigned together so two riders never get the same driver.
  * 5. Each driver gets `offerSeconds` to accept; decline/timeout moves to the next in that trip's queue.
  * 6. Out of candidates → search again every few seconds (a driver who let the offer time out can get it again; one who
@@ -62,6 +65,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     private readonly eta: EtaService,
     private readonly notifier: NotifierService,
     private readonly jobs: JobsService,
+    private readonly offerStats: DriverOfferStatsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -108,6 +112,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
 
   /** The driver said no: never offer them this trip again, try the next candidate. */
   async decline(tripId: string, driverId: string): Promise<void> {
+    await this.offerStats.record(driverId, 'declined');
     await this.redis.multi().sadd(`dispatch:${tripId}:declined`, driverId).expire(`dispatch:${tripId}:declined`, 900).exec();
     await this.next(tripId);
   }
@@ -116,6 +121,17 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   async next(tripId: string): Promise<void> {
     await this.clearOffer(tripId);
     await this.offerNext(tripId);
+  }
+
+  /** [driverId] took the trip (the guarded write won): count it for their ranking and stop dispatching. */
+  async accepted(tripId: string, driverId: string): Promise<void> {
+    await this.offerStats.record(driverId, 'accepted');
+    await this.stop(tripId);
+  }
+
+  /** A cancellation after accepting was judged [driverId]'s fault: counts against them in ranking. */
+  driverCancelled(driverId: string): Promise<void> {
+    return this.offerStats.record(driverId, 'cancelled');
   }
 
   /** Stops dispatching (trip accepted or cancelled). */
@@ -218,8 +234,16 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
         etaMin: await this.eta.minutes({ from: d, to: pickup, vehicleKind: d.kind, useRoad: s.useRoadEta }),
       })),
     );
-    const women = trip.womenDriver === WomenDriverPref.NONE ? new Set<string>() : await womenAmong(this.prisma, withEta.map((d) => d.driverId));
-    const candidates = applyWomenPref(withEta, trip.womenDriver, women)
+    // Ranking minutes: the ETA adjusted for the driver's 7-day offer record and wait (driver-rank.ts). The Butterfly
+    // head start and the batch assignment both work on these.
+    const now = Date.now();
+    const records = await this.offerStats.forDrivers(withEta.map((d) => d.driverId), now);
+    const ranked = withEta.map((d) => {
+      const r = records.get(d.driverId) ?? { stats: EMPTY_STATS, idleSince: null };
+      return { driverId: d.driverId, etaMin: rankScore({ etaMin: d.etaMin, ...r, now }, s).score };
+    });
+    const women = trip.womenDriver === WomenDriverPref.NONE ? new Set<string>() : await womenAmong(this.prisma, ranked.map((d) => d.driverId));
+    const candidates = applyWomenPref(ranked, trip.womenDriver, women)
       .sort((a, b) => a.etaMin - b.etaMin)
       .slice(0, s.maxCandidates);
     return { tripId: trip.id, createdAt: trip.createdAt, candidates };
@@ -242,6 +266,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     }
     await this.redis.set(`dispatch:${tripId}:offer`, driverId, 'EX', offerSeconds + OFFER_GRACE_S);
     await this.redis.set(`dispatch:${tripId}:offered`, '1', 'EX', 900);
+    await this.offerStats.record(driverId, 'offered');
     const details = await this.offerDetails(trip, driverId);
     this.events.toDriver(driverId, 'trip.offer', { ...details, expiresInSeconds: offerSeconds });
     // Also as a push: the driver app may be in the background or killed.
@@ -335,6 +360,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   private async onTimeout(tripId: string, driverId: string): Promise<void> {
     if ((await this.offeredTo(tripId)) !== driverId) return;
     this.logger.debug(`Offer for ${tripId} to ${driverId} timed out`);
+    await this.offerStats.record(driverId, 'ignored');
     await this.next(tripId);
   }
 }

@@ -127,6 +127,8 @@ export class DriversService {
     await this.freeIfStale(driver.id);
     await this.location.update({ driverId: driver.id, kind: driver.vehicleKind, lat: params.lat, lng: params.lng });
     await this.earnings.sessionStarted(driver.id);
+    // Only a real offline → online (the app repeats this call on resume): keeps the driver's wait for the idle bonus.
+    if (!driver.isOnline) await this.location.markOnline(driver.id);
     const online = await this.prisma.driver.update({ where: { id: driver.id }, data: { isOnline: true }, include: { user: { select: { isBlocked: true } } } });
     await this.state.set(driver.id, { isOnline: true, vehicleKind: online.vehicleKind, isBlocked: online.user.isBlocked });
     return online;

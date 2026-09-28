@@ -198,7 +198,7 @@ export class TripsService {
     try {
       return await this.assign(driverId, tripId);
     } catch (e) {
-      await this.location.releaseBusy(driverId, tripId);
+      await this.location.releaseBusy(driverId, tripId, false);
       throw e;
     }
   }
@@ -228,7 +228,7 @@ export class TripsService {
       },
     });
     if (count === 0) throw new ConflictException('Trip already taken or cancelled');
-    await this.dispatch.stop(tripId);
+    await this.dispatch.accepted(tripId, driverId);
     // Breadcrumbs from here: the drive to the pickup, then the ride from start.
     await this.track.setPhase(tripId, 'p');
     const s = await this.settings.all();
@@ -561,6 +561,7 @@ export class TripsService {
   private checkCancelRate(trip: Trip, judged: Judged): void {
     if (!trip.driverId || judged.verdict.fault !== CancelFault.DRIVER) return;
     const driverId = trip.driverId;
+    void this.dispatch.driverCancelled(driverId);
     this.blocks.afterCancel(driverId).catch((e: Error) => this.logger.warn(`Cancel rate check for ${driverId} failed: ${e.message}`));
   }
 

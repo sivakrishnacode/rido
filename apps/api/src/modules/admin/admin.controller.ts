@@ -5,7 +5,10 @@ import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Roles } from '../../core/auth/roles.decorator.js';
 import type { Driver, DriverBlock, KycDocument, Plan, SupportTicket, Trip, User } from '../../generated/prisma/client.js';
 import { KycDocType, Role } from '../../generated/prisma/enums.js';
+import { SettingsService } from '../settings/settings.service.js';
 import { type CancelRateStats, DriverBlocksService } from '../trips/driver-blocks.service.js';
+import { DriverOfferStatsService } from '../trips/driver-offer-stats.service.js';
+import { driverOfferStats, type DriverOfferStats } from '../trips/driver-rank.js';
 import { AdminStatsService } from './admin-stats.service.js';
 import { AdminService } from './admin.service.js';
 import type { AdminStats, Paged } from './admin.types.js';
@@ -26,6 +29,8 @@ export class AdminController {
     private readonly admin: AdminService,
     private readonly statsService: AdminStatsService,
     private readonly blocks: DriverBlocksService,
+    private readonly offerStats: DriverOfferStatsService,
+    private readonly settings: SettingsService,
   ) {}
 
   @Get('stats')
@@ -41,6 +46,13 @@ export class AdminController {
   @Get('drivers/:id')
   driver(@Param('id') id: string): Promise<Driver & { cancelRate: CancelRateStats }> {
     return this.admin.driver(id);
+  }
+
+  /** The driver's offers over 7 days (offered, accepted, declined, ignored, cancelled after accepting), used in ranking. */
+  @Get('drivers/:id/offer-stats')
+  async driverOfferStats(@Param('id') id: string): Promise<DriverOfferStats> {
+    const [stats, s] = await Promise.all([this.offerStats.forDriver(id), this.settings.all()]);
+    return driverOfferStats(stats, s);
   }
 
   /** Ends the driver's current cancellation pause now (audit logged). 409 when they aren't paused. */

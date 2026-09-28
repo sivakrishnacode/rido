@@ -218,6 +218,23 @@ export interface DriverCancelRate {
   readonly blockAt: number;
 }
 
+/** GET /admin/drivers/:id/offer-stats: offers over the last 7 days, as dispatch ranking uses them. */
+export interface DriverOfferStats {
+  readonly days: number;
+  readonly offered: number;
+  readonly accepted: number;
+  readonly declined: number;
+  /** Let the offer run out. */
+  readonly ignored: number;
+  /** Cancelled after accepting, the driver's fault. */
+  readonly cancelled: number;
+  /** accepted ÷ answered offers (null without answers). */
+  readonly acceptRate: number | null;
+  /** Ranking uses the record from minOffers offers; below that the driver is neutral. */
+  readonly isRanked: boolean;
+  readonly minOffers: number;
+}
+
 /** A passenger's cancellations over the last 30 days (shown only; passengers are never blocked). */
 export interface PassengerCancelRate {
   readonly since: string;
@@ -639,6 +656,13 @@ export interface Settings {
   readonly cancelRateBlock: number;
   readonly cancelBlockHours: number;
   readonly cancelBlockRepeatHours: number;
+  /** Dispatch ranking: eta × (1 + wAccept·(1 − accept) + wCancel·cancel) − idle bonus (up to a share of the ETA). */
+  readonly rankEnabled: boolean;
+  readonly rankWeightAccept: number;
+  readonly rankWeightCancel: number;
+  readonly rankIdleMaxBoost: number;
+  readonly rankIdleFullMin: number;
+  readonly rankMinOffers: number;
   readonly stuckTripMinMin: number;
   readonly stuckDurationFactor: number;
   readonly pickupHardCapMin: number;

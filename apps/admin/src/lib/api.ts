@@ -37,6 +37,7 @@ import type {
   ZoneKind,
   Driver,
   DriverDetail,
+  DriverOfferStats,
   DriverStatus,
   KycDocType,
   KycDocument,
@@ -186,6 +187,7 @@ export const adminApi = {
 
   drivers: (q: ListQuery = {}) => apiFetch<Paged<Driver>>("/admin/drivers", { query: listQuery(q) }),
   driver: (id: string) => orNotFound(apiFetch<DriverDetail>(`/admin/drivers/${encodeURIComponent(id)}`)),
+  driverOfferStats: (id: string) => apiFetch<DriverOfferStats>(`/admin/drivers/${encodeURIComponent(id)}/offer-stats`),
   liftDriverBlock: (id: string) => apiFetch<DriverBlock>(`/admin/drivers/${encodeURIComponent(id)}/lift-block`, { method: "POST" }),
   setDriverStatus: (id: string, status: DriverStatus) =>
     apiFetch<Driver>(`/admin/drivers/${encodeURIComponent(id)}`, { method: "PATCH", body: { status } }),

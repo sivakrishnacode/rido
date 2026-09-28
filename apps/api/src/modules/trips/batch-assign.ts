@@ -1,6 +1,10 @@
-/** One candidate driver for a trip, with the road ETA to the pickup. */
+/** One candidate driver for a trip. */
 export interface Candidate {
   readonly driverId: string;
+  /**
+   * Ranking minutes, lower first: the road ETA to the pickup as scored by driver-rank.ts (offer record, idle
+   * bonus), plus the Butterfly head start for men on PREFERRED trips.
+   */
   readonly etaMin: number;
 }
 
@@ -14,7 +18,7 @@ export interface BatchRequest {
 
 /**
  * Assigns drivers across a whole batch (not one rider at a time): all (trip, driver) pairs are
- * sorted by ETA and each trip takes the fastest driver nobody else has taken yet. Each trip's
+ * sorted by ranking minutes (ETA as scored) and each trip takes the fastest driver nobody else has taken yet. Each trip's
  * remaining candidates follow as fallbacks, with drivers promised to other trips moved last.
  * Returns the ordered offer queue per trip.
  */
