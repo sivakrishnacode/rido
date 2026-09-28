@@ -76,6 +76,25 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(minutes: 1)); // provider timers
   });
+
+  testWidgets('D-07 has a Help button and one card per document, outlined green once verified', (tester) async {
+    await loadTestFonts();
+    usePhone(tester);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [identityProvider.overrideWith(() => _Declined(const ['Driving licence: blurry']))],
+      child: MaterialApp(theme: RidoTheme.light(), home: const D07DocumentsScreen(readOnly: true)),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextButton, 'Help'), findsOneWidget);
+    final verifiedCards = tester.widgetList<Container>(find.byType(Container)).where((c) {
+      final d = c.decoration;
+      return d is BoxDecoration && d.border is Border && (d.border! as Border).top.color.toARGB32() ==
+          RidoColors.success.withValues(alpha: 0.55).toARGB32();
+    });
+    expect(verifiedCards, hasLength(2), reason: 'RC and insurance, each its own card');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(minutes: 1)); // provider timers
+  });
 }
 
 class _Declined extends IdentityController {

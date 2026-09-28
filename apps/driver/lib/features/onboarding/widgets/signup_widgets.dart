@@ -271,10 +271,14 @@ class DocsHeader extends StatelessWidget {
     this.trailingColor = RidoColors.navy300,
     this.step,
     this.onBack,
+    this.onHelp,
   });
 
   final String title;
   final String summary;
+
+  /// Shows a "Help" button at the top right (stuck on a document → support), like Namma Yatri's checklist.
+  final VoidCallback? onHelp;
   final String? trailing;
   final Color trailingColor;
   final int? step;
@@ -311,8 +315,23 @@ class DocsHeader extends StatelessWidget {
                     ),
                     if (step != null)
                       Padding(
-                        padding: const EdgeInsets.only(right: RidoSpacing.l),
+                        padding: EdgeInsets.only(right: onHelp == null ? RidoSpacing.l : RidoSpacing.s),
                         child: Text('Step $step of 6', style: t.bodySmallMedium.copyWith(color: RidoColors.navy300)),
+                      ),
+                    if (onHelp != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: RidoSpacing.s),
+                        child: TextButton.icon(
+                          onPressed: onHelp,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: RidoColors.navy700,
+                            shape: const StadiumBorder(),
+                            minimumSize: const Size(48, 40),
+                          ),
+                          icon: const Icon(Symbols.help_rounded, size: 18),
+                          label: const Text('Help'),
+                        ),
                       ),
                   ],
                 ),

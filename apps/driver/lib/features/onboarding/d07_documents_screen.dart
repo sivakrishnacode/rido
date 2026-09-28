@@ -64,6 +64,7 @@ class D07DocumentsScreen extends ConsumerWidget {
             trailing: readOnly ? null : '$vehicle · $work',
             segments: [((readOnly ? stepsVerified : stepsDone) / steps, readOnly ? RidoColors.success : RidoColors.coral500)],
             onBack: readOnly ? null : backOr(context, Routes.personalDetails),
+            onHelp: showcase ? null : () => context.push(Routes.help),
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -79,28 +80,17 @@ class D07DocumentsScreen extends ConsumerWidget {
                       const SizedBox(height: RidoSpacing.l),
                     ],
                   ],
-                  Container(
-                    decoration: BoxDecoration(
-                      color: RidoColors.surface,
-                      borderRadius: RidoRadii.cardRadius,
-                      border: Border.all(color: RidoColors.divider),
+                  // One card per document, outlined by its status (green once done), like Namma Yatri's checklist.
+                  for (final doc in docs) ...[
+                    _DocRow(
+                      doc: doc,
+                      // Live: a rejected document can be re-uploaded from Account too.
+                      readOnly: readOnly && !(live && doc.status == KycStatus.rejected),
+                      live: live,
+                      onUpload: () => context.push(Routes.uploadDocument(doc.type.name)),
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < docs.length; i++) ...[
-                          if (i > 0) const Divider(height: 1),
-                          _DocRow(
-                            doc: docs[i],
-                            // Live: a rejected document can be re-uploaded from Account too.
-                            readOnly: readOnly && !(live && docs[i].status == KycStatus.rejected),
-                            live: live,
-                            onUpload: () => context.push(Routes.uploadDocument(docs[i].type.name)),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                    const SizedBox(height: RidoSpacing.m),
+                  ],
                   const SizedBox(height: RidoSpacing.l),
                   if (readOnly)
                     Text(
@@ -208,8 +198,25 @@ class _DocRow extends StatelessWidget {
       KycStatus.rejected => _UploadButton(label: 'Re-upload', onTap: onUpload),
       KycStatus.notUploaded => _UploadButton(label: 'Upload', onTap: onUpload),
     };
-    return Padding(
+    final shownVerified = readOnly && !live;
+    final outline = shownVerified
+        ? RidoColors.success
+        : switch (doc.status) {
+            KycStatus.verified => RidoColors.success,
+            KycStatus.underReview => RidoColors.warning,
+            KycStatus.rejected => RidoColors.error,
+            KycStatus.notUploaded => RidoColors.divider,
+          };
+    return Container(
       padding: const EdgeInsets.all(RidoSpacing.l),
+      decoration: BoxDecoration(
+        color: RidoColors.surface,
+        borderRadius: RidoRadii.cardRadius,
+        border: Border.all(
+          color: outline.withValues(alpha: outline == RidoColors.divider ? 1 : 0.55),
+          width: outline == RidoColors.divider ? 1 : 1.5,
+        ),
+      ),
       child: Row(
         children: [
           Container(
@@ -235,7 +242,7 @@ class _DocRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: RidoSpacing.s),
-          if (readOnly && !live)
+          if (shownVerified)
             const IconPill(
                 label: 'Verified', icon: Symbols.check_circle_rounded, bg: RidoColors.successTint, fg: RidoColors.successText)
           else
