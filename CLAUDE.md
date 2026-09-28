@@ -120,7 +120,7 @@ npm run dev -w @rido/admin
 npm run prisma:migrate -w @rido/api   # new migration (dev)
 npm run prisma:seed -w @rido/api      # idempotent seed
 npm run seed:demo-trips -w @rido/api  # ~2,000 demo trips (then seed:demo-people)
-npm run seed:test-drivers -w @rido/api # 8 approved test drivers to sign into (cab, goods bike, truck, …)
+npm run seed:test-drivers -w @rido/api # 11 approved test drivers to sign into (cab, bike, auto, goods bike, truck, …)
 ```
 
 Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/flutter.sh` passes

@@ -23,7 +23,7 @@ interface TestDriver {
   readonly plate: string;
 }
 
-/** Phone blocks by vehicle: 91000001xx cab, 2xx goods bike, 3xx truck, 4xx mini truck, 5xx pickup. */
+/** Phone blocks by vehicle: 91000001xx cab, 2xx goods bike, 3xx truck, 4xx mini truck, 5xx pickup, 6xx bike taxi, 7xx auto. */
 export const TEST_DRIVERS: readonly TestDriver[] = [
   { phone: '+919100000101', name: 'Arun Kumar', gender: 'MALE', vehicleKind: 'CAB', model: 'Maruti Dzire', color: 'White', plate: 'TN 37 CA 1101' },
   { phone: '+919100000102', name: 'Priya Selvam', gender: 'FEMALE', vehicleKind: 'CAB', model: 'Hyundai Aura', color: 'Grey', plate: 'TN 37 CA 1102' },
@@ -33,6 +33,9 @@ export const TEST_DRIVERS: readonly TestDriver[] = [
   { phone: '+919100000302', name: 'Mani Velu', gender: 'MALE', vehicleKind: 'TRUCK', model: 'Eicher Pro 2049', color: 'Blue', plate: 'TN 37 TR 3302' },
   { phone: '+919100000401', name: 'Gokul Natarajan', gender: 'MALE', vehicleKind: 'MINI_TRUCK', model: 'Tata Ace Gold', color: 'White', plate: 'TN 37 MT 4401' },
   { phone: '+919100000501', name: 'Bala Krishnan', gender: 'MALE', vehicleKind: 'PICKUP', model: 'Mahindra Bolero Pickup', color: 'White', plate: 'TN 37 PK 5501' },
+  { phone: '+919100000601', name: 'Vijay Anand', gender: 'MALE', vehicleKind: 'BIKE', model: 'Honda Shine', color: 'Black', plate: 'TN 37 BK 6601' },
+  { phone: '+919100000602', name: 'Divya Ramesh', gender: 'FEMALE', vehicleKind: 'BIKE', model: 'TVS Jupiter', color: 'Blue', plate: 'TN 37 BK 6602' },
+  { phone: '+919100000701', name: 'Senthil Kumar', gender: 'MALE', vehicleKind: 'AUTO', model: 'Bajaj RE', color: 'Yellow', plate: 'TN 37 AU 7701' },
 ];
 
 const DOCS: KycDocType[] = ['DRIVING_LICENCE', 'AADHAAR', 'VEHICLE_RC', 'INSURANCE', 'POLICE_VERIFICATION'];
