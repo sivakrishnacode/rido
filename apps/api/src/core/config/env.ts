@@ -22,6 +22,8 @@ export interface Env {
   readonly s3Region: string;
   /** Only for S3-compatible servers in dev (e.g. MinIO); empty = AWS. */
   readonly s3Endpoint: string;
+  /** Public base URL of the live trip page (the admin app's `/track/<token>`), e.g. https://admin.example.com. */
+  readonly shareBaseUrl: string;
   /** Firebase service-account JSON for FCM (from FIREBASE_SERVICE_ACCOUNT_B64, base64). Empty = push disabled. */
   readonly firebaseServiceAccount: string;
   /** Didit identity checks (selfie + ID). Empty key = checks disabled (dev): drivers are approved on documents alone. */
@@ -68,6 +70,7 @@ export function loadEnv(): Env {
     s3Bucket: process.env.S3_BUCKET ?? '',
     s3Region: process.env.S3_REGION ?? process.env.AWS_REGION ?? 'ap-south-1',
     s3Endpoint: process.env.S3_ENDPOINT ?? '',
+    shareBaseUrl: (process.env.SHARE_BASE_URL ?? 'http://localhost:3001').replace(/\/+$/, ''),
     firebaseServiceAccount: process.env.FIREBASE_SERVICE_ACCOUNT_B64
       ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_B64, 'base64').toString('utf8')
       : '',

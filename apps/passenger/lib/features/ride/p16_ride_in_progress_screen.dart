@@ -6,7 +6,9 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
+import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
+import '../../state/trip_safety.dart';
 import 'p18_share_trip_sheet.dart';
 import 'widgets/trip_widgets.dart';
 
@@ -25,6 +27,21 @@ class P16RideInProgressScreen extends ConsumerStatefulWidget {
 
 class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScreen> {
   bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.showcase) WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAutoShare());
+  }
+
+  /// "Auto-share trips" (Account › Safety): the share sheet opens once, when the ride has started (live API).
+  void _maybeAutoShare() {
+    if (!mounted || !ref.read(isLiveApiProvider)) return;
+    final ride = ref.read(rideFlowProvider);
+    if (ride.phase != RidePhase.inProgress || !ref.read(currentProfileProvider).autoShareTrips) return;
+    if (!ref.read(autoSharePromptedProvider.notifier).claim(ride.tripId)) return;
+    P18ShareTripSheet.show(context);
+  }
 
   Future<void> _confirmLeave() async {
     if (widget.showcase) {
@@ -47,6 +64,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
     ref.listen(rideFlowProvider.select((s) => s.phase), (prev, next) {
       if (widget.showcase) return;
       if (next == RidePhase.completed) context.go(Routes.rideCompleted);
+      if (next == RidePhase.inProgress) _maybeAutoShare();
     });
 
     final t = context.type;

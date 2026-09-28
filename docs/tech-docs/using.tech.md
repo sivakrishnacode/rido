@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -145,6 +145,7 @@ Never commit real `.env` files.
 | `DIDIT_WEBHOOK_SECRET` | API | empty | the webhook destination's signing secret; empty = every webhook is refused (the apps' `/kyc/sync` still works) |
 | `DIDIT_DRIVER_WORKFLOW_ID` / `DIDIT_RIDER_WORKFLOW_ID` | API | empty | published workflows "Rido Driver KYC" (India, driving licence + Aadhaar) and "Rido Rider KYC" (India, any ID) |
 | `DIDIT_BASE_URL` | API | `https://verification.didit.me` | only for tests |
+| `SHARE_BASE_URL` | API | `http://localhost:3001` | public origin of the admin app, where live trip links point (`<SHARE_BASE_URL>/track/<token>`); staging: `https://admin.65-0-233-253.sslip.io` |
 | `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | admin (build time, client bundle) | empty | browser key for the **Maps JavaScript API** (must be enabled on the key). Local dev: `apps/admin/.env.local` (git-ignored, template `apps/admin/.env.example`). Docker: root `.env` `GOOGLE_MAPS_BROWSER_KEY` → build arg. Currently the `rido-app-services` key; restrict to HTTP referrers later (`rido-admin-web`) |
 
 ---
@@ -642,6 +643,26 @@ accepts unknown subtype names without error, so use only catalog names (read the
 
 ---
 
+## 6d. Rider safety (apps/api/src/modules/safety)
+
+Everything here is free: FCM pushes, sockets and the phone's own share / SMS / call apps. No paid SMS or IVR.
+
+**Live trip share link (28 Sep 2026).** `POST /v1/trips/:id/share` (the trip's passenger) returns
+`{url, token, expiresAt}`. The token is `<tripId>.<exp base36>.<sig>`: HMAC-SHA256 with a key derived from
+`JWT_SECRET` (`share-token.ts`, no table). It works until 30 min after the trip ends (completed, delivered,
+cancelled); a link made while the trip runs carries a 12 h cap, and the read also checks the trip's end, so it stops
+30 min after the end either way. `GET /v1/share/:token` is public (no JWT) and rate limited in Redis
+(`rl:share:ip:<ip>` 60/min, `rl:share:tok:<tripId>` 240/min; the IP is the first `X-Forwarded-For` entry). It returns
+only: status, kind, driver first name, vehicle kind / model / colour, plate, the driver's last GPS fix (only while the
+trip runs), pickup and drop (name + point), a straight-line ETA (free, no Google call) to the pickup or the drop, and
+`expiresAt`. No phone numbers, no OTP. Bad token → 404, expired → 410.
+
+The link opens the public page `/track/<token>` in the admin app (6b), outside the signed-in panel.
+
+Passenger app: P-18 "Share trip" shares the API link (WhatsApp, SMS, copy, the system share sheet). Until it has
+loaded, or if it can't be made, it falls back to a Google Maps link to the vehicle. With **Auto-share trips** on
+(Account › Safety, `User.autoShareTrips`), P-16 opens the share sheet once when the ride starts.
+
 ## 6b. Admin panel (apps/admin)
 
 - **Stack:** Next.js 16 App Router (`src/`), React 19 Server Components, shadcn/ui + Tailwind v4, Recharts, Google Maps
@@ -661,6 +682,11 @@ accepts unknown subtype names without error, so use only catalog names (read the
   search over the API's Places Autocomplete with the server key and Redis cache: no client Places billing),
   `/api/demand` (live demand snapshot, `?refresh=true` recomputes), `/export/{trips|drivers|payments}` (streams the CSV
   exports), `/auth/signout`.
+- **Public live trip page (28 Sep 2026):** `/track/[token]` (outside the `(panel)` group; `proxy.ts` skips `track/`)
+  shows a shared trip on the Google map (pickup green, drop navy, vehicle coral) with status, driver first name,
+  vehicle, plate, ETA and how fresh the fix is. Server-rendered with the first read, then the browser polls the
+  public route handler `/api/track/[token]` every 5 s while the trip runs (it forwards `X-Forwarded-For` so the API
+  rate limits each viewer). Mapping in `src/lib/track.ts` (unit-tested). Ended / expired → "This trip has ended".
 - **Pages (sidebar groups):** Overview: Dashboard (KPIs from `/admin/stats`, KYC queue, cities, blocked users, 7-day trips
   chart, pending KYC list, "Surging now" count → Live, Hotspots = top 5 pickup hexes named by reverse geocode (cached a
   day), mini live map), Live (online drivers by vehicle colour, busy = coral ring, names on hover, active trips,
@@ -1023,7 +1049,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Cancellations follow-ups | Waiting charge, fault verdict, cancellation fee (off) and driver pauses **Done (28 Sep 2026)**. Later: decide the fee policy (then tell passengers before they cancel: the cancel sheet should say "₹10 fee"), a way to waive a due, a "moving away" signal from the pickup-progress job and ETA growth (today: straight-line distance vs accept), per-city thresholds, a pause appeal flow |
 | Driver ranking | **Done (28 Sep 2026)**: 7-day offer record + idle bonus, see 6 Dispatch step 4. Later: per-city weights, an actual-pickup-distance term (Namma Yatri has one), show drivers their own acceptance rate in the app, backfill the counters from `TripCancellation` after a Redis flush |
 | Trip `updatedAt` | Add to Trip JSON so apps can order pushed updates reliably (apps guard with a status order today) |
-| SOS / tracking link | No SOS service (apps raise a "Safety concern" ticket + dialer) and no public trip-tracking page yet |
+| SOS / tracking link | Tracking link **Done (28 Sep 2026)**, see 6d. No SOS service yet (apps raise a "Safety concern" ticket + dialer) |
 | Women-driver preference | **Done (27 Sep 2026)** as Butterfly: booking sends `womenDriver`, dispatch filters (ONLY) or ranks (PREFERRED) by driver gender, see 7 Dispatch step 4 |
 | Selfie / DOB | **Sign-up selfie: Done (27 Sep 2026)**, by Didit's liveness check (date of birth is read from the ID). The daily selfie (S-13 / D-09) is still simulated; Didit Biometric Authentication ($0.10 a check, not in the free tier) could replace it |
 | CI | Add GitHub Actions: `npm ci`, `npm run check`, API e2e with service containers, APK build artifacts |

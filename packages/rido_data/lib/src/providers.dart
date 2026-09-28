@@ -7,6 +7,7 @@ import 'api/api_repositories.dart';
 import 'api/live_services.dart';
 import 'api/push.dart';
 import 'api/realtime_client.dart';
+import 'api/safety.dart';
 import 'demo_settings.dart';
 import 'mock/mock_database.dart';
 import 'mock/mock_repositories.dart';
@@ -76,6 +77,9 @@ final liveTripsProvider = Provider<LiveTrips>((ref) => LiveTrips(ref.watch(apiCl
 
 /// Driver: offers, jobs, GPS and chat.
 final liveJobsProvider = Provider<LiveJobs>((ref) => LiveJobs(ref.watch(apiClientProvider), ref.watch(realtimeProvider)));
+
+/// Both apps: trip safety (share links, SOS, "Is everything OK?" answers). Tests override it with a fake.
+final liveSafetyProvider = Provider<LiveSafety>((ref) => LiveSafety(ref.watch(apiClientProvider)));
 
 /// A driver's verified photo from the API (with the session token), or null (no photo yet, or seed data).
 /// Only the driver, admins and riders who had a trip with them may load it.

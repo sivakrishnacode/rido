@@ -7,6 +7,7 @@ import 'package:rido_ui/rido_ui.dart';
 import '../../common/launch.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
+import '../../state/trip_safety.dart';
 import 'widgets/trip_widgets.dart';
 
 /// P-18 Share trip (sheet): live tracking link preview, WhatsApp / SMS / Copy link / More,
@@ -58,11 +59,16 @@ class P18ShareTripSheet extends ConsumerWidget {
     final vehiclePos = fix?.position ?? pointAlong(route, 0.62);
     final arrival = showcase ? DateTime(2026, 9, 24, 15, 42) : RidoClock.now().add(Duration(minutes: ride.etaMin));
     final live = !showcase && ref.watch(isLiveApiProvider);
-    // Live API: there is no tracking page yet, so share where the vehicle is now (a Google Maps link).
+    // Live API: the trip's live-tracking page (signed link from the API). Until it has loaded, or if it couldn't be
+    // made, share where the vehicle is now (a Google Maps link).
+    final shareLink = live ? ref.watch(tripShareLinkProvider(ride.tripId)).value : null;
     final at = fix?.position ?? ride.pickup.location;
-    final link = live
-        ? 'maps.google.com/?q=${at.latitude.toStringAsFixed(5)},${at.longitude.toStringAsFixed(5)}'
-        : 'rido.in/t/${codeFor(ride.tripId)}';
+    final link = shareLink != null
+        ? shareLink.url.replaceFirst(RegExp('^https?://'), '')
+        : live
+            ? 'maps.google.com/?q=${at.latitude.toStringAsFixed(5)},${at.longitude.toStringAsFixed(5)}'
+            : 'rido.in/t/${codeFor(ride.tripId)}';
+    final linkUrl = shareLink?.url ?? 'https://$link';
     final status = showcase || inTrip
         ? 'arriving ${formatTime(arrival)}'
         : ride.phase == RidePhase.assigned
@@ -74,8 +80,8 @@ class P18ShareTripSheet extends ConsumerWidget {
       driver: ride.driver,
       vehicleLabel: ride.vehicle.label,
       drop: ride.drop,
-      vehicleAt: live ? at : null,
-      status: live ? null : 'Track live: https://$link',
+      vehicleAt: live && shareLink == null ? at : null,
+      status: live && shareLink == null ? null : 'Track live: $linkUrl',
     );
 
     return Column(
@@ -151,7 +157,10 @@ class P18ShareTripSheet extends ConsumerWidget {
                       style: t.bodySmall.copyWith(color: RidoColors.navy700),
                     ),
                     const SizedBox(height: 8),
-                    Text(link, style: t.bodySmallMedium.copyWith(color: RidoColors.coral600)),
+                    Text(link,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.bodySmallMedium.copyWith(color: RidoColors.coral600)),
                   ],
                 ),
               ),
@@ -174,7 +183,7 @@ class P18ShareTripSheet extends ConsumerWidget {
               icon: Symbols.content_copy_rounded,
               label: 'Copy link',
               onTap: () {
-                Clipboard.setData(ClipboardData(text: 'https://$link'));
+                Clipboard.setData(ClipboardData(text: linkUrl));
                 _done(context, 'Link copied');
               },
             ),

@@ -32,6 +32,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next internals, JSON route handlers (they answer 401 themselves), sign-out and static files.
-  matcher: ["/((?!_next/|api/|auth/signout|favicon.ico|icon.svg|.*\\.(?:png|jpg|jpeg|svg|webp|ico|txt)$).*)"],
+  // Everything except Next internals, JSON route handlers (they answer 401 themselves), sign-out, the public live
+  // trip page (/track/<token>, anyone with the link) and static files.
+  matcher: ["/((?!_next/|api/|auth/signout|track/|favicon.ico|icon.svg|.*\\.(?:png|jpg|jpeg|svg|webp|ico|txt)$).*)"],
 };

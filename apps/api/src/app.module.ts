@@ -12,6 +12,7 @@ import { GeoModule } from './modules/geo/geo.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { PlacesModule } from './modules/places/places.module.js';
+import { SafetyModule } from './modules/safety/safety.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module.js';
 import { SupportModule } from './modules/support/support.module.js';
@@ -37,6 +38,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     SubscriptionsModule,
     TripsModule,
     RealtimeModule,
+    SafetyModule,
     SupportModule,
     AdminModule,
     NotificationsModule,

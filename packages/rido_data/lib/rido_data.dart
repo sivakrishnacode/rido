@@ -12,6 +12,7 @@ export 'src/api/demand_map.dart';
 export 'src/api/live_services.dart';
 export 'src/api/push.dart';
 export 'src/api/realtime_client.dart';
+export 'src/api/safety.dart';
 export 'src/demo_settings.dart';
 export 'src/fare_engine.dart';
 export 'src/identity/identity.dart';

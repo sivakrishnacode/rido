@@ -59,6 +59,8 @@ services:
       # Server key for Places / Geocoding / Routes (restrict by IP). Empty = local fallback.
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       ADMIN_PHONES: ${ADMIN_PHONES:-}
+      # Public admin origin for live trip links (<SHARE_BASE_URL>/track/<token>).
+      SHARE_BASE_URL: ${SHARE_BASE_URL:-http://localhost:3001}
       UPLOAD_DIR: /data/uploads
       # Private bucket for KYC documents / images (credentials from the EC2 instance role). Empty = the uploads volume.
       S3_BUCKET: ${S3_BUCKET:-}
