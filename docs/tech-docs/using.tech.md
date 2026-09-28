@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -891,15 +891,20 @@ suggestion's name.
 
 ## 7a0. Driver demand map (hex + nested hex)
 
-- **API:** public `GET /v1/demand/hotspots` (`DriverMapService`, Redis-cached 60 s, key `drivermap:v2`): up to 30 res-7
+- **API:** public `GET /v1/demand/hotspots` (`DriverMapService`, Redis-cached 60 s, key `drivermap:v3`): up to 30 res-7
   hexes (≈5 km²) ranked by live demand (distinct riders in the demand window ×3) + bookings in the last hour (×2) +
   the usual pickups at this IST hour ±1 over the last 4 weeks (weekly average). Level: `high` (surging, or ≥ 60 % of the
   busiest), `busy` (≥ 30 % or live busy), `some`. Each hotspot carries its outline and its busy res-8 children
   (`nested`, score 0–1 within the hotspot) like H3's hex-in-hex grid; plus `serviceArea` = each city's service cells
-  merged into outer rings (`cellsToMultiPolygon`). No rider counts are exposed.
+  merged into outer rings (`cellsToMultiPolygon`). No rider counts are exposed. Each hotspot also has a `name`: the
+  commonest locality among its last 4 weeks of pickups (≤ 3,000 recent trips read; `areaName()` takes the part of the
+  stored address before the city / state / PIN, e.g. "Gandhipuram"). No Google calls.
 - **Driver app:** `demandMapProvider` (refresh every 2 min while Home shows it, live mode only) → `demand_layer.dart`:
   service-area edge at zoom ≤ 12.8, demand hexes from 10.5 (coral high / amber busy / yellow some), nested hexes from
-  13.2 shaded by their share, "High demand" (· surge) labels on the top 4. Hidden during a job.
+  13.2 shaded by their share, "High demand" (· surge) labels on the top 4. Hidden during a job. Home's bottom panel (online or offline, no job, GPS OK) leads with the
+  **nearest busy area** (`nearestHotspot()`: nearest `high`, else nearest `busy`; `NearestDemandChip`): "HIGH DEMAND
+  · 1.2x", the area name, and a directions button with the distance that opens Google Maps ("You're here" within
+  1.2 km of its centre).
 - **rido_ui:** `RidoMap.polygons` (`MapPolygon` with fill, stroke, zIndex and a zoom range) on both engines.
 
 ## 7a. Device location in the apps

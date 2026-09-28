@@ -5,6 +5,7 @@ import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../common/job_routes.dart';
+import '../../common/launch.dart';
 import '../../common/measure_size.dart';
 import '../../overlay/background_permissions.dart';
 import '../../state/app_permissions.dart';
@@ -18,6 +19,7 @@ import '../jobs/widgets/job_map.dart';
 import '../states/s10_account_on_hold_screen.dart';
 import '../states/s11_missed_request_banner.dart';
 import '../states/s16_gps_weak_banner.dart';
+import 'widgets/demand_chip.dart';
 import 'widgets/demand_layer.dart';
 import 'widgets/home_parts.dart';
 import 'widgets/navy_header.dart';
@@ -407,19 +409,19 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     );
 
     // ---------------------------------------------------------- bottom panel
-    final Widget panel;
+    final Widget basePanel;
     if (job != null) {
-      panel = OnlineStatusRow(
+      basePanel = OnlineStatusRow(
         icon: Symbols.pause_circle_rounded,
         title: 'New requests paused',
         subtitle: 'They resume when this ${job.isDelivery ? 'delivery' : 'ride'} ends.',
       );
     } else if (gpsLost) {
-      panel = _GpsTips(onGoOffline: _goOfflineOrShowcase);
+      basePanel = _GpsTips(onGoOffline: _goOfflineOrShowcase);
     } else if (quiet) {
-      panel = _QuietPanel(onGoOffline: _goOfflineOrShowcase);
+      basePanel = _QuietPanel(onGoOffline: _goOfflineOrShowcase);
     } else if (online) {
-      panel = Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+      basePanel = Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
         OnlineStatusRow(
           title: "You're online",
           subtitle: missed
@@ -430,7 +432,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         RidoButton.secondary(label: 'Go offline', onPressed: _goOfflineOrShowcase),
       ]);
     } else {
-      panel = _OfflinePanel(
+      basePanel = _OfflinePanel(
         status: status,
         delivery: delivery,
         showPlan: plansOn,
@@ -445,6 +447,27 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         onPlan: () => context.go(Routes.plan),
       );
     }
+
+    // Live: the nearest busy area with a directions button, online or off (not during a job or with no GPS).
+    final panel = demand == null || gpsLost || job != null
+        ? basePanel
+        : ValueListenableBuilder<VehicleFix?>(
+            valueListenable: ref.read(driverSessionProvider.notifier).vehicle,
+            builder: (context, fix, child) {
+              final near = nearestHotspot(demand, fix?.position);
+              if (near == null) return child!;
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                NearestDemandChip(
+                  hotspot: near.hotspot,
+                  km: near.km,
+                  onDirections: () => openNavigation(context, near.hotspot.centre),
+                ),
+                const Divider(height: RidoSpacing.xl),
+                child!,
+              ]);
+            },
+            child: basePanel,
+          );
 
     return Scaffold(
       backgroundColor: RidoColors.background,

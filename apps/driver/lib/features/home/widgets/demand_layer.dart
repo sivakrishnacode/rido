@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
+import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
@@ -94,4 +95,20 @@ Offset _world(LatLng p, double zoom) {
   final scale = 256 * math.pow(2, zoom).toDouble();
   final s = math.sin(p.latitude * math.pi / 180);
   return Offset((p.longitude + 180) / 360 * scale, (0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi)) * scale);
+}
+
+/// The hotspot worth driving to from [from]: the nearest "high" one, else the nearest "busy" one; null without a
+/// map, a position or any busy area. Quiet ("some") hexes are never suggested.
+({Hotspot hotspot, double km})? nearestHotspot(DemandMap? map, LatLng? from) {
+  if (map == null || from == null) return null;
+  const distance = Distance();
+  for (final level in const [HotspotLevel.high, HotspotLevel.busy]) {
+    ({Hotspot hotspot, double km})? best;
+    for (final h in map.hotspots.where((h) => h.level == level)) {
+      final km = distance.as(LengthUnit.Meter, from, h.centre) / 1000;
+      if (best == null || km < best.km) best = (hotspot: h, km: km);
+    }
+    if (best != null) return best;
+  }
+  return null;
 }

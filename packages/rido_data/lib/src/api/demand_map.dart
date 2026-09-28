@@ -24,6 +24,7 @@ class Hotspot {
     required this.centre,
     required this.boundary,
     this.nested = const [],
+    this.name,
   });
 
   final String cell;
@@ -37,6 +38,9 @@ class Hotspot {
   final LatLng centre;
   final List<LatLng> boundary;
   final List<NestedHex> nested;
+
+  /// Where most of its pickups are ("Gandhipuram"); null before the area has trips.
+  final String? name;
 
   bool get isSurging => multiplier > 1.001;
 }
@@ -64,6 +68,7 @@ class DemandMap {
             score: (h['score'] as num?)?.toDouble() ?? 0,
             multiplier: (h['multiplier'] as num?)?.toDouble() ?? 1,
             centre: ring([h['centre']]).first,
+            name: (h['name'] as String?)?.trim().isEmpty ?? true ? null : (h['name'] as String).trim(),
             boundary: ring(h['boundary']),
             nested: [
               for (final n in (h['nested'] as List? ?? const []))
