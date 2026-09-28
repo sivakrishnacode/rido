@@ -252,6 +252,29 @@ describe('Rido API (e2e)', () => {
     for (const d of [man, woman]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
   });
 
+  it('booking preferences: a driver who only wants long trips is skipped for a short one', async () => {
+    const picky = await onlineDriver('CAB', { lat: 11.0184, lng: 76.9726 });
+    const other = await onlineDriver('CAB', { lat: 11.0196, lng: 76.9739 });
+    const auth = { Authorization: `Bearer ${picky}` };
+    await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ minTripKm: 8, maxTripKm: 5 }).expect(400);
+    const saved = (await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ minTripKm: 8, maxPickupKm: 2 }).expect(200)).body;
+    expect(saved).toMatchObject({ minTripKm: 8, maxPickupKm: 2, maxTripKm: null, goTo: null });
+    expect((await http.get('/v1/drivers/me/booking-preferences').set(auth).expect(200)).body.minTripKm).toBe(8);
+
+    // Gandhipuram → Brookefields is ~2 km: the closer, picky driver never gets it.
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'CAB', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+    expect((await acceptWhenOffered(trip.id, other)).status).toBe(200);
+    expect((await http.post(`/v1/trips/${trip.id}/accept`).set(auth)).status).not.toBe(200);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+
+    // A go-to switches itself off after two hours.
+    const goTo = (await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ goTo: { lat: 11.08, lng: 77, name: 'Home' } }).expect(200)).body.goTo;
+    expect(new Date(goTo.until).getTime() - Date.now()).toBeGreaterThan(119 * 60_000);
+    await http.put('/v1/drivers/me/booking-preferences').set(auth).send({}).expect(200);
+    for (const d of [picky, other]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
+  });
+
   it('"Who\'s riding?": a father books Butterfly for his daughter; the driver sees her; reports switch it off', async () => {
     const woman = await onlineDriver('AUTO', { lat: 11.0186, lng: 76.9728 }, 'FEMALE');
     const father = await login(); // no gender set

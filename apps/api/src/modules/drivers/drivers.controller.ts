@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, Param, ParseEnumPipe, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, Param, ParseEnumPipe, Patch, Post, Put, Query, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 
@@ -8,8 +8,10 @@ import { Roles } from '../../core/auth/roles.decorator.js';
 import { FileStorageService, MAX_UPLOAD_BYTES, type UploadedBlob } from '../../core/storage/file-storage.service.js';
 import type { Driver, KycDocument } from '../../generated/prisma/client.js';
 import { KycDocType, Role } from '../../generated/prisma/enums.js';
+import type { BookingPrefs } from './booking-prefs.js';
 import { DriverEarningsService, type Earnings } from './driver-earnings.service.js';
 import { DriversService } from './drivers.service.js';
+import { BookingPrefsDto } from './dto/booking-prefs.dto.js';
 import { EarningsQueryDto } from './dto/earnings-query.dto.js';
 import { LocationDto } from './dto/location.dto.js';
 import { RegisterDriverDto } from './dto/register-driver.dto.js';
@@ -41,6 +43,19 @@ export class DriversController {
   @Patch('drivers/me')
   update(@CurrentUser() user: AuthUser, @Body() body: UpdateDriverDto): Promise<Driver> {
     return this.drivers.update(DriversController.driverId(user), body);
+  }
+
+  /** Booking preferences: pickup distance, trip length, go-to destination (dispatch only offers trips that fit). */
+  @Roles(Role.DRIVER)
+  @Get('drivers/me/booking-preferences')
+  bookingPrefs(@CurrentUser() user: AuthUser): Promise<BookingPrefs> {
+    return this.drivers.bookingPrefs(DriversController.driverId(user));
+  }
+
+  @Roles(Role.DRIVER)
+  @Put('drivers/me/booking-preferences')
+  setBookingPrefs(@CurrentUser() user: AuthUser, @Body() body: BookingPrefsDto): Promise<BookingPrefs> {
+    return this.drivers.setBookingPrefs(DriversController.driverId(user), body);
   }
 
   /** D-23: ?period=today|week|month. */

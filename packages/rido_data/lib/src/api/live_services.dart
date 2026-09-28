@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:latlong2/latlong.dart';
 
+import '../models/booking_prefs.dart';
 import '../models/cancellation.dart';
 import '../models/driver.dart';
 import '../models/driver_fix.dart';
@@ -202,6 +203,13 @@ class LiveJobs {
   }
 
   Future<void> goOffline() => api.post('/drivers/me/offline');
+
+  /// Booking preferences (pickup distance, trip length, go-to destination); dispatch only offers trips that fit.
+  Future<BookingPrefs> bookingPrefs() async => BookingPrefs.fromJson(_map(await api.get('/drivers/me/booking-preferences')));
+
+  /// Replaces them; returns what the server saved (a go-to comes back with when it switches off).
+  Future<BookingPrefs> setBookingPrefs(BookingPrefs prefs) async =>
+      BookingPrefs.fromJson(_map(await api.put('/drivers/me/booking-preferences', prefs.toJson())));
 
   /// The driver's cancellation rate (Home banner) and pause.
   Future<DriverCancelRate> cancelRate() async => DriverCancelRate.fromJson(_map(await api.get('/drivers/me/cancel-rate')));

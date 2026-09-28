@@ -2,10 +2,12 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { FileStorageService, type UploadedBlob } from '../../core/storage/file-storage.service.js';
 import { DriverEarningsService } from './driver-earnings.service.js';
 import type { UpdateDriverDto } from './dto/update-driver.dto.js';
+import type { BookingPrefsDto } from './dto/booking-prefs.dto.js';
+import { type BookingPrefs, GO_TO_HOURS, readPrefs } from './booking-prefs.js';
 
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
-import type { Driver, KycDocument } from '../../generated/prisma/client.js';
+import type { Driver, KycDocument, Prisma } from '../../generated/prisma/client.js';
 import { DriverStatus, IdentityStatus, KycDocType, KycStatus, Role, TripStatus } from '../../generated/prisma/enums.js';
 import { AuthService } from '../auth/auth.service.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
@@ -69,6 +71,30 @@ export class DriversService {
     });
     await this.state.invalidate(driver.id);
     return this.me(driver.id);
+  }
+
+  async bookingPrefs(driverId: string): Promise<BookingPrefs> {
+    const d = await this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, select: { bookingPrefs: true } });
+    return readPrefs(d.bookingPrefs, new Date());
+  }
+
+  /** Replaces the preferences. A go-to switches itself off after [GO_TO_HOURS]. */
+  async setBookingPrefs(driverId: string, dto: BookingPrefsDto): Promise<BookingPrefs> {
+    if (dto.minTripKm && dto.maxTripKm && dto.minTripKm > dto.maxTripKm) {
+      throw new BadRequestException('Shortest trip must be less than the longest trip');
+    }
+    const now = new Date();
+    const prefs: BookingPrefs = {
+      maxPickupKm: dto.maxPickupKm ?? null,
+      minTripKm: dto.minTripKm ?? null,
+      maxTripKm: dto.maxTripKm ?? null,
+      goTo: dto.goTo ? { ...dto.goTo, until: new Date(now.getTime() + GO_TO_HOURS * 3_600_000).toISOString() } : null,
+    };
+    // Keep a go-to already running when the app sends the same place back (don't restart its timer).
+    const current = await this.bookingPrefs(driverId);
+    if (dto.goTo && current.goTo && current.goTo.lat === dto.goTo.lat && current.goTo.lng === dto.goTo.lng) prefs.goTo = current.goTo;
+    await this.prisma.driver.update({ where: { id: driverId }, data: { bookingPrefs: prefs as Prisma.InputJsonValue } });
+    return prefs;
   }
 
   /** Stores the photo / PDF and puts the document under review. `fileUrl` holds the stored file name. */

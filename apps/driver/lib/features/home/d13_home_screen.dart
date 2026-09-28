@@ -9,6 +9,7 @@ import '../../common/launch.dart';
 import '../../common/measure_size.dart';
 import '../../overlay/background_permissions.dart';
 import '../../state/app_permissions.dart';
+import '../../state/booking_prefs.dart';
 import '../../router/routes.dart';
 import '../../state/demand_map.dart';
 import '../../state/driver_account.dart';
@@ -207,6 +208,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     final plansOn = ref.watch(driverPlansEnabledProvider);
     final demo = ref.watch(demoSettingsProvider);
     final profile = ref.watch(driverProfileProvider).value ?? Seed.karthik;
+    final prefs = _showcase ? null : ref.watch(bookingPrefsProvider).value;
 
     // ------------------------------------------------------------ view state
     final online = _live
@@ -428,6 +430,11 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
               ? 'Keep the app open and volume up.'
               : (_api ? 'Keep the app open. Requests pop up here.' : 'Move towards Gandhipuram for faster requests.'),
         ),
+        // Filters on: say so, or a quiet evening looks like the app is broken.
+        if (prefs != null && prefs.hasFilters) ...[
+          const SizedBox(height: RidoSpacing.m),
+          FiltersOnRow(summary: prefs.summary, onEdit: () => context.push(Routes.bookingPreferences)),
+        ],
         const SizedBox(height: RidoSpacing.l),
         RidoButton.secondary(label: 'Go offline', onPressed: _goOfflineOrShowcase),
       ]);

@@ -398,3 +398,28 @@ class OnlineStatusRow extends StatelessWidget {
     );
   }
 }
+
+/// "Filters on · pickup ≤ 2 km · trips over 5 km   Edit": booking preferences are narrowing requests.
+class FiltersOnRow extends StatelessWidget {
+  const FiltersOnRow({super.key, required this.summary, required this.onEdit});
+  final String summary;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(RidoSpacing.m, RidoSpacing.xs, RidoSpacing.xs, RidoSpacing.xs),
+      decoration: const BoxDecoration(color: RidoColors.warningTint, borderRadius: RidoRadii.cardRadius),
+      child: Row(children: [
+        const Icon(Symbols.tune_rounded, color: RidoColors.warningText, size: 20),
+        const SizedBox(width: RidoSpacing.s),
+        Expanded(
+          child: Text('Filters on · $summary',
+              style: t.bodySmall.copyWith(color: RidoColors.warningText), maxLines: 2, overflow: TextOverflow.ellipsis),
+        ),
+        TextButton(onPressed: onEdit, child: const Text('Edit')),
+      ]),
+    );
+  }
+}

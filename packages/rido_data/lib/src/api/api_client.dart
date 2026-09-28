@@ -122,6 +122,7 @@ class ApiClient {
   Future<dynamic> post(String path, [Object? body, bool idempotent = false]) =>
       _send('POST', path, body: body, canRetry: idempotent);
   Future<dynamic> patch(String path, Object? body) => _send('PATCH', path, body: body, canRetry: true);
+  Future<dynamic> put(String path, Object? body) => _send('PUT', path, body: body, canRetry: true);
   Future<dynamic> delete(String path) => _send('DELETE', path, canRetry: true);
 
   /// multipart/form-data upload with one file field (re-uploading replaces the same document, so it is retried).

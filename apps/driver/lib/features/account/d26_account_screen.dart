@@ -6,6 +6,7 @@ import 'package:rido_ui/rido_ui.dart';
 
 import '../../common/flags.dart';
 import '../../router/routes.dart';
+import '../../state/booking_prefs.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_session.dart';
 import '../home/widgets/navy_header.dart';
@@ -49,6 +50,8 @@ class D26AccountScreen extends ConsumerWidget {
     final kyc = ref.watch(kycProvider).value;
     final contact = ref.watch(driverEmergencyContactProvider).value;
     final verified = kyc?.where((d) => d.status == KycStatus.verified).length;
+    final prefs = ref.watch(bookingPrefsProvider).value;
+    final prefsSub = prefs == null || !prefs.hasFilters ? 'Every request · voice, go home, distance' : _cap(prefs.summary);
     final docsSub = kyc == null
         ? 'Driving licence, RC, insurance…'
         : verified == kyc.length
@@ -123,6 +126,12 @@ class D26AccountScreen extends ConsumerWidget {
                   onTap: () => context.push(Routes.vehicleDetails),
                 ),
                 RidoListTile(
+                  icon: Symbols.tune_rounded,
+                  title: 'Booking preferences',
+                  subtitle: prefsSub,
+                  onTap: () => context.push(Routes.bookingPreferences),
+                ),
+                RidoListTile(
                   icon: Symbols.account_balance_rounded,
                   title: 'UPI ID',
                   subtitle: profile.upiId,
@@ -183,3 +192,5 @@ class D26AccountScreen extends ConsumerWidget {
     );
   }
 }
+
+String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);

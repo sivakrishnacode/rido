@@ -348,6 +348,9 @@ model Driver {
   isOnline          Boolean            @default(false)
   /// Temporarily paused until then (too many cancellations, [DriverBlock]); can't go online, dispatch skips them.
   blockedUntil      DateTime?
+  /// Booking preferences the driver set (booking-prefs.ts): maxPickupKm, minTripKm, maxTripKm, goTo {lat, lng, name,
+  /// until}. Dispatch only offers trips that fit. Null = no filters.
+  bookingPrefs      Json?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)

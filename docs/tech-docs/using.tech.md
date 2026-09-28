@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 29 Sep 2026 (driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -229,6 +229,8 @@ Never commit real `.env` files.
   - `PATCH /drivers/me` (name, gender, work type, vehicle model/colour, plate, UPI), `GET /drivers/me/earnings?period=today|week|month`
     (today in 2-hour buckets, 7 days, 4 weeks; commission saved = 30 % of fares; online hours from Redis
     `driver:online_since:<id>` / `driver:online_secs:<id>:<IST day>`, 40 days).
+  - `GET` / `PUT /drivers/me/booking-preferences` (`{maxPickupKm 0.5–10, minTripKm 1–50, maxTripKm 1–100, goTo {lat,
+    lng, name}}`, null clears one; stored in `Driver.bookingPrefs` JSON, see §7c8).
   - `POST /drivers/me/documents/:type` is **multipart** (`file`: JPG/PNG/WebP/PDF ≤ 8 MB) → **S3**
     `s3://rido-uploads-786020471552/kyc/<uuid>.<ext>` when `S3_BUCKET` is set (production), else local disk
     (`UPLOAD_DIR`, Docker volume `uploads`, dev) → `KycDocument.fileUrl` = file name. Admins read it via
@@ -997,6 +999,20 @@ suggestion's name.
 - **Test:** install both APKs, sign in, then Admin → Announcements → create one for "All" → it arrives on both phones.
 
 ---
+
+## 7c8. Driver booking preferences
+
+- **What:** like Namma Yatri's Booking Preferences. Account › Booking preferences
+  (`/account/booking-preferences`, `BookingPreferencesScreen`): read requests aloud + language (phone only, §7c9),
+  **Go home** (only trips towards the Home spot saved on the phone, for 2 hours), **farthest pickup** (Any, 1–10 km,
+  straight line), **trip length** (longer than / shorter than, 2–50 km). Save → `PUT /drivers/me/booking-preferences`.
+- **Dispatch:** `booking-prefs.ts` `fitsPrefs()` runs on each search's candidates after the declined / paused filter
+  (one `driver.findMany` for those with prefs): pickup km ≤ max, trip km within min–max, and while `goTo.until` is in
+  the future the drop must be within 3 km of the go-to or leave at most half of the driver's current distance to it.
+  The server sets `until` = now + 2 h (resending the same place keeps the running timer). Filters never change fares.
+- **Home:** online with filters on, a "Filters on · pickup ≤ 2 km · trips over 5 km   Edit" row, so fewer requests
+  don't look like a broken app. Account shows the same summary.
+- **Not yet:** a limit on go-home uses per day, and picking a go-to place other than the saved Home.
 
 ## 7c9. Driver request screen (D-15 / D-20)
 

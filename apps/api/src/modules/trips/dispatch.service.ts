@@ -3,9 +3,10 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
-import type { Trip } from '../../generated/prisma/client.js';
+import { Prisma, type Trip } from '../../generated/prisma/client.js';
 import { CancelCode, CancelledBy, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DEL_IF_EQUALS, DriverLocationService } from '../drivers/driver-location.service.js';
+import { fitsPrefs, readPrefs } from '../drivers/booking-prefs.js';
 import { applyWomenPref, womenAmong } from '../drivers/women-drivers.js';
 import { roadKm } from '../geo/eta-model.js';
 import { NotifierService } from '../notifications/notifier.service.js';
@@ -227,7 +228,9 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     ]);
     // Paused drivers (too many cancellations) are offline anyway; this covers an index entry left behind.
     const paused = await this.blocks.pausedAmong(perKind.flat().map((d) => d.driverId));
-    const nearby = perKind.flat().filter((d) => !declined.includes(d.driverId) && !paused.has(d.driverId));
+    const inRange = perKind.flat().filter((d) => !declined.includes(d.driverId) && !paused.has(d.driverId));
+    // Drivers' booking preferences (pickup distance, trip length, go-to destination): only trips that fit.
+    const nearby = await this.fittingPrefs(inRange, trip);
     // One ETA lookup for every candidate (per-cell cache, then a single Route Matrix call for the misses).
     const etas = await etasByMode(
       nearby.map((d) => ({ at: d, vehicleKind: d.kind })),
@@ -247,6 +250,22 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
       .sort((a, b) => a.etaMin - b.etaMin)
       .slice(0, s.maxCandidates);
     return { tripId: trip.id, createdAt: trip.createdAt, candidates };
+  }
+
+  /** [drivers] whose booking preferences accept [trip] (one query for all of them). */
+  private async fittingPrefs<T extends { driverId: string; lat: number; lng: number; distanceKm: number }>(drivers: T[], trip: Trip): Promise<T[]> {
+    if (!drivers.length) return drivers;
+    const rows = await this.prisma.driver.findMany({
+      where: { id: { in: [...new Set(drivers.map((d) => d.driverId))] }, bookingPrefs: { not: Prisma.DbNull } },
+      select: { id: true, bookingPrefs: true },
+    });
+    if (!rows.length) return drivers;
+    const now = new Date();
+    const prefs = new Map(rows.map((r) => [r.id, readPrefs(r.bookingPrefs, now)]));
+    return drivers.filter((d) => {
+      const p = prefs.get(d.driverId);
+      return !p || fitsPrefs(p, d, trip);
+    });
   }
 
   private async offerNext(tripId: string, opts: { searchFoundNobody?: boolean } = {}): Promise<void> {
