@@ -62,7 +62,7 @@ export class FaresService {
 
   async quoteAll(params: { pickup: GeoPoint; drop: GeoPoint; kind: TripKind }): Promise<FareQuote[]> {
     const wantGoods = params.kind === TripKind.PARCEL;
-    const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: wantGoods ? VehicleKind.THREE_WHEELER : VehicleKind.CAB });
+    const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: FaresService.routeVehicle(wantGoods) });
     const here = await this.geo.locate(params.pickup);
     const s = await this.settings.all();
     const kinds = (Object.keys(FARE_RULES) as VehicleKind[]).filter((k) => FARE_RULES[k].isGoods === wantGoods);
@@ -82,12 +82,21 @@ export class FaresService {
     return quoteFare({ vehicleKind: params.vehicleKind, route: params.route, multiplier: here.multiplier, maxMultiplier: s.maxMultiplier, rule, waiting: waitingSettings(s) });
   }
 
+  /**
+   * The booked vehicle's fare, on the same route [quoteAll] priced for P-10 (the car / three-wheeler route), so the
+   * booked fare is the one the passenger saw (and a bike booking doesn't make an extra two-wheeler Routes call).
+   */
   async quoteOne(params: { pickup: GeoPoint; drop: GeoPoint; vehicleKind: VehicleKind }): Promise<FareQuote> {
-    const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: params.vehicleKind });
+    const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: FaresService.routeVehicle(FARE_RULES[params.vehicleKind].isGoods) });
     const here = await this.geo.locate(params.pickup);
     const rule = (await this.geo.fareRule(here.cityId, params.vehicleKind)) ?? undefined;
     const s = await this.settings.all();
     return quoteFare({ vehicleKind: params.vehicleKind, route, multiplier: here.multiplier, maxMultiplier: s.maxMultiplier, rule, waiting: waitingSettings(s) });
+  }
+
+  /** One route prices every vehicle of a kind: rides on the car route, goods on the three-wheeler route. */
+  static routeVehicle(isGoods: boolean): VehicleKind {
+    return isGoods ? VehicleKind.THREE_WHEELER : VehicleKind.CAB;
   }
 
   /** Waiting-charge rate per started minute for [vehicleKind] at [at] (the city's rule, else the built-in one). */
