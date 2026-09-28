@@ -238,9 +238,9 @@ Never commit real `.env` files.
 | `dispatch:pending`, `dispatch:lock` | Bookings waiting for the next batch; batch lock | – / batch window |
 | `eta:<road\|est>:<cellA>:<cellB>` | ETA minutes between hex centres | 10 min |
 | `driver:alive:<driverId>` | Heartbeat; stale drivers are skipped | 90 s |
-| `driver:busy:<driverId>` | Active trip id | until trip ends |
+| `driver:busy:<driverId>` | Active trip id; claimed with SET NX on accept (one trip per driver), freed by compare-and-delete | 6 h, refreshed by each GPS update; a stale one is cleared on go-online |
 | `user:blocked:<userId>` | Blocked by an admin (checked on every request) | until unblocked |
-| `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer`, `dispatch:driver:<driverId>:offer` | Nearest-driver queue, current 15 s offer (both directions) | 10 min / 15 s |
+| `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer`, `dispatch:driver:<driverId>:offer` | Nearest-driver queue, current 15 s offer (both directions). The driver key is claimed with SET NX (one open offer per driver) and deleted only while it still names that trip | 10 min / 15 s |
 | `trip:chat:<tripId>` | In-trip chat messages | 24 h |
 | `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
 | `kyc:event:<event_id>` | Didit webhook already handled (idempotency) | 2 d |
@@ -275,6 +275,9 @@ Never commit real `.env` files.
      and D-16 / D-17 offer the cancel reason on women-only rides. Admin trip page shows the rider and Butterfly.
   5. The whole batch is assigned together (`assignBatch`: all trip–driver pairs by ETA, each driver to one rider),
      then each driver gets `offerSeconds` to accept; decline/timeout → next in that trip's queue.
+     **One offer, one trip (28 Sep 2026):** a driver who is busy or still deciding on another request is skipped
+     (next candidate; they come back in a later search). Accept claims `driver:busy` atomically before the database
+     write (409 "Finish your current trip first" if it holds another trip) and releases it if the write loses.
   6. **Out of candidates (26 Sep 2026):** search again every 4 s. A driver who let the offer **time out** can be
      offered it again (e.g. the only driver around); one who **declined** is excluded for that trip
      (`dispatch:<id>:declined`). `NO_DRIVERS` after 90 s if any driver was offered it, else after 30 s, but never

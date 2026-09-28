@@ -9,6 +9,8 @@ import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/core/prisma/prisma.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
 import { SettingsService } from '../src/modules/settings/settings.service.js';
+import { DEMAND_RES } from '../src/modules/geo/demand.service.js';
+import { cellAt } from '../src/modules/geo/h3.util.js';
 import { DiditClient } from '../src/modules/kyc/didit.client.js';
 import type { DiditDecision } from '../src/modules/kyc/didit.js';
 
@@ -295,6 +297,48 @@ describe('Rido API (e2e)', () => {
     }
   });
 
+  it('one open offer and one active trip per driver', async () => {
+    // Arrange: only this bike driver is indexed (earlier tests leave bikes online); two riders book bikes.
+    const redis = app.get(RedisService);
+    const cells = await redis.keys('h3:drv:BIKE:*');
+    if (cells.length) await redis.del(...cells);
+    const bike = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
+    const driverId = (await http.get('/v1/drivers/me').set('Authorization', `Bearer ${bike}`).expect(200)).body.id as string;
+    const book = { kind: 'RIDE', vehicleKind: 'BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS };
+    const [paxA, paxB] = [await login(), await login()];
+    const a = (await http.post('/v1/trips').set('Authorization', `Bearer ${paxA}`).send(book).expect(201)).body;
+    const b = (await http.post('/v1/trips').set('Authorization', `Bearer ${paxB}`).send(book).expect(201)).body;
+
+    // Act: wait for the driver's (single) offer.
+    let offered: string | null = null;
+    for (let i = 0; i < 40 && !offered; i++) {
+      const res = await http.get('/v1/trips/offer').set('Authorization', `Bearer ${bike}`);
+      offered = res.status === 200 ? (res.body?.trip?.id ?? null) : null;
+      if (!offered) await new Promise((r) => setTimeout(r, 250));
+    }
+    const other = offered === a.id ? b.id : a.id;
+
+    // Assert: the other trip is never offered to them at the same time, and they can't take it.
+    expect([a.id, b.id]).toContain(offered);
+    expect(await redis.get(`dispatch:${other}:offer`)).not.toBe(driverId);
+    await http.post(`/v1/trips/${other}/accept`).set('Authorization', `Bearer ${bike}`).expect(409);
+    await http.post(`/v1/trips/${offered}/accept`).set('Authorization', `Bearer ${bike}`).expect(200);
+    expect(await redis.ttl(`driver:busy:${driverId}`)).toBeGreaterThan(3600);
+    // Even with a leftover offer for the other trip, a second active trip is refused.
+    await redis.set(`dispatch:${other}:offer`, driverId, 'EX', 20);
+    const second = await http.post(`/v1/trips/${other}/accept`).set('Authorization', `Bearer ${bike}`).expect(409);
+    expect(second.body.message).toBe('Finish your current trip first');
+    await redis.del(`dispatch:${other}:offer`);
+
+    // A cancel frees the driver for the other trip.
+    await http.post(`/v1/trips/${offered}/cancel`).set('Authorization', `Bearer ${offered === a.id ? paxA : paxB}`).send({}).expect(200);
+    expect(await redis.exists(`driver:busy:${driverId}`)).toBe(0);
+    // The other trip searches again every few seconds.
+    expect((await acceptWhenOffered(other, bike, 80)).status).toBe(200);
+    await http.post(`/v1/trips/${other}/cancel`).set('Authorization', `Bearer ${bike}`).send({}).expect(200);
+    await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${bike}`).expect(200);
+  }, 45_000);
+
   it('falls back to seeded places and a curved route without a Google key', async () => {
     const ac = await http.get('/v1/places/autocomplete?q=brook&session=t1').expect(200);
     expect(ac.body.results.length).toBeGreaterThan(0);
@@ -380,7 +424,9 @@ describe('Rido API (e2e)', () => {
     }
     // No drivers near Peelamedu: demand ÷ supply is high → the cell (and, smoothed, its neighbours) surges.
     const snap = await http.get('/v1/admin/demand?refresh=true').set(admin).expect(200);
-    const hot = snap.body.cells.find((c: { requests: number }) => c.requests >= 5);
+    // Peelamedu's own cell (other tests' bookings may make Gandhipuram busy too).
+    const hot = snap.body.cells.find((c: { cell: string }) => c.cell === cellAt(peelamedu.lat, peelamedu.lng, DEMAND_RES));
+    expect(hot.requests).toBeGreaterThanOrEqual(5);
     expect(hot.level).toBe('high');
     expect(hot.multiplier).toBeGreaterThan(1.1);
     const here = await http.get(`/v1/geo/check?lat=${peelamedu.lat}&lng=${peelamedu.lng}`).expect(200);

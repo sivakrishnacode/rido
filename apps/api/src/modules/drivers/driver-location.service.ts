@@ -11,6 +11,14 @@ export const DRIVER_H3_RES = 8;
 const RING_SPACING_KM = 0.92;
 const ALIVE_TTL_S = 90;
 
+/** `driver:busy` can never stick for good: it expires unless GPS updates keep refreshing it during the trip. */
+export const BUSY_TTL_S = 6 * 3600;
+
+/** Sets KEYS[1] = ARGV[1] (TTL ARGV[2]) if it is free or already ARGV[1]; 0 when it holds something else. */
+const CLAIM = `local cur = redis.call('get', KEYS[1])
+if not cur or cur == ARGV[1] then redis.call('set', KEYS[1], ARGV[1], 'EX', ARGV[2]) return 1 end
+return 0`;
+
 /** Deletes KEYS[1] only while it still holds ARGV[1] (compare-and-delete). */
 export const DEL_IF_EQUALS = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
 
@@ -49,7 +57,9 @@ export class DriverLocationService {
     }
     tx.sadd(DriverLocationService.cellKey(params.kind, cell), params.driverId)
       .set(`driver:cell:${params.driverId}`, next)
-      .set(`driver:alive:${params.driverId}`, `${params.lat},${params.lng}`, 'EX', ALIVE_TTL_S);
+      .set(`driver:alive:${params.driverId}`, `${params.lat},${params.lng}`, 'EX', ALIVE_TTL_S)
+      // Keeps the busy flag alive while the driver is on a trip (no-op when free).
+      .expire(`driver:busy:${params.driverId}`, BUSY_TTL_S);
     await tx.exec();
   }
 
@@ -71,9 +81,12 @@ export class DriverLocationService {
     return { lat, lng };
   }
 
-  async setBusy(driverId: string, tripId: string | null): Promise<void> {
-    if (tripId) await this.redis.set(`driver:busy:${driverId}`, tripId);
-    else await this.redis.del(`driver:busy:${driverId}`);
+  /**
+   * Marks the driver busy with [tripId], atomically: false when they are already busy with another trip (one
+   * active trip per driver). Claiming the same trip again is fine.
+   */
+  async claimBusy(driverId: string, tripId: string): Promise<boolean> {
+    return (await this.redis.eval(CLAIM, 1, `driver:busy:${driverId}`, tripId, BUSY_TTL_S)) === 1;
   }
 
   /** Frees the driver only if they are still busy with [tripId] (not with a trip they have moved on to). */

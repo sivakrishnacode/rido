@@ -5,7 +5,7 @@ import type { UpdateDriverDto } from './dto/update-driver.dto.js';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, KycDocument } from '../../generated/prisma/client.js';
-import { DriverStatus, IdentityStatus, KycDocType, KycStatus, Role } from '../../generated/prisma/enums.js';
+import { DriverStatus, IdentityStatus, KycDocType, KycStatus, Role, TripStatus } from '../../generated/prisma/enums.js';
 import { AuthService } from '../auth/auth.service.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
 import { DriverLocationService } from './driver-location.service.js';
@@ -111,6 +111,7 @@ export class DriversService {
         code: 'PHOTO_REQUIRED',
       });
     }
+    await this.freeIfStale(driver.id);
     await this.location.update({ driverId: driver.id, kind: driver.vehicleKind, lat: params.lat, lng: params.lng });
     await this.earnings.sessionStarted(driver.id);
     return this.prisma.driver.update({ where: { id: driver.id }, data: { isOnline: true } });
@@ -195,6 +196,15 @@ export class DriversService {
       (await this.prisma.trip.count({ where: { driverId, passengerId: viewer.userId } })) > 0;
     if (!canSee) throw new NotFoundException('No photo');
     return driver.photoFile;
+  }
+
+  /** A busy flag left over from a trip that has ended (or isn't theirs) would hide the driver from every search. */
+  private async freeIfStale(driverId: string): Promise<void> {
+    const tripId = await this.location.activeTrip(driverId);
+    if (!tripId) return;
+    const trip = await this.prisma.trip.findUnique({ where: { id: tripId }, select: { driverId: true, status: true } });
+    const onTrip: TripStatus[] = [TripStatus.DRIVER_ASSIGNED, TripStatus.DRIVER_ARRIVED, TripStatus.IN_PROGRESS, TripStatus.PICKED_UP];
+    if (trip?.driverId !== driverId || !onTrip.includes(trip.status)) await this.location.releaseBusy(driverId, tripId);
   }
 
   async goOffline(driverId: string): Promise<Driver> {

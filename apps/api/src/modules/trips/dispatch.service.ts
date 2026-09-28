@@ -4,7 +4,7 @@ import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Trip } from '../../generated/prisma/client.js';
 import { TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
-import { DriverLocationService } from '../drivers/driver-location.service.js';
+import { DEL_IF_EQUALS, DriverLocationService } from '../drivers/driver-location.service.js';
 import { applyWomenPref, womenAmong } from '../drivers/women-drivers.js';
 import { roadKm } from '../geo/eta-model.js';
 import { NotifierService } from '../notifications/notifier.service.js';
@@ -92,7 +92,8 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
 
   private async clearOffer(tripId: string): Promise<void> {
     const driverId = await this.offeredTo(tripId);
-    if (driverId) await this.redis.del(`dispatch:driver:${driverId}:offer`);
+    // Only while it is still this trip's offer: the driver may already have one for another trip.
+    if (driverId) await this.redis.eval(DEL_IF_EQUALS, 1, `dispatch:driver:${driverId}:offer`, tripId);
     await this.redis.del(`dispatch:${tripId}:offer`);
   }
 
@@ -207,13 +208,17 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     if (!trip || trip.status !== TripStatus.SEARCHING) return;
     const driverId = await this.redis.lpop(`dispatch:${tripId}:queue`);
     if (!driverId) return this.searchAgainOrGiveUp(trip, opts.searchFoundNobody ?? false);
-    if (await this.redis.exists(`driver:busy:${driverId}`)) {
+    const offerSeconds = await this.settings.get('offerSeconds');
+    // One open offer per driver: a driver on a trip, or still deciding on another request, is skipped (they come
+    // back in a later search if still near).
+    const isFree =
+      !(await this.redis.exists(`driver:busy:${driverId}`)) &&
+      (await this.redis.set(`dispatch:driver:${driverId}:offer`, tripId, 'EX', offerSeconds + OFFER_GRACE_S, 'NX')) === 'OK';
+    if (!isFree) {
       await this.offerNext(tripId);
       return;
     }
-    const offerSeconds = await this.settings.get('offerSeconds');
     await this.redis.set(`dispatch:${tripId}:offer`, driverId, 'EX', offerSeconds + OFFER_GRACE_S);
-    await this.redis.set(`dispatch:driver:${driverId}:offer`, tripId, 'EX', offerSeconds + OFFER_GRACE_S);
     await this.redis.set(`dispatch:${tripId}:offered`, '1', 'EX', 900);
     const details = await this.offerDetails(trip, driverId);
     this.events.toDriver(driverId, 'trip.offer', { ...details, expiresInSeconds: offerSeconds });

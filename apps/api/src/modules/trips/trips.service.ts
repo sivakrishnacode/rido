@@ -152,6 +152,17 @@ export class TripsService {
 
   async accept(driverId: string, tripId: string): Promise<Trip> {
     if ((await this.dispatch.offeredTo(tripId)) !== driverId) throw new ConflictException('This request is no longer available');
+    // One active trip per driver: claimed before the database write, released again if the write loses.
+    if (!(await this.location.claimBusy(driverId, tripId))) throw new ConflictException('Finish your current trip first');
+    try {
+      return await this.assign(driverId, tripId);
+    } catch (e) {
+      await this.location.releaseBusy(driverId, tripId);
+      throw e;
+    }
+  }
+
+  private async assign(driverId: string, tripId: string): Promise<Trip> {
     const [booked, driver] = await Promise.all([
       this.prisma.trip.findUnique({ where: { id: tripId } }),
       this.prisma.driver.findUnique({ where: { id: driverId }, select: { vehicleKind: true } }),
@@ -171,7 +182,6 @@ export class TripsService {
     });
     if (count === 0) throw new ConflictException('Trip already taken or cancelled');
     await this.dispatch.stop(tripId);
-    await this.location.setBusy(driverId, tripId);
     return this.publish(tripId, 'DRIVER');
   }
 
