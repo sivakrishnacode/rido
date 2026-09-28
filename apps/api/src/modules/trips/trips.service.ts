@@ -50,6 +50,9 @@ const TRIP_INCLUDE = {
   passenger: { select: { id: true, name: true, phone: true, identityStatus: true } },
 } as const;
 
+/** [trip] as a driver may see it: the ride / delivery OTP is only for the passenger to read out. */
+const hideOtp = <T extends Trip>(trip: T): T => ({ ...trip, otp: '' });
+
 /** Rides and parcels: booking, the status lifecycle, cancel and rating. */
 @Injectable()
 export class TripsService {
@@ -187,7 +190,7 @@ export class TripsService {
     });
     if (count === 0) throw new ConflictException('Trip already taken or cancelled');
     await this.dispatch.stop(tripId);
-    return this.publish(tripId, 'DRIVER');
+    return hideOtp(await this.publish(tripId, 'DRIVER'));
   }
 
   /**
@@ -339,7 +342,8 @@ export class TripsService {
     await this.dispatch.stop(tripId);
     // The status matched, so this is the driver the trip had; free them only if they are still on it.
     if (trip.driverId) await this.location.releaseBusy(trip.driverId, tripId);
-    return this.publish(tripId, by);
+    const published = await this.publish(tripId, by);
+    return by === CancelledBy.DRIVER ? hideOtp(published) : published;
   }
 
   /**
@@ -429,13 +433,12 @@ export class TripsService {
       if (now.status === params.to) return this.current(trip.id);
       throw new ConflictException(now.status === TripStatus.CANCELLED ? 'This trip was cancelled' : 'This trip has changed. Please refresh');
     }
-    return this.publish(trip.id, 'DRIVER');
+    return hideOtp(await this.publish(trip.id, 'DRIVER'));
   }
 
   /** The trip as it is now, for the driver (no OTP, nothing emitted). */
   private async current(tripId: string): Promise<Trip> {
-    const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE });
-    return { ...trip, otp: '' };
+    return hideOtp(await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE }));
   }
 
   /** Emits the fresh trip to both sides (socket + push) and returns it. [by] caused the change. */

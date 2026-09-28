@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -201,7 +201,8 @@ Never commit real `.env` files.
     bike or auto…". On assignment the ride takes the trip's vehicle and fare from the server. Rides only for now
     (parcels have the API but no UI yet).
   - Trips include `driver.user` and `passenger` (name, phone) for both sides; the **OTP is hidden from drivers** in
-    offers, trip reads and history.
+    offers, trip reads, history and every driver step response (accept / arrived / start / complete / cancel; before
+    28 Sep 2026 the accept and arrived responses carried it, so a driver could start without the rider).
   - `trip.offer` payload: `{ trip, passenger: {name, phone}, pickupKm, pickupEtaMin, expiresInSeconds }`.
   - `PATCH /drivers/me` (name, gender, work type, vehicle model/colour, plate, UPI), `GET /drivers/me/earnings?period=today|week|month`
     (today in 2-hour buckets, 7 days, 4 weeks; commission saved = 30 % of fares; online hours from Redis

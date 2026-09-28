@@ -132,7 +132,10 @@ describe('Rido API (e2e)', () => {
       if (accepted !== 200) await new Promise((r) => setTimeout(r, 250));
     }
     expect(accepted).toBe(200);
-    expect((await http.post(`/v1/trips/${trip.id}/arrived`).set(auth).expect(200)).body.arrivedAt).not.toBeNull();
+    const arrived = (await http.post(`/v1/trips/${trip.id}/arrived`).set(auth).expect(200)).body;
+    // The driver never gets the OTP: the rider reads it out.
+    expect(arrived).toMatchObject({ otp: '' });
+    expect(arrived.arrivedAt).not.toBeNull();
     const wrongOtp = { otp: '0000' === trip.otp ? '1111' : '0000' };
     await http.post(`/v1/trips/${trip.id}/start`).set(auth).send(wrongOtp).expect(400);
     // 5 tries a minute: the 5th wrong one locks the OTP, even the right one, until the minute is up.
@@ -276,6 +279,7 @@ describe('Rido API (e2e)', () => {
     const added = (await http.post(`/v1/trips/${trip.id}/also`).set(pax).send({ vehicleKind: 'AUTO' }).expect(200)).body;
     await http.post(`/v1/trips/${trip.id}/also`).set(pax).send({ vehicleKind: 'GOODS_BIKE' }).expect(400);
     const accepted = await acceptWhenOffered(trip.id, auto);
+    expect(accepted.body.otp).toBe('');
 
     // Assert
     const autoAlt = alts.find((a: { vehicleKind: string }) => a.vehicleKind === 'AUTO');
