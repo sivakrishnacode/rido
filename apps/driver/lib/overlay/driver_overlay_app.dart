@@ -6,6 +6,7 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../features/jobs/widgets/request_layout.dart';
+import '../features/jobs/widgets/request_stack_view.dart';
 import 'overlay_protocol.dart';
 
 /// The floating overlay drawn over other apps (its own engine and isolate, started by
@@ -25,6 +26,12 @@ class DriverOverlayApp extends StatefulWidget {
 class _DriverOverlayAppState extends State<DriverOverlayApp> {
   StreamSubscription<dynamic>? _sub;
   OverlayOffer? _offer;
+
+  /// The other open requests (the comparison list when not empty).
+  List<OverlayOffer> _others = const [];
+
+  /// The request whose Accept was sent (the list locks the others meanwhile).
+  String? _acceptingId;
   bool _accepting = false;
   String? _error;
   DateTime? _errorAt;
@@ -86,7 +93,10 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
         _collapse();
       case OverlayMsg.offer:
         final offer = OverlayOffer.fromJson(raw['offer']);
-        if (offer != null) _expand(offer);
+        final others = [
+          for (final o in (raw['others'] is List ? raw['others'] as List : const [])) ?OverlayOffer.fromJson(o),
+        ];
+        if (offer != null) _expand(offer, others);
       case OverlayMsg.accepting:
         if (mounted) setState(() => _accepting = true);
       case OverlayMsg.error:
@@ -102,8 +112,17 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
     }
   }
 
-  Future<void> _expand(OverlayOffer offer) async {
+  Future<void> _expand(OverlayOffer offer, List<OverlayOffer> others) async {
     _collapseTimer?.cancel();
+    // Already open: only the list changed (a request joined or went).
+    if (_offer != null && !_accepting) {
+      setState(() {
+        if (_offer!.id != offer.id) _answered = false;
+        _offer = offer;
+        _others = others;
+      });
+      return;
+    }
     if (_offer == null) {
       try {
         _bubblePos = await FlutterOverlayWindow.getOverlayPosition();
@@ -116,7 +135,9 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
     if (!mounted) return;
     setState(() {
       _offer = offer;
+      _others = others;
       _accepting = false;
+      _acceptingId = null;
       _answered = false;
       _error = null;
     });
@@ -132,7 +153,9 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
       if (mounted) {
         setState(() {
           _offer = null;
+          _others = const [];
           _accepting = false;
+          _acceptingId = null;
           _error = null;
           _errorAt = null;
         });
@@ -145,15 +168,19 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
 
   /// Accept: wait for the app (it accepts over the API and comes to the front), but never forever. Decline /
   /// timeout: the card closes right away, the app is told in the background.
-  void _answer(String action) {
+  void _answer(String action, [String? tripId]) {
     final offer = _offer;
     if (offer == null || _answered || _accepting) return;
-    _send(action, offer.id);
+    final id = tripId ?? offer.id;
+    _send(action, id);
     if (action == OverlayMsg.accept) {
-      setState(() => _accepting = true);
+      setState(() {
+        _accepting = true;
+        _acceptingId = id;
+      });
       _acceptWatchdog?.cancel();
       _acceptWatchdog = Timer(_acceptTimeout, () async {
-        if (!mounted || _offer?.id != offer.id) return;
+        if (!mounted || _offer == null) return;
         setState(() {
           _accepting = false;
           _error = "Rido didn't respond. Opening the app…";
@@ -161,6 +188,15 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
         });
         await FlutterOverlayWindow.openApp();
         _collapse();
+      });
+      return;
+    }
+    // One of several: drop its card and wait for the app's updated list; the last one closes the card.
+    final rest = [offer, ..._others].where((o) => o.id != id).toList();
+    if (rest.isNotEmpty) {
+      setState(() {
+        _offer = rest.first;
+        _others = rest.sublist(1);
       });
       return;
     }
@@ -183,7 +219,17 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
       theme: RidoTheme.light(),
       home: offer == null
           ? Material(type: MaterialType.transparency, child: _Bubble(onTap: () => _send(OverlayMsg.open)))
-          : _RequestCard(
+          : _others.isNotEmpty
+              ? _StackCard(
+                  offers: [offer, ..._others],
+                  acceptingId: _accepting ? _acceptingId : null,
+                  error: _error,
+                  onAccept: (id) => _answer(OverlayMsg.accept, id),
+                  onDecline: (id) => _answer(OverlayMsg.decline, id),
+                  onTimeout: (id) => _answer(OverlayMsg.timeout, id),
+                  onClose: _close,
+                )
+              : _RequestCard(
               key: ValueKey(offer.id),
               offer: offer,
               accepting: _accepting,
@@ -285,6 +331,7 @@ class _RequestCard extends StatelessWidget {
         onAccept: onAccept,
         onDecline: onDecline,
         accepting: accepting,
+        showVoiceToggle: false,
       ),
       // Always a way out, whatever state the request is in.
       Positioned(
@@ -309,4 +356,51 @@ class _RequestCard extends StatelessWidget {
         ),
     ]);
   }
+}
+
+/// Two or more open requests over other apps: the same comparison list as in the app.
+class _StackCard extends StatelessWidget {
+  const _StackCard({
+    required this.offers,
+    required this.acceptingId,
+    required this.error,
+    required this.onAccept,
+    required this.onDecline,
+    required this.onTimeout,
+    required this.onClose,
+  });
+
+  final List<OverlayOffer> offers;
+  final String? acceptingId;
+  final String? error;
+  final ValueChanged<String> onAccept;
+  final ValueChanged<String> onDecline;
+  final ValueChanged<String> onTimeout;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) => Stack(children: [
+        RequestStackView(
+          entries: [for (final o in offers) (request: o.toRequest(), expiresAt: o.expiresAt)],
+          delivery: offers.first.isDelivery,
+          acceptingId: acceptingId,
+          showVoiceToggle: false,
+          topRight: IconButton(
+            tooltip: 'Close and open Rido',
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded, color: RidoColors.navy900),
+            style: IconButton.styleFrom(backgroundColor: RidoColors.inputBg, minimumSize: const Size.square(48)),
+          ),
+          onAccept: onAccept,
+          onDecline: onDecline,
+          onExpired: onTimeout,
+        ),
+        if (error != null)
+          Positioned(
+            left: RidoSpacing.gutter,
+            right: RidoSpacing.gutter,
+            bottom: 40,
+            child: RidoBanner(type: RidoBannerType.error, title: error!),
+          ),
+      ]);
 }

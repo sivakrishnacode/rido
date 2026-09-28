@@ -24,7 +24,11 @@ class RequestTakeover extends StatelessWidget {
     required this.onAccept,
     required this.onDecline,
     this.accepting = false,
+    this.showVoiceToggle = true,
   });
+
+  /// False in the background overlay (its own isolate, no app state).
+  final bool showVoiceToggle;
 
   final String title;
   final Widget tag;
@@ -69,8 +73,10 @@ class RequestTakeover extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: t.h2.copyWith(color: Colors.white)),
                         ),
-                        const RequestVoiceToggle(),
-                        const SizedBox(width: RidoSpacing.xs),
+                        if (showVoiceToggle) ...[
+                          const RequestVoiceToggle(),
+                          const SizedBox(width: RidoSpacing.xs),
+                        ],
                         tag,
                       ]),
                       const SizedBox(height: RidoSpacing.m),

@@ -6,8 +6,8 @@ import 'package:rido_ui/rido_ui.dart' show VehicleKindUi;
 /// `overlayMain`), sent with `FlutterOverlayWindow.shareData` as JSON maps. The overlay only draws; every
 /// API call stays in the app.
 ///
-/// App → overlay: `{cmd: bubble}` (collapse to the bubble), `{cmd: offer, offer: {…}}` (full-screen request
-/// card), `{cmd: accepting}`, `{cmd: error, message}`.
+/// App → overlay: `{cmd: bubble}` (collapse to the bubble), `{cmd: offer, offer: {…}, others: [{…}]}` (full-screen
+/// request card; with [others] the comparison list of every open request), `{cmd: accepting}`, `{cmd: error, message}`.
 /// Overlay → app: `{action: ready}`, `{action: open}` (bubble tapped), `{action: accept | decline | timeout, id}`.
 abstract final class OverlayMsg {
   static const cmd = 'cmd';
@@ -42,6 +42,12 @@ class OverlayOffer {
     required this.tripMin,
     required this.customerName,
     required this.expiresAtMs,
+    this.pickupAddress = '',
+    this.dropAddress = '',
+    this.pickupLandmark,
+    this.rating = 4.8,
+    this.isVerified = false,
+    this.isWomenOnly = false,
   });
 
   factory OverlayOffer.fromRequest(RideRequest r, DateTime expiresAt) => OverlayOffer(
@@ -58,6 +64,12 @@ class OverlayOffer {
         tripMin: r.tripMin,
         customerName: r.customerName,
         expiresAtMs: expiresAt.millisecondsSinceEpoch,
+        pickupAddress: r.pickup.address,
+        dropAddress: r.drop.address,
+        pickupLandmark: r.pickup.landmark,
+        rating: r.customerRating,
+        isVerified: r.isCustomerVerified,
+        isWomenOnly: r.isWomenOnly,
       );
 
   /// Null when [json] isn't an offer (e.g. a message from an older build).
@@ -81,8 +93,41 @@ class OverlayOffer {
       tripMin: n('tripMin').round(),
       customerName: s('customerName'),
       expiresAtMs: n('expiresAtMs').round(),
+      pickupAddress: s('pickupAddress'),
+      dropAddress: s('dropAddress'),
+      pickupLandmark: s('pickupLandmark').isEmpty ? null : s('pickupLandmark'),
+      rating: json['rating'] is num ? (json['rating'] as num).toDouble() : 4.8,
+      isVerified: json['isVerified'] == true,
+      isWomenOnly: json['isWomenOnly'] == true,
     );
   }
+
+  final String pickupAddress;
+  final String dropAddress;
+  final String? pickupLandmark;
+  final double rating;
+  final bool isVerified;
+  final bool isWomenOnly;
+
+  /// Back to a [RideRequest] for the shared card widgets (no coordinates: the overlay draws no map).
+  RideRequest toRequest() => RideRequest(
+        id: id,
+        kind: isDelivery ? TripKind.parcel : TripKind.ride,
+        vehicle: vehicle,
+        fare: fare,
+        pickup: Place(id: '$id-p', name: pickupName, address: pickupAddress, location: const LatLng(0, 0), landmark: pickupLandmark),
+        drop: Place(id: '$id-d', name: dropName, address: dropAddress, location: const LatLng(0, 0)),
+        pickupDistanceKm: pickupKm,
+        pickupEtaMin: pickupEtaMin,
+        tripKm: tripKm,
+        tripMin: tripMin,
+        customerName: customerName,
+        customerRating: rating,
+        isCustomerVerified: isVerified,
+        isWomenOnly: isWomenOnly,
+      );
+
+  DateTime get expiresAt => DateTime.fromMillisecondsSinceEpoch(expiresAtMs);
 
   final String id;
   final int fare;
@@ -119,6 +164,12 @@ class OverlayOffer {
         'tripMin': tripMin,
         'customerName': customerName,
         'expiresAtMs': expiresAtMs,
+        'pickupAddress': pickupAddress,
+        'dropAddress': dropAddress,
+        'pickupLandmark': ?pickupLandmark,
+        'rating': rating,
+        'isVerified': isVerified,
+        'isWomenOnly': isWomenOnly,
       };
 }
 

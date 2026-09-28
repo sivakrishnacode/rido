@@ -20,7 +20,15 @@ class RequestStackView extends StatefulWidget {
     required this.onExpired,
     this.acceptingId,
     this.delivery = false,
+    this.showVoiceToggle = true,
+    this.topRight,
   });
+
+  /// False in the background overlay (its own isolate, no app state).
+  final bool showVoiceToggle;
+
+  /// Replaces the voice toggle (the overlay's "close and open Rido").
+  final Widget? topRight;
 
   final List<StackEntry> entries;
   final ValueChanged<String> onAccept;
@@ -72,7 +80,8 @@ class _RequestStackViewState extends State<RequestStackView> {
                   child: Text('${entries.length} ${widget.delivery ? 'delivery' : 'ride'} requests',
                       style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
-                const RequestVoiceToggle(dark: false),
+                if (widget.showVoiceToggle) const RequestVoiceToggle(dark: false),
+                ?widget.topRight,
               ]),
             ),
             Expanded(

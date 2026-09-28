@@ -2,9 +2,13 @@
 // crosses isolates as JSON.
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rido_data/rido_data.dart';
+import 'package:rido_driver/features/jobs/widgets/request_layout.dart';
+import 'package:rido_driver/features/jobs/widgets/request_stack_view.dart';
 import 'package:rido_driver/overlay/overlay_protocol.dart';
+import 'package:rido_ui/rido_ui.dart';
 
 void main() {
   group('backgroundSurfaceFor', () {
@@ -54,10 +58,64 @@ void main() {
       expect(o.remaining(DateTime(2026, 9, 26, 10, 1)), Duration.zero);
     });
 
+    test('carries what the comparison list shows, and back to a request', () {
+      final rich = r.copyWith(customerRating: 4.6, isCustomerVerified: true);
+      final o = OverlayOffer.fromJson(jsonDecode(jsonEncode(OverlayOffer.fromRequest(rich, expires).toJson())))!;
+      final back = o.toRequest();
+      expect(back.id, 'trip-9');
+      expect(back.fare, r.fare);
+      expect(back.pickup.address, r.pickup.address);
+      expect(back.drop.address, r.drop.address);
+      expect(back.customerRating, 4.6);
+      expect(back.isCustomerVerified, isTrue);
+      expect(back.isDelivery, isTrue);
+      expect(o.expiresAt, expires);
+    });
+
     test('rejects non-offers', () {
       expect(OverlayOffer.fromJson(null), isNull);
       expect(OverlayOffer.fromJson({'fare': 10}), isNull);
       expect(OverlayOffer.fromJson('x'), isNull);
     });
+  });
+
+  // The overlay runs in its own isolate with no ProviderScope: its cards must build without one (the voice toggle
+  // is a ConsumerWidget and drew a grey error screen there).
+  testWidgets('the overlay request card and list build without app state', (tester) async {
+    final r = Seed.rideRequest;
+    await tester.pumpWidget(MaterialApp(
+      theme: RidoTheme.light(),
+      home: RequestTakeover(
+        title: 'New ride request',
+        tag: RequestVehicleTag(vehicle: r.vehicle),
+        fare: r.fare,
+        fareCaption: 'Cab ride',
+        countdown: const Duration(seconds: 10),
+        running: false,
+        onTimeout: () {},
+        below: const SizedBox(),
+        details: const [],
+        onAccept: () {},
+        onDecline: () {},
+        showVoiceToggle: false,
+      ),
+    ));
+    expect(tester.takeException(), isNull);
+    expect(find.text('Swipe to accept'), findsOneWidget);
+
+    final soon = DateTime.now().add(const Duration(seconds: 10));
+    await tester.pumpWidget(MaterialApp(
+      theme: RidoTheme.light(),
+      home: RequestStackView(
+        entries: [(request: r, expiresAt: soon), (request: r.copyWith(id: 'b'), expiresAt: soon)],
+        showVoiceToggle: false,
+        onAccept: (_) {},
+        onDecline: (_) {},
+        onExpired: (_) {},
+      ),
+    ));
+    expect(tester.takeException(), isNull);
+    expect(find.text('2 ride requests'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 }

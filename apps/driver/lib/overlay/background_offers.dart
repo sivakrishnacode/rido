@@ -141,8 +141,10 @@ class BackgroundOffers {
       _overlayShown = active;
     }
     if (surface == BackgroundSurface.requestOverlay && incoming != null) {
-      if (_offerOnOverlay != incoming.id) {
-        _offerOnOverlay = incoming.id;
+      // Re-sent when the request in focus or the stack behind it changes.
+      final sig = [incoming.id, for (final q in s.queued) q.request.id].join(',');
+      if (_offerOnOverlay != sig) {
+        _offerOnOverlay = sig;
         await _sendOffer(incoming, s.incomingExpiresAt);
       }
     } else if (_overlayShown && _offerOnOverlay != null) {
@@ -215,6 +217,9 @@ class BackgroundOffers {
           r,
           expiresAt ?? DateTime.now().add(_ref.read(driverSessionProvider.notifier).incomingCountdown),
         ).toJson(),
+        'others': [
+          for (final q in _ref.read(driverSessionProvider).queued) OverlayOffer.fromRequest(q.request, q.expiresAt).toJson(),
+        ],
         ..._screen(),
       });
 
@@ -256,7 +261,7 @@ class BackgroundOffers {
       case OverlayMsg.ready:
         // The overlay (re)started: repeat what it should show.
         if (!_overlayShown) return;
-        if (_offerOnOverlay != null && incoming != null && incoming.id == _offerOnOverlay) {
+        if (_offerOnOverlay != null && incoming != null && _offerOnOverlay!.startsWith(incoming.id)) {
           await _sendOffer(incoming, _ref.read(driverSessionProvider).incomingExpiresAt);
         } else {
           await _send({OverlayMsg.cmd: OverlayMsg.bubble, ..._screen()});
@@ -265,14 +270,16 @@ class BackgroundOffers {
         // Older overlay builds; the patched plugin opens the app natively on a bubble tap.
         await OfferAlerts.bringAppToFront();
       case OverlayMsg.accept:
-        if (incoming == null || incoming.id != id) {
+        final queued = _ref.read(driverSessionProvider).queued;
+        final open = incoming != null && (incoming.id == id || queued.any((q) => q.request.id == id));
+        if (!open || id is! String) {
           await _send({OverlayMsg.cmd: OverlayMsg.error, 'message': 'This request is no longer available'});
           return;
         }
         await OfferAlerts.cancelOfferNotification(incoming.id);
         await _send({OverlayMsg.cmd: OverlayMsg.accepting});
         try {
-          await session.acceptRequest();
+          await session.acceptOffer(id);
         } on Exception catch (e) {
           await _send({OverlayMsg.cmd: OverlayMsg.error, 'message': userMessage(e)});
           return;
@@ -281,9 +288,9 @@ class BackgroundOffers {
         if (job != null) onAccepted(job);
         await OfferAlerts.bringAppToFront();
       case OverlayMsg.decline:
-        if (incoming != null && incoming.id == id) session.declineRequest();
+        if (id is String) session.declineOffer(id);
       case OverlayMsg.timeout:
-        if (incoming != null && incoming.id == id) session.requestTimedOut();
+        if (id is String) session.declineOffer(id, timedOut: true);
     }
   }
 
