@@ -8,9 +8,9 @@ import 'request_layout.dart';
 /// One open request in the comparison list, with when it closes.
 typedef StackEntry = ({RideRequest request, DateTime expiresAt});
 
-/// D-15 / D-20 with two or more open requests (like Namma Yatri's): a rail of countdown rings with each fare on the
-/// left (tap to jump), and a card per request on the right to compare fare, ₹/km, pickup and trip side by side.
-/// Each card has its own "Swipe to accept" and a ✕ to decline; the soonest to close is on top.
+/// D-15 / D-20 request screen (like Namma Yatri's): a card per open request to compare fare, ₹/km, pickup and trip
+/// side by side, each with its own "Swipe to accept" and a ✕ to decline, soonest to close on top. With two or more a
+/// rail of countdown rings with each fare sits on the left (tap to jump); with one the card has the full width.
 class RequestStackView extends StatefulWidget {
   const RequestStackView({
     super.key,
@@ -22,7 +22,11 @@ class RequestStackView extends StatefulWidget {
     this.delivery = false,
     this.showVoiceToggle = true,
     this.topRight,
+    this.running = true,
   });
+
+  /// False freezes the rings (design gallery).
+  final bool running;
 
   /// False in the background overlay (its own isolate, no app state).
   final bool showVoiceToggle;
@@ -77,7 +81,10 @@ class _RequestStackViewState extends State<RequestStackView> {
                 const Icon(Symbols.notifications_active_rounded, color: RidoColors.coral600, fill: 1, size: 26),
                 const SizedBox(width: RidoSpacing.s),
                 Expanded(
-                  child: Text('${entries.length} ${widget.delivery ? 'delivery' : 'ride'} requests',
+                  child: Text(
+                      entries.length == 1
+                          ? 'New ${widget.delivery ? 'delivery' : 'ride'} request'
+                          : '${entries.length} ${widget.delivery ? 'delivery' : 'ride'} requests',
                       style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
                 if (widget.showVoiceToggle) const RequestVoiceToggle(dark: false),
@@ -86,8 +93,9 @@ class _RequestStackViewState extends State<RequestStackView> {
             ),
             Expanded(
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // Rail: one ring per request, fare under it.
-                SizedBox(
+                // Rail: one ring per request, fare under it (only when there is something to compare).
+                if (entries.length > 1)
+                  SizedBox(
                   width: 76,
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: RidoSpacing.s),
@@ -97,6 +105,7 @@ class _RequestStackViewState extends State<RequestStackView> {
                           key: ValueKey('rail-${e.request.id}'),
                           request: e.request,
                           left: left(e),
+                          running: widget.running,
                           onTap: () => _jumpTo(e.request.id),
                         ),
                     ],
@@ -104,7 +113,8 @@ class _RequestStackViewState extends State<RequestStackView> {
                 ),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(0, RidoSpacing.s, RidoSpacing.gutter, RidoSpacing.xl),
+                    padding: EdgeInsets.fromLTRB(
+                        entries.length > 1 ? 0 : RidoSpacing.gutter, RidoSpacing.s, RidoSpacing.gutter, RidoSpacing.xl),
                     child: Column(children: [
                       for (final e in entries)
                         Padding(
@@ -116,6 +126,7 @@ class _RequestStackViewState extends State<RequestStackView> {
                             left: left(e),
                             accepting: widget.acceptingId == e.request.id,
                             locked: widget.acceptingId != null,
+                            running: widget.running,
                             onAccept: () => widget.onAccept(e.request.id),
                             onDecline: () => widget.onDecline(e.request.id),
                             onExpired: () => widget.onExpired(e.request.id),
@@ -134,9 +145,10 @@ class _RequestStackViewState extends State<RequestStackView> {
 }
 
 class _RailItem extends StatelessWidget {
-  const _RailItem({super.key, required this.request, required this.left, required this.onTap});
+  const _RailItem({super.key, required this.request, required this.left, required this.onTap, this.running = true});
   final RideRequest request;
   final Duration left;
+  final bool running;
   final VoidCallback onTap;
 
   @override
@@ -159,6 +171,7 @@ class _RailItem extends StatelessWidget {
                 size: 52,
                 strokeWidth: 4,
                 showBadge: false,
+                running: running,
                 color: RidoColors.coral600,
                 trackColor: RidoColors.coral50,
                 child: Icon(request.vehicle.icon, color: RidoColors.coral600, size: 22, fill: 1),
@@ -183,11 +196,13 @@ class _RequestCard extends StatelessWidget {
     required this.onAccept,
     required this.onDecline,
     required this.onExpired,
+    this.running = true,
   });
 
   final RideRequest request;
   final Duration left;
   final bool accepting;
+  final bool running;
 
   /// Another request is being accepted: no actions here meanwhile.
   final bool locked;
@@ -219,8 +234,15 @@ class _RequestCard extends StatelessWidget {
                 const _Tag(icon: Symbols.verified_rounded, label: 'Verified', bg: RidoColors.successTint, fg: RidoColors.successText),
               if (r.isWomenOnly)
                 const _Tag(icon: Symbols.female_rounded, label: 'Butterfly', bg: RidoColors.butterfly50, fg: RidoColors.butterfly600),
-              if (parcel != null)
+              if (parcel != null) ...[
                 _Tag(icon: Symbols.package_2_rounded, label: '${parcel.category.label} · ${parcel.weight.label}', bg: RidoColors.coral50, fg: RidoColors.coral700),
+                _Tag(
+                  icon: Symbols.person_pin_circle_rounded,
+                  label: 'Paid by ${parcel.payer == ParcelPayer.receiver ? 'receiver' : 'sender'}',
+                  bg: RidoColors.inputBg,
+                  fg: RidoColors.navy900,
+                ),
+              ],
             ]),
           ),
           // ✕ inside this request's ring.
@@ -236,7 +258,7 @@ class _RequestCard extends StatelessWidget {
                 size: 44,
                 strokeWidth: 3,
                 showBadge: false,
-                running: !locked,
+                running: running && !locked,
                 onFinished: onExpired,
                 color: RidoColors.coral600,
                 trackColor: RidoColors.divider,
@@ -269,6 +291,13 @@ class _RequestCard extends StatelessWidget {
           headline: '${formatKm(r.tripKm)} trip · ~${r.tripMin} min',
           name: r.drop.name,
           address: r.drop.address,
+        ),
+        const SizedBox(height: RidoSpacing.s),
+        Text(
+          [r.customerName, if (r.bookedBy != null) 'booked by ${r.bookedBy}', 'Cash / UPI to you'].join(' · '),
+          style: t.caption.copyWith(color: RidoColors.navy500),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: RidoSpacing.m),
         Padding(

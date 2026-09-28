@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/jobs/widgets/request_layout.dart';
+import 'package:rido_driver/features/jobs/widgets/request_stack_view.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import 'support/harness.dart';
@@ -37,7 +37,14 @@ Future<void> _pumpRoute(WidgetTester tester, RideRequest r) async {
   usePhone(tester);
   await tester.pumpWidget(MaterialApp(
     theme: RidoTheme.light(),
-    home: Scaffold(body: Padding(padding: const EdgeInsets.all(16), child: RequestRoute(request: r))),
+    home: RequestStackView(
+      entries: [(request: r, expiresAt: DateTime.now().add(const Duration(seconds: 10)))],
+      showVoiceToggle: false,
+      running: false,
+      onAccept: (_) {},
+      onDecline: (_) {},
+      onExpired: (_) {},
+    ),
   ));
 }
 
@@ -46,7 +53,7 @@ void main() {
     final r = rideRequestFromOffer(_offer);
     expect(r.pickup.landmark, 'Near KG Hospital');
     await _pumpRoute(tester, r);
-    expect(find.text('Near KG Hospital · 0.8 km away · 3 min'), findsOneWidget);
+    expect(find.text('0.8 km away · 3 min · Near KG Hospital'), findsOneWidget);
   });
 
   testWidgets('a trip booked without a landmark (older app) shows the distance only', (tester) async {

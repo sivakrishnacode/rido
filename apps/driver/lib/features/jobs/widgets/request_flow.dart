@@ -160,16 +160,26 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
     ref.read(driverSessionProvider.notifier).declineOffer(tripId, timedOut: timedOut);
   }
 
-  /// Two or more open requests: the comparison list (rail of rings + a card each); null with just one.
-  Widget? stackView({bool delivery = false}) {
-    if (showcase) return null;
+  /// The request screen: a card per open request (a rail of rings too when there are several).
+  Widget requestView({bool delivery = false}) {
+    if (showcase) {
+      return RequestStackView(
+        delivery: delivery,
+        running: false,
+        entries: [(request: seed, expiresAt: DateTime.now().add(countdown))],
+        onAccept: (_) => accept(),
+        onDecline: (_) => decline(),
+        onExpired: (_) {},
+      );
+    }
     final s = ref.watch(driverSessionProvider);
     final incoming = s.incoming;
-    if (incoming == null || s.queued.isEmpty) return null;
     return RequestStackView(
       delivery: delivery,
       entries: [
-        (request: incoming, expiresAt: s.incomingExpiresAt ?? DateTime.now().add(countdown)),
+        if (incoming != null) (request: incoming, expiresAt: s.incomingExpiresAt ?? DateTime.now().add(countdown)),
+        // Closing (nothing left): the last card stays until the screen leaves.
+        if (incoming == null) (request: _last, expiresAt: DateTime.now().add(const Duration(seconds: 1))),
         for (final q in s.queued) (request: q.request, expiresAt: q.expiresAt),
       ],
       acceptingId: accepting ? _last.id : null,

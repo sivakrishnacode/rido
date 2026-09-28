@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/jobs/widgets/request_layout.dart';
 import 'package:rido_driver/features/jobs/widgets/request_stack_view.dart';
 import 'package:rido_driver/overlay/overlay_protocol.dart';
 import 'package:rido_ui/rido_ui.dart';
@@ -81,33 +80,13 @@ void main() {
 
   // The overlay runs in its own isolate with no ProviderScope: its cards must build without one (the voice toggle
   // is a ConsumerWidget and drew a grey error screen there).
-  testWidgets('the overlay request card and list build without app state', (tester) async {
+  testWidgets('the overlay request list builds without app state', (tester) async {
     final r = Seed.rideRequest;
-    await tester.pumpWidget(MaterialApp(
-      theme: RidoTheme.light(),
-      home: RequestTakeover(
-        title: 'New ride request',
-        tag: RequestVehicleTag(vehicle: r.vehicle),
-        fare: r.fare,
-        fareCaption: 'Cab ride',
-        countdown: const Duration(seconds: 10),
-        running: false,
-        onTimeout: () {},
-        below: const SizedBox(),
-        details: const [],
-        onAccept: () {},
-        onDecline: () {},
-        showVoiceToggle: false,
-      ),
-    ));
-    expect(tester.takeException(), isNull);
-    expect(find.text('Swipe to accept'), findsOneWidget);
-
     final soon = DateTime.now().add(const Duration(seconds: 10));
     await tester.pumpWidget(MaterialApp(
       theme: RidoTheme.light(),
       home: RequestStackView(
-        entries: [(request: r, expiresAt: soon), (request: r.copyWith(id: 'b'), expiresAt: soon)],
+        entries: [(request: r, expiresAt: soon)],
         showVoiceToggle: false,
         onAccept: (_) {},
         onDecline: (_) {},
@@ -115,7 +94,8 @@ void main() {
       ),
     ));
     expect(tester.takeException(), isNull);
-    expect(find.text('2 ride requests'), findsOneWidget);
+    expect(find.text('New ride request'), findsOneWidget);
+    expect(find.text('Swipe to accept'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 }

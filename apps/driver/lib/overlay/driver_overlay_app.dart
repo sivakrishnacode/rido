@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:rido_ui/rido_ui.dart';
 
-import '../features/jobs/widgets/request_layout.dart';
 import '../features/jobs/widgets/request_stack_view.dart';
 import 'overlay_protocol.dart';
 
@@ -14,8 +13,8 @@ import 'overlay_protocol.dart';
 /// every API call and decides what to show ([OverlayMsg]).
 ///
 /// - Bubble: a 64 dp draggable Rido logo that snaps to the nearest edge; tap → open the app.
-/// - Request: the overlay grows to full screen with the request card (fare, pickup → drop, pickup distance /
-///   ETA, customer, the server's countdown, Accept / Decline). Decline and timeout shrink it back to the bubble.
+/// - Request: the overlay grows to full screen with the request cards (the app's list: fare and ₹/km, pickup →
+///   drop, the server's countdown, swipe to accept, ✕). The last decline / timeout shrinks it back to the bubble.
 class DriverOverlayApp extends StatefulWidget {
   const DriverOverlayApp({super.key});
 
@@ -219,24 +218,13 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
       theme: RidoTheme.light(),
       home: offer == null
           ? Material(type: MaterialType.transparency, child: _Bubble(onTap: () => _send(OverlayMsg.open)))
-          : _others.isNotEmpty
-              ? _StackCard(
-                  offers: [offer, ..._others],
-                  acceptingId: _accepting ? _acceptingId : null,
-                  error: _error,
-                  onAccept: (id) => _answer(OverlayMsg.accept, id),
-                  onDecline: (id) => _answer(OverlayMsg.decline, id),
-                  onTimeout: (id) => _answer(OverlayMsg.timeout, id),
-                  onClose: _close,
-                )
-              : _RequestCard(
-              key: ValueKey(offer.id),
-              offer: offer,
-              accepting: _accepting,
+          : _StackCard(
+              offers: [offer, ..._others],
+              acceptingId: _accepting ? _acceptingId : null,
               error: _error,
-              onAccept: () => _answer(OverlayMsg.accept),
-              onDecline: () => _answer(OverlayMsg.decline),
-              onTimeout: () => _answer(OverlayMsg.timeout),
+              onAccept: (id) => _answer(OverlayMsg.accept, id),
+              onDecline: (id) => _answer(OverlayMsg.decline, id),
+              onTimeout: (id) => _answer(OverlayMsg.timeout, id),
               onClose: _close,
             ),
     );
@@ -282,83 +270,7 @@ class _Bubble extends StatelessWidget {
       );
 }
 
-class _RequestCard extends StatelessWidget {
-  const _RequestCard({
-    super.key,
-    required this.offer,
-    required this.accepting,
-    required this.error,
-    required this.onAccept,
-    required this.onDecline,
-    required this.onTimeout,
-    required this.onClose,
-  });
-
-  final OverlayOffer offer;
-  final bool accepting;
-  final String? error;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-  final VoidCallback onTimeout;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.type;
-    final left = offer.remaining(DateTime.now());
-    return Stack(children: [
-      RequestTakeover(
-        title: 'New ${offer.isDelivery ? 'delivery' : 'ride'} request',
-        tag: RequestVehicleTag(vehicle: offer.vehicle, showIcon: !offer.isDelivery),
-        fare: offer.fare,
-        fareCaption: '${offer.vehicleLabel} ${offer.isDelivery ? 'delivery' : 'ride'}',
-        countdown: left < const Duration(seconds: 1) ? const Duration(seconds: 1) : left,
-        running: !accepting && error == null,
-        onTimeout: onTimeout,
-        below: Text('Cash / UPI to you · 100% yours',
-            textAlign: TextAlign.center, style: t.body.copyWith(color: Colors.white)),
-        details: [
-          PickupDropConnector(
-            pickupTitle: offer.pickupName,
-            pickupSubtitle: '${formatKm(offer.pickupKm)} away · ${offer.pickupEtaMin} min',
-            pickupSubtitleColor: RidoColors.success,
-            dropTitle: offer.dropName,
-            dropSubtitle: '${formatKm(offer.tripKm)} trip · ~${offer.tripMin} min',
-          ),
-          const SizedBox(height: RidoSpacing.xl),
-          RequestCustomerCard(name: offer.customerName.isEmpty ? 'Rido customer' : offer.customerName, rating: 4.8),
-        ],
-        onAccept: onAccept,
-        onDecline: onDecline,
-        accepting: accepting,
-        showVoiceToggle: false,
-      ),
-      // Always a way out, whatever state the request is in.
-      Positioned(
-        top: MediaQuery.paddingOf(context).top + RidoSpacing.s,
-        right: RidoSpacing.s,
-        child: Semantics(
-          button: true,
-          label: 'Close and open Rido',
-          child: IconButton(
-            onPressed: onClose,
-            icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
-            style: IconButton.styleFrom(backgroundColor: Colors.black26, minimumSize: const Size.square(48)),
-          ),
-        ),
-      ),
-      if (error != null)
-        Positioned(
-          left: RidoSpacing.gutter,
-          right: RidoSpacing.gutter,
-          bottom: 160,
-          child: RidoBanner(type: RidoBannerType.error, title: error!),
-        ),
-    ]);
-  }
-}
-
-/// Two or more open requests over other apps: the same comparison list as in the app.
+/// The request card(s) over other apps: the same list as in the app.
 class _StackCard extends StatelessWidget {
   const _StackCard({
     required this.offers,

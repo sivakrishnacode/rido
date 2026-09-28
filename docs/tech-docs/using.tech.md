@@ -1030,13 +1030,12 @@ suggestion's name.
   one sends the driver's other requests straight to their next drivers (no decline or timeout counted). Every closed
   offer emits `trip.offer_closed {tripId}` to that driver. `GET /v1/trips/offers` lists all open ones (oldest
   first); `GET /v1/trips/offer` still returns the oldest for older apps.
-  App: `DriverSessionState.queued` (`QueuedOffer`) behind `incoming`. With one request D-15 / D-20 keep the coral
-  card; with two or more they switch to `RequestStackView` (like Namma Yatri's): a left rail of countdown rings with
-  each fare (tap to jump), and a card per request, soonest to close on top, with rating / vehicle / parcel tags,
+  App: `DriverSessionState.queued` (`QueuedOffer`) behind `incoming`. D-15 / D-20 always show `RequestStackView`
+  (like Namma Yatri's; the coral single-request takeover is gone, 29 Sep 2026): with two or more a left rail of
+  countdown rings with each fare (tap to jump); with one a single full-width card. A card per request, soonest to close on top, with rating / vehicle / parcel tags,
   fare and ₹/km, pickup distance · min and address, trip km · min and drop address, a ✕ inside its own ring, and
   its own "Swipe to accept" (`acceptOffer` / `declineOffer`; the others lock while one is being accepted). Each new
-  request is read aloud. Decline, timeout, a failed accept or `trip.offer_closed` drop that card; one left → back to
-  the coral card; none → Home. Home pushes the card only when a request appears from none. In the background the
+  request is read aloud. Decline, timeout, a failed accept or `trip.offer_closed` drop that card; none left → Home. Home pushes the card only when a request appears from none. In the background the
   overlay shows the same list: the app sends `{cmd: offer, offer, others}` whenever the stack changes, and the
   overlay answers `accept | decline | timeout` with the trip id (`acceptOffer` / `declineOffer`). Overlay cards hide
   the voice toggle (the overlay isolate has no ProviderScope; the toggle drew a grey error screen there). Offer time is the admin "Offer time" setting (5–120 s, default 15); the apps follow it.
