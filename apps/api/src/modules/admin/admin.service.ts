@@ -89,7 +89,19 @@ export class AdminService {
     };
     const [items, total] = await Promise.all([
       // The recorded path is only needed on the trip page.
-      this.prisma.trip.findMany({ where, skip, take, orderBy: { createdAt: 'desc' }, omit: { pathPolyline: true }, include: { passenger: true, driver: { include: { user: true } } } }),
+      // The last cancellation's verdict, for the fault column of cancelled trips.
+      this.prisma.trip.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        omit: { pathPolyline: true },
+        include: {
+          passenger: true,
+          driver: { include: { user: true } },
+          cancellations: { orderBy: { createdAt: 'desc' }, take: 1, select: { fault: true, faultRule: true, reassigned: true } },
+        },
+      }),
       this.prisma.trip.count({ where }),
     ]);
     return { items, total, page, pageSize };

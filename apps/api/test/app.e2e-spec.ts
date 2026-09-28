@@ -273,7 +273,7 @@ describe('Rido API (e2e)', () => {
     // An older driver app sends only the reason text: it becomes the Butterfly-mismatch code (no fault).
     const reported = (await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${woman}`).send({ reason: 'Rider is not a woman' }).expect(200)).body;
     expect(reported).toMatchObject({ status: 'CANCELLED', cancelledBy: 'DRIVER', cancelCode: 'BUTTERFLY_MISMATCH', cancelReason: 'Rider is not a woman' });
-    expect(await prisma.tripCancellation.findMany({ where: { tripId: trip.id } })).toMatchObject([{ by: 'DRIVER', code: 'BUTTERFLY_MISMATCH', isDriverFault: false }]);
+    expect(await prisma.tripCancellation.findMany({ where: { tripId: trip.id } })).toMatchObject([{ by: 'DRIVER', code: 'BUTTERFLY_MISMATCH', isDriverFault: false, fault: 'PASSENGER', faultRule: 'butterfly_mismatch' }]);
 
     // A second report switches Butterfly-for-others off for this account (own rides are not affected by it).
     const second = (await http.post('/v1/trips').set(pax).send({ ...book, rider: daughter }).expect(201)).body;
@@ -417,7 +417,7 @@ describe('Rido API (e2e)', () => {
       expect(await redis.exists(`driver:busy:${firstId}`)).toBe(0);
       expect(await redis.sismember(`dispatch:${trip.id}:declined`, firstId)).toBe(1);
       expect(await prisma.tripCancellation.findMany({ where: { tripId: trip.id } })).toMatchObject([
-        { by: 'DRIVER', code: 'VEHICLE_ISSUE', driverId: firstId, fromStatus: 'DRIVER_ARRIVED', reassigned: true, isDriverFault: true },
+        { by: 'DRIVER', code: 'VEHICLE_ISSUE', driverId: firstId, fromStatus: 'DRIVER_ARRIVED', reassigned: true, isDriverFault: true, fault: 'DRIVER', faultRule: 'driver_after_arrival' },
       ]);
 
       // Act 2: the other driver gets it (never the one who dropped it), then cancels too: the limit is reached.
@@ -469,10 +469,37 @@ describe('Rido API (e2e)', () => {
     await prisma.trip.update({ where: { id: trip.id }, data: { noShowAt: new Date(Date.now() - 1000) } });
     const done = (await http.post(`/v1/trips/${trip.id}/cancel`).set(driver).send({ code: 'PASSENGER_NO_SHOW' }).expect(200)).body;
     expect(done).toMatchObject({ status: 'CANCELLED', cancelledBy: 'DRIVER', cancelCode: 'PASSENGER_NO_SHOW' });
-    expect(await prisma.tripCancellation.findFirst({ where: { tripId: trip.id } })).toMatchObject({ reassigned: false, isDriverFault: false });
+    expect(await prisma.tripCancellation.findFirst({ where: { tripId: trip.id } })).toMatchObject({ reassigned: false, isDriverFault: false, fault: 'PASSENGER', faultRule: 'passenger_no_show' });
     for (const kind of ['trip.no-show', 'trip.pickup-cap', 'trip.pickup-progress']) expect(await jobs.scheduledAt(kind, trip.id)).toBeNull();
     expect((await http.get(`/v1/trips/${trip.id}`).set(pax).expect(200)).body.status).toBe('CANCELLED');
     await http.post('/v1/drivers/me/offline').set(driver);
+  }, 45_000);
+
+  it('stores a fault verdict with its signals on every cancellation', async () => {
+    const verdictOf = async (tripId: string) =>
+      (await prisma.tripCancellation.findFirstOrThrow({ where: { tripId }, orderBy: { createdAt: 'desc' } }));
+    // A passenger cancel right after accept: nobody's fault.
+    const early = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+    await http.post(`/v1/trips/${early.trip.id}/cancel`).set(early.pax).send({ code: 'CHANGED_MIND' }).expect(200);
+    const e = await verdictOf(early.trip.id);
+    expect(e).toMatchObject({ fault: 'NONE', faultRule: 'early_passenger_cancel', isDriverFault: false });
+    expect(e.signals).toMatchObject({ by: 'PASSENGER', hasDriver: true, isArrived: false, isMovingAway: false });
+    await http.post('/v1/drivers/me/offline').set(early.driver);
+
+    // The driver arrived and waited 4 min, then the passenger cancels: the passenger's fault.
+    const late = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+    await http.post(`/v1/trips/${late.trip.id}/arrived`).set(late.driver).expect(200);
+    await prisma.trip.update({ where: { id: late.trip.id }, data: { arrivedAt: new Date(Date.now() - 240_000), assignedAt: new Date(Date.now() - 600_000) } });
+    await http.post(`/v1/trips/${late.trip.id}/cancel`).set(late.pax).send({ code: 'CHANGED_MIND' }).expect(200);
+    const l = await verdictOf(late.trip.id);
+    expect(l).toMatchObject({ fault: 'PASSENGER', faultRule: 'passenger_after_wait' });
+    expect((l.signals as { waitedSec: number }).waitedSec).toBeGreaterThanOrEqual(240);
+    await http.post('/v1/drivers/me/offline').set(late.driver);
+
+    // The admin trip page gets the verdicts.
+    const admin = await adminAuth();
+    const detail = (await http.get(`/v1/admin/trips/${late.trip.id}`).set(admin).expect(200)).body;
+    expect(detail.cancellations).toMatchObject([{ fault: 'PASSENGER', faultRule: 'passenger_after_wait' }]);
   }, 45_000);
 
   it('charges waiting past the free minutes at start, as its own fare line (not surged)', async () => {
@@ -521,7 +548,7 @@ describe('Rido API (e2e)', () => {
 
     const now = await prisma.trip.findUniqueOrThrow({ where: { id: trip.id }, include: { cancellations: true } });
     expect(now).toMatchObject({ status: 'SEARCHING', driverId: null, reassignCount: 1 });
-    expect(now.cancellations).toMatchObject([{ by: 'SYSTEM', code: 'DRIVER_NOT_MOVING', driverId, reassigned: true, isDriverFault: true }]);
+    expect(now.cancellations).toMatchObject([{ by: 'SYSTEM', code: 'DRIVER_NOT_MOVING', driverId, reassigned: true, isDriverFault: true, fault: 'DRIVER' }]);
     expect(await redis.exists(`driver:busy:${driverId}`)).toBe(0);
     await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({ code: 'WAIT_TOO_LONG' }).expect(200);
     await http.post('/v1/drivers/me/offline').set(driver);

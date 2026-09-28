@@ -14,6 +14,7 @@ import { adminApi } from "@/lib/api";
 import { displayName, formatCount, formatDate, formatInr, formatTime, humanize, shortId, vehicleLabel } from "@/lib/format";
 import { DEFAULT_PAGE_SIZE, param, parsePage } from "@/lib/paging";
 import { TRIP_STATUSES } from "@/lib/types";
+import { FAULT_LABEL } from "@/lib/cancel";
 
 export const metadata: Metadata = { title: "Trips" };
 
@@ -90,6 +91,11 @@ export default async function TripsPage({ searchParams }: PageProps<"/trips">) {
                     <StatusBadge status={t.status} />
                     {t.needsReview && (
                       <span className="mt-1 block text-[11px] font-medium text-warning-text">Needs review</span>
+                    )}
+                    {t.status === "CANCELLED" && t.cancellations?.[0]?.fault && (
+                      <span className="mt-1 block text-[11px] text-muted-foreground" title={t.cancellations[0].faultRule ?? undefined}>
+                        {FAULT_LABEL[t.cancellations[0].fault]}
+                      </span>
                     )}
                   </TableCell>
                 </TableRow>

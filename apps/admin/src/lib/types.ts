@@ -1,7 +1,7 @@
 // Response shapes of the Rido admin API (apps/api/src/modules/admin, apps/api/prisma/schema.prisma).
 // Dates arrive as ISO strings; money is whole rupees.
 
-import type { CancelCode, CancelledBy } from "./cancel";
+import type { CancelCode, CancelFault, CancelledBy } from "./cancel";
 
 export type Role = "PASSENGER" | "DRIVER" | "ADMIN";
 export type Gender = "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";
@@ -287,6 +287,8 @@ export interface TripBase {
 export interface Trip extends TripBase {
   readonly passenger: User;
   readonly driver: (DriverBase & { readonly user: User }) | null;
+  /** List only: the latest cancellation's verdict. */
+  readonly cancellations?: readonly Pick<TripCancellation, "fault" | "faultRule" | "reassigned">[];
 }
 
 /** One cancel of a trip (a driver's cancel that sent it back to searching is kept here too). */
@@ -298,7 +300,12 @@ export interface TripCancellation {
   readonly note: string | null;
   readonly fromStatus: TripStatus;
   readonly reassigned: boolean;
+  /** fault === "DRIVER" (counted in the driver's cancellation rate). */
   readonly isDriverFault: boolean;
+  /** Verdict from the signals, the rule that decided, and the signals (trips/cancel-fault.ts). */
+  readonly fault?: CancelFault;
+  readonly faultRule?: string | null;
+  readonly signals?: Record<string, unknown> | null;
   readonly createdAt: string;
   readonly driver: { readonly id: string; readonly plate: string; readonly user: { readonly name: string | null } } | null;
 }

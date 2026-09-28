@@ -65,12 +65,3 @@ export function resolveCancel(params: { by: CancelledBy; code?: CancelCode; note
   const code = params.code ?? (params.reason ? LEGACY_REASONS[params.reason.trim()] : undefined) ?? CancelCode.OTHER;
   return { code: CANCEL_CODES_FOR[params.by].includes(code) ? code : CancelCode.OTHER, note };
 }
-
-/**
- * Counted against the driver in cancellation rates: their own cancels (except a no-show after the wait and a
- * Butterfly mismatch report) and the system taking a trip off a driver who wasn't moving.
- */
-export function isDriverFault(by: CancelledBy, code: CancelCode): boolean {
-  if (by === CancelledBy.DRIVER) return code !== CancelCode.PASSENGER_NO_SHOW && code !== CancelCode.BUTTERFLY_MISMATCH;
-  return by === CancelledBy.SYSTEM && code === CancelCode.DRIVER_NOT_MOVING;
-}

@@ -7,7 +7,7 @@ import { PlateBadge, StatusBadge } from "@/components/common/status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { adminApi } from "@/lib/api";
-import { cancelSummary } from "@/lib/cancel";
+import { cancelSummary, faultSummary, type CancelFault } from "@/lib/cancel";
 import { formatKm } from "@/lib/polyline";
 import { displayName, formatDateTime, formatInr, formatPhone, humanize, shortId, vehicleLabel } from "@/lib/format";
 import type { FareBreakdown } from "@/lib/types";
@@ -210,6 +210,14 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                   {cancellations.map((c) => (
                     <li key={c.id} className="rounded-lg border px-3 py-2 text-sm">
                       <span className="font-medium text-navy-900">{cancelSummary(c.by, c.code)}</span>
+                      {c.fault && (
+                        <span
+                          className={cn("ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium", FAULT_TONE[c.fault])}
+                          title={c.signals ? signalsText(c.signals) : undefined}
+                        >
+                          {faultSummary(c.fault, c.faultRule)}
+                        </span>
+                      )}
                       {c.driver && (
                         <>
                           {" · "}
@@ -223,6 +231,7 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                         {formatDateTime(c.createdAt)} · was {humanize(c.fromStatus).toLowerCase()}
                         {c.reassigned && " · sent back to search for another driver"}
                         {c.isDriverFault && " · counts against the driver"}
+                        {c.signals && <span className="block">{signalsText(c.signals)}</span>}
                       </span>
                       {c.note && <span className="block text-xs text-navy-700">Note: {c.note}</span>}
                     </li>
@@ -381,6 +390,29 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
       </div>
     </>
   );
+}
+
+const FAULT_TONE: Record<CancelFault, string> = {
+  DRIVER: "bg-error-tint text-error",
+  PASSENGER: "bg-warning-tint text-warning-text",
+  NONE: "bg-muted text-navy-700",
+  SHARED: "bg-muted text-navy-700",
+};
+
+/** "Waited 4 min · 6 min after accept · 900 m from the pickup (1.5 km at accept)". */
+function signalsText(s: Record<string, unknown>): string {
+  const num = (k: string): number | null => (typeof s[k] === "number" ? (s[k] as number) : null);
+  const min = (sec: number) => `${Math.round(sec / 60)} min`;
+  const parts: string[] = [];
+  const waited = num("waitedSec");
+  if (waited !== null) parts.push(`waited ${min(waited)} at the pickup`);
+  const since = num("sinceAcceptSec");
+  if (since !== null) parts.push(`${min(since)} after accept`);
+  const now = num("nowM");
+  const atAccept = num("atAcceptM");
+  if (now !== null) parts.push(`${formatMetres(now)} from the pickup${atAccept !== null ? ` (${formatMetres(atAccept)} at accept)` : ""}`);
+  if (s.isMovingAway === true) parts.push("moving away");
+  return parts.length ? `Signals: ${parts.join(" · ")}` : "No signals";
 }
 
 function formatMetres(m: number | null | undefined): string {

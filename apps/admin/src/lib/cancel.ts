@@ -28,6 +28,22 @@ const BY_LABEL: Record<CancelledBy, string> = {
   ADMIN: "Admin",
 };
 
+/** Who was at fault for a cancellation (API `CancelFault`, trips/cancel-fault.ts). */
+export type CancelFault = "DRIVER" | "PASSENGER" | "NONE" | "SHARED";
+
+export const FAULT_LABEL: Record<CancelFault, string> = {
+  DRIVER: "Driver's fault",
+  PASSENGER: "Passenger's fault",
+  NONE: "No fault",
+  SHARED: "Shared / unclear",
+};
+
+/** "Passenger's fault · passenger after wait" (the rule that decided, in words). */
+export function faultSummary(fault: CancelFault | null | undefined, rule?: string | null): string {
+  const label = fault ? (FAULT_LABEL[fault] ?? fault) : "Not judged";
+  return rule ? `${label} · ${rule.replaceAll("_", " ")}` : label;
+}
+
 /** "Driver · Vehicle problem" (unknown values are shown as they are). */
 export function cancelSummary(by: CancelledBy | null | undefined, code: CancelCode | null | undefined): string {
   const who = by ? (BY_LABEL[by] ?? by) : "Unknown";

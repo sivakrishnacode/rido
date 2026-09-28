@@ -5,7 +5,7 @@ import type { AuthUser } from '../../core/auth/auth-user.js';
 import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
-import { CancelCode, CancelledBy, Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
+import { CancelCode, CancelFault, CancelledBy, Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { MAX_RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
 import { type FareQuote, haversineMeters, waitingCharge, waitingTerms, withWaitingCharge } from '../fares/fare-engine.js';
@@ -21,7 +21,8 @@ import { TripTrackService } from '../realtime/trip-track.service.js';
 import { asVehicle, DispatchService } from './dispatch.service.js';
 import type { BookTripDto } from './dto/book-trip.dto.js';
 import type { CancelTripDto } from './dto/cancel-trip.dto.js';
-import { isDriverFault, resolveCancel } from './cancel-codes.js';
+import { resolveCancel } from './cancel-codes.js';
+import { cancelSignals, type CancelSignals, faultVerdict, type FaultVerdict } from './cancel-fault.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
 import { checkNearStop, positionForCheck } from './trip-position.js';
@@ -56,6 +57,9 @@ const TRIP_INCLUDE = {
 } as const;
 
 type CancelInfo = { by: CancelledBy; code: CancelCode; note: string | null };
+
+/** The verdict of one cancellation and what it was based on. */
+type Judged = { signals: CancelSignals; verdict: FaultVerdict };
 
 /**
  * "Passenger didn't come" only after the driver has waited at the pickup (`noShowAt`); before that → 400
@@ -454,6 +458,7 @@ export class TripsService {
       await this.location.releaseBusy(driverId, trip.id);
       return this.publish(trip.id, 'SYSTEM', driverId);
     }
+    const judged = await this.judge(trip, c);
     const applied = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.trip.updateMany({
         where: { id: trip.id, status: trip.status, driverId },
@@ -470,7 +475,7 @@ export class TripsService {
         },
       });
       if (count === 0) return false;
-      await tx.tripCancellation.create({ data: this.cancellationRow(trip, c, true) });
+      await tx.tripCancellation.create({ data: this.cancellationRow(trip, c, true, judged) });
       return true;
     });
     if (!applied) return null;
@@ -503,18 +508,28 @@ export class TripsService {
    * in one transaction. False when the trip had moved on (nothing written).
    */
   private async markCancelled(trip: Trip, c: CancelInfo, history: CancelInfo = c): Promise<boolean> {
+    const judged = await this.judge(trip, history);
     return this.prisma.$transaction(async (tx) => {
       const { count } = await tx.trip.updateMany({
         where: { id: trip.id, status: trip.status },
         data: { status: TripStatus.CANCELLED, cancelledBy: c.by, cancelCode: c.code, cancelReason: c.note, cancelledAt: new Date() },
       });
       if (count === 0) return false;
-      await tx.tripCancellation.create({ data: this.cancellationRow(trip, history, false) });
+      await tx.tripCancellation.create({ data: this.cancellationRow(trip, history, false, judged) });
       return true;
     });
   }
 
-  private cancellationRow(trip: Trip, c: CancelInfo, reassigned: boolean): Prisma.TripCancellationUncheckedCreateInput {
+  /** Who was at fault for [c] on [trip] as it is now ([faultVerdict]); the driver's distance comes from their last fix. */
+  private async judge(trip: Trip, c: CancelInfo, now = new Date()): Promise<Judged> {
+    const s = await this.settings.all();
+    const at = trip.driverId ? await this.location.position(trip.driverId).catch(() => null) : null;
+    const nowM = at ? Math.round(haversineMeters(at, { lat: trip.pickupLat, lng: trip.pickupLng })) : null;
+    const signals = cancelSignals({ by: c.by, code: c.code, trip, nowM, now, noShowWaitMin: s.noShowWaitMin, freeWaitMin: s.freeWaitMin });
+    return { signals, verdict: faultVerdict(signals) };
+  }
+
+  private cancellationRow(trip: Trip, c: CancelInfo, reassigned: boolean, judged: Judged): Prisma.TripCancellationUncheckedCreateInput {
     return {
       tripId: trip.id,
       driverId: trip.driverId,
@@ -524,7 +539,10 @@ export class TripsService {
       note: c.note,
       fromStatus: trip.status,
       reassigned,
-      isDriverFault: trip.driverId !== null && isDriverFault(c.by, c.code),
+      isDriverFault: trip.driverId !== null && judged.verdict.fault === CancelFault.DRIVER,
+      fault: judged.verdict.fault,
+      faultRule: judged.verdict.rule,
+      signals: judged.signals as unknown as Prisma.InputJsonValue,
     };
   }
 

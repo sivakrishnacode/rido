@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -263,12 +263,29 @@ Never commit real `.env` files.
     (`PASSENGER` / `DRIVER` / `SYSTEM` / `ADMIN`), `cancelCode`, `cancelledAt` and the note in `cancelReason`;
     `NO_DRIVERS` trips get `SYSTEM` / `NO_DRIVERS`. Every cancel also writes a `TripCancellation` row (trip,
     driver, passenger, by, code, note, `fromStatus`, `reassigned`, `isDriverFault`; indexed by driver and passenger
-    + time) for cancellation rates: `isDriverFault` = a driver's cancel except `PASSENGER_NO_SHOW` /
-    `BUTTERFLY_MISMATCH`, or the system's `DRIVER_NOT_MOVING`. Migration `20260928140000_structured_cancellations`
+    + time) for cancellation rates: `isDriverFault` = the fault verdict is DRIVER (see "Cancellation fault verdict";
+    before it, a driver's cancel except `PASSENGER_NO_SHOW` / `BUTTERFLY_MISMATCH`, or the system's
+    `DRIVER_NOT_MOVING`). Migration `20260928140000_structured_cancellations`
     backfills `cancelledBy` / `cancelCode` / `cancelledAt` from the old reason texts and history rows for old cancels.
     `Trip.arrivedAt` is set on "Arrived". Apps: S-03 / D-16 / D-17 send codes (`CancelCode` in rido_data, with the
     sheet labels and per-side lists); admin trip page shows who / why / when, the note, every cancellation and the
     arrival time; the trips CSV has the new columns. The Butterfly-for-others report count uses the code.
+  - **Cancellation fault verdict (28 Sep 2026, like Namma Yatri's `CancellationFault` / `CancellationSignals`):**
+    every `TripCancellation` row stores `fault` (`CancelFault`: `DRIVER` / `PASSENGER` / `NONE` / `SHARED`),
+    `faultRule` (the name of the deciding rule) and `signals` (JSON: `by`, `code`, `fromStatus`, `hasDriver`,
+    `isArrived`, `waitedSec`, `sinceAcceptSec`, `atAcceptM` / `nowM` = straight-line metres from the driver to the
+    pickup at accept / at the cancel from their last fix, `isMovingAway` = ≥ 300 m farther than at accept,
+    `noShowWaitMin`, `freeWaitMin`). One pure function (`trips/cancel-fault.ts` `faultVerdict`, first match wins):
+    nobody accepted yet / `NO_DRIVERS` → NONE; system `DRIVER_NOT_MOVING` → DRIVER, `STUCK` → DRIVER before
+    arrival, SHARED after, other system → NONE; admin → NONE; driver: `BUTTERFLY_MISMATCH` and `PASSENGER_NO_SHOW`
+    → PASSENGER, after waiting the no-show time with `PASSENGER_UNREACHABLE` / `PASSENGER_ASKED_TO_CANCEL` → SHARED,
+    anything else (before or after arrival) → DRIVER; passenger: driver moving away (not arrived) → DRIVER, within
+    2 min of accept (`EARLY_CANCEL_SEC`) → NONE, after arrival with ≥ `freeWaitMin` waited → PASSENGER (sooner →
+    SHARED), `DRIVER_ASKED_TO_CANCEL` → SHARED (word against word), `WAIT_TOO_LONG` / `DRIVER_TOO_FAR` → NONE, else
+    (changed their mind while the driver drove) → PASSENGER. `isDriverFault` = fault DRIVER. Thresholds are code
+    constants. Migration `20260928190000_cancellation_fault` backfills old rows from `isDriverFault` (DRIVER) and the
+    no-show / Butterfly codes (PASSENGER), rule `backfill`, no signals. Admin: the trip page's Cancellations list shows
+    the verdict, rule and signals; the trips list shows the fault under a cancelled trip's status.
   - **Reassign on driver cancel (28 Sep 2026, like Namma Yatri's `reAllocateBookingIfPossible`):** a driver cancel in
     `DRIVER_ASSIGNED` / `DRIVER_ARRIVED` no longer ends the trip (`TripsService.dropTrip`): a guarded update puts it
     back to `SEARCHING` (transitions allow both → SEARCHING), clears `driverId` / `assignedAt` / `arrivedAt` / the

@@ -120,6 +120,14 @@ enum CancelCode {
   OTHER
 }
 
+/// Who was at fault for a cancellation (trips/cancel-fault.ts). SHARED = both sides or unclear (counts against nobody).
+enum CancelFault {
+  DRIVER
+  PASSENGER
+  NONE
+  SHARED
+}
+
 enum PaymentMode {
   CASH
   UPI
@@ -417,8 +425,9 @@ model Trip {
 }
 
 /// Every cancel of a trip, including a driver's cancel that sent the trip back to searching (the trip row keeps only
-/// the last). Counts cancellation rates per driver / passenger: [isDriverFault] marks the ones held against the driver
-/// (not a no-show after the wait, not a Butterfly mismatch).
+/// the last). Counts cancellation rates per driver / passenger: [fault] is the verdict from the [signals] (who
+/// cancelled, status, arrival and wait, time since accept, moving away), [faultRule] the rule that decided;
+/// [isDriverFault] = fault DRIVER (the ones held against the driver).
 model TripCancellation {
   id            String      @id @default(cuid())
   tripId        String
@@ -433,6 +442,10 @@ model TripCancellation {
   /// The trip went back to searching for another driver instead of ending.
   reassigned    Boolean     @default(false)
   isDriverFault Boolean     @default(false)
+  fault         CancelFault @default(NONE)
+  faultRule     String?
+  /// CancelSignals (trips/cancel-fault.ts) at the time of the cancel.
+  signals       Json?
   createdAt     DateTime    @default(now())
   trip          Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
   driver        Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)

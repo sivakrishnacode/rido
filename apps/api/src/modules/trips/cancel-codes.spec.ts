@@ -1,4 +1,4 @@
-import { isDriverFault, resolveCancel } from './cancel-codes.js';
+import { resolveCancel } from './cancel-codes.js';
 
 describe('cancel codes', () => {
   it('keeps a code the side may use, with the note', () => {
@@ -16,14 +16,5 @@ describe('cancel codes', () => {
     expect(resolveCancel({ by: 'PASSENGER', reason: 'Changed my plan' }).code).toBe('CHANGED_MIND');
     expect(resolveCancel({ by: 'PASSENGER', reason: 'Something else' })).toEqual({ code: 'OTHER', note: 'Something else' });
     expect(resolveCancel({ by: 'PASSENGER' })).toEqual({ code: 'OTHER', note: null });
-  });
-
-  it('counts driver cancels against the driver, except a no-show and a Butterfly report', () => {
-    expect(isDriverFault('DRIVER', 'TOO_FAR')).toBe(true);
-    expect(isDriverFault('DRIVER', 'PASSENGER_NO_SHOW')).toBe(false);
-    expect(isDriverFault('DRIVER', 'BUTTERFLY_MISMATCH')).toBe(false);
-    expect(isDriverFault('SYSTEM', 'DRIVER_NOT_MOVING')).toBe(true);
-    expect(isDriverFault('SYSTEM', 'NO_DRIVERS')).toBe(false);
-    expect(isDriverFault('PASSENGER', 'DRIVER_TOO_FAR')).toBe(false);
   });
 });
