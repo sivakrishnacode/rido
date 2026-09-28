@@ -1039,7 +1039,10 @@ suggestion's name.
   request is read aloud. Decline, timeout, a failed accept or `trip.offer_closed` drop that card; none left → Home. Home pushes the card only when a request appears from none. In the background the
   overlay shows the same list: the app sends `{cmd: offer, offer, others}` whenever the stack changes, and the
   overlay answers `accept | decline | timeout` with the trip id (`acceptOffer` / `declineOffer`). Overlay cards hide
-  the voice toggle (the overlay isolate has no ProviderScope; the toggle drew a grey error screen there). Offer time is the admin "Offer time" setting (5–120 s, default 15); the apps follow it.
+  the voice toggle (the overlay isolate has no ProviderScope; the toggle drew a grey error screen there). Every open
+  request's notification (the FCM handler posts one per offer) is cleared once the app is in front, and a closed one
+  in the background too (`BackgroundOffers`, which also re-syncs when only the stack changes). Offer time is the
+  admin "Offer time" setting (5–120 s, default 15); the apps follow it.
 
 ## 7d. Driver app in the background (apps/driver/lib/overlay)
 
