@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 ("Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -416,7 +416,7 @@ Never commit real `.env` files.
 | `trip:otp-tries:<tripId>` | Ride / delivery OTP tries this minute (5 allowed) | 60 s from the first try |
 | `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
 | `kyc:event:<event_id>` | Didit webhook already handled (idempotency) | 2 d |
-| `maps:rg:*`, `maps:rt3:*`, `maps:tt:*`, `eta:road:<mode>:*` | Google response cache: reverse geocode (~11 m grid), fare routes (`vehicleStopover` stops, shortest of `computeAlternativeRoutes`, `TRAFFIC_AWARE`, ~11 m grid; kept 6 h so a quote and its booking price the same route), the fare route's traffic-aware minutes (`maps:tt:<mode>:<from>:<to>`, **15 min**, then one Pro call refreshes the minutes only), ETAs (`maps:rt3:DRIVE:eta:*` and `eta:*`, cell centres, no stopover, no path, `TRAFFIC_UNAWARE`). Autocomplete and Place Details are **not** cached (Places terms allow storing only place IDs; Place Details also ends the session so keystrokes aren't billed singly) | 30 d / 6 h / 15 min / 10 min |
+| `maps:rg2:*`, `maps:rt3:*`, `maps:tt:*`, `eta:road:<mode>:*` | Google response cache: reverse geocode with its `landmark` (~11 m grid), fare routes (`vehicleStopover` stops, shortest of `computeAlternativeRoutes`, `TRAFFIC_AWARE`, ~11 m grid; kept 6 h so a quote and its booking price the same route), the fare route's traffic-aware minutes (`maps:tt:<mode>:<from>:<to>`, **15 min**, then one Pro call refreshes the minutes only), ETAs (`maps:rt3:DRIVE:eta:*` and `eta:*`, cell centres, no stopover, no path, `TRAFFIC_UNAWARE`). Autocomplete and Place Details are **not** cached (Places terms allow storing only place IDs; Place Details also ends the session so keystrokes aren't billed singly) | 30 d / 6 h / 15 min / 10 min |
 
 - **Dispatch (Uber-style, see owner ref "How Uber finds your driver"):**
   1. Drivers are indexed by H3 cell (res 8) in Redis sets `h3:drv:<kind>:<cell>`; no distance scan over all drivers.
@@ -707,6 +707,12 @@ socket event or a tapped push opens the I'm OK / Get help sheet (`SafetyCheckShe
 screen; a tapped push reopens the ride first); Get help then opens P-17.
 
 **Route deviation and night checks (28 Sep 2026, like Namma Yatri's `checkForDeviation`).** At booking the trip
+**Pickup landmark:** the passenger app sends the reverse-geocoded pickup's landmark as `pickupLandmark` (optional,
+≤ 120 chars) with `POST /trips`; it is stored on `Trip.pickupLandmark` (migration `20260928233000_trip_pickup_landmark`)
+and the driver app shows it on the request card ("Near KG Hospital · 0.8 km away · 3 min") and D-16's pickup card.
+The app only sends it when the server returned one (the API rejects unknown fields, so deploy the API first).
+P-09 shows it under the pinned address and P-08 next to the pickup.
+
 stores `Trip.routePolyline`: the encoded road route the fare quote already fetched from Google Routes, read with
 `MapsService.cachedRoute` (Redis only, **never an extra Google call**; the same cache also serves P-10's
 `/maps/route`). It is null without a Google key, for the measured demo routes and on a cache miss; then the trip has
@@ -839,7 +845,7 @@ loaded, or if it can't be made, it falls back to a Google Maps link to the vehic
 | Show the map | Maps SDK for Android (free) | apps | always, when key set |
 | Admin maps | Maps JavaScript API (Dynamic Maps, billed per map load) | admin panel browser (`NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY`) | each page with a map; search goes through the API, not the client Places library |
 | Search places | Places Autocomplete (New) + Place Details | API (`/places/autocomplete`, `/places/details`) and app | per search session (session token), ≥ 3 chars, debounced |
-| Pin → address | Geocoding API | API (`/places/reverse`) and app | when the pin stops moving; cached on an ~11 m grid |
+| Pin → address | Geocoding API with `extra_computations=ADDRESS_DESCRIPTORS` (same Geocoding SKU): `address_descriptor.landmarks[]` (`display_name.text`, `spatial_relationship`, `straight_line_distance_meters`) → `landmark` = the nearest within 300 m as "Near / Opposite / Beside / Behind / Inside / Around the corner from X" (`DOWN_THE_ROAD` and unknown → Near; `areas[]` unused) | API (`/places/reverse` → `place.landmark`, nullable) and app | when the pin stops moving; cached (landmark included) on an ~11 m grid, `maps:rg2:*` 30 d |
 | Route line / distance | Routes API: fare routes ask for alternatives (`computeAlternativeRoutes`, field `routes.routeLabels`) and keep the **shortest** by `distanceMeters`, so the map, the cache and `Trip.routePolyline` show the route that is charged | API (`/maps/route`, fares) and app | once per trip leg; cached on a ~11 m grid |
 | Live tracking | Driver GPS over Socket.IO | driver app → API → passenger | every few seconds, **no Google calls** |
 

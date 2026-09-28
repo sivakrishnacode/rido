@@ -42,8 +42,9 @@ export class MapsService {
   }
 
   reverseGeocode(point: LatLngLiteral): Promise<ResolvedPlace | null> {
-    // ~11 m grid so nearby pins share a cache entry.
-    const key = `maps:rg:${point.lat.toFixed(4)},${point.lng.toFixed(4)}`;
+    // ~11 m grid so nearby pins share a cache entry. `rg2`: the value carries the landmark (older `maps:rg:`
+    // entries have none and expire unused).
+    const key = `maps:rg2:${point.lat.toFixed(4)},${point.lng.toFixed(4)}`;
     return this.cached(key, TTL.geocode, () => this.google.reverseGeocode(point));
   }
 

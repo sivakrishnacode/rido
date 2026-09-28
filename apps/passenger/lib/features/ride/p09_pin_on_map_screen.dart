@@ -223,6 +223,24 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(_place.name, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                // "Near KG Hospital": where the driver will look for the rider.
+                                if (_place.landmark != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Row(children: [
+                                      const Icon(Symbols.location_on_rounded, size: 16, color: RidoColors.coral600, fill: 1),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          _place.landmark!,
+                                          key: const ValueKey('pin-landmark'),
+                                          style: t.bodySemibold.copyWith(color: RidoColors.coral600),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ]),
+                                  ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${_place.address}, Coimbatore',

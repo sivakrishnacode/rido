@@ -1,8 +1,13 @@
 // What the passenger sees from Google Maps data: travel time (traffic) vs the fare's minutes on P-10 / P-11.
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_passenger/features/ride/p11_fare_details_sheet.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rido_passenger/app.dart';
+import 'package:rido_passenger/router/app_router.dart';
 import 'package:rido_passenger/router/routes.dart';
+import 'package:rido_passenger/state/ride_flow.dart';
 import 'package:rido_ui/rido_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -66,4 +71,31 @@ void main() {
     await _openP10(tester);
     expect(find.text('11.4 km · 38 min'), findsOneWidget);
   });
+
+  testWidgets('P-09 shows the reverse-geocoded landmark under the pin', (tester) async {
+    await _openWithPickup(tester, Routes.pinPickupOnMap);
+    expect(find.byKey(const ValueKey('pin-landmark')), findsOneWidget);
+    expect(find.text('Near Ukkadam Bus stand'), findsOneWidget);
+  });
+
+  testWidgets('P-08 shows the landmark next to the pickup', (tester) async {
+    await _openWithPickup(tester, Routes.search);
+    expect(find.text('Ukkadam · Near Ukkadam Bus stand'), findsOneWidget);
+  });
+}
+
+/// Opens [location] with the pickup as the live reverse geocode returns it (GPS or a pin).
+Future<void> _openWithPickup(WidgetTester tester, String location) async {
+  await loadTestFonts();
+  usePhone(tester);
+  final c = ProviderContainer();
+  addTearDown(c.dispose);
+  c.read(rideFlowProvider.notifier).setPickup(
+        const Place(id: 'pin', name: 'Ukkadam', address: 'Ukkadam', location: LatLng(10.98833, 76.96269), landmark: 'Near Ukkadam Bus stand'),
+      );
+  await tester.pumpWidget(UncontrolledProviderScope(
+    container: c,
+    child: RidoPassengerApp(router: createPassengerRouter(initialLocation: location)),
+  ));
+  await tester.pump(const Duration(seconds: 1));
 }

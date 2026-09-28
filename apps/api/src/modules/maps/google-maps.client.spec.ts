@@ -1,5 +1,5 @@
 import type { Env } from '../../core/config/env.js';
-import { GoogleMapsClient, shortestRoute } from './google-maps.client.js';
+import { GoogleMapsClient, landmarkLabel, shortestRoute } from './google-maps.client.js';
 
 const from = { lat: 10.98085, lng: 77.04175 };
 const ukkadamFlyover = { lat: 10.98833, lng: 76.96269 };
@@ -90,8 +90,14 @@ describe('GoogleMapsClient.reverseGeocode', () => {
       ],
     });
     const p = await client.reverseGeocode(from);
-    expect(p).toMatchObject({ placeId: 'real', name: 'Ondipudur' });
+    expect(p).toMatchObject({ placeId: 'real', name: 'Ondipudur', landmark: null });
     expect(urls[0]).toContain('language=en');
+    expect(urls[0]).toContain('extra_computations=ADDRESS_DESCRIPTORS');
+  });
+
+  it('adds the nearest landmark as a meeting point', async () => {
+    stubFetch({ status: 'OK', address_descriptor: ukkadamDescriptor, results: [{ place_id: 'u', formatted_address: 'Ukkadam, Coimbatore', types: ['route'] }] });
+    expect((await client.reverseGeocode(ukkadamFlyover))?.landmark).toBe('Near Ukkadam Bus stand');
   });
 });
 
@@ -105,5 +111,38 @@ describe('shortestRoute', () => {
   it('skips a route without a path and keeps the default on a tie', () => {
     expect(shortestRoute([r(9000, 'default'), { distanceMeters: 5000 }, r(9000, 'alt')])?.polyline?.encodedPolyline).toBe('default');
     expect(shortestRoute([])).toBeUndefined();
+  });
+});
+
+/** Google's answer for the Ukkadam drop (10.98833,76.96269), trimmed (28 Sep 2026). */
+const ukkadamDescriptor = {
+  landmarks: [
+    { display_name: { text: 'Ukkadam Bus stand', language_code: 'en' }, spatial_relationship: 'DOWN_THE_ROAD', straight_line_distance_meters: 5.1, travel_distance_meters: 20 },
+    { display_name: { text: 'LIC of India, Branch Office' }, spatial_relationship: 'NEAR', straight_line_distance_meters: 120.4 },
+    { display_name: { text: 'Rich Point' }, spatial_relationship: 'NEAR', straight_line_distance_meters: 185 },
+  ],
+  areas: [{ display_name: { text: 'Ukkadam' }, containment: 'OUTSKIRTS' }],
+};
+
+describe('landmarkLabel', () => {
+  it('names the nearest landmark within 300 m, whatever order Google sends', () => {
+    expect(landmarkLabel({ landmarks: [...ukkadamDescriptor.landmarks].reverse() })).toBe('Near Ukkadam Bus stand');
+  });
+
+  it('says where it is: opposite, beside, behind, inside', () => {
+    const one = (rel: string): string | null =>
+      landmarkLabel({ landmarks: [{ display_name: { text: 'KG Hospital' }, spatial_relationship: rel, straight_line_distance_meters: 40 }] });
+    expect(one('ACROSS_THE_ROAD')).toBe('Opposite KG Hospital');
+    expect(one('BESIDE')).toBe('Beside KG Hospital');
+    expect(one('BEHIND')).toBe('Behind KG Hospital');
+    expect(one('WITHIN')).toBe('Inside KG Hospital');
+    expect(one('AROUND_THE_CORNER')).toBe('Around the corner from KG Hospital');
+    expect(one('SOMETHING_NEW')).toBe('Near KG Hospital');
+  });
+
+  it('none close enough, unnamed or missing → null', () => {
+    expect(landmarkLabel({ landmarks: [{ display_name: { text: 'Far Mall' }, spatial_relationship: 'NEAR', straight_line_distance_meters: 450 }] })).toBeNull();
+    expect(landmarkLabel({ landmarks: [{ display_name: { text: ' ' }, straight_line_distance_meters: 10 }] })).toBeNull();
+    expect(landmarkLabel(undefined)).toBeNull();
   });
 });

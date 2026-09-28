@@ -153,7 +153,11 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
   Widget build(BuildContext context) {
     final t = context.type;
     final pickup = ref.watch(rideFlowProvider.select((s) => s.pickup));
-    final pickupLabel = pickup.id == Seed.gandhipuram.id ? 'Current location, Gandhipuram' : pickup.name;
+    final pickupLabel = pickup.id == Seed.gandhipuram.id
+        ? 'Current location, Gandhipuram'
+        : pickup.landmark != null
+            ? '${pickup.name} · ${pickup.landmark}'
+            : pickup.name;
     return Scaffold(
       backgroundColor: RidoColors.surface,
       appBar: const RidoAppBar(title: 'Plan your ride'),

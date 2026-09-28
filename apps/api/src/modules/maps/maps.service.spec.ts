@@ -57,6 +57,14 @@ describe('MapsService', () => {
     expect(await maps.cachedTravelMin({ from: gandhipuram, to: vellalore })).toBe(27);
   });
 
+  it('caches the reverse geocode with its landmark (30 d), so a second pin in the square costs nothing', async () => {
+    const reverseGeocode = vi.fn(async () => ({ placeId: 'u', name: 'Ukkadam', address: 'Coimbatore', landmark: 'Near Ukkadam Bus stand', lat: 10.98833, lng: 76.96269 }));
+    const maps = new MapsService({ isEnabled: true, reverseGeocode } as unknown as GoogleMapsClient, fakeRedis());
+    await maps.reverseGeocode({ lat: 10.98833, lng: 76.96269 });
+    expect((await maps.reverseGeocode({ lat: 10.98834, lng: 76.96271 }))?.landmark).toBe('Near Ukkadam Bus stand');
+    expect(reverseGeocode).toHaveBeenCalledTimes(1);
+  });
+
   it('cachedRoute reads the route the quote fetched and never calls Google', async () => {
     const route = vi.fn(async () => ({ ...road, encodedPolyline: 'route-from-quote' }));
     const maps = new MapsService({ isEnabled: true, route } as unknown as GoogleMapsClient, fakeRedis());

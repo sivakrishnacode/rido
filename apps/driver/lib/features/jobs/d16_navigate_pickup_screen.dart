@@ -243,8 +243,10 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
     );
   }
 
-  static String _pickupNote(RideRequest r) =>
-      r.pickup.id == Seed.gandhipuram.id ? 'Gate 2, opposite Annapoorna hotel' : r.pickup.address;
+  /// The rider's landmark first ("Near KG Hospital"), then the address.
+  static String _pickupNote(RideRequest r) => r.pickup.id == Seed.gandhipuram.id
+      ? 'Gate 2, opposite Annapoorna hotel'
+      : [?r.pickup.landmark, if (r.pickup.address.isNotEmpty) r.pickup.address].join(' · ');
 }
 
 /// Radio list of cancel reasons. Returns the chosen code, or null for "Keep ride".

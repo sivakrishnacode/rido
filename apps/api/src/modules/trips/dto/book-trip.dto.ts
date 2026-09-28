@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsObject, IsOptional, IsString, Length, Matches, ValidateNested } from 'class-validator';
+import { IsBoolean, IsEnum, IsObject, IsOptional, IsString, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
 
 import { ParcelPayer, PaymentMode, TripKind, VehicleKind, WomenDriverPref } from '../../../generated/prisma/enums.js';
 import { PointDto } from '../../fares/dto/point.dto.js';
@@ -51,6 +51,12 @@ export class BookTripDto {
   @IsOptional()
   @IsEnum(WomenDriverPref)
   womenDriver?: WomenDriverPref;
+
+  /** "Near KG Hospital": the pickup's landmark from the reverse geocode (shown to the driver). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  pickupLandmark?: string;
 
   /** Booked for someone else: the driver sees and calls this person. Default: the account holder rides. */
   @IsOptional()

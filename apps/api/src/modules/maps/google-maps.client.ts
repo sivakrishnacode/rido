@@ -12,7 +12,44 @@ export interface PlaceSuggestion {
 }
 
 /** A resolved place with coordinates. */
-export interface ResolvedPlace extends PlaceSuggestion, LatLngLiteral {}
+export interface ResolvedPlace extends PlaceSuggestion, LatLngLiteral {
+  /** Reverse geocode only: "Near KG Hospital", from Google's address descriptors (null when none is close). */
+  readonly landmark?: string | null;
+}
+
+/** Geocoding API `address_descriptor` (reverse geocode with `extra_computations=ADDRESS_DESCRIPTORS`). */
+export interface AddressDescriptor {
+  readonly landmarks?: {
+    readonly display_name?: { readonly text?: string };
+    readonly spatial_relationship?: string;
+    readonly straight_line_distance_meters?: number;
+  }[];
+}
+
+/** A landmark farther than this from the pin says little about where to meet. */
+export const LANDMARK_MAX_M = 300;
+
+const RELATION: Readonly<Record<string, string>> = {
+  NEAR: 'Near',
+  WITHIN: 'Inside',
+  BESIDE: 'Beside',
+  ACROSS_THE_ROAD: 'Opposite',
+  DOWN_THE_ROAD: 'Near',
+  AROUND_THE_CORNER: 'Around the corner from',
+  BEHIND: 'Behind',
+};
+
+/**
+ * A short meeting-point label from the nearest landmark within [LANDMARK_MAX_M]: "Opposite Ukkadam Bus Stand".
+ * Unknown relationships read "Near". Null when Google sent no usable landmark.
+ */
+export function landmarkLabel(descriptor: AddressDescriptor | undefined): string | null {
+  const best = (descriptor?.landmarks ?? [])
+    .filter((l) => l.display_name?.text?.trim() && (l.straight_line_distance_meters ?? Infinity) <= LANDMARK_MAX_M)
+    .sort((a, b) => a.straight_line_distance_meters! - b.straight_line_distance_meters!)[0];
+  if (!best) return null;
+  return `${RELATION[best.spatial_relationship ?? ''] ?? 'Near'} ${best.display_name!.text!.trim()}`;
+}
 
 /** A road route between two points. */
 export interface RoadRoute {
@@ -101,10 +138,13 @@ export class GoogleMapsClient {
     };
   }
 
-  /** Geocoding API reverse lookup. */
+  /**
+   * Geocoding API reverse lookup, with address descriptors (`extra_computations=ADDRESS_DESCRIPTORS`: nearby
+   * landmarks, India supported) for a "Near KG Hospital" meeting point.
+   */
   async reverseGeocode(point: LatLngLiteral): Promise<ResolvedPlace | null> {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${point.lat},${point.lng}&language=en&key=${this.env.googleMapsApiKey}`;
-    const json = await this.call<{ status: string; results?: { place_id: string; formatted_address: string; types?: string[]; address_components?: { long_name: string; types: string[] }[] }[] }>(
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${point.lat},${point.lng}&language=en&extra_computations=ADDRESS_DESCRIPTORS&key=${this.env.googleMapsApiKey}`;
+    const json = await this.call<{ status: string; address_descriptor?: AddressDescriptor; results?: { place_id: string; formatted_address: string; types?: string[]; address_components?: { long_name: string; types: string[] }[] }[] }>(
       url,
       { method: 'GET', isKeyInUrl: true },
     );
@@ -114,7 +154,13 @@ export class GoogleMapsClient {
     const first = results.find(isReal) ?? results[0];
     if (!first) return null;
     const area = first.address_components?.find((c) => c.types.includes('sublocality') || c.types.includes('locality'));
-    return { placeId: first.place_id, name: area?.long_name ?? first.formatted_address.split(',')[0], address: first.formatted_address, ...point };
+    return {
+      placeId: first.place_id,
+      name: area?.long_name ?? first.formatted_address.split(',')[0],
+      address: first.formatted_address,
+      landmark: landmarkLabel(json?.address_descriptor),
+      ...point,
+    };
   }
 
   /**

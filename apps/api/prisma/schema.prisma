@@ -400,6 +400,8 @@ model Trip {
   vehicleKind        VehicleKind
   pickupName         String
   pickupAddr         String
+  /// "Near KG Hospital": the pickup's landmark (Google address descriptors), shown to the driver.
+  pickupLandmark     String?
   pickupLat          Float
   pickupLng          Float
   dropName           String

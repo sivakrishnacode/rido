@@ -111,6 +111,17 @@ void main() {
     expect(const RouteEstimate(distanceKm: 11.4, durationMin: 38, travelMin: 24).label, '11.4 km · 24 min');
   });
 
+  test('reverse geocode and trips carry the pickup landmark; older servers send none', () {
+    final pin = {'placeId': 'u', 'name': 'Ukkadam', 'address': 'Coimbatore', 'lat': 10.98, 'lng': 76.96};
+    expect(resolvedPlaceFromJson({...pin, 'landmark': 'Near Ukkadam Bus stand'}).landmark, 'Near Ukkadam Bus stand');
+    expect(resolvedPlaceFromJson({...pin, 'landmark': null}).landmark, isNull);
+    expect(resolvedPlaceFromJson(pin).landmark, isNull);
+    final trip = tripFromJson({..._trip, 'pickupLandmark': 'Near KG Hospital'});
+    expect(trip.pickup.landmark, 'Near KG Hospital');
+    expect(trip.drop.landmark, isNull);
+    expect(tripFromJson(_trip).pickup.landmark, isNull);
+  });
+
   test('chat direction depends on the side', () {
     final m = {'id': 'm1', 'from': 'DRIVER', 'text': 'On my way', 'at': '2026-09-26T05:31:00.000Z'};
     expect(chatFromJson(m, iAmDriver: true).fromMe, isTrue);

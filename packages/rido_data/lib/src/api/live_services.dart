@@ -95,6 +95,8 @@ class LiveTrips {
       'vehicleKind': enumToApi(vehicle),
       'pickup': pointJson(pickup),
       'drop': pointJson(drop),
+      // Only a server that sends landmarks gets one back (older servers reject unknown fields).
+      if (pickup.landmark != null) 'pickupLandmark': pickup.landmark!.length > 120 ? pickup.landmark!.substring(0, 120) : pickup.landmark,
       'paymentMode': enumToApi(paymentMode),
       if (parcel != null) 'parcel': parcelToJson(parcel),
       if (parcel != null) 'payer': enumToApi(parcel.payer),

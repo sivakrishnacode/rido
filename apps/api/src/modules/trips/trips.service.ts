@@ -136,6 +136,7 @@ export class TripsService {
         passengerId,
         pickupName: dto.pickup.name ?? 'Pinned location',
         pickupAddr: dto.pickup.address ?? '',
+        pickupLandmark: dto.pickupLandmark?.trim() || null,
         pickupLat: dto.pickup.lat,
         pickupLng: dto.pickup.lng,
         dropName: dto.drop.name ?? 'Pinned location',

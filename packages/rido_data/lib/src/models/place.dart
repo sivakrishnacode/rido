@@ -9,6 +9,8 @@ class Place {
     required this.name,
     required this.address,
     required this.location,
+    this.landmark,
+    this.distanceKm,
   });
 
   final String id;
@@ -16,14 +18,22 @@ class Place {
   final String address;
   final LatLng location;
 
+  /// Live API reverse geocode: a meeting point from Google's address descriptors ("Near KG Hospital").
+  final String? landmark;
+
+  /// Live API search suggestion: road distance from the pickup, when the app sent one (Places `distanceMeters`).
+  final double? distanceKm;
+
   /// "Brookefields Mall, Krishnasamy Rd, RS Puram"
   String get fullAddress => '$name, $address';
 
-  Place copyWith({String? id, String? name, String? address, LatLng? location}) => Place(
+  Place copyWith({String? id, String? name, String? address, LatLng? location, String? landmark, double? distanceKm}) => Place(
         id: id ?? this.id,
         name: name ?? this.name,
         address: address ?? this.address,
         location: location ?? this.location,
+        landmark: landmark ?? this.landmark,
+        distanceKm: distanceKm ?? this.distanceKm,
       );
 
   @override

@@ -65,7 +65,11 @@ Place resolvedPlaceFromJson(Json j) => Place(
       name: _s(j['name'], 'Pinned location'),
       address: _s(j['address']),
       location: LatLng(_d(j['lat']), _d(j['lng'])),
+      landmark: _optText(j['landmark']),
     );
+
+/// A non-empty string, else null (older servers omit the field).
+String? _optText(Object? v) => v is String && v.trim().isNotEmpty ? v.trim() : null;
 
 FareQuote quoteFromJson(Json j) => FareQuote(
       vehicle: vehicleTypeFor(vehicleKindFromApi(j['vehicleKind'])),
@@ -157,6 +161,8 @@ Place _tripPlace(Json j, String prefix) => Place(
       name: _s(j['${prefix}Name'], 'Pinned location'),
       address: _s(j['${prefix}Addr']),
       location: LatLng(_d(j['${prefix}Lat']), _d(j['${prefix}Lng'])),
+      // Only the pickup has one ("Near KG Hospital", for the driver).
+      landmark: _optText(j['${prefix}Landmark']),
     );
 
 Trip tripFromJson(Json j) {

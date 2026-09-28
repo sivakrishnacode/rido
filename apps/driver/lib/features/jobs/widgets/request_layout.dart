@@ -144,7 +144,11 @@ class RequestRoute extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PickupDropConnector(
         pickupTitle: pickupTitle ?? request.pickup.name,
-        pickupSubtitle: '${formatKm(request.pickupDistanceKm)} away · ${request.pickupEtaMin} min',
+        // "Near KG Hospital · 0.8 km away · 3 min": the rider's landmark when the app sent one.
+        pickupSubtitle: [
+          ?request.pickup.landmark,
+          '${formatKm(request.pickupDistanceKm)} away · ${request.pickupEtaMin} min',
+        ].join(' · '),
         pickupSubtitleColor: RidoColors.success,
         dropTitle: request.drop.name,
         dropSubtitle: '${formatKm(request.tripKm)} trip · ~${request.tripMin} min',
