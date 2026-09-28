@@ -260,9 +260,18 @@ export interface TripBase {
   readonly noShowAt?: string | null;
   /** Straight-line metres from the driver to the pickup at accept. */
   readonly acceptDistanceM?: number | null;
-  /** Flagged by a timeout (e.g. still running far past its estimate); [reviewNote] says why. */
+  /** Flagged for an admin: a trip timeout (still running far past its estimate) or the fare sanity checks at
+   * completion (mock GPS, distance far from the quote with a stop outside its radius, no measurable distance). */
   readonly needsReview?: boolean;
   readonly reviewNote?: string | null;
+  /** Recorded GPS path: metres driven on the ride (null when not measurable) and to the pickup. */
+  readonly actualDistanceM?: number | null;
+  readonly approachDistanceM?: number | null;
+  /** The ride's path, Google-encoded (trip page only; not in the list). */
+  readonly pathPolyline?: string | null;
+  readonly gpsPoints?: number;
+  readonly gpsMockCount?: number;
+  readonly distanceCalcFailed?: boolean;
   readonly reassignCount?: number;
   readonly startedAt: string | null;
   readonly endedAt: string | null;

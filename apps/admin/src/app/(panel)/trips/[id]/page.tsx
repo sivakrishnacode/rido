@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, EyeOffIcon, LifeBuoyIcon, PackageIcon, StarIcon } from "lucide-react";
+import { ArrowLeftIcon, EyeOffIcon, LifeBuoyIcon, NavigationIcon, PackageIcon, StarIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -8,9 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { adminApi } from "@/lib/api";
 import { cancelSummary } from "@/lib/cancel";
+import { formatKm } from "@/lib/polyline";
 import { displayName, formatDateTime, formatInr, formatPhone, humanize, shortId, vehicleLabel } from "@/lib/format";
 import type { FareBreakdown } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+import { MarkReviewedButton } from "./review-actions";
+import { TripPathMap } from "./trip-path-map";
 
 export async function generateMetadata({ params }: PageProps<"/trips/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -162,10 +166,16 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
               </Field>
             </dl>
             {t.needsReview && (
-              <p className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning-text">
-                Needs review: {t.reviewNote ?? "flagged by a trip timeout"}. The driver was asked to end the trip; it is never
-                completed automatically.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning-text">
+                <p>
+                  Needs review: {t.reviewNote ?? "flagged by a trip timeout"}.
+                  {!t.endedAt && " The driver was asked to end the trip; it is never completed automatically."}
+                </p>
+                <MarkReviewedButton tripId={t.id} />
+              </div>
+            )}
+            {!t.needsReview && t.reviewNote && (
+              <p className="rounded-lg bg-muted px-3 py-2 text-sm text-navy-700">Review: {t.reviewNote}</p>
             )}
             {(t.reassignCount ?? 0) > 0 && (
               <p className="rounded-lg bg-muted px-3 py-2 text-sm text-navy-700">
@@ -274,6 +284,39 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
             />
           </CardContent>
         </Card>
+
+        {t.endedAt && !isCancelled && (
+          <Card className="lg:col-span-3">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-semibold">
+                <NavigationIcon className="size-4 text-coral-600" /> GPS path
+              </CardTitle>
+              <CardDescription>Recorded from the driver&apos;s phone. The fare is always the quote.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                <Field label="Driven">
+                  {t.distanceCalcFailed ? <span className="text-warning-text">Not measured</span> : formatKm(t.actualDistanceM)}
+                </Field>
+                <Field label="Quoted">{t.distanceKm.toFixed(1)} km</Field>
+                <Field label="To pickup">{formatKm(t.approachDistanceM)}</Field>
+                <Field label="GPS points">{t.gpsPoints ?? 0}</Field>
+                <Field label="Mock GPS fixes">
+                  <span className={cn((t.gpsMockCount ?? 0) > 0 && "font-semibold text-error")}>{t.gpsMockCount ?? 0}</span>
+                </Field>
+              </dl>
+              {t.pathPolyline ? (
+                <TripPathMap
+                  polyline={t.pathPolyline}
+                  pickup={{ lat: t.pickupLat, lng: t.pickupLng }}
+                  drop={{ lat: t.dropLat, lng: t.dropLng }}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">No path recorded for this trip.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {isParcel && (
           <Card>

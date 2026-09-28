@@ -611,6 +611,9 @@ accepts unknown subtype names without error, so use only catalog names (read the
   historicalEtaMinTrips, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds, offerSeconds, maxCandidates, maxReassigns), Driver
   plans, Support, and any new key in
   "Other" (typed from the API value). Only changed keys are sent; values are validated client + server side.
+- **Trip page GPS path (28 Sep 2026):** finished trips show driven vs quoted km, km to the pickup, GPS points and mock
+  fixes, and draw `pathPolyline` (decoded in `lib/polyline.ts`) with the booked pickup / drop on the Google map. A
+  flagged trip has "Mark reviewed" (optional note) → `PATCH /admin/trips/:id/review`.
 - **Travel speeds (`/travel-speeds`, System):** `GET /v1/admin/hex-stats?res=9|8|7&hour=&sort=busiest|slowest|fastest&used=true`.
   Tabs for hex size (street res 9 / neighbourhood res 8, default / district res 7, with row counts); filters for IST hour,
   sort and "only pairs used for ETAs". KPIs: **ETA error** (recent 14 days of finished trips replayed through the learned

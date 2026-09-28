@@ -196,6 +196,8 @@ export const adminApi = {
 
   trips: (q: ListQuery = {}) => apiFetch<Paged<Trip>>("/admin/trips", { query: listQuery(q) }),
   trip: (id: string) => orNotFound(apiFetch<TripDetail>(`/admin/trips/${encodeURIComponent(id)}`)),
+  reviewTrip: (id: string, needsReview: boolean, note?: string) =>
+    apiFetch<Trip>(`/admin/trips/${encodeURIComponent(id)}/review`, { method: "PATCH", body: { needsReview, note } }),
 
   passengers: (q: ListQuery = {}) => apiFetch<Paged<Passenger>>("/admin/passengers", { query: listQuery(q) }),
 

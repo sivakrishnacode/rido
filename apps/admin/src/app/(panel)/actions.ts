@@ -82,6 +82,12 @@ export async function updatePlan(planId: string, data: { price?: number; isActiv
   return plain(await run(() => adminApi.updatePlan(planId, data), message, ["/plans"]));
 }
 
+export async function clearTripReview(tripId: string, note?: string): Promise<ActionResult> {
+  const trimmed = note?.trim() || undefined;
+  if (trimmed && trimmed.length > 300) return { ok: false, error: "Keep the note under 300 characters" };
+  return plain(await run(() => adminApi.reviewTrip(tripId, false, trimmed), "Marked as reviewed", [`/trips/${tripId}`, "/trips"]));
+}
+
 export async function setTicketStatus(ticketId: string, status: TicketStatus): Promise<ActionResult> {
   if (!TICKET_STATUSES.includes(status)) return { ok: false, error: "Unknown status" };
   return plain(await run(() => adminApi.setTicketStatus(ticketId, status), "Ticket updated", ["/support", "/"]));
