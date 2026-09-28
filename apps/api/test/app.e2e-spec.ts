@@ -7,6 +7,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/core/prisma/prisma.service.js';
+import { DriverStateCache } from '../src/core/driver-state/driver-state.cache.js';
 import { JobsService } from '../src/core/jobs/jobs.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
 import { SettingsService } from '../src/modules/settings/settings.service.js';
@@ -564,6 +565,33 @@ describe('Rido API (e2e)', () => {
     // Offline drivers' uploads are ignored.
     await http.post('/v1/drivers/me/offline').set(driver).expect(200);
     expect((await http.post('/v1/drivers/me/locations').set(driver).send({ fixes: [{ lat: 11.02, lng: 76.97 }] }).expect(200)).body.accepted).toBe(0);
+  });
+
+  it('checks drivers from a Redis cache on each fix, refreshed when an admin blocks or holds them', async () => {
+    const redis = app.get(RedisService);
+    await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
+    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' })).body.accessToken}` };
+    const token = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
+    const driver = { Authorization: `Bearer ${token}` };
+    const me = (await http.get('/v1/drivers/me').set(driver).expect(200)).body;
+    expect(await redis.get(`driver:state:${me.id}`)).toBe('1|BIKE|0');
+    const moved = async (lat: number): Promise<boolean> => {
+      await http.post('/v1/drivers/me/location').set(driver).send({ lat, lng: 76.973 }).expect(204);
+      return (await redis.get(`driver:alive:${me.id}`))?.startsWith(`${lat},`) ?? false;
+    };
+    expect(await moved(11.0191)).toBe(true);
+    // Blocked: fixes are ignored at once (the cache entry is dropped, not left to expire).
+    await http.patch(`/v1/admin/users/${me.userId}`).set(admin).send({ isBlocked: true, blockedReason: 'Test block' }).expect(200);
+    expect(await redis.get(`driver:state:${me.id}`)).toBeNull();
+    await http.post('/v1/drivers/me/locations').set(driver).send({ fixes: [{ lat: 11.0192, lng: 76.973 }] }).expect(403);
+    await app.get(DriverStateCache).get(me.id);
+    expect(await redis.get(`driver:state:${me.id}`)).toBe('1|BIKE|1');
+    await http.patch(`/v1/admin/users/${me.userId}`).set(admin).send({ isBlocked: false }).expect(200);
+    expect(await moved(11.0193)).toBe(true);
+    // Put on hold: offline in the database and in the cache.
+    await http.patch(`/v1/admin/drivers/${me.id}`).set(admin).send({ status: 'ON_HOLD' }).expect(200);
+    expect(await moved(11.0194)).toBe(false);
+    expect(await redis.get(`driver:state:${me.id}`)).toBe('0|BIKE|0');
   });
 
   it('falls back to seeded places and a curved route without a Google key', async () => {

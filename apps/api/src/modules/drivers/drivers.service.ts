@@ -3,6 +3,7 @@ import { FileStorageService, type UploadedBlob } from '../../core/storage/file-s
 import { DriverEarningsService } from './driver-earnings.service.js';
 import type { UpdateDriverDto } from './dto/update-driver.dto.js';
 
+import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, KycDocument } from '../../generated/prisma/client.js';
 import { DriverStatus, IdentityStatus, KycDocType, KycStatus, Role, TripStatus } from '../../generated/prisma/enums.js';
@@ -28,6 +29,7 @@ export class DriversService {
     private readonly notifier: NotifierService,
     private readonly approval: DriverApprovalService,
     private readonly didit: DiditClient,
+    private readonly state: DriverStateCache,
   ) {}
 
   /** Creates the driver, the RC + insurance rows and a 30-day free trial; returns a token with the DRIVER role. */
@@ -65,6 +67,7 @@ export class DriversService {
       where: { id: driverId },
       data: { ...vehicle, plate: vehicle.plate?.toUpperCase(), ...(name || gender ? { user: { update: { name, gender } } } : {}) },
     });
+    await this.state.invalidate(driver.id);
     return this.me(driver.id);
   }
 
@@ -84,6 +87,7 @@ export class DriversService {
 
   /** Admin review: verifies all documents and approves the driver (or rejects one document). */
   async review(params: { driverId: string; isApproved: boolean; rejectType?: KycDocType; reason?: string }): Promise<Driver> {
+    await this.state.invalidate(params.driverId);
     if (params.isApproved) {
       await this.prisma.kycDocument.updateMany({ where: { driverId: params.driverId }, data: { status: KycStatus.VERIFIED } });
       void this.notifier.kycReviewed({ driverId: params.driverId, status: 'APPROVED' });
@@ -114,7 +118,9 @@ export class DriversService {
     await this.freeIfStale(driver.id);
     await this.location.update({ driverId: driver.id, kind: driver.vehicleKind, lat: params.lat, lng: params.lng });
     await this.earnings.sessionStarted(driver.id);
-    return this.prisma.driver.update({ where: { id: driver.id }, data: { isOnline: true } });
+    const online = await this.prisma.driver.update({ where: { id: driver.id }, data: { isOnline: true }, include: { user: { select: { isBlocked: true } } } });
+    await this.state.set(driver.id, { isOnline: true, vehicleKind: online.vehicleKind, isBlocked: online.user.isBlocked });
+    return online;
   }
 
   /**
@@ -209,6 +215,7 @@ export class DriversService {
 
   async goOffline(driverId: string): Promise<Driver> {
     const driver = await this.prisma.driver.update({ where: { id: driverId }, data: { isOnline: false } });
+    await this.state.set(driverId, { isOnline: false, vehicleKind: driver.vehicleKind, isBlocked: false });
     await this.location.remove({ driverId, kind: driver.vehicleKind });
     await this.earnings.sessionEnded(driverId);
     return driver;

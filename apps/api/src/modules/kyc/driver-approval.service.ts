@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { DriverStatus } from '../../generated/prisma/enums.js';
 import { NotifierService } from '../notifications/notifier.service.js';
@@ -13,6 +14,7 @@ export class DriverApprovalService {
     private readonly prisma: PrismaService,
     private readonly didit: DiditClient,
     private readonly notifier: NotifierService,
+    private readonly driverState: DriverStateCache,
   ) {}
 
   async recompute(driverId: string): Promise<DriverStatus> {
@@ -28,6 +30,7 @@ export class DriverApprovalService {
     });
     if (next === driver.status) return next;
     await this.prisma.driver.update({ where: { id: driverId }, data: { status: next, isOnline: next === DriverStatus.APPROVED ? undefined : false } });
+    await this.driverState.invalidate(driverId);
     if (next === DriverStatus.APPROVED) void this.notifier.kycReviewed({ driverId, status: 'APPROVED' });
     return next;
   }

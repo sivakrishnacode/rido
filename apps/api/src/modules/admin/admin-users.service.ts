@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { KycDocument, Prisma, User } from '../../generated/prisma/client.js';
@@ -15,6 +16,7 @@ export class AdminUsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly driverState: DriverStateCache,
   ) {}
 
   async users(q: ListQueryDto & { role?: string; blocked?: string }): Promise<Paged<User>> {
@@ -57,6 +59,8 @@ export class AdminUsersService {
     });
     if (user.isBlocked) await this.redis.set(`user:blocked:${id}`, '1');
     else await this.redis.del(`user:blocked:${id}`);
+    // A blocked driver's GPS is ignored at once, not only after the cache expires.
+    await this.driverState.invalidateUser(id);
     return user;
   }
 

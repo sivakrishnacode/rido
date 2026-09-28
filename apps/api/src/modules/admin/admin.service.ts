@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, KycDocument, Plan, Prisma, SupportTicket, Trip, User } from '../../generated/prisma/client.js';
 import { DriverStatus, KycDocType, Role, TicketStatus } from '../../generated/prisma/enums.js';
@@ -26,6 +27,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly notifier: NotifierService,
     private readonly approval: DriverApprovalService,
+    private readonly driverState: DriverStateCache,
   ) {}
 
   async drivers(q: ListQueryDto): Promise<Paged<Driver>> {
@@ -59,8 +61,10 @@ export class AdminService {
     });
   }
 
-  setDriverStatus(id: string, status: DriverStatus): Promise<Driver> {
-    return this.prisma.driver.update({ where: { id }, data: { status, isOnline: status === DriverStatus.APPROVED ? undefined : false } });
+  async setDriverStatus(id: string, status: DriverStatus): Promise<Driver> {
+    const driver = await this.prisma.driver.update({ where: { id }, data: { status, isOnline: status === DriverStatus.APPROVED ? undefined : false } });
+    await this.driverState.invalidate(id);
+    return driver;
   }
 
   /** Verify or reject one document; RC + insurance verified and identity approved → APPROVED, any rejected → REJECTED. */

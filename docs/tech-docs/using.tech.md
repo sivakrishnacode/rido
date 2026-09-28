@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -314,6 +314,7 @@ Never commit real `.env` files.
 | `dispatch:pending`, `dispatch:lock` | Bookings waiting for the next batch; batch lock | – / batch window |
 | `eta:<road\|est>:<cellA>:<cellB>` | ETA minutes between hex centres | 10 min |
 | `driver:alive:<driverId>` | Heartbeat `lat,lng,epochMs`; stale drivers are skipped | 90 s |
+| `driver:state:<driverId>` | `online\|vehicleKind\|blocked` (e.g. `1\|BIKE\|0`) for the GPS path, so no database read per fix (`core/driver-state`). Written on go online / offline; dropped when an admin changes the driver's status or blocks / unblocks the user, on KYC status changes and profile edits; a miss reads the database | 60 s |
 | `driver:busy:<driverId>` | Active trip id; claimed with SET NX on accept (one trip per driver), freed by compare-and-delete | 6 h, refreshed by each GPS update; a stale one is cleared on go-online |
 | `user:blocked:<userId>` | Blocked by an admin (checked on every request) | until unblocked |
 | `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer`, `dispatch:driver:<driverId>:offer` | Nearest-driver queue, current 15 s offer (both directions). The driver key is claimed with SET NX (one open offer per driver) and deleted only while it still names that trip | 10 min / 15 s |
@@ -382,7 +383,7 @@ Never commit real `.env` files.
   the server clock and ignores out-of-range extras. A batch is sorted by `ts`; only its newest fix may move the
   driver in the index, and only when it is newer than the stored `driver:alive` time (so a late flush never
   overwrites a live position). Live fixes are stamped with the server time; batch fixes with their own `ts`.
-  Offline drivers' uploads are ignored. The driver app keeps fixes (same 5 s / 20 m rule) in a `FixBuffer`
+  Offline or blocked drivers' uploads are ignored (checked from the `driver:state` cache, not Postgres). The driver app keeps fixes (same 5 s / 20 m rule) in a `FixBuffer`
   (rido_data, 500, oldest dropped) while the socket is down, uploads them over HTTP every 30 s instead of the plain
   heartbeat (plain heartbeat when the buffer is empty), and over the socket on reconnect; a failed upload puts them
   back. The buffer is cleared on going offline without a job.

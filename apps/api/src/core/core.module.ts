@@ -6,6 +6,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { RolesGuard } from './auth/roles.guard.js';
 import { loadEnv } from './config/env.js';
 import { EnvModule } from './config/env.module.js';
+import { DriverStateCache } from './driver-state/driver-state.cache.js';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -14,7 +15,7 @@ import { FileStorageService } from './storage/file-storage.service.js';
 
 const env = loadEnv();
 
-/** Cross-cutting setup: config, database, Redis, durable jobs, JWT, file storage, global guards, validation and error filter. */
+/** Cross-cutting setup: config, database, Redis, durable jobs, the driver state cache, JWT, file storage, global guards, validation and error filter. */
 @Global()
 @Module({
   imports: [
@@ -30,7 +31,8 @@ const env = loadEnv();
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }) },
     FileStorageService,
+    DriverStateCache,
   ],
-  exports: [EnvModule, FileStorageService],
+  exports: [EnvModule, FileStorageService, DriverStateCache],
 })
 export class CoreModule {}

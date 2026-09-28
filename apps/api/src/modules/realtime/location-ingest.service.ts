@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../../core/prisma/prisma.service.js';
+import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import type { VehicleKind } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { type LocationFix, sanitizeBatch } from '../drivers/location-fix.js';
@@ -21,7 +21,7 @@ export interface IngestResult {
 @Injectable()
 export class LocationIngestService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly drivers: DriverStateCache,
     private readonly location: DriverLocationService,
     private readonly events: TripEventsService,
   ) {}
@@ -40,8 +40,9 @@ export class LocationIngestService {
     const now = Date.now();
     const fixes = sanitizeBatch(Array.isArray(raw) ? raw : [], now);
     if (!fixes.length) return { accepted: 0, isLive: false };
-    const driver = await this.prisma.driver.findUnique({ where: { id: driverId }, select: { isOnline: true, vehicleKind: true } });
-    if (!driver?.isOnline) return { accepted: 0, isLive: false };
+    // Cached (no database read per fix); see DriverStateCache for when it is refreshed.
+    const driver = await this.drivers.get(driverId);
+    if (!driver?.isOnline || driver.isBlocked) return { accepted: 0, isLive: false };
     const newest = fixes[fixes.length - 1];
     const isLive = await this.moveTo(driverId, driver.vehicleKind, newest, isLiveUpload ? now : newest.ts);
     return { accepted: fixes.length, isLive };
