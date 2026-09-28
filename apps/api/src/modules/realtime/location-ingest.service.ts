@@ -5,6 +5,7 @@ import type { VehicleKind } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { type LocationFix, sanitizeBatch } from '../drivers/location-fix.js';
 import { TripEventsService } from './trip-events.service.js';
+import { TripTrackService } from './trip-track.service.js';
 
 /** What happened to an upload: fixes that were valid, and whether the newest one moved the live position. */
 export interface IngestResult {
@@ -14,7 +15,8 @@ export interface IngestResult {
 
 /**
  * One path for every driver GPS upload (socket `driver:location` / `driver:locations`, HTTP heartbeat and batch):
- * validates the fixes, moves the driver in the dispatch index with the newest one and streams it to the trip room.
+ * validates the fixes, moves the driver in the dispatch index with the newest one, streams it to the trip room and
+ * records all of them on the driver's active trip (breadcrumbs, [TripTrackService]).
  * A batch (fixes buffered while the socket was down) is processed oldest first; an older fix never overwrites a
  * newer live position.
  */
@@ -24,6 +26,7 @@ export class LocationIngestService {
     private readonly drivers: DriverStateCache,
     private readonly location: DriverLocationService,
     private readonly events: TripEventsService,
+    private readonly track: TripTrackService,
   ) {}
 
   /** A live fix: stamped with the server time in the index (it just arrived). */
@@ -44,16 +47,17 @@ export class LocationIngestService {
     const driver = await this.drivers.get(driverId);
     if (!driver?.isOnline || driver.isBlocked) return { accepted: 0, isLive: false };
     const newest = fixes[fixes.length - 1];
-    const isLive = await this.moveTo(driverId, driver.vehicleKind, newest, isLiveUpload ? now : newest.ts);
-    return { accepted: fixes.length, isLive };
+    const [last, tripId] = await Promise.all([this.location.lastFix(driverId), this.location.activeTrip(driverId)]);
+    if (tripId) await this.track.append(tripId, fixes);
+    const at = isLiveUpload ? now : newest.ts;
+    // An older fix (a late flush) never overwrites a newer live position.
+    if (last?.at != null && last.at > at) return { accepted: fixes.length, isLive: false };
+    await this.moveTo(driverId, driver.vehicleKind, newest, at, tripId);
+    return { accepted: fixes.length, isLive: true };
   }
 
-  private async moveTo(driverId: string, kind: VehicleKind, fix: LocationFix, at: number): Promise<boolean> {
-    const last = await this.location.lastFix(driverId);
-    if (last?.at != null && last.at > at) return false;
+  private async moveTo(driverId: string, kind: VehicleKind, fix: LocationFix, at: number, tripId: string | null): Promise<void> {
     await this.location.update({ driverId, kind, lat: fix.lat, lng: fix.lng, at });
-    const tripId = await this.location.activeTrip(driverId);
     if (tripId) this.events.toTrip(tripId, 'trip.location', { tripId, lat: fix.lat, lng: fix.lng, at, hdg: fix.hdg });
-    return true;
   }
 }

@@ -17,6 +17,7 @@ import { FaresService } from '../fares/fares.service.js';
 import { EtaService } from '../maps/eta.service.js';
 import { NotifierService, type TripWithPeople } from '../notifications/notifier.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
+import { TripTrackService } from '../realtime/trip-track.service.js';
 import { asVehicle, DispatchService } from './dispatch.service.js';
 import type { BookTripDto } from './dto/book-trip.dto.js';
 import type { CancelTripDto } from './dto/cancel-trip.dto.js';
@@ -88,6 +89,7 @@ export class TripsService {
     private readonly otpGuard: TripOtpGuard,
     private readonly jobs: JobsService,
     private readonly eta: EtaService,
+    private readonly track: TripTrackService,
   ) {}
 
   /** Quotes, stores and starts dispatching a trip. */
@@ -217,6 +219,8 @@ export class TripsService {
     });
     if (count === 0) throw new ConflictException('Trip already taken or cancelled');
     await this.dispatch.stop(tripId);
+    // Breadcrumbs from here: the drive to the pickup, then the ride from start.
+    await this.track.setPhase(tripId, 'p');
     const s = await this.settings.all();
     const etaMin = at ? await this.eta.minutes({ from: at, to: pickup, vehicleKind: matched.vehicleKind, useRoad: s.useRoadEta }).catch(() => null) : null;
     await this.jobs.schedule(TRIP_JOBS.pickupProgress, tripId, pickupCheckAt(acceptedAt.getTime(), etaMin, s), { driverId, strikes: 0 });
@@ -325,6 +329,7 @@ export class TripsService {
     const startedAt = new Date();
     const to = trip.kind === TripKind.PARCEL ? TripStatus.PICKED_UP : TripStatus.IN_PROGRESS;
     const updated = await this.move({ driverId, tripId, to, data: { startedAt } });
+    await this.track.setPhase(tripId, 't');
     await Promise.all([this.jobs.cancel(TRIP_JOBS.noShow, tripId), this.jobs.cancel(TRIP_JOBS.pickupCap, tripId)]);
     await this.jobs.schedule(TRIP_JOBS.stuck, tripId, stuckAt(startedAt.getTime(), trip.durationMin, await this.settings.all()), { driverId });
     return updated;
@@ -349,11 +354,13 @@ export class TripsService {
       radiusM: await this.settings.get('dropRadiusM'),
       farReason: body.farReason,
     });
+    // The recorded path, measured before the guarded move so it is stored with the completion (one Redis read).
+    const path = await this.track.summary(tripId);
     const updated = await this.move({
       driverId,
       tripId,
       to: isParcel ? TripStatus.DELIVERED : TripStatus.COMPLETED,
-      data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason },
+      data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason, ...path },
       // Counted in the same transaction as the guarded status change, so a double tap counts the ride once.
       after: (tx) => tx.driver.update({ where: { id: driverId }, data: { ridesCount: { increment: 1 } } }),
     });
@@ -457,9 +464,9 @@ export class TripsService {
     return this.publish(trip.id, 'SYSTEM', trip.driverId ?? undefined);
   }
 
-  /** Drops every pending timeout of the trip (it ended, or changed driver). */
+  /** Drops every pending timeout and the GPS breadcrumbs of the trip (it ended, or changed driver). */
   private async clearTripJobs(tripId: string): Promise<void> {
-    await Promise.all(ALL_TRIP_JOBS.map((kind) => this.jobs.cancel(kind, tripId)));
+    await Promise.all([...ALL_TRIP_JOBS.map((kind) => this.jobs.cancel(kind, tripId)), this.track.clear(tripId)]);
   }
 
   /**

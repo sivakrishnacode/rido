@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -318,6 +318,9 @@ Never commit real `.env` files.
 | `driver:busy:<driverId>` | Active trip id; claimed with SET NX on accept (one trip per driver), freed by compare-and-delete | 6 h, refreshed by each GPS update; a stale one is cleared on go-online |
 | `user:blocked:<userId>` | Blocked by an admin (checked on every request) | until unblocked |
 | `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer`, `dispatch:driver:<driverId>:offer` | Nearest-driver queue, current 15 s offer (both directions). The driver key is claimed with SET NX (one open offer per driver) and deleted only while it still names that trip | 10 min / 15 s |
+| `trip:phase:<tripId>` | Which part of the trip GPS is recorded for: `p` (to the pickup, set on accept) or `t` (ride / delivery, set on start) | 12 h; deleted when the trip ends, is cancelled or reassigned |
+| `trip:pts:<tripId>` | Breadcrumbs: list of `ts,lat,lng,acc,mock,phase` (fixes with `acc` > 50 m left out; at most 6,000) | 12 h, same |
+| `trip:ptmeta:<tripId>` | Hash: `mock` (mock-location fixes seen), `inaccurate` (fixes dropped for accuracy) | 12 h, same |
 | `trip:chat:<tripId>` | In-trip chat messages | 24 h |
 | `jobs:due`, `jobs:data` | Durable jobs: `kind\|id` → run time (sorted set) and payload (hash), see "Durable jobs" | until run / cancelled |
 | `trip:otp-tries:<tripId>` | Ride / delivery OTP tries this minute (5 allowed) | 60 s from the first try |
@@ -366,6 +369,17 @@ Never commit real `.env` files.
      2026), so they survive an API restart. A sweep every 15 s still re-queues or ends SEARCHING trips with no open
      offer, pending batch or scheduled re-search (safety net). The offer key outlives the offer timer by 5 s so the
      timeout handler still sees whose offer it was.
+- **Trip breadcrumbs and actual distance (28 Sep 2026, like Namma Yatri's location-updates):** every accepted GPS
+  fix of a driver with an active trip (live or from a buffered batch) is appended to `trip:pts:<tripId>` with the
+  current phase (`realtime/trip-track.service.ts`); fixes with `acc` > 50 m are not recorded, mock ones are counted.
+  At completion (before the guarded status move, so it is stored with it; one Redis read) `summarizePath`
+  (`trips/trip-path.ts`) sorts the points, drops exact duplicates and jumps faster than 120 km/h from the last kept
+  point (after 3 jumps in a row it re-anchors), then sums haversine steps of the ride part. Stored on Trip:
+  `actualDistanceM` (null when `distanceCalcFailed`), `approachDistanceM` (drive to the pickup), `pathPolyline` (ride
+  path, Douglas–Peucker 10 m, Google-encoded), `gpsPoints` (ride points kept), `gpsMockCount`,
+  `distanceCalcFailed` (fewer than 2 ride points, or kept points more than 2 km apart). The Redis keys are deleted
+  when the trip completes, is cancelled or goes back to searching. Fares stay the quote. Migration
+  `20260928170000_trip_breadcrumbs`.
 - **Pickup ETA on quotes (27 Sep 2026):** `POST /v1/fares/quote` adds `pickupEtaMin` to each quote: road ETA of the
   fastest of the 3 nearest free drivers of that vehicle within `maxSearchRadiusKm`, or `null` when nobody is near.
   Body `womenOnly: true` counts women drivers only (Butterfly "only"). P-10 shows "3 min away · Drop 9:24 PM" and a

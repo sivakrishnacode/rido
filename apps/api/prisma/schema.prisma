@@ -325,76 +325,87 @@ model KycDocument {
 }
 
 model Trip {
-  id               String             @id @default(cuid())
-  kind             TripKind
-  status           TripStatus         @default(SEARCHING)
-  passengerId      String
-  driverId         String?
-  vehicleKind      VehicleKind
-  pickupName       String
-  pickupAddr       String
-  pickupLat        Float
-  pickupLng        Float
-  dropName         String
-  dropAddr         String
-  dropLat          Float
-  dropLng          Float
+  id                 String             @id @default(cuid())
+  kind               TripKind
+  status             TripStatus         @default(SEARCHING)
+  passengerId        String
+  driverId           String?
+  vehicleKind        VehicleKind
+  pickupName         String
+  pickupAddr         String
+  pickupLat          Float
+  pickupLng          Float
+  dropName           String
+  dropAddr           String
+  dropLat            Float
+  dropLng            Float
   /// H3 cells (res 8) of pickup and drop, for heatmaps and demand stats.
-  pickupCell       String?
-  dropCell         String?
-  distanceKm       Float
-  durationMin      Int
+  pickupCell         String?
+  dropCell           String?
+  distanceKm         Float
+  durationMin        Int
   /// Itemised quote: base, distance, time, topUp, subtotal, multiplier, peak, total.
-  fare             Json
-  fareTotal        Int
+  fare               Json
+  fareTotal          Int
   /// "Book any" (like Namma Yatra): other vehicles the passenger added while searching, and their quotes by kind.
   /// The first driver of any of them to accept takes the trip at that vehicle's fare.
-  alsoKinds        VehicleKind[]      @default([])
-  alsoFares        Json?
-  otp              String
-  paymentMode      PaymentMode        @default(CASH)
+  alsoKinds          VehicleKind[]      @default([])
+  alsoFares          Json?
+  otp                String
+  paymentMode        PaymentMode        @default(CASH)
   /// Parcel only: category, weight band, sender/receiver details.
-  parcel           Json?
-  payer            ParcelPayer?
+  parcel             Json?
+  payer              ParcelPayer?
   /// Butterfly: offer the trip to women drivers first (PREFERRED) or only (ONLY).
-  womenDriver      WomenDriverPref    @default(NONE)
+  womenDriver        WomenDriverPref    @default(NONE)
   /// "Who's riding?": booked for someone else (e.g. a father for his daughter). The driver sees and calls the rider.
-  riderName        String?
-  riderPhone       String?
+  riderName          String?
+  riderPhone         String?
   /// The rider (account holder, or [riderName]) is a woman: allows Butterfly.
-  riderIsWoman     Boolean            @default(false)
-  rating           Int?
+  riderIsWoman       Boolean            @default(false)
+  rating             Int?
   /// Free-text note with a cancel (older clients sent only this).
-  cancelReason     String?
+  cancelReason       String?
   /// Who cancelled, why (code) and when. Also set by the system on NO_DRIVERS.
-  cancelledBy      CancelledBy?
-  cancelCode       CancelCode?
-  cancelledAt      DateTime?
+  cancelledBy        CancelledBy?
+  cancelCode         CancelCode?
+  cancelledAt        DateTime?
   /// Times a driver dropped this trip and it went back to searching (capped by the `maxReassigns` setting).
-  reassignCount    Int                @default(0)
+  reassignCount      Int                @default(0)
   /// Driver's distance from the pickup when marking "Arrived", and the reason given when outside `arrivalRadiusM`.
-  arrivedDistanceM Int?
-  arrivedFarReason String?
+  arrivedDistanceM   Int?
+  arrivedFarReason   String?
   /// Distance from the drop when the trip was completed, and the reason when outside `dropRadiusM`.
-  endDistanceM     Int?
-  endFarReason     String?
-  createdAt        DateTime           @default(now())
-  assignedAt       DateTime?
+  endDistanceM       Int?
+  endFarReason       String?
+  createdAt          DateTime           @default(now())
+  assignedAt         DateTime?
   /// When the driver marked "Arrived" (starts the passenger no-show wait).
-  arrivedAt        DateTime?
+  arrivedAt          DateTime?
   /// arrivedAt + `noShowWaitMin`: from then the driver may cancel as PASSENGER_NO_SHOW (not held against them).
-  noShowAt         DateTime?
+  noShowAt           DateTime?
   /// Straight-line metres from the driver to the pickup when they accepted (the "not moving" check compares to it).
-  acceptDistanceM  Int?
+  acceptDistanceM    Int?
   /// Flagged for an admin, e.g. a trip still running long after it should have ended ([reviewNote] says why).
-  needsReview      Boolean            @default(false)
-  reviewNote       String?
-  startedAt        DateTime?
-  endedAt          DateTime?
-  passenger        User               @relation("PassengerTrips", fields: [passengerId], references: [id])
-  driver           Driver?            @relation(fields: [driverId], references: [id])
-  tickets          SupportTicket[]
-  cancellations    TripCancellation[]
+  needsReview        Boolean            @default(false)
+  reviewNote         String?
+  /// Recorded GPS path (breadcrumbs, measured at completion): metres driven from start to end (null when the
+  /// recording can't be trusted, see [distanceCalcFailed]) and to the pickup; fares stay the quote.
+  actualDistanceM    Int?
+  approachDistanceM  Int?
+  /// The ride's path, simplified (~10 m) and Google-encoded, for the admin map.
+  pathPolyline       String?
+  /// Ride points kept after filtering, and mock-location fixes seen while on the trip.
+  gpsPoints          Int                @default(0)
+  gpsMockCount       Int                @default(0)
+  /// Too few points or a hole of more than 2 km between kept points.
+  distanceCalcFailed Boolean            @default(false)
+  startedAt          DateTime?
+  endedAt            DateTime?
+  passenger          User               @relation("PassengerTrips", fields: [passengerId], references: [id])
+  driver             Driver?            @relation(fields: [driverId], references: [id])
+  tickets            SupportTicket[]
+  cancellations      TripCancellation[]
 
   @@index([passengerId, createdAt])
   @@index([driverId, createdAt])

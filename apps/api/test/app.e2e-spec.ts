@@ -13,6 +13,7 @@ import { RedisService } from '../src/core/redis/redis.service.js';
 import { SettingsService } from '../src/modules/settings/settings.service.js';
 import { DEMAND_RES } from '../src/modules/geo/demand.service.js';
 import { cellAt } from '../src/modules/geo/h3.util.js';
+import { haversineMeters } from '../src/modules/fares/fare-engine.js';
 import { DiditClient } from '../src/modules/kyc/didit.client.js';
 import type { DiditDecision } from '../src/modules/kyc/didit.js';
 
@@ -511,6 +512,49 @@ describe('Rido API (e2e)', () => {
     expect(await jobs.scheduledAt('trip.stuck', second.trip.id)).toBeNull();
     await http.post('/v1/drivers/me/offline').set(second.driver);
   }, 60_000);
+
+  /** [n] fixes from [from] to [to], 5 s apart, the last one [endAgoMs] before now. */
+  function streamed(from: { lat: number; lng: number }, to: { lat: number; lng: number }, n: number, extra: Record<string, unknown> = {}, endAgoMs = 0) {
+    const t0 = Date.now() - endAgoMs - (n - 1) * 5000;
+    return Array.from({ length: n }, (_, i) => ({
+      lat: from.lat + ((to.lat - from.lat) * i) / (n - 1),
+      lng: from.lng + ((to.lng - from.lng) * i) / (n - 1),
+      ts: t0 + i * 5000,
+      acc: 6,
+      ...extra,
+    }));
+  }
+
+  it('records the trip path and stores the actual distance at completion', async () => {
+    const redis = app.get(RedisService);
+    const start = { lat: 11.0215, lng: 76.9725 }; // ~350 m north of the pickup
+    const { trip, driver } = await assignedBikeTrip(start);
+    expect(await redis.get(`trip:phase:${trip.id}`)).toBe('p');
+    // To the pickup (live fixes), arrive, start.
+    // (Stamped before the ride's fixes below, which are sent as if buffered over the last 2.5 min.)
+    for (const f of streamed(start, GANDHIPURAM, 4, {}, 150_000)) await http.post('/v1/drivers/me/location').set(driver).send(f).expect(204);
+    await http.post(`/v1/trips/${trip.id}/arrived`).set(driver).expect(200);
+    await http.post(`/v1/trips/${trip.id}/start`).set(driver).send({ otp: trip.otp }).expect(200);
+    expect(await redis.get(`trip:phase:${trip.id}`)).toBe('t');
+    // The ride, flushed as one batch after an outage: plus a vague fix (dropped) and a GPS jump (filtered).
+    const ride = streamed(GANDHIPURAM, BROOKEFIELDS, 30);
+    const extras = [
+      { ...ride[10], ts: ride[10].ts + 1000, lat: ride[10].lat + 0.001, acc: 120 },
+      { ...ride[20], ts: ride[20].ts + 1000, lat: ride[20].lat + 0.05 },
+    ];
+    expect((await http.post('/v1/drivers/me/locations').set(driver).send({ fixes: [...ride, ...extras] }).expect(200)).body).toEqual({ accepted: 32, isLive: true });
+    expect(await redis.llen(`trip:pts:${trip.id}`)).toBe(4 + 31);
+    const done = (await http.post(`/v1/trips/${trip.id}/complete`).set(driver).send({}).expect(200)).body;
+
+    const straight = haversineMeters(GANDHIPURAM, BROOKEFIELDS);
+    expect(Math.abs(done.actualDistanceM - straight)).toBeLessThan(15);
+    expect(done).toMatchObject({ gpsPoints: 30, gpsMockCount: 0, distanceCalcFailed: false });
+    expect(Math.abs(done.approachDistanceM - haversineMeters(start, GANDHIPURAM))).toBeLessThan(15);
+    expect(done.pathPolyline.length).toBeGreaterThan(4);
+    expect(done.pathPolyline.length).toBeLessThan(40); // a straight line simplifies to its ends
+    for (const k of ['pts', 'phase', 'ptmeta']) expect(await redis.exists(`trip:${k}:${trip.id}`)).toBe(0);
+    await http.post('/v1/drivers/me/offline').set(driver);
+  }, 45_000);
 
   it('keeps offer timeouts as durable Redis jobs', async () => {
     // Arrange: the only bike driver gets the offer.
