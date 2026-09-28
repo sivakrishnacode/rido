@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rido_data/rido_data.dart';
 
@@ -64,5 +67,37 @@ void main() {
       expect(r.distanceKm, greaterThan(7));
       expect(r.durationMin, FareEngine.durationFor(r.distanceKm));
     });
+  });
+  // Same file as apps/api/src/modules/fares/fare-engine.spec.ts, so the Dart and API engines can't drift apart.
+  group('shared fare cases (test/fixtures/fare_cases.json)', () {
+    final cases = (jsonDecode(File('test/fixtures/fare_cases.json').readAsStringSync()) as Map<String, dynamic>)['cases']
+        as List<dynamic>;
+
+    test('has at least 10 cases', () => expect(cases.length, greaterThanOrEqualTo(10)));
+
+    for (final c in cases.cast<Map<String, dynamic>>()) {
+      test(c['name'] as String, () {
+        final input = c['input'] as Map<String, dynamic>;
+        final expected = c['expected'] as Map<String, dynamic>;
+        final vehicle = Seed.vehicle(vehicleKindFromApi(input['vehicleKind']));
+        final q = FareEngine.quoteRule(
+          vehicle,
+          vehicle.fareRule,
+          RouteEstimate(distanceKm: (input['distanceKm'] as num).toDouble(), durationMin: input['durationMin'] as int),
+          multiplier: (input['multiplier'] as num).toDouble(),
+          cap: (input['maxMultiplier'] as num?)?.toDouble() ?? FareEngine.maxMultiplier,
+        );
+        expect({
+          'base': q.base,
+          'distanceCharge': q.distanceCharge,
+          'timeCharge': q.timeCharge,
+          'minFareTopUp': q.minFareTopUp,
+          'subtotal': q.subtotal,
+          'multiplier': q.multiplier,
+          'peakCharge': q.peakCharge,
+          'total': q.total,
+        }, expected);
+      });
+    }
   });
 }

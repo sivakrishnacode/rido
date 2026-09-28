@@ -693,10 +693,10 @@ suggestion's name.
 
 | Package | Checks |
 |---|---|
-| rido_data | fare engine unit tests (₹35/66/132 with no peak; design ₹38/72/145, ₹49/180/420 at 1.1x; lines add up) |
+| rido_data | fare engine unit tests (₹35/66/132 with no peak; design ₹38/72/145, ₹49/180/420 at 1.1x; lines add up) + shared cases `test/fixtures/fare_cases.json` (also run by the API spec, so the engines can't drift) |
 | rido_ui | formatter tests |
 | passenger / driver | every Design gallery frame at 360 and 430 px, main-path flow tests (fast mode, fake time) |
-| api | unit (fare engine, transitions, subscriptions, maps service, polyline) + e2e (full ride lifecycle, fallbacks) |
+| api | unit (fare engine incl. the shared `fare_cases.json`, transitions, subscriptions, maps service, polyline) + e2e (full ride lifecycle, fallbacks) |
 | admin | Vitest unit: ₹ Indian formatting, IST dates, paging/URL builder, API URL + error helpers, safe post-login redirect, JWT role/expiry check, fare preview = API engine (₹38 demo trip at 1.1x), H3 circle fill/undo, settings validation |
 
 `npm run check` must pass with zero analyzer issues before merging.
