@@ -338,6 +338,8 @@ export interface TripBase {
   readonly approachDistanceM?: number | null;
   /** The ride's path, Google-encoded (trip page only; not in the list). */
   readonly pathPolyline?: string | null;
+  /** The quoted road route (from the booking's Routes call), Google-encoded; null without Google. Trip page only. */
+  readonly routePolyline?: string | null;
   readonly gpsPoints?: number;
   readonly gpsMockCount?: number;
   readonly distanceCalcFailed?: boolean;
@@ -693,6 +695,10 @@ export interface Settings {
   readonly stopRadiusM: number;
   readonly stopMinutes: number;
   readonly stopDedupeMin: number;
+  /** Route deviation (metres off the quoted route, 3 fixes in a row) and the night window in IST (start–end hour). */
+  readonly deviationM: number;
+  readonly nightStartHour: number;
+  readonly nightEndHour: number;
   readonly supportPhone: string;
   /** Off = free app: no plan screens and no plan check when going online. */
   readonly driverPlansEnabled: boolean;

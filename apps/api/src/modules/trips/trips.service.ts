@@ -15,6 +15,7 @@ import { GeoService } from '../geo/geo.service.js';
 import { cellAt } from '../geo/h3.util.js';
 import { FaresService } from '../fares/fares.service.js';
 import { EtaService } from '../maps/eta.service.js';
+import { MapsService } from '../maps/maps.service.js';
 import { NotifierService, type TripWithPeople } from '../notifications/notifier.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { TripTrackService } from '../realtime/trip-track.service.js';
@@ -24,7 +25,7 @@ import type { CancelTripDto } from './dto/cancel-trip.dto.js';
 import { resolveCancel } from './cancel-codes.js';
 import { cancelSignals, type CancelSignals, faultVerdict, type FaultVerdict } from './cancel-fault.js';
 import { cancellationDueAmount, withCancellationFee } from './cancellation-dues.js';
-import { SafetyMonitorService } from '../safety/safety-monitor.service.js';
+import { SAFETY_CHECK_EVENT, SafetyMonitorService, safetyCheckPayload } from '../safety/safety-monitor.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
 import { checkNearStop, positionForCheck } from './trip-position.js';
@@ -102,6 +103,7 @@ export class TripsService {
     private readonly track: TripTrackService,
     private readonly blocks: DriverBlocksService,
     private readonly safety: SafetyMonitorService,
+    private readonly maps: MapsService,
   ) {}
 
   /** Quotes, stores and starts dispatching a trip. */
@@ -125,6 +127,8 @@ export class TripsService {
       if (dto.rider) await this.checkButterflyForOthers(passengerId);
     }
     const quote = await this.fares.quoteOne({ pickup: dto.pickup, drop: dto.drop, vehicleKind: dto.vehicleKind });
+    // The road route that quote just fetched, from the cache (no extra Google call), for the route-deviation check.
+    const road = await this.maps.cachedRoute({ from: dto.pickup, to: dto.drop, vehicleKind: dto.vehicleKind }).catch(() => null);
     const trip = await this.prisma.trip.create({
       data: {
         kind: dto.kind,
@@ -152,6 +156,7 @@ export class TripsService {
         riderName: dto.rider?.name.trim(),
         riderPhone: dto.rider ? normalisePhone(dto.rider.phone) : undefined,
         riderIsWoman,
+        routePolyline: road?.encodedPolyline || null,
       },
     });
     await this.demand.recordRequest(dto.pickup, passengerId);
@@ -343,8 +348,13 @@ export class TripsService {
     const waiting = await this.waitingFare(trip, startedAt);
     const updated = await this.move({ driverId, tripId, to, data: { startedAt, ...waiting } });
     await this.track.setPhase(tripId, 't');
-    // Ride safety checks on the GPS stream from here (stop detection, safety module).
-    await this.safety.rideStarted(updated).catch((e: Error) => this.logger.warn(`Safety state for ${tripId} not set: ${e.message}`));
+    // Ride safety checks on the GPS stream from here (stop and route checks, safety module); at night the passenger
+    // may get "Share your trip" (push + socket).
+    const nightCheck = await this.safety.rideStarted(updated).catch((e: Error) => {
+      this.logger.warn(`Safety state for ${tripId} not set: ${e.message}`);
+      return null;
+    });
+    if (nightCheck) this.events.toUser(nightCheck.passengerId, SAFETY_CHECK_EVENT, safetyCheckPayload(nightCheck));
     await Promise.all([this.jobs.cancel(TRIP_JOBS.noShow, tripId), this.jobs.cancel(TRIP_JOBS.pickupCap, tripId)]);
     await this.jobs.schedule(TRIP_JOBS.stuck, tripId, stuckAt(startedAt.getTime(), trip.durationMin, await this.settings.all()), { driverId });
     return updated;

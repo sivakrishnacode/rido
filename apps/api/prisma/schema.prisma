@@ -463,6 +463,9 @@ model Trip {
   approachDistanceM  Int?
   /// The ride's path, simplified (~10 m) and Google-encoded, for the admin map.
   pathPolyline       String?
+  /// The quoted road route (Google-encoded), copied at booking from the Routes answer the quote already fetched
+  /// (Redis cache, no extra Google call); null without Google or on a cache miss. Route-deviation checks use it.
+  routePolyline      String?
   /// Ride points kept after filtering, and mock-location fixes seen while on the trip.
   gpsPoints          Int                @default(0)
   gpsMockCount       Int                @default(0)

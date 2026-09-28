@@ -121,12 +121,15 @@ const GROUPS: readonly Group[] = [
   {
     group: "Safety",
     description:
-      "SOS from either app is recorded and listed on the SOS page (it refreshes every 10 s). Phones signed in with an admin number also get an urgent push. During a ride, a driver who stays put away from the pickup and drop gets the passenger an \"Is everything OK?\" push (\"Get help\" raises an SOS).",
+      "SOS from either app is recorded and listed on the SOS page (it refreshes every 10 s). Phones signed in with an admin number also get an urgent push. During a ride, a driver who stays put away from the pickup and drop gets the passenger an \"Is everything OK?\" push (\"Get help\" raises an SOS). At night a route change of more than 1 km does the same, the ride start offers sharing the trip and the end asks \"Did you reach safely?\".",
     fields: [
       { key: "sosAdminAlert", label: "SOS push to admins", hint: "Off = the SOS page only" },
       { key: "stopRadiusM", label: "Stopped within", hint: "Moving less than this counts as standing still", step: "5", suffix: "m" },
       { key: "stopMinutes", label: "Stopped for", hint: "Standing still this long (300 m or more from pickup and drop) asks the passenger", step: "1", suffix: "min" },
       { key: "stopDedupeMin", label: "Ask again after", hint: "At most one stop check per trip in this time", step: "1", suffix: "min" },
+      { key: "deviationM", label: "Off route after", hint: "3 GPS fixes in a row this far from the quoted route are recorded", step: "10", suffix: "m" },
+      { key: "nightStartHour", label: "Night starts", hint: "Hour in IST (22 = 10 pm): route changes over 1 km ask the passenger; start and end checks", step: "1", suffix: "h" },
+      { key: "nightEndHour", label: "Night ends", hint: "Hour in IST (5 = 5 am); same as start = never night", step: "1", suffix: "h" },
     ],
   },
   {

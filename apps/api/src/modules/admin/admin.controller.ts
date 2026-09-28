@@ -76,7 +76,7 @@ export class AdminController {
   }
 
   @Get('trips')
-  trips(@Query() q: ListQueryDto): Promise<Paged<Omit<Trip, 'pathPolyline'>>> {
+  trips(@Query() q: ListQueryDto): Promise<Paged<Omit<Trip, 'pathPolyline' | 'routePolyline'>>> {
     return this.admin.trips(q);
   }
 

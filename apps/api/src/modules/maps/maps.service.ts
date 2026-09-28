@@ -42,9 +42,26 @@ export class MapsService {
 
   /** Road route (Google when enabled; cached ~6 h on a ~100 m grid), else null. */
   route(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind }): Promise<RoadRoute | null> {
-    const mode: TravelMode = params.vehicleKind === VehicleKind.BIKE || params.vehicleKind === VehicleKind.GOODS_BIKE ? 'TWO_WHEELER' : 'DRIVE';
-    const g = (p: LatLngLiteral): string => `${p.lat.toFixed(3)},${p.lng.toFixed(3)}`;
-    return this.cached(`maps:rt:${mode}:${g(params.from)}:${g(params.to)}`, TTL.route, () => this.google.route({ ...params, mode }));
+    const mode = MapsService.mode(params.vehicleKind);
+    return this.cached(MapsService.routeKey(mode, params), TTL.route, () => this.google.route({ ...params, mode }));
+  }
+
+  /**
+   * The cached road route only, never a Google call: e.g. at booking, the route the quote just fetched (for the
+   * trip's route-deviation check). Null on a miss, without Google, or for the measured demo routes.
+   */
+  async cachedRoute(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind }): Promise<RoadRoute | null> {
+    const hit = await this.redis.get(MapsService.routeKey(MapsService.mode(params.vehicleKind), params));
+    return hit ? (JSON.parse(hit) as RoadRoute) : null;
+  }
+
+  private static mode(kind?: VehicleKind): TravelMode {
+    return kind === VehicleKind.BIKE || kind === VehicleKind.GOODS_BIKE ? 'TWO_WHEELER' : 'DRIVE';
+  }
+
+  private static routeKey(mode: TravelMode, p: { from: LatLngLiteral; to: LatLngLiteral }): string {
+    const g = (q: LatLngLiteral): string => `${q.lat.toFixed(3)},${q.lng.toFixed(3)}`;
+    return `maps:rt:${mode}:${g(p.from)}:${g(p.to)}`;
   }
 
   /** Distance/duration for fares: measured demo routes first, then Google road distance, then haversine × 1.3. */

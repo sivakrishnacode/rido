@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -191,7 +191,7 @@ Never commit real `.env` files.
   cancelRateMinTrips, cancelRateNudge, cancelRateBlock, cancelBlockHours, cancelBlockRepeatHours, rankEnabled, rankWeightAccept, rankWeightCancel,
   rankIdleMaxBoost, rankIdleFullMin, rankMinOffers, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
-  contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr, sosAdminAlert, stopRadiusM, stopMinutes, stopDedupeMin (defaults in `settings.defaults.ts`, cached
+  contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr, sosAdminAlert, stopRadiusM, stopMinutes, stopDedupeMin, deviationM, nightStartHour, nightEndHour (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
   and contribute keys.
 - **Admin API (`/v1/admin`, ADMIN role; phones in `ADMIN_PHONES`):** stats, live (online drivers + active trips), drivers
@@ -698,6 +698,21 @@ stored on the event (`answer`, `answeredAt`); HELP raises an SOS (source CHECK) 
 socket event or a tapped push opens the I'm OK / Get help sheet (`SafetyCheckSheet`, once per check, over any
 screen; a tapped push reopens the ride first); Get help then opens P-17.
 
+**Route deviation and night checks (28 Sep 2026, like Namma Yatri's `checkForDeviation`).** At booking the trip
+stores `Trip.routePolyline`: the encoded road route the fare quote already fetched from Google Routes, read with
+`MapsService.cachedRoute` (Redis only, **never an extra Google call**; the same cache also serves P-10's
+`/maps/route`). It is null without a Google key, for the measured demo routes and on a cache miss; then the trip has
+no deviation check (stop detection and the night checks still run). At start the route goes into the ride hash; each
+fix is measured to the route's segments (`distanceToPathM`, flat projection) and 3 fixes in a row
+(`DEVIATION_FIXES`) more than `deviationM` (150; NY uses 50 m with road snapping, Coimbatore roads and phone GPS
+need more) off is a deviation: a `SafetyEvent` DEVIATION `{lat, lng, offM, night, pushed}`, at most once per 10 min
+(`trip:safety:dev:<id>`). The night window is IST `nightStartHour`–`nightEndHour` (22–5, wraps past midnight;
+`night-window.ts`). At night a deviation more than 1 km off (constant) also pushes the passenger "Your driver
+changed route. Is everything OK?" (same sheet, `kind: DEVIATION`), at most once per 10 min
+(`trip:safety:devpush:<id>`). A night ride start records NIGHT_CHECK `{check: NIGHT_START}` and pushes "Share your
+trip with a friend?" (the app opens the share sheet) unless the passenger has Auto-share on (the app already offers
+it). Admin trip page: the GPS path map draws the quoted route dashed under the recorded path.
+
 Passenger app: P-18 "Share trip" shares the API link (WhatsApp, SMS, copy, the system share sheet). Until it has
 loaded, or if it can't be made, it falls back to a Google Maps link to the vehicle. With **Auto-share trips** on
 (Account › Safety, `User.autoShareTrips`), P-16 opens the share sheet once when the ride starts.
@@ -924,6 +939,7 @@ suggestion's name.
 | Admin announcement (active, already started) | Topic `all`, `passengers` or `drivers` | `announcements` |
 | SOS (button, "Get help", "not reached safely"; urgent; setting `sosAdminAlert`) | Every ADMIN user's phones (both apps) | `safety` |
 | "Is everything OK?" after a long stop mid-ride (urgent; also `safety.check` on the socket) | Passenger (rides only) | `safety` |
+| "Your driver changed route. Is everything OK?" (night, more than 1 km off the quoted route) and "Share your trip with a friend?" (night ride start, auto-share off) | Passenger (rides only) | `safety` |
 
 - **Apps (`RidoPush` in rido_data):** Firebase init in `main()` (live mode), Android channels with the same ids,
   notification permission (Android 13+) after sign-in, token registered whenever the session token changes (incl.

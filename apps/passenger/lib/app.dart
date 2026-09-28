@@ -6,11 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import 'features/ride/p18_share_trip_sheet.dart';
 import 'features/ride/safety_check_sheet.dart';
 import 'router/app_router.dart';
 import 'router/routes.dart';
 import 'state/app_notice.dart';
 import 'state/session_actions.dart';
+import 'state/trip_safety.dart';
 
 /// The passenger app root. [router] is injectable for tests.
 class RidoPassengerApp extends ConsumerStatefulWidget {
@@ -67,8 +69,9 @@ class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
     if (mounted && route != null) _router.go(route);
   }
 
-  /// The I'm OK / Get help sheet for [check] (once per check); "Get help" opens the SOS screen. [openTrip]: go to
-  /// the ride first (a tapped push while the app was elsewhere).
+  /// The I'm OK / Get help sheet for [check] (once per check); "Get help" opens the SOS screen. A night-start
+  /// reminder opens the share sheet instead. [openTrip]: go to the ride first (a tapped push while the app was
+  /// elsewhere).
   Future<void> _showSafetyCheck(SafetyCheck check, {required bool openTrip}) async {
     final key = check.eventId ?? '${check.tripId}:${check.kind}';
     if (_isShowingCheck || _shownChecks.contains(key)) return;
@@ -82,6 +85,11 @@ class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
       }
       final context = rootNavigatorKey.currentContext;
       if (context == null || !context.mounted) return;
+      // Night ride start: "Share your trip with a friend?" opens the share sheet (once per trip).
+      if (check.isShareReminder) {
+        if (ref.read(autoSharePromptedProvider.notifier).claim(check.tripId)) await P18ShareTripSheet.show(context);
+        return;
+      }
       final answer = await SafetyCheckSheet.show(context, check);
       if (answer == SafetyAnswer.help && mounted) unawaited(_router.push(Routes.sos));
     } finally {

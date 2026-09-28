@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import type { VehicleKind } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
-import { SAFETY_CHECK_EVENT, SafetyMonitorService } from '../safety/safety-monitor.service.js';
+import { SAFETY_CHECK_EVENT, SafetyMonitorService, safetyCheckPayload } from '../safety/safety-monitor.service.js';
 import { type LocationFix, sanitizeBatch } from '../drivers/location-fix.js';
 import { TripEventsService } from './trip-events.service.js';
 import { TripTrackService } from './trip-track.service.js';
@@ -53,10 +53,8 @@ export class LocationIngestService {
     const [last, tripId] = await Promise.all([this.location.lastFix(driverId), this.location.activeTrip(driverId)]);
     if (tripId) {
       await this.track.append(tripId, fixes);
-      // Ride safety checks (long stop): "Is everything OK?" to the passenger's screen as well as the push.
-      for (const c of await this.safety.onFixes(tripId, fixes)) {
-        this.events.toUser(c.passengerId, SAFETY_CHECK_EVENT, { tripId: c.tripId, kind: c.kind, eventId: c.eventId, title: c.title, message: c.message });
-      }
+      // Ride safety checks (long stop, route change at night): "Is everything OK?" to the passenger's screen too.
+      for (const c of await this.safety.onFixes(tripId, fixes)) this.events.toUser(c.passengerId, SAFETY_CHECK_EVENT, safetyCheckPayload(c));
     }
     const at = isLiveUpload ? now : newest.ts;
     // An older fix (a late flush) never overwrites a newer live position.

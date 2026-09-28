@@ -37,4 +37,14 @@ describe("safetyEventLine", () => {
     expect(safetyEventLine({ kind: "STOP", payload: { minutes: 5, pushed: true, answer: "HELP" } }).detail).toMatch(/rider asked for help$/);
     expect(safetyEventLine({ kind: "STOP", payload: { minutes: 5, pushed: false } }).detail).toBe("Stopped 5 min away from pickup and drop");
   });
+
+  it("words a route deviation and the night checks", () => {
+    expect(safetyEventLine({ kind: "DEVIATION", payload: { offM: 1520, night: true, pushed: true } })).toEqual({
+      title: "Off route",
+      detail: '1520 m from the quoted route at night · rider asked "Is everything OK?"',
+    });
+    expect(safetyEventLine({ kind: "DEVIATION", payload: { offM: 400, night: false, pushed: false } }).detail).toBe("400 m from the quoted route");
+    expect(safetyEventLine({ kind: "NIGHT_CHECK", payload: { check: "NIGHT_START", pushed: true } }).detail).toBe('Night ride: "Share your trip" reminder sent');
+    expect(safetyEventLine({ kind: "NIGHT_CHECK", payload: { check: "SAFE_ARRIVAL", answer: "OK" } }).detail).toBe('"Did you reach safely?" sent · rider said OK');
+  });
 });

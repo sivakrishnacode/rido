@@ -335,7 +335,9 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
               <CardTitle className="flex items-center gap-2 font-semibold">
                 <NavigationIcon className="size-4 text-coral-600" /> GPS path
               </CardTitle>
-              <CardDescription>Recorded from the driver&apos;s phone. The fare is always the quote.</CardDescription>
+              <CardDescription>
+                Recorded from the driver&apos;s phone (orange); the quoted route is dashed. The fare is always the quote.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <dl className="grid grid-cols-2 gap-4 sm:grid-cols-5">
@@ -349,9 +351,10 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                   <span className={cn((t.gpsMockCount ?? 0) > 0 && "font-semibold text-error")}>{t.gpsMockCount ?? 0}</span>
                 </Field>
               </dl>
-              {t.pathPolyline ? (
+              {t.pathPolyline || t.routePolyline ? (
                 <TripPathMap
-                  polyline={t.pathPolyline}
+                  polyline={t.pathPolyline ?? null}
+                  route={t.routePolyline}
                   pickup={{ lat: t.pickupLat, lng: t.pickupLng }}
                   drop={{ lat: t.dropLat, lng: t.dropLng }}
                 />

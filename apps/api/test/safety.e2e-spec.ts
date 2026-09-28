@@ -7,6 +7,9 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/core/prisma/prisma.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
+import { isNightIst, istHourOf } from '../src/modules/safety/night-window.js';
+import { SettingsService } from '../src/modules/settings/settings.service.js';
+import { encodePolyline } from '../src/modules/trips/trip-path.js';
 
 const GANDHIPURAM = { lat: 11.0183, lng: 76.9725, placeId: 'gandhipuram', name: 'Gandhipuram Central Bus Stand' };
 const BROOKEFIELDS = { lat: 11.009, lng: 76.96, placeId: 'brookefields', name: 'Brookefields Mall' };
@@ -214,5 +217,50 @@ describe('Rido safety (e2e)', () => {
     await http.post(`/v1/trips/${t.trip.id}/complete`).set(t.driver).send({}).expect(200);
     expect(await redis.exists(`trip:safety:${t.trip.id}`)).toBe(0);
     await http.post('/v1/drivers/me/offline').set(t.driver);
+  }, 45_000);
+
+  it('flags a deviation from the quoted route; at night one over 1 km asks the passenger, and the ride start offers sharing', async () => {
+    const settings = app.get(SettingsService);
+    // "Night" now: a window from this IST hour for 2 hours.
+    const hour = istHourOf(new Date());
+    await settings.update({ nightStartHour: hour, nightEndHour: (hour + 2) % 24 });
+    expect(isNightIst(new Date(), hour, (hour + 2) % 24)).toBe(true);
+    try {
+      const t = await assignedBikeTrip();
+      // Without Google the booking has no route: give it one (pickup → south → west to the drop), and turn auto-share off.
+      const corner = { lat: 11.009, lng: 76.9725 };
+      await prisma.trip.update({ where: { id: t.trip.id }, data: { routePolyline: encodePolyline([GANDHIPURAM, corner, BROOKEFIELDS]) } });
+      await http.patch('/v1/me').set(t.pax).send({ autoShareTrips: false }).expect(200);
+      await startRide(t);
+      expect(await prisma.safetyEvent.findMany({ where: { tripId: t.trip.id, kind: 'NIGHT_CHECK' } })).toEqual([
+        expect.objectContaining({ payload: expect.objectContaining({ check: 'NIGHT_START', pushed: true }) }),
+      ]);
+
+      const eastOf = (lat: number, m: number) => ({ lat, lng: 76.9725 + m / (111_320 * Math.cos((lat * Math.PI) / 180)) });
+      const fixes = (m: number, lats: number[], from: number) => lats.map((lat, i) => ({ ...eastOf(lat, m), ts: from + i * 5000, acc: 6 }));
+      const t0 = Date.now() - 60_000;
+      // Two fixes 400 m off, one back on the route: nothing. Then three in a row 400 m off: a deviation (no push).
+      await http.post('/v1/drivers/me/locations').set(t.driver).send({ fixes: [...fixes(400, [11.017, 11.016], t0), { lat: 11.015, lng: 76.9725, ts: t0 + 10_000 }] }).expect(200);
+      expect(await prisma.safetyEvent.count({ where: { tripId: t.trip.id, kind: 'DEVIATION' } })).toBe(0);
+      await http.post('/v1/drivers/me/locations').set(t.driver).send({ fixes: fixes(400, [11.0145, 11.014, 11.0135], t0 + 15_000) }).expect(200);
+      const first = await prisma.safetyEvent.findMany({ where: { tripId: t.trip.id, kind: 'DEVIATION' } });
+      expect(first).toHaveLength(1);
+      expect(first[0].payload).toMatchObject({ pushed: false, night: true });
+      expect((first[0].payload as { offM: number }).offM).toBeGreaterThan(350);
+
+      // At night, 1.5 km off: "Your driver changed route. Is everything OK?" (once).
+      await http.post('/v1/drivers/me/locations').set(t.driver).send({ fixes: fixes(1500, [11.013, 11.0125, 11.012, 11.0115], t0 + 30_000) }).expect(200);
+      await http.post('/v1/drivers/me/locations').set(t.driver).send({ fixes: fixes(1600, [11.011, 11.0105, 11.01], t0 + 50_000) }).expect(200);
+      const all = await prisma.safetyEvent.findMany({ where: { tripId: t.trip.id, kind: 'DEVIATION' }, orderBy: { at: 'asc' } });
+      expect(all).toHaveLength(2);
+      expect(all[1].payload).toMatchObject({ pushed: true, night: true });
+      expect((all[1].payload as { offM: number }).offM).toBeGreaterThan(1000);
+
+      await http.post('/v1/drivers/me/location').set(t.driver).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
+      await http.post(`/v1/trips/${t.trip.id}/complete`).set(t.driver).send({}).expect(200);
+      await http.post('/v1/drivers/me/offline').set(t.driver);
+    } finally {
+      await settings.update({ nightStartHour: 22, nightEndHour: 5 });
+    }
   }, 45_000);
 });

@@ -84,7 +84,7 @@ export class AdminService {
     return this.prisma.kycDocument.findMany({ where: { driverId: params.driverId }, orderBy: { type: 'asc' } });
   }
 
-  async trips(q: ListQueryDto): Promise<Paged<Omit<Trip, 'pathPolyline'>>> {
+  async trips(q: ListQueryDto): Promise<Paged<Omit<Trip, 'pathPolyline' | 'routePolyline'>>> {
     const { skip, take, page, pageSize } = paging(q);
     const where: Prisma.TripWhereInput = {
       status: q.status ? (q.status as Trip['status']) : undefined,
@@ -93,14 +93,14 @@ export class AdminService {
       OR: q.q ? [{ id: { contains: q.q } }, { pickupName: { contains: q.q, mode: 'insensitive' } }, { dropName: { contains: q.q, mode: 'insensitive' } }] : undefined,
     };
     const [items, total] = await Promise.all([
-      // The recorded path is only needed on the trip page.
+      // The recorded path and the quoted route are only needed on the trip page.
       // The last cancellation's verdict, for the fault column of cancelled trips.
       this.prisma.trip.findMany({
         where,
         skip,
         take,
         orderBy: { createdAt: 'desc' },
-        omit: { pathPolyline: true },
+        omit: { pathPolyline: true, routePolyline: true },
         include: {
           passenger: true,
           driver: { include: { user: true } },

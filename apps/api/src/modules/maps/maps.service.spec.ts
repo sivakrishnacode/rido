@@ -42,4 +42,15 @@ describe('MapsService', () => {
     expect(first).toEqual({ distanceKm: 9.1, durationMin: 30 });
     expect(route).toHaveBeenCalledTimes(1);
   });
+
+  it('cachedRoute reads the route the quote fetched and never calls Google', async () => {
+    const route = vi.fn(async () => ({ ...road, encodedPolyline: 'route-from-quote' }));
+    const maps = new MapsService({ isEnabled: true, route } as unknown as GoogleMapsClient, fakeRedis());
+    expect(await maps.cachedRoute({ from: gandhipuram, to: vellalore })).toBeNull();
+    await maps.estimate({ from: gandhipuram, to: vellalore });
+    expect((await maps.cachedRoute({ from: gandhipuram, to: vellalore }))?.encodedPolyline).toBe('route-from-quote');
+    // Another travel mode (bike = two-wheeler) is its own cache entry.
+    expect(await maps.cachedRoute({ from: gandhipuram, to: vellalore, vehicleKind: 'BIKE' })).toBeNull();
+    expect(route).toHaveBeenCalledTimes(1);
+  });
 });

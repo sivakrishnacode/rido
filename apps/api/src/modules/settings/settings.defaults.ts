@@ -93,6 +93,15 @@ export const SETTING_DEFAULTS = {
   stopRadiusM: 30,
   stopMinutes: 4,
   stopDedupeMin: 10,
+  /**
+   * Route deviation: 3 fixes in a row more than [deviationM] off the quoted route (Trip.routePolyline) is recorded;
+   * at night (IST, [nightStartHour]:00 to [nightEndHour]:00) one more than 1 km off asks the passenger "Is everything
+   * OK?". Night rides also get "Share your trip" at the start (unless auto-share is on) and "Did you reach safely?"
+   * after the end.
+   */
+  deviationM: 150,
+  nightStartHour: 22,
+  nightEndHour: 5,
   /** Support phone shown in the apps. */
   supportPhone: '+91 422 000 0000',
   /** Paid driver plans. Off = the app is free: no plan screens, no plan check when going online. */
