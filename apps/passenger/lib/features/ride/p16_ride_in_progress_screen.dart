@@ -75,7 +75,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
         ? 9
         : ride.phase == RidePhase.inProgress
             ? ride.etaMin
-            : ride.estimate.durationMin;
+            : ride.estimate.tripMin;
     final arrival = widget.showcase ? DateTime(2026, 9, 24, 15, 42) : RidoClock.now().add(Duration(minutes: eta));
     final vehicle = ref.read(rideFlowProvider.notifier).vehicle;
 

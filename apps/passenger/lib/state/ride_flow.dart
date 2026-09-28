@@ -128,7 +128,7 @@ class RideFlowState {
   RouteEstimate get estimate {
     final q = tripQuote ?? (serverQuotes?.isNotEmpty ?? false ? serverQuotes!.first : null);
     return q != null
-        ? RouteEstimate(distanceKm: q.distanceKm, durationMin: q.durationMin)
+        ? RouteEstimate(distanceKm: q.distanceKm, durationMin: q.durationMin, travelMin: q.travelMin)
         : FareEngine.estimate(pickup, drop);
   }
 
@@ -415,7 +415,7 @@ class RideFlowController extends Notifier<RideFlowState> {
   }
 
   void _startRide() {
-    final total = state.estimate.durationMin;
+    final total = state.estimate.tripMin;
     state = state.copyWith(phase: RidePhase.inProgress, etaMin: total);
     _sim.animateAlong(
       state.route,
@@ -577,7 +577,7 @@ class RideFlowController extends Notifier<RideFlowState> {
         state = state.copyWith(
           phase: RidePhase.inProgress,
           driver: driver,
-          etaMin: entering ? state.estimate.durationMin : null,
+          etaMin: entering ? state.estimate.tripMin : null,
           // The fare now carries the waiting charge (set when the ride started).
           tripQuote: u.trip.quote ?? state.tripQuote,
         );
@@ -621,7 +621,7 @@ class RideFlowController extends Notifier<RideFlowState> {
       case RidePhase.assigned when leg.isNotEmpty:
         _setEta(etaMinutes(track.remainingKm, kApproachSpeedKmh));
       case RidePhase.inProgress:
-        _setEta(remainingTripMinutes(track, state.estimate.durationMin));
+        _setEta(remainingTripMinutes(track, state.estimate.tripMin));
       default:
         break;
     }

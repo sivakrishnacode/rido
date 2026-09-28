@@ -10,7 +10,13 @@ export interface GeoPoint {
 
 export interface RouteEstimate {
   readonly distanceKm: number;
+  /** Fare minutes (distance at 18 km/h): what the time charge is billed on. */
   readonly durationMin: number;
+  /**
+   * Display only: Google's traffic-aware minutes for the route ("11.4 km · 24 min", "Drop by"). Null / missing when
+   * Google is off or for the measured demo routes; the apps then show [durationMin]. Never used for the fare.
+   */
+  readonly travelMin?: number | null;
 }
 
 /**

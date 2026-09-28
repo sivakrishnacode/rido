@@ -17,6 +17,7 @@ export interface ResolvedPlace extends PlaceSuggestion, LatLngLiteral {}
 /** A road route between two points. */
 export interface RoadRoute {
   readonly distanceKm: number;
+  /** Google's minutes: traffic-aware for fare routes (when fetched), traffic-unaware for ETAs. */
   readonly durationMin: number;
   readonly encodedPolyline: string;
   readonly points: LatLngLiteral[];
@@ -127,6 +128,8 @@ export class GoogleMapsClient {
    * Fare routes also ask for `computeAlternativeRoutes` (up to 3 alternates, no SKU change: Pro is already set by the
    * stopovers) and keep the **shortest** by `distanceMeters`: the fare is charged per km, so the map, the cached route
    * and the trip's `routePolyline` are the route the rider pays for (Google's default is the fastest).
+   * Fare routes are `TRAFFIC_AWARE`, so their `durationMin` is Google's travel time now (display only: the fare's
+   * minutes stay on the 18 km/h model).
    */
   async route(params: { from: LatLngLiteral; to: LatLngLiteral; mode: TravelMode; stops?: boolean }): Promise<RoadRoute | null> {
     const isEta = params.stops === false;
@@ -145,7 +148,9 @@ export class GoogleMapsClient {
           origin: wp(params.from, !isEta),
           destination: wp(params.to, !isEta),
           travelMode: params.mode,
-          routingPreference: 'TRAFFIC_UNAWARE',
+          // Fare routes are Pro already (stopovers), so traffic costs nothing more there; ETAs stay Essentials.
+          // Never TRAFFIC_AWARE_OPTIMAL (Enterprise-priced in some regions, and slower).
+          routingPreference: isEta ? 'TRAFFIC_UNAWARE' : 'TRAFFIC_AWARE',
           ...(!isEta && { computeAlternativeRoutes: true }),
           regionCode: 'in',
         }),

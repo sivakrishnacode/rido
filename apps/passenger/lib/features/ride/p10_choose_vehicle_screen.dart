@@ -68,7 +68,8 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
     String subtitleOf(FareQuote q) {
       final eta = q.pickupEtaMin;
       if (eta == null) return womenDriver == WomenDriverPref.only ? 'No women drivers nearby right now' : 'No drivers nearby right now';
-      return '$eta min away · Drop ${formatTime(now.add(Duration(minutes: eta + q.durationMin)))}';
+      // Drop time from Google's traffic-aware minutes when known (the fare's own minutes are on P-11).
+      return '$eta min away · Drop ${formatTime(now.add(Duration(minutes: eta + q.tripMin)))}';
     }
 
     return Scaffold(
@@ -292,7 +293,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
 VehicleKind? _fastestKind(List<FareQuote> quotes) {
   final known = [
     for (final q in quotes)
-      if (q.pickupEtaMin != null) (kind: q.vehicle.kind, at: q.pickupEtaMin! + q.durationMin),
+      if (q.pickupEtaMin != null) (kind: q.vehicle.kind, at: q.pickupEtaMin! + q.tripMin),
   ];
   if (known.length < 2) return null;
   known.sort((a, b) => a.at.compareTo(b.at));

@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -416,7 +416,7 @@ Never commit real `.env` files.
 | `trip:otp-tries:<tripId>` | Ride / delivery OTP tries this minute (5 allowed) | 60 s from the first try |
 | `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
 | `kyc:event:<event_id>` | Didit webhook already handled (idempotency) | 2 d |
-| `maps:rg:*`, `maps:rt3:*`, `eta:road:<mode>:*` | Google response cache: reverse geocode (~11 m grid), fare routes (`vehicleStopover` stops, shortest of `computeAlternativeRoutes`, ~11 m grid), ETAs (`maps:rt3:DRIVE:eta:*` and `eta:*`, cell centres, no stopover, no path). Autocomplete and Place Details are **not** cached (Places terms allow storing only place IDs; Place Details also ends the session so keystrokes aren't billed singly) | 30 d / 6 h / 10 min |
+| `maps:rg:*`, `maps:rt3:*`, `maps:tt:*`, `eta:road:<mode>:*` | Google response cache: reverse geocode (~11 m grid), fare routes (`vehicleStopover` stops, shortest of `computeAlternativeRoutes`, `TRAFFIC_AWARE`, ~11 m grid; kept 6 h so a quote and its booking price the same route), the fare route's traffic-aware minutes (`maps:tt:<mode>:<from>:<to>`, **15 min**, then one Pro call refreshes the minutes only), ETAs (`maps:rt3:DRIVE:eta:*` and `eta:*`, cell centres, no stopover, no path, `TRAFFIC_UNAWARE`). Autocomplete and Place Details are **not** cached (Places terms allow storing only place IDs; Place Details also ends the session so keystrokes aren't billed singly) | 30 d / 6 h / 15 min / 10 min |
 
 - **Dispatch (Uber-style, see owner ref "How Uber finds your driver"):**
   1. Drivers are indexed by H3 cell (res 8) in Redis sets `h3:drv:<kind>:<cell>`; no distance scan over all drivers.
@@ -519,7 +519,12 @@ Never commit real `.env` files.
   back. The buffer is cleared on going offline without a job.
 - **Fares:** same engine as the apps. Distance: measured demo routes, then Google Routes distance (the shortest of the
   default and alternative routes, cached), then
-  haversine × 1.3; duration uses 18 km/h so prices stay predictable.
+  haversine × 1.3; duration uses 18 km/h so prices stay predictable. **Travel time for display:** fare routes are
+  `TRAFFIC_AWARE` (no extra cost: the stopovers already bill Pro), and quotes carry `travelMin` (Google's minutes,
+  `maps:tt:*` 15 min; null without Google or for the demo routes). `POST /fares/quote`, the trip's stored `fare` and
+  `POST /maps/route` (cache only, never a refresh) return it; the apps show `travelMin ?? durationMin` on the route
+  chip ("11.4 km · 24 min"), the P-10 "Drop 9:24 PM" and the in-trip ETAs, while the fare breakdown keeps
+  "Time charge · 38 min at 18 km/h". Old app builds ignore the field.
 - **Payments:** the app is free, so nothing is charged (6a). Plan payments, if plans are switched back on, are
   simulated (`Payment` rows with `providerRef sim_*`); plug Razorpay Subscriptions / UPI Autopay into
   `SubscriptionsService.purchase`.

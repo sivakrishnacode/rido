@@ -79,7 +79,7 @@ class P11FareDetailsSheet extends ConsumerWidget {
 
 /// P-11 "Things to know": only rules Rido really applies (no waiting or cancel fees exist in the fare engine).
 const _thingsToKnow = <(IconData, Color, String)>[
-  (Symbols.lock_rounded, RidoColors.success, 'Your fare is locked when you book. Slow traffic or a longer wait won\'t change it.'),
+  (Symbols.lock_rounded, RidoColors.success, 'Your fare is locked when you book. Its time charge uses a fixed 18 km/h, not the traffic time on the map, so slow traffic won\'t change it.'),
   (Symbols.trending_up_rounded, RidoColors.coral500, 'Surge is capped at 1.5x and all of it goes to your driver.'),
   (Symbols.payments_rounded, RidoColors.navy700, 'Pay your driver by cash or UPI when the ride ends. Rido takes 0% of it.'),
   (Symbols.timer_off_rounded, RidoColors.navy700, 'No waiting charges and no cancellation fees.'),

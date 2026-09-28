@@ -136,6 +136,7 @@ class FareQuote {
     required this.total,
     this.minFareTopUp = 0,
     this.pickupEtaMin,
+    this.travelMin,
     this.waitingCharge = 0,
     this.freeWaitMin = 3,
     this.waitPerMin = 0,
@@ -145,7 +146,16 @@ class FareQuote {
 
   final VehicleType vehicle;
   final double distanceKm;
+
+  /// Fare minutes (distance at 18 km/h): what [timeCharge] is billed on.
   final int durationMin;
+
+  /// Live API: Google's traffic-aware travel minutes for the route, display only ("24 min", "Drop 9:24 PM").
+  /// Null when the server has no Google key, for the demo routes, or from an older server.
+  final int? travelMin;
+
+  /// Minutes to show the rider for the trip: [travelMin] when known, else [durationMin].
+  int get tripMin => travelMin ?? durationMin;
   final int base;
   final int distanceCharge;
   final int timeCharge;
@@ -197,6 +207,7 @@ class FareQuote {
     int? peakCharge,
     int? total,
     int? pickupEtaMin,
+    int? travelMin,
     int? waitingCharge,
     int? freeWaitMin,
     int? waitPerMin,
@@ -216,6 +227,7 @@ class FareQuote {
         peakCharge: peakCharge ?? this.peakCharge,
         total: total ?? this.total,
         pickupEtaMin: pickupEtaMin ?? this.pickupEtaMin,
+        travelMin: travelMin ?? this.travelMin,
         waitingCharge: waitingCharge ?? this.waitingCharge,
         freeWaitMin: freeWaitMin ?? this.freeWaitMin,
         waitPerMin: waitPerMin ?? this.waitPerMin,

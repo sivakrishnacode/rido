@@ -80,6 +80,8 @@ FareQuote quoteFromJson(Json j) => FareQuote(
       peakCharge: _i(j['peakCharge']),
       total: _i(j['total']),
       pickupEtaMin: j['pickupEtaMin'] is num ? _i(j['pickupEtaMin']) : null,
+      // Older servers (and fares stored before it) have no travelMin: the apps show durationMin.
+      travelMin: j['travelMin'] is num ? _i(j['travelMin']) : null,
       waitingCharge: _i(j['waitingCharge']),
       freeWaitMin: _i(j['freeWaitMin'], FareEngine.freeWaitMin),
       // Fares stored before waiting charges existed: the vehicle's built-in rate.

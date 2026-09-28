@@ -53,7 +53,7 @@ describe('GoogleMapsClient.route', () => {
       ],
     });
     const r = await client.route({ from, to: ukkadamFlyover, mode: 'DRIVE' });
-    expect(bodies[0]).toMatchObject({ computeAlternativeRoutes: true });
+    expect(bodies[0]).toMatchObject({ computeAlternativeRoutes: true, routingPreference: 'TRAFFIC_AWARE' });
     expect(bodies[0].fieldMask).toContain('routes.routeLabels');
     expect(r).toMatchObject({ distanceKm: 11.4, durationMin: 32, encodedPolyline: '_p~iF~ps|U' });
   });
@@ -62,6 +62,7 @@ describe('GoogleMapsClient.route', () => {
     const { bodies } = stubFetch({ routes: [{ distanceMeters: 5200, duration: '780s' }] });
     await client.route({ from, to: ukkadamFlyover, mode: 'DRIVE', stops: false });
     expect(bodies[0].computeAlternativeRoutes).toBeUndefined();
+    expect(bodies[0].routingPreference).toBe('TRAFFIC_UNAWARE');
   });
 
   it('a fare route without a path is no route', async () => {

@@ -2,9 +2,8 @@ import type { RedisService } from '../../core/redis/redis.service.js';
 import type { GoogleMapsClient, RoadRoute } from './google-maps.client.js';
 import { MapsService } from './maps.service.js';
 
-/** In-memory stand-in for the Redis commands MapsService uses. */
-function fakeRedis(): RedisService {
-  const store = new Map<string, string>();
+/** In-memory stand-in for the Redis commands MapsService uses ([store] lets a test expire keys). */
+function fakeRedis(store = new Map<string, string>()): RedisService {
   return {
     get: async (k: string) => store.get(k) ?? null,
     set: async (k: string, v: string) => {
@@ -31,7 +30,7 @@ describe('MapsService', () => {
   it('keeps measured demo routes even when Google is on', async () => {
     const google = { isEnabled: true, route: vi.fn(async () => road) } as unknown as GoogleMapsClient;
     const maps = new MapsService(google, fakeRedis());
-    expect(await maps.estimate({ from: gandhipuram, to: brookefields })).toEqual({ distanceKm: 4.2, durationMin: 14 });
+    expect(await maps.estimate({ from: gandhipuram, to: brookefields })).toEqual({ distanceKm: 4.2, durationMin: 14, travelMin: null });
   });
 
   it('uses the Google road distance and caches the route', async () => {
@@ -39,8 +38,23 @@ describe('MapsService', () => {
     const maps = new MapsService({ isEnabled: true, route } as unknown as GoogleMapsClient, fakeRedis());
     const first = await maps.estimate({ from: gandhipuram, to: vellalore });
     await maps.estimate({ from: gandhipuram, to: vellalore });
-    expect(first).toEqual({ distanceKm: 9.1, durationMin: 30 });
+    expect(first).toEqual({ distanceKm: 9.1, durationMin: 30, travelMin: 20 });
     expect(route).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the fare on 18 km/h but shows Google's traffic minutes, refreshed after 15 min without re-routing", async () => {
+    const store = new Map<string, string>();
+    const route = vi.fn(async () => road).mockResolvedValueOnce(road).mockResolvedValueOnce({ ...road, distanceKm: 9.4, durationMin: 27 });
+    const maps = new MapsService({ isEnabled: true, route } as unknown as GoogleMapsClient, fakeRedis(store));
+    expect(await maps.estimate({ from: gandhipuram, to: vellalore })).toEqual({ distanceKm: 9.1, durationMin: 30, travelMin: 20 });
+    // Within 15 min: no call. The traffic key expires first (15 min vs the route's 6 h).
+    await maps.estimate({ from: gandhipuram, to: vellalore });
+    expect(route).toHaveBeenCalledTimes(1);
+    for (const k of store.keys()) if (k.startsWith('maps:tt:')) store.delete(k);
+    // One refresh for the minutes; distance (and so the fare) stays on the cached route.
+    expect(await maps.estimate({ from: gandhipuram, to: vellalore })).toEqual({ distanceKm: 9.1, durationMin: 30, travelMin: 27 });
+    expect(route).toHaveBeenCalledTimes(2);
+    expect(await maps.cachedTravelMin({ from: gandhipuram, to: vellalore })).toBe(27);
   });
 
   it('cachedRoute reads the route the quote fetched and never calls Google', async () => {

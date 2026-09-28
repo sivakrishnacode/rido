@@ -116,7 +116,7 @@ class ParcelFlowState {
   RouteEstimate get estimate {
     final q = tripQuote ?? (serverQuotes?.isNotEmpty ?? false ? serverQuotes!.first : null);
     return q != null
-        ? RouteEstimate(distanceKm: q.distanceKm, durationMin: q.durationMin)
+        ? RouteEstimate(distanceKm: q.distanceKm, durationMin: q.durationMin, travelMin: q.travelMin)
         : FareEngine.estimate(pickup, drop);
   }
 
@@ -369,7 +369,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
   }
 
   void _pickedUp() {
-    final total = state.estimate.durationMin;
+    final total = state.estimate.tripMin;
     state = state.copyWith(phase: ParcelPhase.inTransit, etaMin: total);
     _sim.animateAlong(
       state.route,
@@ -507,7 +507,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
           phase: ParcelPhase.inTransit,
           driver: driver,
           details: details,
-          etaMin: entering ? state.estimate.durationMin : null,
+          etaMin: entering ? state.estimate.tripMin : null,
         );
         if (entering && _lastPoint != null) _track(_lastPoint!);
       case ParcelPhase.delivered:
@@ -544,7 +544,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
     );
     final eta = switch (phase) {
       ParcelPhase.assigned when leg.isNotEmpty => etaMinutes(track.remainingKm, kApproachSpeedKmh),
-      ParcelPhase.inTransit => remainingTripMinutes(track, state.estimate.durationMin),
+      ParcelPhase.inTransit => remainingTripMinutes(track, state.estimate.tripMin),
       _ => null,
     };
     if (eta != null && eta != state.etaMin) state = state.copyWith(etaMin: eta);

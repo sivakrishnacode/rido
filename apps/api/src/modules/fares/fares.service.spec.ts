@@ -29,6 +29,16 @@ describe('FaresService', () => {
     expect(estimate.mock.calls.map((c) => (c[0] as { vehicleKind: VehicleKind }).vehicleKind)).toEqual([VehicleKind.CAB, VehicleKind.CAB]);
   });
 
+  it("passes Google's travel minutes through for display, the time charge stays on the fare minutes", async () => {
+    const { fares, estimate } = service();
+    estimate.mockResolvedValue({ distanceKm: 11.4, durationMin: 38, travelMin: 24 });
+    const bike = (await fares.quoteAll({ pickup, drop, kind: TripKind.RIDE })).find((q) => q.vehicleKind === VehicleKind.BIKE);
+    expect(bike).toMatchObject({ durationMin: 38, travelMin: 24 });
+    const withoutTraffic = await fares.quoteOnRoute({ pickup, route: { distanceKm: 11.4, durationMin: 38 }, vehicleKind: VehicleKind.BIKE });
+    expect(bike?.timeCharge).toBe(withoutTraffic.timeCharge);
+    expect(bike?.total).toBe(withoutTraffic.total);
+  });
+
   it('prices goods on the three-wheeler route, booked or listed', async () => {
     const { fares, estimate } = service();
     await fares.quoteAll({ pickup, drop, kind: TripKind.PARCEL });

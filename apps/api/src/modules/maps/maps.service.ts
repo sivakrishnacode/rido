@@ -2,13 +2,18 @@ import { Injectable } from '@nestjs/common';
 
 import { RedisService } from '../../core/redis/redis.service.js';
 import { VehicleKind } from '../../generated/prisma/enums.js';
-import { estimateRoute, GeoPoint } from '../fares/fare-engine.js';
+import { estimateRoute, GeoPoint, type RouteEstimate } from '../fares/fare-engine.js';
 import { GoogleMapsClient, PlaceSuggestion, ResolvedPlace, RoadRoute, TravelMode } from './google-maps.client.js';
 import type { LatLngLiteral } from './polyline.js';
 
 const DAY_S = 86_400;
 /** Places content (suggestions, names, addresses) is never cached: Google's Places terms allow storing only place IDs. */
-const TTL = { geocode: 30 * DAY_S, route: 6 * 3600 } as const;
+/**
+ * A fare route (distance, path: what the fare and the route-deviation check use) is kept 6 h so a quote and its
+ * booking price the same route. Google's traffic-aware minutes change through the day, so they live in their own
+ * key for 15 min (`maps:tt:*`); after that, one Pro call refreshes them (only the minutes, not the cached route).
+ */
+const TTL = { geocode: 30 * DAY_S, route: 6 * 3600, travel: 15 * 60 } as const;
 
 /**
  * Google Maps Platform with Redis caching (the biggest cost lever), and a local fallback
@@ -45,7 +50,35 @@ export class MapsService {
   /** Road route (Google when enabled; cached ~6 h on a ~100 m grid), else null. */
   route(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind; stops?: boolean }): Promise<RoadRoute | null> {
     const mode = MapsService.travelMode(params.vehicleKind);
-    return this.cached(MapsService.routeKey(mode, params), TTL.route, () => this.google.route({ ...params, mode }));
+    const key = MapsService.routeKey(mode, params);
+    return this.cached(key, TTL.route, async () => {
+      const road = await this.google.route({ ...params, mode });
+      // A fresh fare route carries Google's traffic-aware minutes for now.
+      if (road && params.stops !== false) await this.redis.set(MapsService.travelKey(key), String(road.durationMin), 'EX', TTL.travel);
+      return road;
+    });
+  }
+
+  /**
+   * Google's traffic-aware minutes for a fare route (display only), from the last 15 min; on a miss one Routes Pro
+   * call refreshes them (the cached route, and so the fare, stays as it is). Null without Google or if it fails.
+   */
+  async travelMin(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind }): Promise<number | null> {
+    if (!this.isGoogleEnabled) return null;
+    const mode = MapsService.travelMode(params.vehicleKind);
+    const key = MapsService.travelKey(MapsService.routeKey(mode, params));
+    const hit = await this.cachedTravelMin(params);
+    if (hit !== null) return hit;
+    const fresh = await this.google.route({ from: params.from, to: params.to, mode });
+    if (!fresh) return null;
+    await this.redis.set(key, String(fresh.durationMin), 'EX', TTL.travel);
+    return fresh.durationMin;
+  }
+
+  /** The traffic-aware minutes from the last 15 min only, never a Google call (null on a miss). */
+  async cachedTravelMin(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind }): Promise<number | null> {
+    const hit = await this.redis.get(MapsService.travelKey(MapsService.routeKey(MapsService.travelMode(params.vehicleKind), params)));
+    return hit === null ? null : Number(hit);
   }
 
   /**
@@ -74,14 +107,23 @@ export class MapsService {
     return `maps:rt3:${mode}${p.stops === false ? ':eta' : ''}:${g(p.from)}:${g(p.to)}`;
   }
 
-  /** Distance/duration for fares: measured demo routes first, then Google road distance, then haversine × 1.3. */
-  async estimate(params: { from: GeoPoint; to: GeoPoint; vehicleKind?: VehicleKind }): Promise<{ distanceKm: number; durationMin: number }> {
-    const local = estimateRoute(params.from, params.to);
+  /** `maps:tt:<mode>:<from>:<to>`: the traffic-aware minutes of the fare route under [routeKey]. */
+  private static travelKey(routeKey: string): string {
+    return routeKey.replace('maps:rt3:', 'maps:tt:');
+  }
+
+  /**
+   * Distance/duration for fares: measured demo routes first, then Google road distance, then haversine × 1.3.
+   * [RouteEstimate.travelMin] is Google's traffic-aware time for display (null for the local estimate).
+   */
+  async estimate(params: { from: GeoPoint; to: GeoPoint; vehicleKind?: VehicleKind }): Promise<RouteEstimate> {
+    const local = { ...estimateRoute(params.from, params.to), travelMin: null };
     if (!this.isGoogleEnabled || this.isDemo(params.from, params.to)) return local;
     const road = await this.route(params);
     if (!road) return local;
     // Real road distance from Google; duration keeps the 18 km/h fare model so prices stay predictable.
-    return { distanceKm: road.distanceKm, durationMin: Math.max(1, Math.round((road.distanceKm / 18) * 60)) };
+    const travelMin = await this.travelMin(params);
+    return { distanceKm: road.distanceKm, durationMin: Math.max(1, Math.round((road.distanceKm / 18) * 60)), travelMin };
   }
 
   /** True when the pair is one of the measured demo routes (keeps design fares stable). */

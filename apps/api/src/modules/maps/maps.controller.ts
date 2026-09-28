@@ -17,10 +17,11 @@ export class MapsController {
 
   @Post('route')
   @HttpCode(200)
-  async route(@Body() body: RouteQueryDto): Promise<RoadRoute & { source: 'google' | 'estimate' }> {
+  async route(@Body() body: RouteQueryDto): Promise<RoadRoute & { travelMin: number | null; source: 'google' | 'estimate' }> {
     const road = await this.maps.route(body);
-    if (road) return { ...road, source: 'google' };
+    // travelMin: Google's traffic-aware minutes from the last 15 min (cache only: drawing a leg never pays for a refresh).
+    if (road) return { ...road, travelMin: await this.maps.cachedTravelMin(body), source: 'google' };
     const est = await this.maps.estimate(body);
-    return { ...est, encodedPolyline: '', points: curvedFallback(body.from, body.to), source: 'estimate' };
+    return { ...est, travelMin: null, encodedPolyline: '', points: curvedFallback(body.from, body.to), source: 'estimate' };
   }
 }

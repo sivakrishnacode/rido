@@ -9,13 +9,21 @@ import 'models/vehicle.dart';
 /// Distance and duration between two places.
 @immutable
 class RouteEstimate {
-  const RouteEstimate({required this.distanceKm, required this.durationMin});
+  const RouteEstimate({required this.distanceKm, required this.durationMin, this.travelMin});
 
   final double distanceKm;
+
+  /// Fare minutes (distance at 18 km/h): the time charge is billed on these.
   final int durationMin;
 
-  /// "4.2 km · 14 min"
-  String get label => '${distanceKm.toStringAsFixed(1)} km · $durationMin min';
+  /// Live API: Google's traffic-aware travel minutes (display only; null when Google is off or for an old server).
+  final int? travelMin;
+
+  /// Minutes to show the rider: Google's travel time when known, else the fare minutes.
+  int get tripMin => travelMin ?? durationMin;
+
+  /// "4.2 km · 14 min" (travel time when known)
+  String get label => '${distanceKm.toStringAsFixed(1)} km · $tripMin min';
 }
 
 /// Pure-Dart fare engine used by every screen that shows a price.

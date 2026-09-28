@@ -31,7 +31,7 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
     final now = RidoClock.now();
     final eta = s.phase == ParcelPhase.inTransit && !showcase ? s.etaMin : 15;
     final arriving = now.add(Duration(minutes: eta));
-    final pickedUpAt = now.subtract(Duration(minutes: (s.estimate.durationMin - eta).clamp(1, 120)));
+    final pickedUpAt = now.subtract(Duration(minutes: (s.estimate.tripMin - eta).clamp(1, 120)));
     final live = !showcase && s.phase == ParcelPhase.inTransit;
     final liveApi = !showcase && ref.watch(isLiveApiProvider);
 

@@ -103,6 +103,14 @@ void main() {
     expect(quoteFromJson({...q, 'pickupEtaMin': null}).pickupEtaMin, isNull);
   });
 
+  test("quotes carry Google's travel minutes when the server has them (display only)", () {
+    final q = {'vehicleKind': 'BIKE', 'distanceKm': 11.4, 'durationMin': 38, 'total': 120};
+    expect(quoteFromJson({...q, 'travelMin': 24}).tripMin, 24);
+    expect(quoteFromJson(q).travelMin, isNull, reason: 'older servers send no travelMin');
+    expect(quoteFromJson(q).tripMin, 38);
+    expect(const RouteEstimate(distanceKm: 11.4, durationMin: 38, travelMin: 24).label, '11.4 km · 24 min');
+  });
+
   test('chat direction depends on the side', () {
     final m = {'id': 'm1', 'from': 'DRIVER', 'text': 'On my way', 'at': '2026-09-26T05:31:00.000Z'};
     expect(chatFromJson(m, iAmDriver: true).fromMe, isTrue);
