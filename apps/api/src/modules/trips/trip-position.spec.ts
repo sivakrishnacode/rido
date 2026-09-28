@@ -1,6 +1,6 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 
-import { checkNearStop } from './trip-position.js';
+import { checkNearStop, positionForCheck, SERVER_FIX_MAX_AGE_MS } from './trip-position.js';
 
 const pickup = { lat: 11.0183, lng: 76.9725 };
 /** ~1.1 km north of the pickup. */
@@ -35,5 +35,25 @@ describe('checkNearStop', () => {
 
   it('does not block when the position is unknown', () => {
     expect(checkNearStop({ stop: 'drop', at: null, target: pickup, radiusM: 400 })).toEqual({ distanceM: null, farReason: null });
+  });
+});
+
+describe('positionForCheck', () => {
+  const now = 1_000_000;
+  const server = { ...far, at: now - 5_000 };
+
+  it('trusts a fresh server fix over the coordinates the app sends', () => {
+    expect(positionForCheck({ server, sent: pickup, now })).toEqual(far);
+  });
+
+  it('uses the sent coordinates when the server fix is stale or has no time', () => {
+    expect(positionForCheck({ server: { ...far, at: now - SERVER_FIX_MAX_AGE_MS - 1 }, sent: pickup, now })).toEqual(pickup);
+    expect(positionForCheck({ server: { ...far, at: null }, sent: pickup, now })).toEqual(pickup);
+    expect(positionForCheck({ server: null, sent: pickup, now })).toEqual(pickup);
+  });
+
+  it('falls back to a stale server fix, else unknown', () => {
+    expect(positionForCheck({ server: { ...far, at: now - 60_000 }, sent: {}, now })).toEqual(far);
+    expect(positionForCheck({ server: null, sent: { lat: 11 }, now })).toBeNull();
   });
 });

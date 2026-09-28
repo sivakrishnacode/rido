@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -212,8 +212,10 @@ Never commit real `.env` files.
     `GET /v1/admin/files/:name` (streams from S3; files saved on disk before the switch are still found), proxied by
     the admin panel at `/files/:name` (never public). `FileStorageService` in `core/storage`.
   - `GET /subscriptions/me/payments`, `POST /subscriptions/me/autopay {upiApp}` (Autopay during the trial).
-  - **Arrival / drop check:** `POST /trips/:id/arrived` and `/complete` take `{lat, lng, farReason}` (position
-    defaults to the last GPS fix). Farther than `arrivalRadiusM` (250 m) from the pickup or `dropRadiusM` (400 m) from
+  - **Arrival / drop check:** `POST /trips/:id/arrived` and `/complete` take `{lat, lng, farReason}`. **Position
+    (28 Sep 2026):** the server's last GPS fix wins when it is under 30 s old (`SERVER_FIX_MAX_AGE_MS`,
+    `positionForCheck`), so a faked body can't pass the check; the body's `lat/lng` is used only without a fresh
+    server fix (stream down), then a stale server fix. Farther than `arrivalRadiusM` (250 m) from the pickup or `dropRadiusM` (400 m) from
     the drop without a reason → **422 `TOO_FAR`** `{message, details: {stop, distanceM, radiusM, reasons}}`; with a
     reason it proceeds and stores `arrivedDistanceM` / `arrivedFarReason` / `endDistanceM` / `endFarReason` on the trip
     (admin trip page shows them). Parcels: the delivery OTP is checked first. Unknown position → not enforced.
@@ -246,7 +248,7 @@ Never commit real `.env` files.
 | `driver:cell:<driverId>` | The driver's current kind + cell (to move between sets) | – |
 | `dispatch:pending`, `dispatch:lock` | Bookings waiting for the next batch; batch lock | – / batch window |
 | `eta:<road\|est>:<cellA>:<cellB>` | ETA minutes between hex centres | 10 min |
-| `driver:alive:<driverId>` | Heartbeat; stale drivers are skipped | 90 s |
+| `driver:alive:<driverId>` | Heartbeat `lat,lng,epochMs`; stale drivers are skipped | 90 s |
 | `driver:busy:<driverId>` | Active trip id; claimed with SET NX on accept (one trip per driver), freed by compare-and-delete | 6 h, refreshed by each GPS update; a stale one is cleared on go-online |
 | `user:blocked:<userId>` | Blocked by an admin (checked on every request) | until unblocked |
 | `dispatch:<tripId>:queue`, `dispatch:<tripId>:offer`, `dispatch:driver:<driverId>:offer` | Nearest-driver queue, current 15 s offer (both directions). The driver key is claimed with SET NX (one open offer per driver) and deleted only while it still names that trip | 10 min / 15 s |

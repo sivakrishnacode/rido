@@ -19,7 +19,7 @@ import { asVehicle, DispatchService } from './dispatch.service.js';
 import type { BookTripDto } from './dto/book-trip.dto.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
-import { checkNearStop } from './trip-position.js';
+import { checkNearStop, positionForCheck } from './trip-position.js';
 import { averageRating } from './driver-rating.js';
 import { TripOtpGuard } from './trip-otp-guard.js';
 import { canTransition, isFinished } from './trip-transitions.js';
@@ -265,10 +265,9 @@ export class TripsService {
     return this.move({ driverId, tripId, to: TripStatus.DRIVER_ARRIVED, data: { arrivedDistanceM: check.distanceM, arrivedFarReason: check.farReason } });
   }
 
-  /** The fix sent with the request, else the last one from the app's GPS stream. */
+  /** The server's fresh GPS fix, else the one sent with the request (see [positionForCheck]). */
   private async driverPosition(driverId: string, pos: PositionCheckDto): Promise<{ lat: number; lng: number } | null> {
-    if (pos.lat !== undefined && pos.lng !== undefined) return { lat: pos.lat, lng: pos.lng };
-    return this.location.position(driverId);
+    return positionForCheck({ server: await this.location.lastFix(driverId), sent: pos, now: Date.now() });
   }
 
   /** Ride: driver enters the passenger's OTP to start (5 tries a minute, [TripOtpGuard]). Parcel: marks picked up. */

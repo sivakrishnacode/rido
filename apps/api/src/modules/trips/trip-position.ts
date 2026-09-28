@@ -10,6 +10,29 @@ export const FAR_REASONS = {
   drop: ['Customer asked to stop here', 'Road blocked / no entry', 'Drop pin is wrong', 'GPS is not accurate'],
 } as const;
 
+/** A server fix newer than this is trusted over the position the app sends with Arrived / End. */
+export const SERVER_FIX_MAX_AGE_MS = 30_000;
+
+type LatLng = { lat: number; lng: number };
+
+/**
+ * Which position the Arrived / End check uses. The app's GPS stream reaches the server continuously, so a fresh
+ * server fix wins over the coordinates in the request body (which a modified app could fake). The body is used only
+ * when the server has no fresh fix (stream down); failing both, a stale server fix, else unknown.
+ */
+export function positionForCheck(params: {
+  server: (LatLng & { at: number | null }) | null;
+  sent: Partial<LatLng>;
+  now: number;
+  maxAgeMs?: number;
+}): LatLng | null {
+  const { server, sent } = params;
+  const isFresh = !!server && server.at !== null && params.now - server.at <= (params.maxAgeMs ?? SERVER_FIX_MAX_AGE_MS);
+  if (server && isFresh) return { lat: server.lat, lng: server.lng };
+  if (sent.lat !== undefined && sent.lng !== undefined) return { lat: sent.lat, lng: sent.lng };
+  return server && { lat: server.lat, lng: server.lng };
+}
+
 export interface PositionCheck {
   /** Metres from the stop, or null when the driver's position is unknown (then nothing is enforced). */
   distanceM: number | null;

@@ -143,8 +143,11 @@ describe('Rido API (e2e)', () => {
     // A retried start is fine; the passenger can't cancel a ride that has started.
     expect((await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: trip.otp }).expect(200)).body.status).toBe('IN_PROGRESS');
     await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${passenger}`).send({}).expect(400);
-    // Ended at the drop (farther than dropRadiusM would need a reason). A double tap counts the ride once.
+    // The server's fresh GPS fix (still at the pickup) wins over coordinates the app claims.
     const end = { lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng };
+    expect((await http.post(`/v1/trips/${trip.id}/complete`).set(auth).send(end).expect(422)).body.code).toBe('TOO_FAR');
+    await http.post('/v1/drivers/me/location').set(auth).send(end).expect(204);
+    // Ended at the drop (farther than dropRadiusM would need a reason). A double tap counts the ride once.
     const [done, again] = await Promise.all([
       http.post(`/v1/trips/${trip.id}/complete`).set(auth).send(end),
       http.post(`/v1/trips/${trip.id}/complete`).set(auth).send(end),

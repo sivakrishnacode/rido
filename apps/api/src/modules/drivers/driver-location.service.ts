@@ -57,7 +57,7 @@ export class DriverLocationService {
     }
     tx.sadd(DriverLocationService.cellKey(params.kind, cell), params.driverId)
       .set(`driver:cell:${params.driverId}`, next)
-      .set(`driver:alive:${params.driverId}`, `${params.lat},${params.lng}`, 'EX', ALIVE_TTL_S)
+      .set(`driver:alive:${params.driverId}`, `${params.lat},${params.lng},${Date.now()}`, 'EX', ALIVE_TTL_S)
       // Keeps the busy flag alive while the driver is on a trip (no-op when free).
       .expire(`driver:busy:${params.driverId}`, BUSY_TTL_S);
     await tx.exec();
@@ -75,10 +75,16 @@ export class DriverLocationService {
 
   /** Last known position, if the driver is online. */
   async position(driverId: string): Promise<{ lat: number; lng: number } | null> {
+    const fix = await this.lastFix(driverId);
+    return fix && { lat: fix.lat, lng: fix.lng };
+  }
+
+  /** Last position from the app's GPS stream / heartbeat and when it arrived (epoch ms; null for older entries). */
+  async lastFix(driverId: string): Promise<{ lat: number; lng: number; at: number | null } | null> {
     const raw = await this.redis.get(`driver:alive:${driverId}`);
     if (!raw) return null;
-    const [lat, lng] = raw.split(',').map(Number);
-    return { lat, lng };
+    const [lat, lng, at] = raw.split(',').map(Number);
+    return { lat, lng, at: Number.isFinite(at) ? at : null };
   }
 
   /**
