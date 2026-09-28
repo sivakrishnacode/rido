@@ -22,6 +22,12 @@ const BROOKEFIELDS = { lat: 11.009, lng: 76.96, placeId: 'brookefields', name: '
 
 const ADMIN_PHONE = '9000000001';
 
+/** Random valid number plate (plates are unique and the test database keeps earlier runs' drivers). */
+function randomPlate(): string {
+  const letters = () => String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  return `TN ${10 + Math.floor(Math.random() * 90)} ${letters()}${letters()}${letters()} ${Math.floor(1000 + Math.random() * 8999)}`;
+}
+
 /** Random valid Indian mobile number so runs don't collide. */
 function phone(): string {
   return `9${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
@@ -120,7 +126,7 @@ describe('Rido API (e2e)', () => {
     // Arrange: a passenger and an approved, online bike driver near the pickup.
     const passenger = await login();
     const driverUser = await login();
-    const plate = `TN 37 AB ${Math.floor(1000 + Math.random() * 8999)}`;
+    const plate = randomPlate();
     const reg = await http
       .post('/v1/drivers')
       .set('Authorization', `Bearer ${driverUser}`)
@@ -185,7 +191,7 @@ describe('Rido API (e2e)', () => {
   /** An approved driver of [vehicleKind], online at [at]. Returns their token. */
   async function onlineDriver(vehicleKind: string, at: { lat: number; lng: number }, gender?: 'FEMALE' | 'MALE'): Promise<string> {
     const user = await login();
-    const plate = `TN 37 ${vehicleKind.slice(0, 2)} ${Math.floor(1000 + Math.random() * 8999)}`;
+    const plate = randomPlate();
     const reg = await http
       .post('/v1/drivers')
       .set('Authorization', `Bearer ${user}`)
@@ -794,7 +800,7 @@ describe('Rido API (e2e)', () => {
   });
   it('approves a driver after the Didit identity check and the RC + insurance review', async () => {
     const driverUser = await login();
-    const plate = `TN 38 KY ${Math.floor(1000 + Math.random() * 8999)}`;
+    const plate = randomPlate();
     const reg = await http
       .post('/v1/drivers')
       .set('Authorization', `Bearer ${driverUser}`)
@@ -894,7 +900,7 @@ describe('Rido API (e2e)', () => {
     const reg = await http
       .post('/v1/drivers')
       .set('Authorization', `Bearer ${driverUser}`)
-      .send({ name: 'Ravi M', workType: 'RIDES', vehicleKind: 'BIKE', vehicleModel: 'Hero Splendor', vehicleColor: 'Black', plate: `TN 66 PH ${Math.floor(1000 + Math.random() * 8999)}`, upiId: 'ravi@okaxis' })
+      .send({ name: 'Ravi M', workType: 'RIDES', vehicleKind: 'BIKE', vehicleModel: 'Hero Splendor', vehicleColor: 'Black', plate: randomPlate(), upiId: 'ravi@okaxis' })
       .expect(201);
     const driver = { Authorization: `Bearer ${reg.body.accessToken as string}` };
     await prisma.driver.update({ where: { id: reg.body.driver.id }, data: { status: 'APPROVED' } });
@@ -907,7 +913,7 @@ describe('Rido API (e2e)', () => {
     const reg = await http
       .post('/v1/drivers')
       .set('Authorization', `Bearer ${driverUser}`)
-      .send({ name: 'Anand K', workType: 'RIDES', vehicleKind: 'BIKE', vehicleModel: 'TVS Jupiter', vehicleColor: 'Blue', plate: `TN 39 NL ${Math.floor(1000 + Math.random() * 8999)}`, upiId: 'anand@okaxis' })
+      .send({ name: 'Anand K', workType: 'RIDES', vehicleKind: 'BIKE', vehicleModel: 'TVS Jupiter', vehicleColor: 'Blue', plate: randomPlate(), upiId: 'anand@okaxis' })
       .expect(201);
     const driver = { Authorization: `Bearer ${reg.body.accessToken as string}` };
     const { sessionId } = (await http.post('/v1/kyc/session').set(driver).expect(201)).body as { sessionId: string };
