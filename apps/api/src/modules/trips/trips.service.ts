@@ -26,6 +26,7 @@ import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
 import { checkNearStop, positionForCheck } from './trip-position.js';
 import { averageRating } from './driver-rating.js';
+import { fareReviewNotes, mergeReviewNote } from './fare-review.js';
 import { TripOtpGuard } from './trip-otp-guard.js';
 import { canReassign, canTransition, isFinished } from './trip-transitions.js';
 import { ALL_TRIP_JOBS, noShowAt, pickupCapAt, pickupCheckAt, stuckAt, TRIP_JOBS } from './trip-timeouts.js';
@@ -347,20 +348,29 @@ export class TripsService {
       return this.current(tripId);
     }
     if (isParcel) await this.otpGuard.check({ tripId, expected: trip.otp, given: body.otp, who: 'receiver' });
+    const s = await this.settings.all();
     const check = checkNearStop({
       stop: 'drop',
       at: await this.driverPosition(driverId, body),
       target: { lat: trip.dropLat, lng: trip.dropLng },
-      radiusM: await this.settings.get('dropRadiusM'),
+      radiusM: s.dropRadiusM,
       farReason: body.farReason,
     });
-    // The recorded path, measured before the guarded move so it is stored with the completion (one Redis read).
+    // The recorded path, measured before the guarded move so it is stored with the completion (one Redis read),
+    // and the fare sanity checks on it (the fare stays the quote; odd trips are flagged for an admin).
     const path = await this.track.summary(tripId);
+    const notes = fareReviewNotes({
+      path,
+      quotedKm: trip.distanceKm,
+      isPickupFar: !!trip.arrivedFarReason || (trip.arrivedDistanceM ?? 0) > s.arrivalRadiusM,
+      isDropFar: !!check.farReason || (check.distanceM ?? 0) > s.dropRadiusM,
+    });
+    const review = notes.length ? { needsReview: true, reviewNote: mergeReviewNote(trip.reviewNote, notes) } : {};
     const updated = await this.move({
       driverId,
       tripId,
       to: isParcel ? TripStatus.DELIVERED : TripStatus.COMPLETED,
-      data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason, ...path },
+      data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason, ...path, ...review },
       // Counted in the same transaction as the guarded status change, so a double tap counts the ride once.
       after: (tx) => tx.driver.update({ where: { id: driverId }, data: { ridesCount: { increment: 1 } } }),
     });

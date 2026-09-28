@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -281,7 +281,8 @@ Never commit real `.env` files.
       `NO_SHOW_TOO_EARLY`** `{details: {retryInSeconds}}`; after it the trip is CANCELLED (never reassigned).
     - `trip.stuck` (on start, at max(`stuckTripMinMin` 120, `stuckDurationFactor` 4 × estimated min)): still
       IN_PROGRESS / PICKED_UP → `Trip.needsReview = true` + `reviewNote`, driver nudged (`END_TRIP`). Never completed
-      automatically. Admin: "Needs review" filter on Trips (`GET /admin/trips?review=true`) and a note on the trip page.
+      automatically. Admin: "Needs review" filter on Trips (`GET /admin/trips?review=true`), a note on the trip page and
+      "Mark reviewed" (see "Fare sanity flags").
     - `trip.pickup-cap` (on accept, at `pickupHardCapMin` 60): still not started → CANCELLED by `SYSTEM` / `STUCK`,
       driver freed and told; passenger push "It didn't start in time".
     Driver app: `trip.nudge` shows as a notice (`LiveJobs.nudges`); a `trip.updated` SEARCHING for its job (taken
@@ -379,7 +380,17 @@ Never commit real `.env` files.
   path, Douglas–Peucker 10 m, Google-encoded), `gpsPoints` (ride points kept), `gpsMockCount`,
   `distanceCalcFailed` (fewer than 2 ride points, or kept points more than 2 km apart). The Redis keys are deleted
   when the trip completes, is cancelled or goes back to searching. Fares stay the quote. Migration
-  `20260928170000_trip_breadcrumbs`.
+  `20260928170000_trip_breadcrumbs`. Learned hex-to-hex speeds (`HexStatsService.rebuild`) use `actualDistanceM`
+  when it was measured, else the quoted `distanceKm`.
+- **Fare sanity flags (28 Sep 2026, `trips/fare-review.ts`):** no fare is ever recomputed; at completion the trip gets
+  `needsReview = true` and a line in `reviewNote` (appended to a stuck-trip note) when (a) any mock-location fix was
+  seen (`gpsMockCount > 0`), (b) `actualDistanceM` differs from the quoted `distanceKm` by more than
+  max(1.2 km, 25 %) (`DISTANCE_DIFF_MIN_M`, `DISTANCE_DIFF_SHARE`, like Namma Yatri's
+  `actualRideDistanceDiffThreshold`) **and** the driver marked Arrived outside `arrivalRadiusM` or ended outside
+  `dropRadiusM` (the `arrivedFarReason` / `endFarReason` flow), or (c) `distanceCalcFailed`. Thresholds are code
+  constants (not admin settings). `PATCH /v1/admin/trips/:id/review {needsReview, note?}` clears (or sets) the flag;
+  the note is appended as "Reviewed: …" and the call is in the audit log. `GET /admin/trips` leaves out
+  `pathPolyline`.
 - **Pickup ETA on quotes (27 Sep 2026):** `POST /v1/fares/quote` adds `pickupEtaMin` to each quote: road ETA of the
   fastest of the 3 nearest free drivers of that vehicle within `maxSearchRadiusKm`, or `null` when nobody is near.
   Body `womenOnly: true` counts women drivers only (Butterfly "only"). P-10 shows "3 min away · Drop 9:24 PM" and a
@@ -903,6 +914,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Apps → API | **Done (26 Sep 2026)**: both apps run on the API by default (see 7b); mock mode via `--dart-define=RIDO_LIVE_API=false`. Needs a real-phone pass (two phones: passenger + approved online driver) |
 | Push (FCM) | **Done (26 Sep 2026)**, see 7c. Verify on phones; rotate the service-account key that was pasted in chat (`e73622ac…`) and update `FIREBASE_SERVICE_ACCOUNT_B64` on the server |
 | Driver re-search | **Done (28 Sep 2026)**: a driver cancel before pickup sends the trip back to searching (≤ `maxReassigns`), see 6 "Reassign on driver cancel" |
+| GPS path follow-ups | Breadcrumbs, actual distance and fare flags **Done (28 Sep 2026)**. Later: admin settings for the thresholds (50 m, 120 km/h, 2 km gap, max(1.2 km, 25 %)), snap-to-road for a nicer path, a per-driver mock-GPS count across trips |
 | Trip `updatedAt` | Add to Trip JSON so apps can order pushed updates reliably (apps guard with a status order today) |
 | SOS / tracking link | No SOS service (apps raise a "Safety concern" ticket + dialer) and no public trip-tracking page yet |
 | Women-driver preference | **Done (27 Sep 2026)** as Butterfly: booking sends `womenDriver`, dispatch filters (ONLY) or ranks (PREFERRED) by driver gender, see 7 Dispatch step 4 |

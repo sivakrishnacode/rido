@@ -11,6 +11,7 @@ import { DocumentReviewDto } from './dto/document-review.dto.js';
 import { DriverStatusDto } from './dto/driver-status.dto.js';
 import { ListQueryDto } from './dto/list-query.dto.js';
 import { TicketStatusDto } from './dto/ticket-status.dto.js';
+import { TripReviewDto } from './dto/trip-review.dto.js';
 import { UpdatePlanDto } from './dto/update-plan.dto.js';
 
 /** Admin panel API. Sign in with a phone listed in ADMIN_PHONES. */
@@ -53,13 +54,19 @@ export class AdminController {
   }
 
   @Get('trips')
-  trips(@Query() q: ListQueryDto): Promise<Paged<Trip>> {
+  trips(@Query() q: ListQueryDto): Promise<Paged<Omit<Trip, 'pathPolyline'>>> {
     return this.admin.trips(q);
   }
 
   @Get('trips/:id')
   trip(@Param('id') id: string): Promise<Trip> {
     return this.admin.trip(id);
+  }
+
+  /** Clears (or sets) the needs-review flag; a note is added to the review note. */
+  @Patch('trips/:id/review')
+  reviewTrip(@Param('id') id: string, @Body() body: TripReviewDto): Promise<Trip> {
+    return this.admin.reviewTrip(id, body);
   }
 
   @Get('passengers')

@@ -91,6 +91,16 @@ describe('Rido API (e2e)', () => {
     return res.body.accessToken as string;
   }
 
+  let adminHeaders: { Authorization: string } | null = null;
+  /** The admin's token, signed in once (OTP sends are limited to 5 per 15 min per phone). */
+  async function adminAuth(): Promise<{ Authorization: string }> {
+    if (!adminHeaders) {
+      await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
+      adminHeaders = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' }).expect(200)).body.accessToken}` };
+    }
+    return adminHeaders;
+  }
+
   it('reports ready', async () => {
     await http.get('/health/ready').expect(200, { status: 'ok', database: 'up', redis: 'up' });
   });
@@ -548,13 +558,44 @@ describe('Rido API (e2e)', () => {
 
     const straight = haversineMeters(GANDHIPURAM, BROOKEFIELDS);
     expect(Math.abs(done.actualDistanceM - straight)).toBeLessThan(15);
-    expect(done).toMatchObject({ gpsPoints: 30, gpsMockCount: 0, distanceCalcFailed: false });
+    expect(done).toMatchObject({ gpsPoints: 30, gpsMockCount: 0, distanceCalcFailed: false, needsReview: false });
     expect(Math.abs(done.approachDistanceM - haversineMeters(start, GANDHIPURAM))).toBeLessThan(15);
     expect(done.pathPolyline.length).toBeGreaterThan(4);
     expect(done.pathPolyline.length).toBeLessThan(40); // a straight line simplifies to its ends
     for (const k of ['pts', 'phase', 'ptmeta']) expect(await redis.exists(`trip:${k}:${trip.id}`)).toBe(0);
     await http.post('/v1/drivers/me/offline').set(driver);
   }, 45_000);
+
+  it('flags a trip with mock GPS fixes or no measurable distance for review; an admin clears it', async () => {
+    const admin = await adminAuth();
+    const { trip, driver } = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+    await http.post(`/v1/trips/${trip.id}/arrived`).set(driver).expect(200);
+    await http.post(`/v1/trips/${trip.id}/start`).set(driver).send({ otp: trip.otp }).expect(200);
+    // A fake-location app: the fixes say mock. The fare stays the quote.
+    await http.post('/v1/drivers/me/locations').set(driver).send({ fixes: streamed(GANDHIPURAM, BROOKEFIELDS, 20, { mock: true }) }).expect(200);
+    const done = (await http.post(`/v1/trips/${trip.id}/complete`).set(driver).send({}).expect(200)).body;
+    expect(done).toMatchObject({ needsReview: true, gpsMockCount: 20, distanceCalcFailed: false, fareTotal: trip.fareTotal });
+    expect(done.reviewNote).toContain('Mock GPS: 20 fixes');
+    // The admin list and filter show it (without the path); the admin clears it with a note.
+    const flagged = (await http.get('/v1/admin/trips?review=true&pageSize=100').set(admin).expect(200)).body.items;
+    const row = flagged.find((t: { id: string }) => t.id === trip.id);
+    expect(row).toBeDefined();
+    expect(row.pathPolyline).toBeUndefined();
+    const cleared = (await http.patch(`/v1/admin/trips/${trip.id}/review`).set(admin).send({ needsReview: false, note: 'Checked with driver' }).expect(200)).body;
+    expect(cleared.needsReview).toBe(false);
+    expect(cleared.reviewNote).toMatch(/Mock GPS: 20 fixes.*; Reviewed: Checked with driver$/);
+    expect((await http.get(`/v1/admin/trips/${trip.id}`).set(admin).expect(200)).body.pathPolyline).toBeTruthy();
+    await http.post('/v1/drivers/me/offline').set(driver);
+
+    // No GPS during the ride (old app, socket down): the distance can't be measured → flagged.
+    const second = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+    await http.post(`/v1/trips/${second.trip.id}/arrived`).set(second.driver).expect(200);
+    await http.post(`/v1/trips/${second.trip.id}/start`).set(second.driver).send({ otp: second.trip.otp }).expect(200);
+    await http.post('/v1/drivers/me/location').set(second.driver).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
+    const blind = (await http.post(`/v1/trips/${second.trip.id}/complete`).set(second.driver).send({}).expect(200)).body;
+    expect(blind).toMatchObject({ needsReview: true, distanceCalcFailed: true, actualDistanceM: null, gpsPoints: 1 });
+    await http.post('/v1/drivers/me/offline').set(second.driver);
+  }, 60_000);
 
   it('keeps offer timeouts as durable Redis jobs', async () => {
     // Arrange: the only bike driver gets the offer.
@@ -613,8 +654,7 @@ describe('Rido API (e2e)', () => {
 
   it('checks drivers from a Redis cache on each fix, refreshed when an admin blocks or holds them', async () => {
     const redis = app.get(RedisService);
-    await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
-    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' })).body.accessToken}` };
+    const admin = await adminAuth();
     const token = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
     const driver = { Authorization: `Bearer ${token}` };
     const me = (await http.get('/v1/drivers/me').set(driver).expect(200)).body;

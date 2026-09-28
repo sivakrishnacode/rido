@@ -90,14 +90,16 @@ export class HexStatsService implements OnModuleInit, OnModuleDestroy {
     const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000);
     const trips = await this.prisma.trip.findMany({
       where: { status: { in: [TripStatus.COMPLETED, TripStatus.DELIVERED] }, startedAt: { gte: since }, endedAt: { not: null }, pickupCell: { not: null }, dropCell: { not: null } },
-      select: { pickupLat: true, pickupLng: true, dropLat: true, dropLng: true, distanceKm: true, startedAt: true, endedAt: true },
+      select: { pickupLat: true, pickupLng: true, dropLat: true, dropLng: true, distanceKm: true, actualDistanceM: true, startedAt: true, endedAt: true },
       take: 200_000,
     });
     const agg = new Map<string, { from: string; to: string; res: HexStatRes; hour: number; n: number; km: number; minutes: number }>();
     let used = 0;
     for (const t of trips) {
       const minutes = (t.endedAt!.getTime() - t.startedAt!.getTime()) / 60_000;
-      const speed = t.distanceKm / (minutes / 60);
+      // The distance actually driven (GPS breadcrumbs) when it was measured, else the quoted route.
+      const km = t.actualDistanceM !== null ? t.actualDistanceM / 1000 : t.distanceKm;
+      const speed = km / (minutes / 60);
       if (!(minutes > 0) || speed < MIN_KMH || speed > MAX_KMH) continue;
       used++;
       const hour = istHour(t.startedAt!);
@@ -110,7 +112,7 @@ export class HexStatsService implements OnModuleInit, OnModuleDestroy {
         const k = key(from, to, hour);
         const a = agg.get(k) ?? { from, to, res, hour, n: 0, km: 0, minutes: 0 };
         a.n++;
-        a.km += t.distanceKm;
+        a.km += km;
         a.minutes += minutes;
         agg.set(k, a);
       }

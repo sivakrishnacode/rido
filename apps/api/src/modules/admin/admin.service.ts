@@ -79,7 +79,7 @@ export class AdminService {
     return this.prisma.kycDocument.findMany({ where: { driverId: params.driverId }, orderBy: { type: 'asc' } });
   }
 
-  async trips(q: ListQueryDto): Promise<Paged<Trip>> {
+  async trips(q: ListQueryDto): Promise<Paged<Omit<Trip, 'pathPolyline'>>> {
     const { skip, take, page, pageSize } = paging(q);
     const where: Prisma.TripWhereInput = {
       status: q.status ? (q.status as Trip['status']) : undefined,
@@ -88,10 +88,22 @@ export class AdminService {
       OR: q.q ? [{ id: { contains: q.q } }, { pickupName: { contains: q.q, mode: 'insensitive' } }, { dropName: { contains: q.q, mode: 'insensitive' } }] : undefined,
     };
     const [items, total] = await Promise.all([
-      this.prisma.trip.findMany({ where, skip, take, orderBy: { createdAt: 'desc' }, include: { passenger: true, driver: { include: { user: true } } } }),
+      // The recorded path is only needed on the trip page.
+      this.prisma.trip.findMany({ where, skip, take, orderBy: { createdAt: 'desc' }, omit: { pathPolyline: true }, include: { passenger: true, driver: { include: { user: true } } } }),
       this.prisma.trip.count({ where }),
     ]);
     return { items, total, page, pageSize };
+  }
+
+  /** Admin decision on a flagged trip. The note is kept after the flag's reason ("Reviewed: …"). */
+  async reviewTrip(id: string, body: { needsReview: boolean; note?: string }): Promise<Trip> {
+    const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id }, select: { reviewNote: true } });
+    const note = body.note?.trim();
+    const label = body.needsReview ? 'Flagged' : 'Reviewed';
+    return this.prisma.trip.update({
+      where: { id },
+      data: { needsReview: body.needsReview, reviewNote: note ? [trip.reviewNote, `${label}: ${note}`].filter(Boolean).join('; ') : undefined },
+    });
   }
 
   trip(id: string): Promise<Trip> {
