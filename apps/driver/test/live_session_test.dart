@@ -12,6 +12,8 @@ import 'package:http/testing.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_driver/app.dart';
+import 'package:rido_driver/features/jobs/d15_ride_request_screen.dart';
+import 'package:rido_driver/state/request_voice.dart';
 import 'package:rido_driver/state/driver_location.dart';
 import 'package:rido_driver/state/driver_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -240,6 +242,7 @@ void main() {
       realtimeProvider.overrideWithValue(realtime),
       liveJobsProvider.overrideWithValue(jobs),
       driverLocatorProvider.overrideWithValue(locator),
+      requestSpeakerProvider.overrideWithValue(_SilentSpeaker()),
     ]);
     // Keep the provider alive between reads.
     container.listen(driverSessionProvider, (_, _) {});
@@ -568,6 +571,56 @@ void main() {
     expect(jobs.calls.where((c) => c.startsWith('start') || c.startsWith('complete') || c.startsWith('arrived')), isEmpty);
   });
 
+  testWidgets('requests arriving one after another join the same request screen', (tester) async {
+    final m = tester.binding.defaultBinaryMessenger;
+    m.setMockMethodCallHandler(const MethodChannel('x-slayer/overlay_channel'), (_) async => null);
+    m.setMockMessageHandler('x-slayer/overlay_messenger', (_) async => null);
+    final router = GoRouter(initialLocation: '/home', routes: [
+      GoRoute(path: '/home', builder: (_, _) => const Text('Home screen')),
+      GoRoute(path: '/driver/request', builder: (_, _) => const D15RideRequestScreen()),
+    ]);
+    LiveOffer offer(String id, int fare) =>
+        LiveOffer(Seed.rideRequest.copyWith(id: id, fare: fare, customerName: 'Rider $id', otp: ''), 30);
+    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: RidoDriverApp(router: router)));
+    await tester.runAsync(() async {
+      await session().goOnline();
+      jobs.offersCtl.add(offer('t1', 232));
+      await pumpEventQueue();
+    });
+    router.push('/driver/request');
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('New ride request'), findsOneWidget);
+    final screen = tester.state(find.byType(D15RideRequestScreen));
+
+    // A few seconds later a second one arrives: same screen, now a list of two.
+    await tester.pump(const Duration(seconds: 3));
+    jobs.offersCtl.add(offer('t2', 253));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('2 ride requests'), findsOneWidget);
+    expect(find.text('₹232'), findsWidgets);
+    expect(find.text('₹253'), findsWidgets);
+    expect(identical(tester.state(find.byType(D15RideRequestScreen)), screen), isTrue, reason: 'not a new screen');
+
+    // A third, then the driver declines one: still the same screen.
+    jobs.offersCtl.add(offer('t3', 217));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('3 ride requests'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Decline ₹253 request'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('2 ride requests'), findsOneWidget);
+    expect(identical(tester.state(find.byType(D15RideRequestScreen)), screen), isTrue);
+    expect(jobs.calls, contains('decline'));
+
+    await tester.runAsync(() => session().goOffline());
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 40));
+  });
+
   testWidgets('the passenger cancelling closes the job screens and returns Home', (tester) async {
     // The overlay plugin's channels answer nothing (no bubble in tests).
     final m = tester.binding.defaultBinaryMessenger;
@@ -744,4 +797,11 @@ void main() {
     expect(locator.currentFixCalls, 0);
     expect(jobs.calls, contains('online'));
   });
+}
+
+class _SilentSpeaker implements RequestSpeaker {
+  @override
+  Future<void> speak(String text, VoiceLanguage language) async {}
+  @override
+  Future<void> stop() async {}
 }

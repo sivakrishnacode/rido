@@ -203,7 +203,7 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
     _collapse();
   }
 
-  /// The ✕ on the card: back to the bubble and into the app, where the request is still shown until it expires.
+  /// "Open app": back to the bubble and into the app, where the requests are still shown until they expire.
   Future<void> _close() async {
     _collapse();
     await FlutterOverlayWindow.openApp();
@@ -297,11 +297,17 @@ class _StackCard extends StatelessWidget {
           delivery: offers.first.isDelivery,
           acceptingId: acceptingId,
           showVoiceToggle: false,
-          topRight: IconButton(
-            tooltip: 'Close and open Rido',
+          // Not a ✕: the card's ✕ declines; this only switches to the app (the requests stay open there).
+          topRight: TextButton.icon(
             onPressed: onClose,
-            icon: const Icon(Icons.close_rounded, color: RidoColors.navy900),
-            style: IconButton.styleFrom(backgroundColor: RidoColors.inputBg, minimumSize: const Size.square(48)),
+            icon: const Icon(Icons.open_in_new_rounded, size: 18),
+            label: const Text('Open app'),
+            style: TextButton.styleFrom(
+              foregroundColor: RidoColors.navy900,
+              backgroundColor: RidoColors.inputBg,
+              shape: const StadiumBorder(),
+              minimumSize: const Size(48, 44),
+            ),
           ),
           onAccept: onAccept,
           onDecline: onDecline,
