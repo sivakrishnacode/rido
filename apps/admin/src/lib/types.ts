@@ -642,6 +642,8 @@ export interface Settings {
   /** Seconds to widen from searchRadiusKm to maxSearchRadiusKm. */
   readonly searchExpandSeconds: number;
   readonly offerSeconds: number;
+  /** Requests one driver can have open at once (stacked in the app). */
+  readonly maxOpenOffers: number;
   readonly maxCandidates: number;
   /** A driver cancel before pickup sends the trip back to searching this many times. */
   readonly maxReassigns: number;

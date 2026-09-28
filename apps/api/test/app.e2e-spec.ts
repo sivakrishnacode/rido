@@ -369,47 +369,65 @@ describe('Rido API (e2e)', () => {
     }
   });
 
-  it('one open offer and one active trip per driver', async () => {
+  it('stacked offers: one driver holds both requests, taking one releases the other; one active trip per driver', async () => {
     // Arrange: only this bike driver is indexed (earlier tests leave bikes online); two riders book bikes.
     const redis = app.get(RedisService);
+    const settings = app.get(SettingsService);
     const cells = await redis.keys('h3:drv:BIKE:*');
     if (cells.length) await redis.del(...cells);
     const bike = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
-    const driverId = (await http.get('/v1/drivers/me').set('Authorization', `Bearer ${bike}`).expect(200)).body.id as string;
+    const auth = { Authorization: `Bearer ${bike}` };
+    const driverId = (await http.get('/v1/drivers/me').set(auth).expect(200)).body.id as string;
     const book = { kind: 'RIDE', vehicleKind: 'BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS };
     const [paxA, paxB] = [await login(), await login()];
     const a = (await http.post('/v1/trips').set('Authorization', `Bearer ${paxA}`).send(book).expect(201)).body;
     const b = (await http.post('/v1/trips').set('Authorization', `Bearer ${paxB}`).send(book).expect(201)).body;
 
-    // Act: wait for the driver's (single) offer.
-    let offered: string | null = null;
-    for (let i = 0; i < 40 && !offered; i++) {
-      const res = await http.get('/v1/trips/offer').set('Authorization', `Bearer ${bike}`);
-      offered = res.status === 200 ? (res.body?.trip?.id ?? null) : null;
-      if (!offered) await new Promise((r) => setTimeout(r, 250));
+    // Act: wait until both requests are open for the driver at once (maxOpenOffers 3).
+    let open: string[] = [];
+    for (let i = 0; i < 60 && open.length < 2; i++) {
+      open = (await http.get('/v1/trips/offers').set(auth).expect(200)).body.map((o: { trip: { id: string } }) => o.trip.id);
+      if (open.length < 2) await new Promise((r) => setTimeout(r, 250));
     }
-    const other = offered === a.id ? b.id : a.id;
+    expect(open.sort()).toEqual([a.id, b.id].sort());
+    expect((await http.get('/v1/trips/offer').set(auth).expect(200)).body.trip.id).toBe(open[0]);
 
-    // Assert: the other trip is never offered to them at the same time, and they can't take it.
-    expect([a.id, b.id]).toContain(offered);
+    // Assert: taking one hands the other straight back to dispatch; a second active trip is refused.
+    const [taken, other] = [a.id, b.id];
+    await http.post(`/v1/trips/${taken}/accept`).set(auth).expect(200);
     expect(await redis.get(`dispatch:${other}:offer`)).not.toBe(driverId);
-    await http.post(`/v1/trips/${other}/accept`).set('Authorization', `Bearer ${bike}`).expect(409);
-    await http.post(`/v1/trips/${offered}/accept`).set('Authorization', `Bearer ${bike}`).expect(200);
+    expect((await http.get('/v1/trips/offers').set(auth).expect(200)).body).toEqual([]);
     expect(await redis.ttl(`driver:busy:${driverId}`)).toBeGreaterThan(3600);
-    // Even with a leftover offer for the other trip, a second active trip is refused.
     await redis.set(`dispatch:${other}:offer`, driverId, 'EX', 20);
-    const second = await http.post(`/v1/trips/${other}/accept`).set('Authorization', `Bearer ${bike}`).expect(409);
+    const second = await http.post(`/v1/trips/${other}/accept`).set(auth).expect(409);
     expect(second.body.message).toBe('Finish your current trip first');
     await redis.del(`dispatch:${other}:offer`);
 
-    // A cancel frees the driver for the other trip.
-    await http.post(`/v1/trips/${offered}/cancel`).set('Authorization', `Bearer ${offered === a.id ? paxA : paxB}`).send({}).expect(200);
+    // A cancel frees the driver for the other trip, which searches again every few seconds.
+    await http.post(`/v1/trips/${taken}/cancel`).set('Authorization', `Bearer ${paxA}`).send({}).expect(200);
     expect(await redis.exists(`driver:busy:${driverId}`)).toBe(0);
-    // The other trip searches again every few seconds.
     expect((await acceptWhenOffered(other, bike, 80)).status).toBe(200);
-    await http.post(`/v1/trips/${other}/cancel`).set('Authorization', `Bearer ${other === a.id ? paxA : paxB}`).send({}).expect(200);
-    await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${bike}`).expect(200);
-  }, 45_000);
+    await http.post(`/v1/trips/${other}/cancel`).set('Authorization', `Bearer ${paxB}`).send({}).expect(200);
+
+    // maxOpenOffers 1: back to one request at a time.
+    await settings.update({ maxOpenOffers: 1 });
+    try {
+      const c = (await http.post('/v1/trips').set('Authorization', `Bearer ${paxA}`).send(book).expect(201)).body;
+      const d = (await http.post('/v1/trips').set('Authorization', `Bearer ${paxB}`).send(book).expect(201)).body;
+      let one: string[] = [];
+      for (let i = 0; i < 40 && one.length === 0; i++) {
+        one = (await http.get('/v1/trips/offers').set(auth).expect(200)).body.map((o: { trip: { id: string } }) => o.trip.id);
+        if (!one.length) await new Promise((r) => setTimeout(r, 250));
+      }
+      await new Promise((r) => setTimeout(r, 2500)); // another batch: still one
+      expect((await http.get('/v1/trips/offers').set(auth).expect(200)).body).toHaveLength(1);
+      await http.post(`/v1/trips/${c.id}/cancel`).set('Authorization', `Bearer ${paxA}`).send({}).expect(200);
+      await http.post(`/v1/trips/${d.id}/cancel`).set('Authorization', `Bearer ${paxB}`).send({}).expect(200);
+    } finally {
+      await settings.update({ maxOpenOffers: 3 });
+    }
+    await http.post('/v1/drivers/me/offline').set(auth).expect(200);
+  }, 60_000);
 
   it('ranks equidistant drivers by their 7-day offer record: the one who ignores offers is asked second', async () => {
     // Arrange: only these two bike drivers are indexed, at the same spot; one ignored most offers this week.

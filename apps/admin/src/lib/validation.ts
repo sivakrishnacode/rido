@@ -16,6 +16,7 @@ const RULES: Record<string, (v: SettingValue) => string | null> = {
   maxSearchRadiusKm: (v) => (inRange(v, 0.5, 30) ? null : "Maximum search radius must be 0.5–30 km"),
   searchExpandSeconds: (v) => (inRange(v, 0, 600, true) ? null : "Widen over must be 0–600 whole seconds"),
   offerSeconds: (v) => (inRange(v, 5, 120, true) ? null : "Offer time must be 5–120 whole seconds"),
+  maxOpenOffers: (v) => (inRange(v, 1, 4, true) ? null : "Open requests per driver must be 1–4"),
   maxCandidates: (v) => (inRange(v, 1, 20, true) ? null : "Drivers per booking must be 1–20"),
   maxReassigns: (v) => (inRange(v, 0, 5, true) ? null : "Reassigns per trip must be 0–5"),
   notMovingMinMin: (v) => (inRange(v, 1, 60, true) ? null : "First check must be 1–60 whole minutes"),

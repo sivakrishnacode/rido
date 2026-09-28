@@ -5,7 +5,7 @@ import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import { Prisma, type Trip } from '../../generated/prisma/client.js';
 import { CancelCode, CancelledBy, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
-import { DEL_IF_EQUALS, DriverLocationService } from '../drivers/driver-location.service.js';
+import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { fitsPrefs, readPrefs } from '../drivers/booking-prefs.js';
 import { applyWomenPref, womenAmong } from '../drivers/women-drivers.js';
 import { roadKm } from '../geo/eta-model.js';
@@ -27,6 +27,19 @@ const OFFER_GRACE_S = 5;
 /** Durable jobs (see JobsService): an offer's timeout, and the next search when the queue ran out. */
 export const OFFER_EXPIRE_JOB = 'offer.expire';
 export const RESEARCH_JOB = 'dispatch.research';
+/**
+ * Claims an open-offer slot for a driver: KEYS[1] = the driver's offers (sorted set, score = expiry ms), ARGV = trip,
+ * now ms, expiry ms, max open offers. Drops expired entries; 1 when claimed, 0 when full or already offered.
+ */
+const CLAIM_OFFER = `
+redis.call('zremrangebyscore', KEYS[1], '-inf', ARGV[2])
+if redis.call('zscore', KEYS[1], ARGV[1]) then return 0 end
+if redis.call('zcard', KEYS[1]) >= tonumber(ARGV[4]) then return 0 end
+redis.call('zadd', KEYS[1], ARGV[3], ARGV[1])
+redis.call('pexpireat', KEYS[1], ARGV[3])
+return 1`;
+const driverOffersKey = (driverId: string): string => `dispatch:driver:${driverId}:offers`;
+
 /** Out of candidates: search again after this long (drivers who timed out may be offered again). */
 const RESEARCH_AFTER_MS = 4_000;
 const SWEEP_EVERY_MS = 15_000;
@@ -41,7 +54,8 @@ const SWEEP_EVERY_MS = 15_000;
  *    each driver took offers over 7 days and how long they have waited (driver-rank.ts; ETA stays dominant).
  *    Butterfly trips keep only women drivers (ONLY) or give them a head start (PREFERRED), see women-drivers.ts.
  * 4. The whole batch is assigned together so two riders never get the same driver.
- * 5. Each driver gets `offerSeconds` to accept; decline/timeout moves to the next in that trip's queue.
+ * 5. Each driver gets `offerSeconds` to accept; decline/timeout moves to the next in that trip's queue. A driver can
+ *    hold up to `maxOpenOffers` requests at once (stacked in the app); accepting one releases the others at once.
  * 6. Out of candidates → search again every few seconds (a driver who let the offer time out can get it again; one who
  *    declined can't) until [searchWindowMs] has passed since the search started (or a vehicle was added), then
  *    NO_DRIVERS.
@@ -92,23 +106,46 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     return this.redis.get(`dispatch:${tripId}:offer`);
   }
 
-  /** The trip currently offered to [driverId] (lets the app recover an offer it missed on the socket). */
+  /** The oldest request open for [driverId] (older apps recover one missed offer with this). */
   async currentOffer(driverId: string): Promise<(OfferDetails & { expiresInSeconds: number }) | null> {
-    const tripId = await this.redis.get(`dispatch:driver:${driverId}:offer`);
-    if (!tripId || (await this.offeredTo(tripId)) !== driverId) return null;
-    const trip = await this.prisma.trip.findUnique({ where: { id: tripId } });
-    if (!trip || trip.status !== TripStatus.SEARCHING) return null;
-    const ttl = (await this.redis.ttl(`dispatch:${tripId}:offer`)) - OFFER_GRACE_S;
-    if (ttl < 1) return null;
-    return { ...(await this.offerDetails(trip, driverId)), expiresInSeconds: ttl };
+    return (await this.currentOffers(driverId))[0] ?? null;
+  }
+
+  /** Every request open for [driverId], oldest first (the app recovers offers it missed on the socket). */
+  async currentOffers(driverId: string): Promise<(OfferDetails & { expiresInSeconds: number })[]> {
+    const tripIds = await this.redis.zrangebyscore(driverOffersKey(driverId), String(Date.now()), '+inf');
+    const out: (OfferDetails & { expiresInSeconds: number })[] = [];
+    for (const tripId of tripIds) {
+      if ((await this.offeredTo(tripId)) !== driverId) continue;
+      const trip = await this.prisma.trip.findUnique({ where: { id: tripId } });
+      if (!trip || trip.status !== TripStatus.SEARCHING) continue;
+      const ttl = (await this.redis.ttl(`dispatch:${tripId}:offer`)) - OFFER_GRACE_S;
+      if (ttl < 1) continue;
+      out.push({ ...(await this.offerDetails(trip, driverId)), expiresInSeconds: ttl });
+    }
+    return out;
   }
 
   private async clearOffer(tripId: string): Promise<void> {
     const driverId = await this.offeredTo(tripId);
-    // Only while it is still this trip's offer: the driver may already have one for another trip.
-    if (driverId) await this.redis.eval(DEL_IF_EQUALS, 1, `dispatch:driver:${driverId}:offer`, tripId);
     await this.redis.del(`dispatch:${tripId}:offer`);
     await this.jobs.cancel(OFFER_EXPIRE_JOB, tripId);
+    if (!driverId) return;
+    // Its slot is free again; the app drops the card (a no-op when the driver answered it themselves).
+    await this.redis.zrem(driverOffersKey(driverId), tripId);
+    this.events.toDriver(driverId, 'trip.offer_closed', { tripId });
+  }
+
+  /**
+   * [driverId] took [keptTripId]: their other open requests go to the next drivers right away (no decline or
+   * timeout counted against them).
+   */
+  private async releaseOtherOffers(driverId: string, keptTripId: string): Promise<void> {
+    const others = (await this.redis.zrange(driverOffersKey(driverId), '0', '-1')).filter((t) => t !== keptTripId);
+    for (const tripId of others) {
+      if ((await this.offeredTo(tripId)) === driverId) await this.next(tripId);
+      else await this.redis.zrem(driverOffersKey(driverId), tripId);
+    }
   }
 
   /** The driver said no: never offer them this trip again, try the next candidate. */
@@ -128,6 +165,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   async accepted(tripId: string, driverId: string): Promise<void> {
     await this.offerStats.record(driverId, 'accepted');
     await this.stop(tripId);
+    await this.releaseOtherOffers(driverId, tripId);
   }
 
   /** A cancellation after accepting was judged [driverId]'s fault: counts against them in ranking. */
@@ -273,12 +311,13 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     if (!trip || trip.status !== TripStatus.SEARCHING) return;
     const driverId = await this.redis.lpop(`dispatch:${tripId}:queue`);
     if (!driverId) return this.searchAgainOrGiveUp(trip, opts.searchFoundNobody ?? false);
-    const offerSeconds = await this.settings.get('offerSeconds');
-    // One open offer per driver: a driver on a trip, or still deciding on another request, is skipped (they come
-    // back in a later search if still near).
+    const [offerSeconds, maxOpenOffers] = await Promise.all([this.settings.get('offerSeconds'), this.settings.get('maxOpenOffers')]);
+    // Up to [maxOpenOffers] open requests per driver (stacked in the app): a driver on a trip, or with a full stack,
+    // is skipped (they come back in a later search if still near).
+    const now = Date.now();
     const isFree =
       !(await this.redis.exists(`driver:busy:${driverId}`)) &&
-      (await this.redis.set(`dispatch:driver:${driverId}:offer`, tripId, 'EX', offerSeconds + OFFER_GRACE_S, 'NX')) === 'OK';
+      (await this.redis.eval(CLAIM_OFFER, 1, driverOffersKey(driverId), tripId, now, now + (offerSeconds + OFFER_GRACE_S) * 1000, Math.max(1, maxOpenOffers))) === 1;
     if (!isFree) {
       await this.offerNext(tripId);
       return;

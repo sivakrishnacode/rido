@@ -198,7 +198,8 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     }
     if (!_showcase) {
       ref.listen(driverSessionProvider.select((s) => s.incoming), (prev, next) {
-        if (next != null && prev?.id != next.id) context.push(requestRoute(next));
+        // Only when a request appears: the card itself follows the next stacked one.
+        if (next != null && prev == null) context.push(requestRoute(next));
       });
     }
 

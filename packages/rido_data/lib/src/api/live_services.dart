@@ -235,6 +235,19 @@ class LiveJobs {
     return res == null ? null : _offer(_map(res));
   }
 
+  /// Every request open for this driver, oldest first (a driver can hold a few at once, stacked on the card).
+  Future<List<LiveOffer>> currentOffers() async {
+    final res = await api.get('/trips/offers');
+    return res is List ? [for (final o in res) _offer(_map(o))] : const [];
+  }
+
+  /// A request that is no longer open for this driver (`trip.offer_closed`: taken elsewhere, cancelled, timed out,
+  /// or released when they accepted another): its trip id.
+  Stream<String> closedOffers() {
+    realtime.connect();
+    return realtime.on('trip.offer_closed').map((j) => '${j['tripId']}');
+  }
+
   /// Reminders from the server's trip timeouts (`trip.nudge`): "Are you on the way?", the no-show wait is over,
   /// "Please end the trip", the ride went to another driver.
   Stream<TripNudge> nudges(String tripId) => realtime.on('trip.nudge').where((j) => j['tripId'] == tripId).map(TripNudge.fromJson);

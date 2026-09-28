@@ -39,6 +39,17 @@ class SessionNotice {
   final bool jobEnded;
 }
 
+/// Another request open for the driver while they look at [DriverSessionState.incoming] (stacked on the card).
+@immutable
+class QueuedOffer {
+  const QueuedOffer(this.request, this.expiresAt);
+  final RideRequest request;
+  final DateTime expiresAt;
+}
+
+/// Most requests shown at once: the one in focus plus this many queued (the server's `maxOpenOffers` is 3).
+const kMaxQueuedOffers = 3;
+
 @immutable
 class DriverSessionState {
   const DriverSessionState({
@@ -47,6 +58,7 @@ class DriverSessionState {
     this.selfieDoneThisSession = false,
     this.incoming,
     this.incomingExpiresAt,
+    this.queued = const [],
     this.missedRequest = false,
     this.job,
     this.phase = JobPhase.none,
@@ -73,6 +85,9 @@ class DriverSessionState {
 
   /// Live API: when the server moves the offer to the next driver.
   final DateTime? incomingExpiresAt;
+
+  /// Live API: other requests open at the same time, oldest first (the card shows them as chips to switch to).
+  final List<QueuedOffer> queued;
 
   /// Show the S-11 "You missed a ride request" banner on D-14.
   final bool missedRequest;
@@ -104,6 +119,7 @@ class DriverSessionState {
     RideRequest? incoming,
     DateTime? incomingExpiresAt,
     bool clearIncoming = false,
+    List<QueuedOffer>? queued,
     bool? missedRequest,
     RideRequest? job,
     bool clearJob = false,
@@ -123,6 +139,7 @@ class DriverSessionState {
         selfieDoneThisSession: selfieDoneThisSession ?? this.selfieDoneThisSession,
         incoming: clearIncoming ? null : (incoming ?? this.incoming),
         incomingExpiresAt: clearIncoming ? null : (incomingExpiresAt ?? this.incomingExpiresAt),
+        queued: queued ?? (clearIncoming ? const [] : this.queued),
         missedRequest: missedRequest ?? this.missedRequest,
         job: clearJob ? null : (job ?? this.job),
         phase: phase ?? this.phase,
@@ -154,6 +171,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   // Live API only.
   StreamSubscription<GpsFix>? _gps;
   StreamSubscription<LiveOffer>? _offerSub;
+  StreamSubscription<String>? _closedSub;
   StreamSubscription<DateTime>? _pauseSub;
   StreamSubscription<bool>? _connectionSub;
   StreamSubscription<LiveTripUpdate>? _jobSub;
@@ -268,12 +286,14 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       state = state.copyWith(online: false, clearIncoming: true, missedRequest: false);
       return;
     }
-    final pending = state.incoming;
+    final pending = [?state.incoming, for (final q in state.queued) q.request];
     _stopTracking();
     // Kept only while online or on a job.
     if (!state.onJob) _buffer.clear();
     state = state.copyWith(online: false, clearIncoming: true, missedRequest: false, gpsLost: false);
-    if (pending != null) _quiet(_jobs.decline(pending.id));
+    for (final r in pending) {
+      _quiet(_jobs.decline(r.id));
+    }
     // Keep showing where the driver is (offline preview, nothing uploaded).
     unawaited(locateHere(ask: false));
     try {
@@ -304,24 +324,57 @@ class DriverSessionController extends Notifier<DriverSessionState> {
 
   void declineRequest() {
     final r = state.incoming;
-    state = state.copyWith(clearIncoming: true);
     if (_live) {
+      _promoteNext();
       if (r != null) {
         _closedOffers.add(r.id);
         _quiet(_jobs.decline(r.id));
       }
       return;
     }
+    state = state.copyWith(clearIncoming: true);
     _scheduleRequest(_t(SimTimings.nextRequest));
   }
 
-  /// The countdown ran out: shows the S-11 banner on D-14. (Live: the server moves the offer on, and may offer it
-  /// to this driver again when nobody else is around, so a timed-out trip is *not* added to [_closedOffers]; only
-  /// accepted / declined ones are.)
+  /// The countdown ran out: the next stacked request, else the S-11 banner on D-14. (Live: the server moves the
+  /// offer on, and may offer it to this driver again when nobody else is around, so a timed-out trip is *not* added
+  /// to [_closedOffers]; only accepted / declined ones are.)
   void requestTimedOut() {
+    if (_promoteNext()) return;
     state = state.copyWith(clearIncoming: true, missedRequest: true);
     _scheduleRequest(_t(SimTimings.nextRequest));
   }
+
+  /// The driver tapped a stacked request: it comes into focus; the one they were looking at waits in the stack.
+  void focusQueued(String tripId) {
+    final pick = state.queued.where((q) => q.request.id == tripId).firstOrNull;
+    final current = state.incoming;
+    if (pick == null || current == null) return;
+    state = state.copyWith(
+      incoming: pick.request,
+      incomingExpiresAt: pick.expiresAt,
+      queued: [
+        QueuedOffer(current, state.incomingExpiresAt ?? DateTime.now().add(incomingCountdown)),
+        for (final q in state.queued)
+          if (q.request.id != tripId) q,
+      ],
+    );
+  }
+
+  /// The oldest stacked request (not yet expired) comes into focus; false (and nothing in focus) when none is left.
+  bool _promoteNext() {
+    final now = DateTime.now().add(const Duration(seconds: 1));
+    final left = [for (final q in state.queued) if (q.expiresAt.isAfter(now)) q];
+    if (left.isEmpty) {
+      state = state.copyWith(clearIncoming: true);
+      return false;
+    }
+    state = state.copyWith(incoming: left.first.request, incomingExpiresAt: left.first.expiresAt, queued: left.sublist(1));
+    return true;
+  }
+
+  /// Live: the accept call in flight (its own `trip.offer_closed` must not switch the card meanwhile).
+  String? _acceptingId;
 
   /// Live API: throws [ApiException] ("This request is no longer available") when another driver got it
   /// or the offer expired; the request is cleared either way.
@@ -336,6 +389,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       return;
     }
     _closedOffers.add(r.id);
+    _acceptingId = r.id;
     try {
       final update = await _jobs.accept(r.id);
       if (!ref.mounted) return;
@@ -344,12 +398,15 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       _setLeg(_position ?? job.pickup.location, job.pickup.location, job.vehicle, job.pickupEtaMin);
       _watchJob(job.id);
     } on ApiException catch (e) {
-      if (ref.mounted) state = state.copyWith(clearIncoming: true);
+      // Gone (someone else took it, or it was cancelled): the next stacked request, if any.
+      if (ref.mounted && state.incoming?.id == r.id) _promoteNext();
       if (e.status == 404 || e.status == 409) throw const ApiException(409, 'This request is no longer available');
       rethrow;
     } catch (_) {
-      if (ref.mounted) state = state.copyWith(clearIncoming: true);
+      if (ref.mounted && state.incoming?.id == r.id) _promoteNext();
       rethrow;
+    } finally {
+      _acceptingId = null;
     }
   }
 
@@ -638,6 +695,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _stopPreview();
     _listenGps();
     _offerSub = _jobs.offers().listen(_onOffer, onError: (Object _) {});
+    _closedSub = _jobs.closedOffers().listen(_onOfferClosed, onError: (Object _) {});
     _pauseSub = _jobs.pauses().listen(_onPaused, onError: (Object _) {});
     _connectionSub = ref.read(realtimeProvider).connection.listen((up) {
       if (!up) return;
@@ -713,6 +771,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   void _stopTracking() {
     _gps?.cancel();
     _offerSub?.cancel();
+    _closedSub?.cancel();
+    _closedSub = null;
     _pauseSub?.cancel();
     _connectionSub?.cancel();
     _ticker?.cancel();
@@ -798,23 +858,45 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     }
   }
 
+  /// A new request: in focus when none is, else stacked behind it (a driver can hold a few at once).
   void _onOffer(LiveOffer offer) {
     if (!ref.mounted) return;
     final id = offer.request.id;
     if (!state.online || state.onJob || _closedOffers.contains(id) || state.incoming?.id == id) return;
-    state = state.copyWith(
-      incoming: offer.request,
-      incomingExpiresAt: DateTime.now().add(Duration(seconds: offer.expiresInSeconds)),
-      missedRequest: false,
-    );
+    if (state.queued.any((q) => q.request.id == id)) return;
+    final expiresAt = DateTime.now().add(Duration(seconds: offer.expiresInSeconds));
+    if (state.incoming == null) {
+      state = state.copyWith(incoming: offer.request, incomingExpiresAt: expiresAt, missedRequest: false);
+      return;
+    }
+    if (state.queued.length >= kMaxQueuedOffers) return;
+    state = state.copyWith(queued: [...state.queued, QueuedOffer(offer.request, expiresAt)]);
   }
 
-  /// An offer that arrived while the socket was reconnecting (or the app was in the background).
+  /// `trip.offer_closed`: the request went elsewhere (cancelled, timed out, released): drop its card.
+  void _onOfferClosed(String tripId) {
+    if (!ref.mounted || tripId == _acceptingId) return;
+    if (state.incoming?.id == tripId) {
+      if (!_promoteNext()) state = state.copyWith(clearIncoming: true);
+    } else if (state.queued.any((q) => q.request.id == tripId)) {
+      state = state.copyWith(queued: [for (final q in state.queued) if (q.request.id != tripId) q]);
+    }
+  }
+
+  /// Offers that arrived while the socket was reconnecting (or the app was in the background).
   Future<void> _recoverOffer() async {
-    if (!_live || !state.online || state.onJob || state.incoming != null) return;
+    if (!_live || !state.online || state.onJob) return;
     try {
-      final offer = await _jobs.currentOffer();
-      if (offer != null) _onOffer(offer);
+      for (final offer in await _jobs.currentOffers()) {
+        _onOffer(offer);
+      }
+    } on ApiException catch (e) {
+      // An older API without GET /trips/offers.
+      if (e.status != 404) return;
+      try {
+        final offer = await _jobs.currentOffer();
+        if (offer != null) _onOffer(offer);
+      } catch (_) {}
     } catch (_) {
       // The socket delivers the next one.
     }

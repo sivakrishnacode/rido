@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
-import '../../state/driver_session.dart';
-import '../../state/live_helpers.dart';
-import '../../state/request_voice.dart';
-import 'widgets/job_common.dart';
+import 'widgets/request_flow.dart';
 import 'widgets/request_layout.dart';
 
-/// D-15 Incoming ride request: coral takeover with a 15 s countdown ring around the fare.
-/// Accept → D-16. Decline, back or timeout → D-14 (timeout shows the S-11 banner).
+/// D-15 Incoming ride request: coral takeover with a 15 s countdown ring around the fare, and chips for any other
+/// open requests (tap to switch). Swipe to accept → D-16. Decline, back or timeout → the next open request, else
+/// D-14 (timeout shows the S-11 banner).
 class D15RideRequestScreen extends ConsumerStatefulWidget {
   const D15RideRequestScreen({super.key, this.showcase = false});
 
@@ -24,106 +20,53 @@ class D15RideRequestScreen extends ConsumerStatefulWidget {
   ConsumerState<D15RideRequestScreen> createState() => _D15RideRequestScreenState();
 }
 
-class _D15RideRequestScreenState extends ConsumerState<D15RideRequestScreen> {
-  late final RideRequest _r = ref.read(driverSessionProvider).incoming ?? Seed.rideRequest;
-  bool _handled = false;
-
-  late final Duration _countdown = ref.read(driverSessionProvider.notifier).incomingCountdown;
-  bool _accepting = false;
-  late final RequestSpeaker _speaker;
+class _D15RideRequestScreenState extends ConsumerState<D15RideRequestScreen> with RequestFlow {
+  @override
+  bool get showcase => widget.showcase;
 
   @override
-  void initState() {
-    super.initState();
-    _speaker = ref.read(requestSpeakerProvider);
-    if (!widget.showcase && ref.read(isLiveApiProvider)) {
-      HapticFeedback.heavyImpact();
-      announceRequest(ref, _r);
-    }
-  }
+  RideRequest get seed => Seed.rideRequest;
 
   @override
-  void dispose() {
-    // Accepted, declined or gone before the sentence ended: stop talking.
-    _speaker.stop();
-    super.dispose();
-  }
-
-  /// Live API: accepting can fail when the offer went to someone else; the card closes with the reason.
-  Future<void> _accept() async {
-    if (_handled) return;
-    if (widget.showcase) {
-      context.push(Routes.pickup);
-      return;
-    }
-    _handled = true;
-    setState(() => _accepting = true);
-    try {
-      await ref.read(driverSessionProvider.notifier).acceptRequest();
-    } on Exception catch (e) {
-      if (!mounted) return;
-      showRidoSnack(context, userMessage(e));
-      popOrHome(context);
-      return;
-    }
-    if (mounted) context.pushReplacement(Routes.pickup);
-  }
-
-  void _decline() {
-    if (_handled) return;
-    _handled = true;
-    if (!widget.showcase) ref.read(driverSessionProvider.notifier).declineRequest();
-    popOrHome(context);
-  }
-
-  void _timeout() {
-    if (_handled || widget.showcase || !mounted) return;
-    _handled = true;
-    ref.read(driverSessionProvider.notifier).requestTimedOut();
-    popOrHome(context);
-  }
+  String get acceptRoute => Routes.pickup;
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    if (!widget.showcase) {
-      // Closed from elsewhere (went offline, the request was withdrawn): leave the card.
-      ref.listen(driverSessionProvider.select((s) => s.incoming?.id), (prev, next) {
-        if (next == null && !_handled && mounted) {
-          _handled = true;
-          popOrHome(context);
-        }
-      });
-    }
+    listenForRequests();
+    final r = request;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _decline();
+        if (!didPop) decline();
       },
       child: RequestTakeover(
+        // A new request in focus: fresh ring and swipe.
+        key: ValueKey(r.id),
         title: 'New ride request',
-        tag: RequestVehicleTag(vehicle: _r.vehicle),
-        fare: _r.fare,
-        fareCaption: '${_r.vehicle.label} ride',
-        countdown: widget.showcase ? ref.read(simTimingProvider)(SimTimings.requestCountdown) : _countdown,
-        running: !widget.showcase && !_accepting,
-        onTimeout: _timeout,
+        tag: RequestVehicleTag(vehicle: r.vehicle),
+        fare: r.fare,
+        fareCaption: '${r.vehicle.label} ride',
+        countdown: countdown,
+        running: running,
+        onTimeout: timeout,
         below: Text('Cash / UPI to you · 100% yours',
             textAlign: TextAlign.center, style: t.body.copyWith(color: Colors.white)),
+        stack: stackChips(),
         details: [
-          RequestRoute(request: _r),
+          RequestRoute(request: r),
           const SizedBox(height: RidoSpacing.xl),
           RequestCustomerCard(
-            name: _r.customerName,
-            rating: _r.customerRating,
-            isVerified: _r.isCustomerVerified,
-            isWomenOnly: _r.isWomenOnly,
-            bookedBy: _r.bookedBy,
+            name: r.customerName,
+            rating: r.customerRating,
+            isVerified: r.isCustomerVerified,
+            isWomenOnly: r.isWomenOnly,
+            bookedBy: r.bookedBy,
           ),
         ],
-        onAccept: _accept,
-        accepting: _accepting,
-        onDecline: _decline,
+        onAccept: accept,
+        accepting: accepting,
+        onDecline: decline,
       ),
     );
   }

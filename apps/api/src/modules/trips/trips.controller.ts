@@ -49,6 +49,13 @@ export class TripsController {
     return this.dispatch.currentOffer(TripsController.driverId(user));
   }
 
+  /** Driver: every request open for me right now, oldest first (stacked on the request screen). */
+  @Roles(Role.DRIVER)
+  @Get('offers')
+  offers(@CurrentUser() user: AuthUser): Promise<(OfferDetails & { expiresInSeconds: number })[]> {
+    return this.dispatch.currentOffers(TripsController.driverId(user));
+  }
+
   /** Passenger, while searching: other vehicles with drivers in range and their fares ("Book any"). */
   @Roles(Role.PASSENGER)
   @Get(':id/alternatives')

@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
 import '../../router/routes.dart';
-import '../../state/driver_session.dart';
-import '../../state/live_helpers.dart';
-import '../../state/request_voice.dart';
-import 'widgets/job_common.dart';
+import 'widgets/request_flow.dart';
 import 'widgets/request_layout.dart';
 
 /// D-20 Incoming delivery request: same takeover as D-15 for goods ("₹180 · 3-wheeler
@@ -24,64 +19,15 @@ class D20DeliveryRequestScreen extends ConsumerStatefulWidget {
   ConsumerState<D20DeliveryRequestScreen> createState() => _D20DeliveryRequestScreenState();
 }
 
-class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScreen> {
-  late final RideRequest _r = ref.read(driverSessionProvider).incoming ?? Seed.deliveryRequest;
-  bool _handled = false;
-
-  late final Duration _countdown = ref.read(driverSessionProvider.notifier).incomingCountdown;
-  bool _accepting = false;
-  late final RequestSpeaker _speaker;
+class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScreen> with RequestFlow {
+  @override
+  bool get showcase => widget.showcase;
 
   @override
-  void initState() {
-    super.initState();
-    _speaker = ref.read(requestSpeakerProvider);
-    if (!widget.showcase && ref.read(isLiveApiProvider)) {
-      HapticFeedback.heavyImpact();
-      announceRequest(ref, _r);
-    }
-  }
+  RideRequest get seed => Seed.deliveryRequest;
 
   @override
-  void dispose() {
-    // Accepted, declined or gone before the sentence ended: stop talking.
-    _speaker.stop();
-    super.dispose();
-  }
-
-  /// Live API: accepting can fail when the offer went to someone else; the card closes with the reason.
-  Future<void> _accept() async {
-    if (_handled) return;
-    if (widget.showcase) {
-      context.push(Routes.delivery);
-      return;
-    }
-    _handled = true;
-    setState(() => _accepting = true);
-    try {
-      await ref.read(driverSessionProvider.notifier).acceptRequest();
-    } on Exception catch (e) {
-      if (!mounted) return;
-      showRidoSnack(context, userMessage(e));
-      popOrHome(context);
-      return;
-    }
-    if (mounted) context.pushReplacement(Routes.delivery);
-  }
-
-  void _decline() {
-    if (_handled) return;
-    _handled = true;
-    if (!widget.showcase) ref.read(driverSessionProvider.notifier).declineRequest();
-    popOrHome(context);
-  }
-
-  void _timeout() {
-    if (_handled || widget.showcase || !mounted) return;
-    _handled = true;
-    ref.read(driverSessionProvider.notifier).requestTimedOut();
-    popOrHome(context);
-  }
+  String get acceptRoute => Routes.delivery;
 
   static IconData _categoryIcon(ParcelCategory? c) => switch (c) {
         ParcelCategory.documents => Symbols.description_rounded,
@@ -96,30 +42,25 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    if (!widget.showcase) {
-      // Closed from elsewhere (went offline, the request was withdrawn): leave the card.
-      ref.listen(driverSessionProvider.select((s) => s.incoming?.id), (prev, next) {
-        if (next == null && !_handled && mounted) {
-          _handled = true;
-          popOrHome(context);
-        }
-      });
-    }
-    final parcel = _r.parcel;
+    listenForRequests();
+    final r0 = request;
+    final parcel = r0.parcel;
     final payer = parcel?.payer == ParcelPayer.receiver ? 'Receiver' : 'Sender';
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _decline();
+        if (!didPop) decline();
       },
       child: RequestTakeover(
+        key: ValueKey(r0.id),
         title: 'New delivery request',
-        tag: RequestVehicleTag(vehicle: _r.vehicle, showIcon: false),
-        fare: _r.fare,
-        fareCaption: '${_r.vehicle.label} delivery',
-        countdown: widget.showcase ? ref.read(simTimingProvider)(SimTimings.requestCountdown) : _countdown,
-        running: !widget.showcase && !_accepting,
-        onTimeout: _timeout,
+        tag: RequestVehicleTag(vehicle: r0.vehicle, showIcon: false),
+        fare: r0.fare,
+        fareCaption: '${r0.vehicle.label} delivery',
+        countdown: countdown,
+        running: running,
+        onTimeout: timeout,
+        stack: stackChips(),
         below: Container(
           padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.s),
           decoration: const BoxDecoration(color: RidoColors.navy900, borderRadius: RidoRadii.pillRadius),
@@ -144,7 +85,7 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
             ]),
           ),
           const SizedBox(height: RidoSpacing.l),
-          RequestRoute(request: _r, pickupTitle: _r.pickup.fullAddress.replaceAll(' Rd', ' Road').split(', ').take(2).join(', ')),
+          RequestRoute(request: r0, pickupTitle: r0.pickup.fullAddress.replaceAll(' Rd', ' Road').split(', ').take(2).join(', ')),
           const SizedBox(height: RidoSpacing.l),
           Row(children: [
             const Icon(Symbols.front_hand_rounded, size: 18, color: RidoColors.navy500),
@@ -152,9 +93,9 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
             Expanded(child: Text('Sender and receiver load / unload.', style: t.caption.copyWith(fontSize: null))),
           ]),
         ],
-        onAccept: _accept,
-        accepting: _accepting,
-        onDecline: _decline,
+        onAccept: accept,
+        accepting: accepting,
+        onDecline: decline,
       ),
     );
   }

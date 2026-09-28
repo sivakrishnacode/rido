@@ -12,6 +12,8 @@ export const SETTING_DEFAULTS = {
   searchExpandSeconds: 45,
   /** Seconds each driver has to accept an offer. */
   offerSeconds: 15,
+  /** Requests one driver can have open at once (stacked on the request screen; accepting one releases the rest). 1 = one at a time. */
+  maxOpenOffers: 3,
   /** Drivers offered per booking before "No drivers". */
   maxCandidates: 5,
   /** A driver cancel before pickup sends the trip back to searching this many times; the next one cancels it. */

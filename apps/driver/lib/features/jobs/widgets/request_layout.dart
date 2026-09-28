@@ -24,7 +24,11 @@ class RequestTakeover extends StatelessWidget {
     required this.onAccept,
     required this.onDecline,
     this.accepting = false,
+    this.stack,
   });
+
+  /// The other open requests (chips under the header), when a driver has more than one.
+  final Widget? stack;
 
   final String title;
   final Widget tag;
@@ -86,6 +90,7 @@ class RequestTakeover extends StatelessWidget {
                       ),
                       const SizedBox(height: RidoSpacing.l),
                       below,
+                      ?stack,
                     ],
                   ),
                 ),

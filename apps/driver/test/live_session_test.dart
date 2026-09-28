@@ -114,6 +114,12 @@ class FakeJobs extends LiveJobs {
   Stream<LiveOffer> offers() => offersCtl.stream;
   @override
   Future<LiveOffer?> currentOffer() async => null;
+  final closedCtl = StreamController<String>.broadcast();
+  final openOffers = <LiveOffer>[];
+  @override
+  Stream<String> closedOffers() => closedCtl.stream;
+  @override
+  Future<List<LiveOffer>> currentOffers() async => openOffers;
   @override
   Stream<LiveTripUpdate> updates(String tripId) => updatesCtl.stream.where((u) => u.trip.id == tripId);
 
@@ -281,6 +287,69 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(state().online, isFalse);
     expect(state().notice?.message, contains('paused'));
+  });
+
+  test('stacked requests: the second waits behind the first; decline, close and switch move between them', () async {
+    await session().goOnline();
+    jobs.offersCtl
+      ..add(_offer('t1', seconds: 12))
+      ..add(_offer('t2', seconds: 14))
+      ..add(_offer('t3', seconds: 14));
+    await pumpEventQueue();
+    expect(state().incoming?.id, 't1');
+    expect(state().queued.map((q) => q.request.id), ['t2', 't3']);
+
+    // Switch to t3: t1 waits in the stack with its own time left.
+    session().focusQueued('t3');
+    expect(state().incoming?.id, 't3');
+    expect(state().queued.map((q) => q.request.id), ['t1', 't2']);
+
+    // t2 taken elsewhere: its chip goes. Then the focused one closes: the next comes in.
+    jobs.closedCtl.add('t2');
+    await pumpEventQueue();
+    expect(state().queued.map((q) => q.request.id), ['t1']);
+    jobs.closedCtl.add('t3');
+    await pumpEventQueue();
+    expect(state().incoming?.id, 't1');
+    expect(state().queued, isEmpty);
+
+    // Declining the last one leaves nothing.
+    session().declineRequest();
+    await pumpEventQueue();
+    expect(state().incoming, isNull);
+    expect(jobs.calls, ['online', 'decline']);
+  });
+
+  test('stacked requests: accepting one clears the rest; a failed accept moves to the next', () async {
+    await session().goOnline();
+    jobs.offersCtl
+      ..add(_offer('t1'))
+      ..add(_offer('t2'));
+    await pumpEventQueue();
+    jobs.acceptError = const ApiException(409, 'This request is no longer available');
+    await expectLater(session().acceptRequest(), throwsA(isA<ApiException>()));
+    expect(state().incoming?.id, 't2');
+
+    jobs.acceptError = null;
+    jobs.offersCtl.add(_offer('t3'));
+    await pumpEventQueue();
+    expect(state().queued.map((q) => q.request.id), ['t3']);
+    await session().acceptRequest();
+    expect(state().job?.id, 't2');
+    expect(state().incoming, isNull);
+    expect(state().queued, isEmpty);
+  });
+
+  test('going offline declines every open request; a resume recovers all of them', () async {
+    await session().goOnline();
+    jobs.openOffers.addAll([_offer('t1'), _offer('t2')]);
+    session().onAppResumed();
+    await pumpEventQueue();
+    expect(state().incoming?.id, 't1');
+    expect(state().queued.single.request.id, 't2');
+    await session().goOffline();
+    expect(jobs.calls.where((c) => c == 'decline'), hasLength(2));
+    expect(state().queued, isEmpty);
   });
 
   test('ride: offer → accept → arrived → wrong OTP → start → complete → collect', () async {
