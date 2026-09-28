@@ -1,5 +1,5 @@
 // Main driver path, end to end with fast mode and fake time:
-// Home → GO ONLINE → daily selfie → ride request → Accept → Arrived at pickup →
+// Home → GO ONLINE → daily selfie → ride request → swipe to accept → Arrived at pickup →
 // OTP 4829 → Start ride → Swipe to end ride → Received cash → rate → Home, with today's
 // earnings and rides up by the fare.
 import 'package:flutter/material.dart';
@@ -58,8 +58,11 @@ void main() {
     // A ride request arrives on its own.
     await waitFor(tester, find.byType(D15RideRequestScreen));
     expect(find.text('₹38'), findsWidgets);
-    await tester.tap(find.text('Accept').hitTestable().first);
+    expect(find.text('Swipe to accept'), findsOneWidget, reason: 'a stray tap never takes a trip');
+    await swipe(tester);
     await waitFor(tester, find.byType(D16NavigateToPickupScreen));
+    await advance(tester, const Duration(seconds: 1));
+    await waitFor(tester, find.byKey(const ValueKey('swipe-knob')).hitTestable());
 
     await swipe(tester);
     await waitFor(tester, find.byType(D17RideOtpScreen));

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rido_data/rido_data.dart';
 import 'package:rido_ui/rido_ui.dart';
 
+import '../../../state/request_voice.dart';
+
 /// Shared D-15 / D-20 full-screen takeover: coral top area with the countdown ring around
-/// the fare, then the job details and a big Accept / small Decline.
+/// the fare, then the job details and "Swipe to accept" / small Decline. A swipe (not a tap) so a pocket or a
+/// stray touch on a bumpy road never takes a trip; screen readers still accept with a double tap.
 class RequestTakeover extends StatelessWidget {
   const RequestTakeover({
     super.key,
@@ -65,6 +69,8 @@ class RequestTakeover extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: t.h2.copyWith(color: Colors.white)),
                         ),
+                        const RequestVoiceToggle(),
+                        const SizedBox(width: RidoSpacing.xs),
                         tag,
                       ]),
                       const SizedBox(height: RidoSpacing.m),
@@ -97,7 +103,16 @@ class RequestTakeover extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.s),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                RidoButton(label: 'Accept', height: 64, loading: accepting, onPressed: onAccept),
+                if (accepting)
+                  const RidoButton(label: 'Accepting', height: 64, loading: true, onPressed: null)
+                else
+                  SwipeToConfirm(
+                    label: 'Swipe to accept',
+                    height: 64,
+                    color: RidoColors.success,
+                    knobColor: RidoColors.successText,
+                    onConfirmed: onAccept,
+                  ),
                 const SizedBox(height: RidoSpacing.s),
                 TextButton(
                   onPressed: accepting ? null : onDecline,
@@ -212,4 +227,20 @@ class RequestCustomerCard extends StatelessWidget {
           Text(rating.toStringAsFixed(1), style: RidoTextStyles.tabular(context.type.bodySemibold)),
         ]),
       );
+}
+
+/// Speaker button on the request header: turns reading requests aloud on or off (saved on the phone).
+class RequestVoiceToggle extends ConsumerWidget {
+  const RequestVoiceToggle({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(requestVoiceProvider.select((s) => s.enabled));
+    return IconButton(
+      tooltip: on ? 'Voice on. Tap to mute' : 'Voice off. Tap to read requests aloud',
+      onPressed: () => ref.read(requestVoiceProvider.notifier).setEnabled(!on),
+      style: IconButton.styleFrom(backgroundColor: RidoColors.coral700),
+      icon: Icon(on ? Symbols.volume_up_rounded : Symbols.volume_off_rounded, color: Colors.white, fill: 1),
+    );
+  }
 }

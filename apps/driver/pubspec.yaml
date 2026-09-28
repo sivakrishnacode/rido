@@ -30,6 +30,7 @@ dependencies:
   flutter_overlay_window: ^0.5.0
   firebase_messaging: ^16.7.0
   flutter_local_notifications: ^22.3.1
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:

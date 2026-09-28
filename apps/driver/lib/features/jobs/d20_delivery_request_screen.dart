@@ -8,6 +8,7 @@ import 'package:rido_ui/rido_ui.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
+import '../../state/request_voice.dart';
 import 'widgets/job_common.dart';
 import 'widgets/request_layout.dart';
 
@@ -29,11 +30,23 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
 
   late final Duration _countdown = ref.read(driverSessionProvider.notifier).incomingCountdown;
   bool _accepting = false;
+  late final RequestSpeaker _speaker;
 
   @override
   void initState() {
     super.initState();
-    if (!widget.showcase && ref.read(isLiveApiProvider)) HapticFeedback.heavyImpact();
+    _speaker = ref.read(requestSpeakerProvider);
+    if (!widget.showcase && ref.read(isLiveApiProvider)) {
+      HapticFeedback.heavyImpact();
+      announceRequest(ref, _r);
+    }
+  }
+
+  @override
+  void dispose() {
+    // Accepted, declined or gone before the sentence ended: stop talking.
+    _speaker.stop();
+    super.dispose();
   }
 
   /// Live API: accepting can fail when the offer went to someone else; the card closes with the reason.

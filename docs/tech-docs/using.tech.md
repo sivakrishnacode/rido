@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -34,6 +34,7 @@ Notes from the owner. Each item gets a status and a plan once reviewed.
 | Maps (apps) | Google Maps SDK for Android when a key is set, else flutter_map + CARTO light tiles | | `packages/rido_ui` RidoMap |
 | Maps (APIs) | Google Places API (New), Geocoding API, Routes API; fallback OSRM public router + seed data | | `apps/api/src/modules/maps`, `rido_data` |
 | Location | geolocator (Android fine/coarse location) | 14.x | passenger app |
+| Text-to-speech | flutter_tts (phone's own TTS voice, English / Tamil) | 4.x | driver app: new requests read aloud |
 | Admin panel | Next.js (App Router, Turbopack, `output: 'standalone'`), React, TypeScript | Next 16.3, React 19.3, TS 5.9 | `apps/admin` |
 | Admin UI | shadcn/ui (radix-nova style, Radix UI), Tailwind CSS v4, lucide-react, sonner toasts, Recharts (shadcn chart) | shadcn 4.21, radix-ui 1.6, Tailwind 4.3, Recharts 3.8 | `apps/admin/src/components/ui` |
 | Admin maps | Google Maps JavaScript API via `@vis.gl/react-google-maps` (JSON-styled roadmap + satellite), H3 hexagons on `google.maps.Data` layers with h3-js | react-google-maps 1.10, h3-js 4.5 | `apps/admin/src/components/map`, `src/lib/hex.ts` |
@@ -996,6 +997,17 @@ suggestion's name.
 - **Test:** install both APKs, sign in, then Admin → Announcements → create one for "All" → it arrives on both phones.
 
 ---
+
+## 7c9. Driver request screen (D-15 / D-20)
+
+- **Swipe to accept:** the Accept button is a `SwipeToConfirm` ("Swipe to accept", green), so a stray touch or a
+  phone in a pocket never takes a trip; screen readers accept with a double tap (its semantic tap). Decline stays a
+  tap. The background bubble / notification path is unchanged.
+- **Voice:** `state/request_voice.dart` reads each new request aloud with the phone's TTS (`flutter_tts`):
+  "New ride. 250 rupees. Pickup 0.8 kilometres, Gandhipuram. Trip 6.2 kilometres." (or the Tamil sentence). On by
+  default; the speaker button on the request header mutes it (`requestVoiceProvider`, saved in shared_preferences:
+  `request_voice_enabled`, `request_voice_language`). No Tamil voice on the phone → "New request" in English. Speech
+  stops when the card closes. Live mode only. The manifest declares the `TTS_SERVICE` query (Android 11+).
 
 ## 7d. Driver app in the background (apps/driver/lib/overlay)
 
