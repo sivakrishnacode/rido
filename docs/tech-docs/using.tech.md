@@ -1071,6 +1071,14 @@ previous files: `/opt/rido/.env.bak-202609271304`, `docker-compose.yml.bak-*`.
 **Deployed 28 Sep 2026:** Butterfly + pickup ETA (migration `butterfly`), "Who's riding?" (`trip_rider`), driver
 cancel fix, driver gender at sign-up. All people and trips were cleared first (dev data; admins and config kept).
 
+**Deployed 28 Sep 2026 (second):** the Namma Yatri comparison work (`e6da5f1..3cc68cf`): guarded trip transitions, one
+offer and one trip per driver, OTP tries, rating sums, server-trusted GPS, peak 1.0 default, Redis job runner,
+cancel codes and reassign, timeout jobs, GPS breadcrumbs and review flags, waiting charge, fault verdict,
+cancellation fee (off), driver pauses, dispatch ranking, share link, server SOS and safety checks. 11 migrations
+applied on start. No `currentMultiplier` row was stored, so the new 1.0 default applies. **Pending:** add
+`SHARE_BASE_URL=https://admin.65-0-233-253.sslip.io` to `/opt/rido/.env` and restart the API (share links point at
+localhost until then). Install the new APKs: older driver builds send no trip GPS, so their trips land in Needs review.
+
 **Capacity (measured 26 Sep 2026, t3.small):** cached fare quotes at 50 concurrent connections: ~890 req/s average
 (peak 1,340), p50 43 ms, p99 ~200 ms, no errors; the API process used both vCPUs while Postgres/Redis stayed idle.
 Planning figures with headroom: ~300–400 req/s sustained, ~1,500–2,500 concurrent app users, ~300–500 online
