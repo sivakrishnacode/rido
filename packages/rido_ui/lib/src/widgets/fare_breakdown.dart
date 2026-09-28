@@ -30,7 +30,7 @@ class FareLine {
 class FareBreakdown extends StatelessWidget {
   const FareBreakdown({super.key, required this.lines, required this.total, this.title, this.subtitle, this.footer});
 
-  /// Builds the standard lines from a [FareQuote]: base, distance, time, subtotal, peak.
+  /// Builds the standard lines from a [FareQuote]: base, distance, time, subtotal, peak, waiting (when charged).
   factory FareBreakdown.fromQuote(FareQuote q, {Key? key, String? title, String? subtitle, Widget? footer}) {
     final perKm = q.vehicle.fareRule.perKm;
     final perKmText = perKm == perKm.roundToDouble() ? perKm.toStringAsFixed(0) : perKm.toStringAsFixed(1);
@@ -47,10 +47,15 @@ class FareBreakdown extends StatelessWidget {
         if (q.minFareTopUp > 0) FareLine('Minimum fare top-up', q.minFareTopUp),
         FareLine('Subtotal', q.subtotal, emphasis: true),
         if (q.hasPeak) FareLine('Peak time', q.peakCharge, tag: '${q.multiplier.toStringAsFixed(1)}x', signed: true),
+        if (q.hasWaiting) waitingLine(q),
         const FareLine('Rido commission', 0, tag: '0%'),
       ],
     );
   }
+
+  /// "Waiting charge +₹3 · after 3 free min" (only add it when [FareQuote.hasWaiting]).
+  static FareLine waitingLine(FareQuote q) =>
+      FareLine('Waiting charge', q.waitingCharge, note: 'after ${q.freeWaitMin} free min', signed: true);
 
   final List<FareLine> lines;
   final int total;

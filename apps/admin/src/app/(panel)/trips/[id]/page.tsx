@@ -259,6 +259,18 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                   <dd className="tabular-nums">{formatInr(Number(fare.peakCharge ?? 0))}</dd>
                 </div>
               )}
+              {Number(fare.waitingCharge ?? 0) > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-navy-700">
+                    Waiting charge
+                    <span className="block text-xs text-muted-foreground">
+                      after {fare.freeWaitMin ?? 3} free min · {formatInr(Number(fare.waitPerMin ?? 0))}/min, max{" "}
+                      {formatInr(Number(fare.waitMaxCharge ?? 0))}
+                    </span>
+                  </dt>
+                  <dd className="tabular-nums">{formatInr(Number(fare.waitingCharge ?? 0))}</dd>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between font-heading text-base font-semibold text-navy-900">
                 <dt>Total</dt>

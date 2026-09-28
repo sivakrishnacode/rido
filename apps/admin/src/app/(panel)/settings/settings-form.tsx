@@ -76,6 +76,15 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
+    group: "Waiting charge",
+    description:
+      "After the driver marks Arrived, the first minutes are free; then every started minute until the ride starts costs the vehicle's waiting rate (Cities › Fares), up to the cap. Charged at start as its own fare line, never surged. Rides and parcels.",
+    fields: [
+      { key: "freeWaitMin", label: "Free waiting", hint: "Minutes after Arrived with no charge", step: "1", suffix: "min" },
+      { key: "waitMaxCharge", label: "Waiting cap", hint: "Most a trip can be charged for waiting (0 = no waiting charge)", step: "5", suffix: "₹" },
+    ],
+  },
+  {
     group: "Driver plans",
     description: "Off = Rido is free: drivers see no plans and can always go online. Trial and grace apply to new subscriptions when plans are on.",
     fields: [

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,8 +11,9 @@ import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 import 'widgets/trip_widgets.dart';
 
-/// P-15 Driver has arrived: success banner, "Waiting time starts in 2:45" countdown, the ride OTP
-/// shown large, and the driver with Chat / Call. The ride starts when the driver enters the OTP.
+/// P-15 Driver has arrived: success banner, the waiting chip (free minutes left, then the waiting charge adding up,
+/// [WaitingTimerChip]), the ride OTP shown large, and the driver with Chat / Call. The ride starts when the driver
+/// enters the OTP; the server adds the waiting charge to the fare then.
 class P15DriverArrivedScreen extends ConsumerStatefulWidget {
   const P15DriverArrivedScreen({super.key, this.showcase = false});
 
@@ -26,27 +25,8 @@ class P15DriverArrivedScreen extends ConsumerStatefulWidget {
 }
 
 class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen> {
-  static const _freeWait = Duration(minutes: 2, seconds: 45);
-  Duration _left = _freeWait;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!widget.showcase) {
-      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-        if (!mounted) return;
-        setState(() => _left -= const Duration(seconds: 1));
-        if (_left <= Duration.zero) t.cancel();
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  /// Design gallery: the driver arrived 15 s ago ("Free waiting · 2:45 left"), frozen.
+  late final DateTime _showcaseAt = DateTime.now();
 
   void _back() {
     if (widget.showcase) {
@@ -72,7 +52,9 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
     // Live API: the driver's last GPS fix; otherwise parked just beside the pickup.
     final fix = widget.showcase ? null : ref.read(rideFlowProvider.notifier).vehicle.value;
     final vehiclePos = fix?.position ?? offsetPoint(pickup, 70, 60);
-    final waitingStarted = _left <= Duration.zero;
+    final waiting = widget.showcase
+        ? ride.quote.waitingFrom(_showcaseAt.subtract(const Duration(seconds: 15)))
+        : ride.waiting ?? ride.quote.waitingFrom(DateTime.now());
 
     return PopScope(
       canPop: widget.showcase,
@@ -105,25 +87,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
               title: '${driver.firstName} has arrived at your pickup',
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                const Icon(Symbols.timer_rounded, color: RidoColors.coral600, size: 22),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text.rich(
-                    waitingStarted
-                        ? TextSpan(text: 'Your driver is waiting. Please head to the pickup', style: t.body)
-                        : TextSpan(children: [
-                            TextSpan(text: 'Waiting time starts in  ', style: t.body),
-                            TextSpan(
-                              text: formatCountdown(_left),
-                              style: RidoTextStyles.tabular(t.bodySemibold),
-                            ),
-                          ]),
-                  ),
-                ),
-              ],
-            ),
+            WaitingTimerChip(terms: waiting, clock: widget.showcase ? () => _showcaseAt : null, isTicking: !widget.showcase),
             const SizedBox(height: 14),
             Semantics(
               label: 'Tell ${driver.firstName} this OTP: ${otp.split('').join(' ')}',

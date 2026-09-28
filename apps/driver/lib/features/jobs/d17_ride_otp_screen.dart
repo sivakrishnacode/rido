@@ -14,6 +14,7 @@ import 'widgets/otp_step.dart';
 /// D-17 Enter ride OTP: "Ask Priya for the 4-digit OTP". 4829 → Start ride → D-18;
 /// anything else shakes and shows "Wrong OTP, please try again" (D-17-error).
 /// Live API: the server checks the code when the ride starts and its message shows as the error.
+/// The waiting chip counts the free minutes down from "Arrived", then the waiting charge ([WaitingTimerChip]).
 class D17RideOtpScreen extends ConsumerStatefulWidget {
   const D17RideOtpScreen({super.key, this.showError = false, this.showcase = false});
 
@@ -39,6 +40,13 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
   bool _busy = false;
 
   static const _wrongOtp = 'Wrong OTP, please try again';
+
+  /// Design gallery: arrived 15 s ago, frozen.
+  late final DateTime _showcaseAt = DateTime.now();
+
+  WaitingTerms? get _waiting => widget.showcase
+      ? WaitingTerms(arrivedAt: _showcaseAt.subtract(const Duration(seconds: 15)), perMin: Seed.vehicle(_job.vehicle).fareRule.waitPerMin)
+      : ref.watch(driverSessionProvider.select((s) => s.waiting));
 
   void _fail(String message) => setState(() {
         _busy = false;
@@ -172,6 +180,11 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
           ),
         ]),
         ),
+        // Free waiting minutes, then the waiting charge the server adds when the ride starts.
+        if (_waiting case final w?) ...[
+          const SizedBox(height: RidoSpacing.s),
+          WaitingTimerChip(terms: w, clock: widget.showcase ? () => _showcaseAt : null, isTicking: !widget.showcase),
+        ],
         // After the no-show wait: cancel without it counting against the driver.
         if (!widget.showcase) ...[
           const SizedBox(height: RidoSpacing.s),

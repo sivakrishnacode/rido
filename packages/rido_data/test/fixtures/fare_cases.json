@@ -1,5 +1,5 @@
 {
-  "_comment": "Shared fare-engine cases, read by apps/api/src/modules/fares/fare-engine.spec.ts and packages/rido_data/test/fare_engine_test.dart. Both engines must produce exactly these lines; edit both engines and this file together.",
+  "_comment": "Shared fare-engine cases, read by apps/api/src/modules/fares/fare-engine.spec.ts and packages/rido_data/test/fare_engine_test.dart. Both engines must produce exactly these lines; edit both engines and this file together. waitingCases: the waiting charge (first freeWaitMin free, then waitPerMin per started minute, capped at waitMaxCharge; never surged). waitPerMin comes from the vehicle's built-in rule; with a route the total is the quote's total plus the waiting charge.",
   "cases": [
     {
       "name": "Bike, Gandhipuram → Brookefields, no peak",
@@ -209,6 +209,139 @@
         "multiplier": 1,
         "peakCharge": 0,
         "total": 1000
+      }
+    }
+  ],
+  "waitingCases": [
+    {
+      "name": "Bike, driver just arrived",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 0
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 0
+      }
+    },
+    {
+      "name": "Bike, exactly the 3 free minutes",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 180
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 0
+      }
+    },
+    {
+      "name": "Bike, one second past the free minutes starts a minute",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 181
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 1
+      }
+    },
+    {
+      "name": "Auto, 5:30 waited = 3 started minutes",
+      "input": {
+        "vehicleKind": "AUTO",
+        "waitedSec": 330
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 3
+      }
+    },
+    {
+      "name": "Cab, 10 min waited = 7 min x ₹2",
+      "input": {
+        "vehicleKind": "CAB",
+        "waitedSec": 600
+      },
+      "expected": {
+        "waitPerMin": 2,
+        "waitingCharge": 14
+      }
+    },
+    {
+      "name": "Bike, an hour waited is capped at ₹30",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 3600
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 30
+      }
+    },
+    {
+      "name": "Cab, cap from the settings (₹20)",
+      "input": {
+        "vehicleKind": "CAB",
+        "waitedSec": 1200,
+        "waitMaxCharge": 20
+      },
+      "expected": {
+        "waitPerMin": 2,
+        "waitingCharge": 20
+      }
+    },
+    {
+      "name": "No free minutes: the first second is a started minute",
+      "input": {
+        "vehicleKind": "THREE_WHEELER",
+        "waitedSec": 1,
+        "freeWaitMin": 0
+      },
+      "expected": {
+        "waitPerMin": 2,
+        "waitingCharge": 2
+      }
+    },
+    {
+      "name": "Start before arrival (clock skew) is free",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": -30
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 0
+      }
+    },
+    {
+      "name": "Cab at 1.1x peak: waiting is added after the surge, not multiplied",
+      "input": {
+        "vehicleKind": "CAB",
+        "waitedSec": 480,
+        "distanceKm": 4.2,
+        "durationMin": 14,
+        "multiplier": 1.1
+      },
+      "expected": {
+        "waitPerMin": 2,
+        "waitingCharge": 10,
+        "total": 155
+      }
+    },
+    {
+      "name": "Bike short hop at the minimum fare plus waiting",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 300,
+        "distanceKm": 0.5,
+        "durationMin": 1,
+        "multiplier": 1.0
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 2,
+        "total": 27
       }
     }
   ]

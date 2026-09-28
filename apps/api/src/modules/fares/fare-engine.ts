@@ -15,7 +15,8 @@ export interface RouteEstimate {
 
 /**
  * Itemised quote; every line is a whole rupee and they add up exactly to [total]:
- * base + distanceCharge + timeCharge + minFareTopUp = subtotal, subtotal + peakCharge = total.
+ * base + distanceCharge + timeCharge + minFareTopUp = subtotal, subtotal + peakCharge + waitingCharge = total.
+ * A quote has waitingCharge 0; the trip's stored fare gets it when the ride starts ([withWaitingCharge]).
  */
 export interface FareQuote extends RouteEstimate {
   readonly vehicleKind: VehicleKind;
@@ -26,8 +27,17 @@ export interface FareQuote extends RouteEstimate {
   readonly subtotal: number;
   readonly multiplier: number;
   readonly peakCharge: number;
+  /** Waiting at the pickup past the free minutes (never surged). 0 until the ride starts. */
+  readonly waitingCharge: number;
+  /** The waiting terms quoted with this fare: free minutes, rupees per started minute after them, and the cap. */
+  readonly freeWaitMin: number;
+  readonly waitPerMin: number;
+  readonly waitMaxCharge: number;
   readonly total: number;
 }
+
+/** Waiting terms when the caller gives none (the admin settings' defaults `freeWaitMin`, `waitMaxCharge`). */
+export const WAIT_DEFAULTS = { freeMin: 3, maxCharge: 30 } as const;
 
 const ROAD_FACTOR = 1.3;
 const AVERAGE_SPEED_KMH = 18;
@@ -82,11 +92,14 @@ export function quoteFare(params: {
   multiplier?: number;
   /** Cap for [multiplier] (admin `maxMultiplier` setting); defaults to [MAX_MULTIPLIER]. */
   maxMultiplier?: number;
-  /** Per-city rates (admin panel); defaults to the built-in [FARE_RULES]. */
-  rule?: { base: number; perKm: number; perMin: number; minFare: number };
+  /** Per-city rates (admin panel); defaults to the built-in [FARE_RULES]. A null / missing waitPerMin uses the built-in one. */
+  rule?: { base: number; perKm: number; perMin: number; minFare: number; waitPerMin?: number | null };
+  /** Free waiting minutes and the waiting-charge cap (admin settings); defaults to [WAIT_DEFAULTS]. */
+  waiting?: { freeMin: number; maxCharge: number };
 }): FareQuote {
   const { vehicleKind, route } = params;
   const rule = params.rule ?? FARE_RULES[vehicleKind];
+  const waiting = params.waiting ?? WAIT_DEFAULTS;
   const cap = Math.max(1, params.maxMultiplier ?? MAX_MULTIPLIER);
   const multiplier = Math.min(cap, Math.max(1, params.multiplier ?? CURRENT_MULTIPLIER));
   const distanceCharge = floorRupee(rule.perKm * route.distanceKm);
@@ -106,6 +119,39 @@ export function quoteFare(params: {
     subtotal,
     multiplier,
     peakCharge: total - subtotal,
+    waitingCharge: 0,
+    freeWaitMin: Math.max(0, waiting.freeMin),
+    waitPerMin: Math.max(0, Math.floor(rule.waitPerMin ?? FARE_RULES[vehicleKind].waitPerMin)),
+    waitMaxCharge: Math.max(0, Math.floor(waiting.maxCharge)),
     total,
   };
+}
+
+const MINUTE_MS = 60_000;
+
+/**
+ * Waiting charge for [waitedMs] at the pickup (driver arrived → ride started): the first [freeMin] minutes are free,
+ * then every started minute costs [perMin] rupees, capped at [maxCharge]. E.g. 3 free, ₹1/min: 3:00 → ₹0,
+ * 3:01 → ₹1, 5:30 → ₹3.
+ */
+export function waitingCharge(p: { waitedMs: number; freeMin: number; perMin: number; maxCharge: number }): number {
+  const overMs = p.waitedMs - Math.max(0, p.freeMin) * MINUTE_MS;
+  if (!(overMs > 0) || p.perMin <= 0 || p.maxCharge <= 0) return 0;
+  const minutes = Math.ceil(overMs / MINUTE_MS - EPS);
+  return Math.min(Math.floor(p.maxCharge), minutes * Math.floor(p.perMin));
+}
+
+/** Waiting terms of a stored fare; fares stored before waiting charges existed get [fallback]. */
+export function waitingTerms(
+  fare: Partial<Pick<FareQuote, 'freeWaitMin' | 'waitPerMin' | 'waitMaxCharge'>> | null | undefined,
+  fallback: { freeMin: number; perMin: number; maxCharge: number },
+): { freeMin: number; perMin: number; maxCharge: number } {
+  const num = (v: unknown, d: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+  return { freeMin: num(fare?.freeWaitMin, fallback.freeMin), perMin: num(fare?.waitPerMin, fallback.perMin), maxCharge: num(fare?.waitMaxCharge, fallback.maxCharge) };
+}
+
+/** [fare] with its waiting line set to [charge] (replacing any earlier one); the total moves by the difference. */
+export function withWaitingCharge<T extends { total: number; waitingCharge?: number }>(fare: T, charge: number): T & { waitingCharge: number } {
+  const was = fare.waitingCharge ?? 0;
+  return { ...fare, waitingCharge: charge, total: fare.total - was + charge };
 }

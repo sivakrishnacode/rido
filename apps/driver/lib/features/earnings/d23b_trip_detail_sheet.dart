@@ -43,7 +43,7 @@ class D23bTripDetailSheet extends ConsumerWidget {
     final quote = trip.distanceKm > 0
         ? FareEngine.quote(vehicle, RouteEstimate(distanceKm: trip.distanceKm, durationMin: trip.durationMin))
         : null;
-    final useQuote = quote != null && quote.total == trip.fare;
+    final useQuote = quote != null && quote.total + trip.waitingCharge == trip.fare;
     final kindLabel = trip.isDelivery ? 'Delivery' : '${vehicle.kind.label} ride';
     final paid = trip.paymentMode == PaymentMode.upi ? 'paid on UPI' : 'paid in cash';
 
@@ -93,7 +93,9 @@ class D23bTripDetailSheet extends ConsumerWidget {
             if (quote.hasPeak)
               _line(context, 'Peak time', formatInrSigned(quote.peakCharge), tag: '${quote.multiplier.toStringAsFixed(1)}x'),
           ] else
-            _line(context, 'Trip fare · ${formatKm(trip.distanceKm)} · ${trip.durationMin} min', formatInr(trip.fare)),
+            _line(context, 'Trip fare · ${formatKm(trip.distanceKm)} · ${trip.durationMin} min',
+                formatInr(trip.fare - trip.waitingCharge)),
+          if (trip.waitingCharge > 0) _line(context, 'Waiting charge', formatInrSigned(trip.waitingCharge)),
           const Divider(height: RidoSpacing.l),
           Row(children: [
             Expanded(child: Text('Fare · $paid', style: t.bodySemibold)),

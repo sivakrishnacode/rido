@@ -7,6 +7,7 @@ import { womenAmong } from '../drivers/women-drivers.js';
 import { GeoService } from '../geo/geo.service.js';
 import { EtaService } from '../maps/eta.service.js';
 import { MapsService } from '../maps/maps.service.js';
+import type { Settings } from '../settings/settings.defaults.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { FareQuote, GeoPoint, quoteFare, type RouteEstimate } from './fare-engine.js';
 import { FARE_RULES } from './fare-rules.js';
@@ -16,6 +17,12 @@ export interface QuoteWithEta extends FareQuote {
   /** Road minutes from the nearest free driver; null = nobody within the maximum search radius right now. */
   readonly pickupEtaMin: number | null;
 }
+
+/** The waiting terms from the admin settings. */
+export const waitingSettings = (s: Pick<Settings, 'freeWaitMin' | 'waitMaxCharge'>): { freeMin: number; maxCharge: number } => ({
+  freeMin: s.freeWaitMin,
+  maxCharge: s.waitMaxCharge,
+});
 
 /** Nearest drivers (by straight line) whose road ETA is measured per vehicle; the fastest of them wins. */
 const ETA_SAMPLE = 3;
@@ -57,12 +64,12 @@ export class FaresService {
     const wantGoods = params.kind === TripKind.PARCEL;
     const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: wantGoods ? VehicleKind.THREE_WHEELER : VehicleKind.CAB });
     const here = await this.geo.locate(params.pickup);
-    const { maxMultiplier } = await this.settings.all();
+    const s = await this.settings.all();
     const kinds = (Object.keys(FARE_RULES) as VehicleKind[]).filter((k) => FARE_RULES[k].isGoods === wantGoods);
     return Promise.all(
       kinds.map(async (vehicleKind) => {
         const rule = (await this.geo.fareRule(here.cityId, vehicleKind)) ?? undefined;
-        return quoteFare({ vehicleKind, route, multiplier: here.multiplier, maxMultiplier, rule });
+        return quoteFare({ vehicleKind, route, multiplier: here.multiplier, maxMultiplier: s.maxMultiplier, rule, waiting: waitingSettings(s) });
       }),
     );
   }
@@ -71,15 +78,22 @@ export class FaresService {
   async quoteOnRoute(params: { pickup: GeoPoint; route: RouteEstimate; vehicleKind: VehicleKind }): Promise<FareQuote> {
     const here = await this.geo.locate(params.pickup);
     const rule = (await this.geo.fareRule(here.cityId, params.vehicleKind)) ?? undefined;
-    const { maxMultiplier } = await this.settings.all();
-    return quoteFare({ vehicleKind: params.vehicleKind, route: params.route, multiplier: here.multiplier, maxMultiplier, rule });
+    const s = await this.settings.all();
+    return quoteFare({ vehicleKind: params.vehicleKind, route: params.route, multiplier: here.multiplier, maxMultiplier: s.maxMultiplier, rule, waiting: waitingSettings(s) });
   }
 
   async quoteOne(params: { pickup: GeoPoint; drop: GeoPoint; vehicleKind: VehicleKind }): Promise<FareQuote> {
     const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: params.vehicleKind });
     const here = await this.geo.locate(params.pickup);
     const rule = (await this.geo.fareRule(here.cityId, params.vehicleKind)) ?? undefined;
-    const { maxMultiplier } = await this.settings.all();
-    return quoteFare({ vehicleKind: params.vehicleKind, route, multiplier: here.multiplier, maxMultiplier, rule });
+    const s = await this.settings.all();
+    return quoteFare({ vehicleKind: params.vehicleKind, route, multiplier: here.multiplier, maxMultiplier: s.maxMultiplier, rule, waiting: waitingSettings(s) });
+  }
+
+  /** Waiting-charge rate per started minute for [vehicleKind] at [at] (the city's rule, else the built-in one). */
+  async waitPerMin(at: GeoPoint, vehicleKind: VehicleKind): Promise<number> {
+    const here = await this.geo.locate(at);
+    const rule = await this.geo.fareRule(here.cityId, vehicleKind);
+    return rule?.waitPerMin ?? FARE_RULES[vehicleKind].waitPerMin;
   }
 }

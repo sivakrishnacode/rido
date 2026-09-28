@@ -70,6 +70,7 @@ class RideFlowState {
     this.busy = false,
     this.alsoVehicles = const [],
     this.alternatives = const [],
+    this.arrivedAt,
   });
 
   final Place pickup;
@@ -118,6 +119,12 @@ class RideFlowState {
   /// Live API, while searching: other vehicles with drivers in range that could be added (cheapest first).
   final List<VehicleAlternative> alternatives;
 
+  /// When the driver marked "Arrived" (starts the free waiting minutes, P-15).
+  final DateTime? arrivedAt;
+
+  /// The waiting timer at the pickup on the booked fare's terms (null before the driver arrives).
+  WaitingTerms? get waiting => arrivedAt == null ? null : quote.waitingFrom(arrivedAt!);
+
   RouteEstimate get estimate {
     final q = tripQuote ?? (serverQuotes?.isNotEmpty ?? false ? serverQuotes!.first : null);
     return q != null
@@ -164,6 +171,7 @@ class RideFlowState {
     bool? busy,
     List<VehicleKind>? alsoVehicles,
     List<VehicleAlternative>? alternatives,
+    Object? arrivedAt = _keep,
   }) => RideFlowState(
     pickup: pickup ?? this.pickup,
     drop: drop ?? this.drop,
@@ -186,6 +194,7 @@ class RideFlowState {
     busy: busy ?? this.busy,
     alsoVehicles: alsoVehicles ?? this.alsoVehicles,
     alternatives: alternatives ?? this.alternatives,
+    arrivedAt: identical(arrivedAt, _keep) ? this.arrivedAt : arrivedAt as DateTime?,
   );
 }
 
@@ -341,6 +350,7 @@ class RideFlowController extends Notifier<RideFlowState> {
       route: roadPath(state.pickup.location, state.drop.location),
       driverCancelledOnce: false,
       chat: ref.read(rideRepositoryProvider).chatSeed(),
+      arrivedAt: null,
     );
     _search(_t(SimTimings.findDriver));
     return null;
@@ -361,7 +371,7 @@ class RideFlowController extends Notifier<RideFlowState> {
   void _assign(DriverProfile driver) {
     final start = offsetPoint(state.pickup.location, 900, 35);
     final approach = roadPath(start, state.pickup.location, bend: -0.2);
-    state = state.copyWith(phase: RidePhase.assigned, driver: driver, approach: approach, etaMin: 3);
+    state = state.copyWith(phase: RidePhase.assigned, driver: driver, approach: approach, etaMin: 3, arrivedAt: null);
     final arriveIn = _t(SimTimings.driverArrives);
 
     if (_demo.driverCancels && !state.driverCancelledOnce) {
@@ -384,7 +394,7 @@ class RideFlowController extends Notifier<RideFlowState> {
   }
 
   void _arrive() {
-    state = state.copyWith(phase: RidePhase.arrived, etaMin: 0);
+    state = state.copyWith(phase: RidePhase.arrived, etaMin: 0, arrivedAt: DateTime.now());
     _sim.after(_t(SimTimings.driverEntersOtp), _startRide);
   }
 
@@ -515,11 +525,11 @@ class RideFlowController extends Notifier<RideFlowState> {
         _stopFollowing();
         state = state.copyWith(phase: RidePhase.noDrivers, busy: false);
       case RidePhase.searching:
-        state = state.copyWith(phase: RidePhase.searching, otp: otp, alsoVehicles: u.alsoVehicles);
+        state = state.copyWith(phase: RidePhase.searching, otp: otp, alsoVehicles: u.alsoVehicles, arrivedAt: null);
       case RidePhase.driverCancelled:
         _liveFix.value = null;
         _lastPoint = null;
-        state = state.copyWith(phase: RidePhase.driverCancelled, driverCancelledOnce: true, approach: const []);
+        state = state.copyWith(phase: RidePhase.driverCancelled, driverCancelledOnce: true, approach: const [], arrivedAt: null);
       case RidePhase.assigned:
         // Coming from any other phase starts a new approach leg (built from the driver's first fix).
         final fresh = state.phase != RidePhase.assigned;
@@ -532,21 +542,32 @@ class RideFlowController extends Notifier<RideFlowState> {
           vehicle: vehicle,
           tripQuote: u.trip.quote ?? state.tripQuote,
           alternatives: const [],
+          arrivedAt: null,
           approach: fresh ? const [] : null,
           etaMin: fresh ? Seed.vehicle(vehicle).etaMin : null,
         );
       case RidePhase.arrived:
-        state = state.copyWith(phase: RidePhase.arrived, driver: driver, otp: otp, etaMin: 0);
+        final at = u.json['arrivedAt'] is String ? DateTime.tryParse(u.json['arrivedAt'] as String)?.toLocal() : null;
+        state = state.copyWith(
+          phase: RidePhase.arrived,
+          driver: driver,
+          otp: otp,
+          etaMin: 0,
+          arrivedAt: at ?? state.arrivedAt ?? DateTime.now(),
+          tripQuote: u.trip.quote ?? state.tripQuote,
+        );
       case RidePhase.inProgress:
         final entering = state.phase != RidePhase.inProgress;
         state = state.copyWith(
           phase: RidePhase.inProgress,
           driver: driver,
           etaMin: entering ? state.estimate.durationMin : null,
+          // The fare now carries the waiting charge (set when the ride started).
+          tripQuote: u.trip.quote ?? state.tripQuote,
         );
         if (entering && _lastPoint != null) _track(_lastPoint!);
       case RidePhase.completed:
-        state = state.copyWith(phase: RidePhase.completed, driver: driver, etaMin: 0);
+        state = state.copyWith(phase: RidePhase.completed, driver: driver, etaMin: 0, tripQuote: u.trip.quote ?? state.tripQuote);
         ref.invalidate(tripHistoryProvider);
     }
   }

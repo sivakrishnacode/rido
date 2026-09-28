@@ -84,8 +84,8 @@ export class AdminCitiesService {
       const r = rules.find((x) => x.vehicleKind === vehicleKind);
       const d = FARE_RULES[vehicleKind];
       return r
-        ? { vehicleKind, base: r.base, perKm: r.perKm, perMin: r.perMin, minFare: r.minFare, isActive: r.isActive, isDefault: false }
-        : { vehicleKind, base: d.base, perKm: d.perKm, perMin: d.perMin, minFare: d.minFare, isActive: true, isDefault: true };
+        ? { vehicleKind, base: r.base, perKm: r.perKm, perMin: r.perMin, minFare: r.minFare, waitPerMin: r.waitPerMin ?? d.waitPerMin, isActive: r.isActive, isDefault: false }
+        : { vehicleKind, base: d.base, perKm: d.perKm, perMin: d.perMin, minFare: d.minFare, waitPerMin: d.waitPerMin, isActive: true, isDefault: true };
     });
   }
 

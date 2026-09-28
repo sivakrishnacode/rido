@@ -26,6 +26,7 @@ class FareRule {
     required this.perKm,
     required this.perMin,
     required this.minFare,
+    this.waitPerMin = 1,
   });
 
   final int base;
@@ -33,11 +34,15 @@ class FareRule {
   final double perMin;
   final int minFare;
 
-  FareRule copyWith({int? base, double? perKm, double? perMin, int? minFare}) => FareRule(
+  /// Waiting charge: rupees per started minute at the pickup after the free minutes.
+  final int waitPerMin;
+
+  FareRule copyWith({int? base, double? perKm, double? perMin, int? minFare, int? waitPerMin}) => FareRule(
         base: base ?? this.base,
         perKm: perKm ?? this.perKm,
         perMin: perMin ?? this.perMin,
         minFare: minFare ?? this.minFare,
+        waitPerMin: waitPerMin ?? this.waitPerMin,
       );
 }
 
@@ -114,7 +119,8 @@ class VehicleType {
       );
 }
 
-/// A fully itemised fare. Every line is a whole rupee and the lines add up exactly to [total].
+/// A fully itemised fare. Every line is a whole rupee and the lines add up exactly to [total]:
+/// subtotal + peakCharge + waitingCharge = total.
 @immutable
 class FareQuote {
   const FareQuote({
@@ -130,6 +136,10 @@ class FareQuote {
     required this.total,
     this.minFareTopUp = 0,
     this.pickupEtaMin,
+    this.waitingCharge = 0,
+    this.freeWaitMin = 3,
+    this.waitPerMin = 0,
+    this.waitMaxCharge = 30,
   });
 
   final VehicleType vehicle;
@@ -150,7 +160,22 @@ class FareQuote {
   /// (live: measured by the server; null = nobody near right now).
   final int? pickupEtaMin;
 
+  /// Paid for waiting at the pickup past the free minutes (never surged); set on the trip's fare when it starts.
+  final int waitingCharge;
+
+  /// The waiting terms quoted with this fare: free minutes, rupees per started minute after them, and the cap.
+  final int freeWaitMin;
+  final int waitPerMin;
+  final int waitMaxCharge;
+
   bool get hasPeak => multiplier > 1.0 && peakCharge > 0;
+
+  /// Show the "Waiting charge" line only when there is one.
+  bool get hasWaiting => waitingCharge > 0;
+
+  /// The waiting timer for a driver who arrived at [arrivedAt], on this fare's terms.
+  WaitingTerms waitingFrom(DateTime arrivedAt) =>
+      WaitingTerms(arrivedAt: arrivedAt, freeMin: freeWaitMin, perMin: waitPerMin, maxCharge: waitMaxCharge);
 
   FareQuote copyWith({
     VehicleType? vehicle,
@@ -165,6 +190,10 @@ class FareQuote {
     int? peakCharge,
     int? total,
     int? pickupEtaMin,
+    int? waitingCharge,
+    int? freeWaitMin,
+    int? waitPerMin,
+    int? waitMaxCharge,
   }) =>
       FareQuote(
         vehicle: vehicle ?? this.vehicle,
@@ -179,5 +208,48 @@ class FareQuote {
         peakCharge: peakCharge ?? this.peakCharge,
         total: total ?? this.total,
         pickupEtaMin: pickupEtaMin ?? this.pickupEtaMin,
+        waitingCharge: waitingCharge ?? this.waitingCharge,
+        freeWaitMin: freeWaitMin ?? this.freeWaitMin,
+        waitPerMin: waitPerMin ?? this.waitPerMin,
+        waitMaxCharge: waitMaxCharge ?? this.waitMaxCharge,
       );
+}
+
+/// The waiting timer at the pickup: the first [freeMin] minutes after [arrivedAt] are free, then every started
+/// minute costs [perMin] rupees, up to [maxCharge] (same rule as the API's `waitingCharge`).
+@immutable
+class WaitingTerms {
+  const WaitingTerms({required this.arrivedAt, this.freeMin = 3, this.perMin = 1, this.maxCharge = 30});
+
+  final DateTime arrivedAt;
+  final int freeMin;
+  final int perMin;
+  final int maxCharge;
+
+  /// Free waiting left at [now] (zero once it is over).
+  Duration freeLeft(DateTime now) {
+    final left = arrivedAt.add(Duration(minutes: freeMin)).difference(now);
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  /// The waiting charge if the ride started at [now].
+  int chargeAt(DateTime now) => waitingChargeFor(
+        waited: now.difference(arrivedAt),
+        freeMin: freeMin,
+        perMin: perMin,
+        maxCharge: maxCharge,
+      );
+
+  /// Nothing is ever charged (rate or cap of 0).
+  bool get isFree => perMin <= 0 || maxCharge <= 0;
+}
+
+/// Waiting charge for [waited] at the pickup: [freeMin] free minutes, then [perMin] per started minute, capped at
+/// [maxCharge]. 3 free at ₹1: 3:00 → ₹0, 3:01 → ₹1, 5:30 → ₹3.
+int waitingChargeFor({required Duration waited, required int freeMin, required int perMin, required int maxCharge}) {
+  final overMs = waited.inMilliseconds - freeMin * 60000;
+  if (overMs <= 0 || perMin <= 0 || maxCharge <= 0) return 0;
+  final minutes = (overMs / 60000 - 1e-9).ceil();
+  final charge = minutes * perMin;
+  return charge < maxCharge ? charge : maxCharge;
 }

@@ -150,6 +150,7 @@ class EarningsTrip {
     this.durationMin = 0,
     this.passengerName = '',
     this.isDelivery = false,
+    this.waitingCharge = 0,
   });
 
   final String id;
@@ -157,6 +158,9 @@ class EarningsTrip {
   final String from;
   final String to;
   final int fare;
+
+  /// Part of [fare] paid for waiting at the pickup (0 = none).
+  final int waitingCharge;
   final PaymentMode paymentMode;
   final double distanceKm;
   final int durationMin;
@@ -174,6 +178,7 @@ class EarningsTrip {
     int? durationMin,
     String? passengerName,
     bool? isDelivery,
+    int? waitingCharge,
   }) =>
       EarningsTrip(
         id: id ?? this.id,
@@ -186,6 +191,7 @@ class EarningsTrip {
         durationMin: durationMin ?? this.durationMin,
         passengerName: passengerName ?? this.passengerName,
         isDelivery: isDelivery ?? this.isDelivery,
+        waitingCharge: waitingCharge ?? this.waitingCharge,
       );
 }
 

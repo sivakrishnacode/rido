@@ -22,6 +22,13 @@ export class FareRuleDto {
   @Max(20_000)
   minFare: number;
 
+  /** Waiting charge per started minute after the free minutes (omit / null = the built-in rate). */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  waitPerMin?: number | null;
+
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;

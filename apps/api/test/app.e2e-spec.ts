@@ -475,6 +475,32 @@ describe('Rido API (e2e)', () => {
     await http.post('/v1/drivers/me/offline').set(driver);
   }, 45_000);
 
+  it('charges waiting past the free minutes at start, as its own fare line (not surged)', async () => {
+    const { trip, driver } = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+    expect(trip.fare).toMatchObject({ waitingCharge: 0, freeWaitMin: 3, waitPerMin: 1, waitMaxCharge: 30 });
+    await http.post(`/v1/trips/${trip.id}/arrived`).set(driver).expect(200);
+    // The driver has been waiting 5 min 30 s: 3 free, then 3 started minutes at ₹1.
+    await prisma.trip.update({ where: { id: trip.id }, data: { arrivedAt: new Date(Date.now() - 330_000) } });
+    const started = (await http.post(`/v1/trips/${trip.id}/start`).set(driver).send({ otp: trip.otp }).expect(200)).body;
+    expect(started.fare).toMatchObject({ waitingCharge: 3, total: 38, subtotal: 35, peakCharge: 0 });
+    expect(started.fareTotal).toBe(38);
+    // A retried start doesn't charge again.
+    expect((await http.post(`/v1/trips/${trip.id}/start`).set(driver).send({ otp: trip.otp }).expect(200)).body.fareTotal).toBe(38);
+    await http.post('/v1/drivers/me/location').set(driver).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
+    await http.post(`/v1/trips/${trip.id}/complete`).set(driver).send({}).expect(200);
+    const earnings = (await http.get('/v1/drivers/me/earnings?period=today').set(driver).expect(200)).body;
+    expect(earnings.trips.find((t: { id: string }) => t.id === trip.id)).toMatchObject({ fare: 38, waitingCharge: 3 });
+
+    // Started within the free minutes: no charge.
+    const quick = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+    await http.post(`/v1/trips/${quick.trip.id}/arrived`).set(quick.driver).expect(200);
+    const q = (await http.post(`/v1/trips/${quick.trip.id}/start`).set(quick.driver).send({ otp: quick.trip.otp }).expect(200)).body;
+    expect(q).toMatchObject({ fareTotal: 35, fare: { waitingCharge: 0 } });
+    await http.post('/v1/drivers/me/location').set(quick.driver).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
+    await http.post(`/v1/trips/${quick.trip.id}/complete`).set(quick.driver).send({}).expect(200);
+    for (const d of [driver, quick.driver]) await http.post('/v1/drivers/me/offline').set(d);
+  }, 45_000);
+
   it('a driver who is not moving is nudged, then the ride goes to another driver', async () => {
     const jobs = app.get(JobsService);
     const redis = app.get(RedisService);

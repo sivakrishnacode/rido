@@ -28,12 +28,20 @@ export interface Earnings {
     from: string;
     to: string;
     fare: number;
+    /** Part of [fare] paid for waiting at the pickup (0 = none). */
+    waitingCharge: number;
     paymentMode: string;
     distanceKm: number;
     durationMin: number;
     passengerName: string;
     isDelivery: boolean;
   }[];
+}
+
+/** A whole-rupee line of a stored fare JSON (0 when missing). */
+export function fareLine(fare: unknown, key: string): number {
+  const v = fare && typeof fare === 'object' ? (fare as Record<string, unknown>)[key] : undefined;
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
 /** IST calendar day (yyyy-mm-dd) of [d]. */
@@ -111,6 +119,7 @@ export class DriverEarningsService {
         from: t.pickupName,
         to: t.dropName,
         fare: t.fareTotal,
+        waitingCharge: fareLine(t.fare, 'waitingCharge'),
         paymentMode: t.paymentMode,
         distanceKm: t.distanceKm,
         durationMin: t.startedAt && t.endedAt ? Math.max(1, Math.round((t.endedAt.getTime() - t.startedAt.getTime()) / 60_000)) : t.durationMin,

@@ -75,6 +75,7 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
     final session = ref.watch(driverSessionProvider);
     final live = !widget.showcase && session.job != null;
     final phase = live ? session.phase : _localPhase;
+    final waiting = live ? session.waiting : null;
     final toDrop = phase == JobPhase.toDrop || phase == JobPhase.atDrop || phase == JobPhase.collect;
     final stepIndex = switch (phase) {
       JobPhase.none || JobPhase.toPickup => 0,
@@ -195,6 +196,10 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
                     fg: RidoColors.warningText,
                   ),
                 ]),
+                if (phase == JobPhase.atPickup && waiting != null) ...[
+                  const SizedBox(height: RidoSpacing.m),
+                  WaitingTimerChip(terms: waiting, isTicking: live),
+                ],
                 const SizedBox(height: RidoSpacing.l),
                 SwipeToConfirm(
                   key: ValueKey('swipe-$phase'),

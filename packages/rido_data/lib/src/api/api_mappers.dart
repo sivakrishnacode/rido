@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 
+import '../fare_engine.dart';
 import '../models/driver.dart';
 import '../models/people.dart';
 import '../models/place.dart';
@@ -79,6 +80,13 @@ FareQuote quoteFromJson(Json j) => FareQuote(
       peakCharge: _i(j['peakCharge']),
       total: _i(j['total']),
       pickupEtaMin: j['pickupEtaMin'] is num ? _i(j['pickupEtaMin']) : null,
+      waitingCharge: _i(j['waitingCharge']),
+      freeWaitMin: _i(j['freeWaitMin'], FareEngine.freeWaitMin),
+      // Fares stored before waiting charges existed: the vehicle's built-in rate.
+      waitPerMin: j['waitPerMin'] is num
+          ? _i(j['waitPerMin'])
+          : vehicleTypeFor(vehicleKindFromApi(j['vehicleKind'])).fareRule.waitPerMin,
+      waitMaxCharge: _i(j['waitMaxCharge'], FareEngine.waitMaxCharge),
     );
 
 /// A driver (`Driver` with its `user`).
@@ -341,6 +349,7 @@ EarningsSummary earningsFromJson(Json j) => EarningsSummary(
             from: _s(t['from']),
             to: _s(t['to']),
             fare: _i(t['fare']),
+            waitingCharge: _i(t['waitingCharge']),
             paymentMode: enumFromApi(PaymentMode.values, t['paymentMode'], PaymentMode.cash),
             distanceKm: _d(t['distanceKm']),
             durationMin: _i(t['durationMin']),

@@ -124,3 +124,12 @@ final RegExp kPlatePattern = RegExp(r'^[A-Z]{2}\s?\d{1,2}\s?[A-Z]{0,3}\s?\d{1,4}
 
 /// UPI ID rule of the API (`name@bank`).
 final RegExp kUpiPattern = RegExp(r'^[\w.-]{2,}@[a-z]{2,}$', caseSensitive: false);
+
+/// The waiting timer of a trip the driver has arrived for (`arrivedAt` + the fare's waiting terms); null before.
+WaitingTerms? waitingOf(LiveTripUpdate update) {
+  final raw = update.json['arrivedAt'];
+  final at = raw is String ? DateTime.tryParse(raw)?.toLocal() : null;
+  final quote = update.trip.quote;
+  if (at == null) return null;
+  return quote?.waitingFrom(at) ?? WaitingTerms(arrivedAt: at, perMin: Seed.vehicle(update.trip.vehicle).fareRule.waitPerMin);
+}

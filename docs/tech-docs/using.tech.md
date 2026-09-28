@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -168,9 +168,25 @@ Never commit real `.env` files.
   perKm·km + perMin·min) × multiplier))`, each line floored; the multiplier never applies to the minimum-fare top-up
   (since 28 Sep 2026; before, a short surged ride paid minFare × multiplier). Quotes cap the multiplier at the
   `maxMultiplier` setting.
+- **Waiting charge (28 Sep 2026, like Namma Yatri's `countWaitingCharge`):** after the driver marks Arrived, the first
+  `freeWaitMin` (setting, default 3) minutes are free; every started minute after that until the ride starts costs the
+  vehicle's `waitPerMin` (built-in `fare-rules.ts`: bike 1, auto 1, cab 2, goods bike 1, 3-wheeler 2, mini truck 3,
+  pickup 3, truck 4; per city `CityFareRule.waitPerMin`, null = built-in), capped at `waitMaxCharge` (setting, default
+  ₹30). Every quote carries the terms (`freeWaitMin`, `waitPerMin`, `waitMaxCharge`) and `waitingCharge: 0`; they are
+  stored with the trip's fare, so a later settings change doesn't touch booked trips. On `/start` the server computes
+  it from `arrivedAt` to `startedAt` (`waitingCharge` in `fare-engine.ts`: 3:00 → ₹0, 3:01 → one minute, 5:30 → three)
+  and stores it in the same guarded update as its own line: `fare.waitingCharge`, `fare.total` and `fareTotal` grow by
+  it; the multiplier never applies to it (`subtotal + peakCharge + waitingCharge = total`). A retried start doesn't
+  charge twice. Rides **and parcels** (same `/start` path; the passenger parcel app has no arrived screen, so only the
+  driver sees the timer there). Old fares without terms use today's settings and rate. Shared cases in
+  `fare_cases.json` → `waitingCases` (TS + Dart). Apps: P-15 and D-17 / D-21 (at the pickup) show `WaitingTimerChip`
+  (rido_ui: "Free waiting · 2:45 left", then "Waiting charge ₹3"); the fare breakdowns (P-11 / P-19 sheet, P-22 and its
+  receipt, D-23b) show "Waiting charge" only when it is above 0; driver earnings trips carry `waitingCharge`; the
+  driver's job fare is refreshed from the start response (D-19 collects the right amount). Admin: trip Fare card line,
+  "Waiting ₹/min" column in Cities › Fares, Settings › Waiting charge. Migration `20260928180000_waiting_charge`.
 - **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds,
   offerSeconds, maxCandidates, maxReassigns, notMovingMinMin, notMovingEtaFactor, notMovingMinProgressM,
-  notMovingRecheckMin, noShowWaitMin, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
+  notMovingRecheckMin, noShowWaitMin, freeWaitMin, waitMaxCharge, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
   contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app

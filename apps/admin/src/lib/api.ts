@@ -166,6 +166,7 @@ export interface FareInput {
   readonly perKm: number;
   readonly perMin: number;
   readonly minFare: number;
+  readonly waitPerMin?: number;
   readonly isActive?: boolean;
 }
 

@@ -344,7 +344,8 @@ model Trip {
   dropCell           String?
   distanceKm         Float
   durationMin        Int
-  /// Itemised quote: base, distance, time, topUp, subtotal, multiplier, peak, total.
+  /// Itemised quote: base, distance, time, topUp, subtotal, multiplier, peak, waitingCharge (set at start), the waiting
+  /// terms (freeWaitMin, waitPerMin, waitMaxCharge), total.
   fare               Json
   fareTotal          Int
   /// "Book any" (like Namma Yatra): other vehicles the passenger added while searching, and their quotes by kind.
@@ -543,6 +544,8 @@ model CityFareRule {
   perKm       Float
   perMin      Float
   minFare     Int
+  /// Waiting charge per started minute after the free minutes (null = the built-in rate for the vehicle).
+  waitPerMin  Int?
   isActive    Boolean     @default(true)
   updatedAt   DateTime    @updatedAt
   city        City        @relation(fields: [cityId], references: [id], onDelete: Cascade)

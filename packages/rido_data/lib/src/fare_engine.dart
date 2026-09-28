@@ -32,6 +32,10 @@ abstract final class FareEngine {
   /// Multiplier when none is given: no peak markup ("Peak time" shows only above 1.0).
   static const double currentMultiplier = 1.0;
 
+  /// Waiting at the pickup: free minutes and the cap per trip (the API's `freeWaitMin` / `waitMaxCharge` defaults).
+  static const int freeWaitMin = 3;
+  static const int waitMaxCharge = 30;
+
   static const double _eps = 1e-9;
 
   /// Measured road distances for the demo routes, so seed screens match the designs.
@@ -74,7 +78,10 @@ abstract final class FareEngine {
 
   /// [quote] with explicit [rule] rates (per-city fares; shared fixture tests).
   static FareQuote quoteRule(VehicleType vehicle, FareRule rule, RouteEstimate route,
-      {double multiplier = currentMultiplier, double cap = maxMultiplier}) {
+      {double multiplier = currentMultiplier,
+      double cap = maxMultiplier,
+      int freeWaitMin = freeWaitMin,
+      int waitMaxCharge = waitMaxCharge}) {
     final m = multiplier.clamp(1.0, math.max(1.0, cap)).toDouble();
     final base = rule.base;
     final distanceCharge = _floor(rule.perKm * route.distanceKm);
@@ -97,8 +104,16 @@ abstract final class FareEngine {
       peakCharge: total - subtotal,
       total: total,
       pickupEtaMin: vehicle.etaMin,
+      freeWaitMin: freeWaitMin,
+      waitPerMin: rule.waitPerMin,
+      waitMaxCharge: waitMaxCharge,
     );
   }
+
+  /// [q] with its waiting line set to [charge] (replacing any earlier one); the total moves by the difference.
+  /// Waiting is never surged.
+  static FareQuote withWaiting(FareQuote q, int charge) =>
+      q.copyWith(waitingCharge: charge, total: q.total - q.waitingCharge + charge);
 
   /// Quotes for a list of vehicles along one route.
   static List<FareQuote> quoteAll(List<VehicleType> vehicles, RouteEstimate route,

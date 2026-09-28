@@ -57,6 +57,7 @@ class DriverSessionState {
     this.gpsLost = false,
     this.notice,
     this.noShowAt,
+    this.waiting,
   });
 
   final bool online;
@@ -91,6 +92,9 @@ class DriverSessionState {
   /// At the pickup: from then the driver may cancel as "Passenger didn't come" (the server enforces the wait).
   final DateTime? noShowAt;
 
+  /// At the pickup: the waiting timer (free minutes, then the waiting charge the server adds when the ride starts).
+  final WaitingTerms? waiting;
+
   bool get onJob => job != null && phase != JobPhase.none;
 
   DriverSessionState copyWith({
@@ -111,6 +115,7 @@ class DriverSessionState {
     bool? gpsLost,
     SessionNotice? notice,
     DateTime? noShowAt,
+    WaitingTerms? waiting,
   }) =>
       DriverSessionState(
         online: online ?? this.online,
@@ -128,6 +133,7 @@ class DriverSessionState {
         gpsLost: gpsLost ?? this.gpsLost,
         notice: notice ?? this.notice,
         noShowAt: clearJob ? null : (noShowAt ?? this.noShowAt),
+        waiting: clearJob ? null : (waiting ?? this.waiting),
       );
 }
 
@@ -367,12 +373,19 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (job == null) return;
     if (_live) {
       final update = await _jobs.arrived(job.id, at: _position, farReason: farReason);
-      if (ref.mounted) state = state.copyWith(phase: JobPhase.atPickup, etaMin: 0, noShowAt: update.noShowAt ?? _defaultNoShowAt());
+      if (ref.mounted) {
+        state = state.copyWith(
+          phase: JobPhase.atPickup,
+          etaMin: 0,
+          noShowAt: update.noShowAt ?? _defaultNoShowAt(),
+          waiting: waitingOf(update) ?? _defaultWaiting(job),
+        );
+      }
       return;
     }
     _sim.cancelAll();
     _sim.place(job.pickup.location);
-    state = state.copyWith(phase: JobPhase.atPickup, etaMin: 0, noShowAt: _defaultNoShowAt());
+    state = state.copyWith(phase: JobPhase.atPickup, etaMin: 0, noShowAt: _defaultNoShowAt(), waiting: _defaultWaiting(job));
   }
 
   /// D-17 (mock only): true if [code] matches the ride OTP (4829). With the live API the server checks it
@@ -385,9 +398,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
-      await _jobs.start(job.id, otp: job.isDelivery ? null : otp);
+      final update = await _jobs.start(job.id, otp: job.isDelivery ? null : otp);
       if (!ref.mounted) return;
-      state = state.copyWith(phase: JobPhase.toDrop);
+      // The fare now includes any waiting charge.
+      state = state.copyWith(phase: JobPhase.toDrop, job: job.copyWith(fare: update.trip.fare));
       _setLeg(job.pickup.location, job.drop.location, job.vehicle, job.tripMin);
       return;
     }
@@ -489,6 +503,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _scheduleRequest(_t(SimTimings.nextRequest));
   }
 
+  /// Mock mode and an older API without waiting terms: the default free minutes and cap, the vehicle's rate.
+  WaitingTerms _defaultWaiting(RideRequest job) =>
+      WaitingTerms(arrivedAt: DateTime.now(), perMin: Seed.vehicle(job.vehicle).fareRule.waitPerMin);
+
   /// The API's default no-show wait (5 min), for mock mode and an older API without `noShowAt`.
   DateTime _defaultNoShowAt() => DateTime.now().add(const Duration(minutes: 5));
 
@@ -587,7 +605,14 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   Future<void> _restoreJob(LiveTripUpdate update) async {
     final phase = jobPhaseForStatus(update.status);
     final job = rideRequestFromUpdate(update);
-    state = state.copyWith(online: true, job: job, phase: phase, selfieDoneThisSession: true, noShowAt: update.noShowAt);
+    state = state.copyWith(
+      online: true,
+      job: job,
+      phase: phase,
+      selfieDoneThisSession: true,
+      noShowAt: update.noShowAt,
+      waiting: waitingOf(update),
+    );
     _watchJob(job.id);
     try {
       _onFix(await ref.read(driverLocatorProvider).currentFix(), upload: false);

@@ -154,7 +154,7 @@ abstract final class Seed {
   static const bike = VehicleType(
     kind: VehicleKind.bike,
     name: 'Bike',
-    fareRule: FareRule(base: 12, perKm: 5, perMin: 0.15, minFare: 25),
+    fareRule: FareRule(base: 12, perKm: 5, perMin: 0.15, minFare: 25, waitPerMin: 1),
     etaMin: 2,
     seats: 1,
     badge: 'Lowest',
@@ -163,7 +163,7 @@ abstract final class Seed {
   static const auto = VehicleType(
     kind: VehicleKind.auto,
     name: 'Auto',
-    fareRule: FareRule(base: 25, perKm: 9, perMin: 0.3, minFare: 35),
+    fareRule: FareRule(base: 25, perKm: 9, perMin: 0.3, minFare: 35, waitPerMin: 1),
     etaMin: 4,
     seats: 3,
     subscriptionPrice: 2000,
@@ -171,7 +171,7 @@ abstract final class Seed {
   static const cab = VehicleType(
     kind: VehicleKind.cab,
     name: 'Cab',
-    fareRule: FareRule(base: 48, perKm: 15, perMin: 1.5, minFare: 90),
+    fareRule: FareRule(base: 48, perKm: 15, perMin: 1.5, minFare: 90, waitPerMin: 2),
     etaMin: 6,
     seats: 4,
     badge: 'Comfort',
@@ -180,7 +180,7 @@ abstract final class Seed {
   static const goodsBike = VehicleType(
     kind: VehicleKind.goodsBike,
     name: 'Bike',
-    fareRule: FareRule(base: 10, perKm: 5, perMin: 0.05, minFare: 30),
+    fareRule: FareRule(base: 10, perKm: 5, perMin: 0.05, minFare: 30, waitPerMin: 1),
     etaMin: 3,
     capacityKg: 10,
     subscriptionPrice: 2000,
@@ -188,7 +188,7 @@ abstract final class Seed {
   static const threeWheeler = VehicleType(
     kind: VehicleKind.threeWheeler,
     name: '3-wheeler',
-    fareRule: FareRule(base: 50, perKm: 15, perMin: 0.55, minFare: 120),
+    fareRule: FareRule(base: 50, perKm: 15, perMin: 0.55, minFare: 120, waitPerMin: 2),
     etaMin: 6,
     capacityKg: 500,
     badge: 'Best value',
@@ -198,7 +198,7 @@ abstract final class Seed {
   static const miniTruck = VehicleType(
     kind: VehicleKind.miniTruck,
     name: 'Mini truck',
-    fareRule: FareRule(base: 140, perKm: 35, perMin: 0.2, minFare: 300),
+    fareRule: FareRule(base: 140, perKm: 35, perMin: 0.2, minFare: 300, waitPerMin: 3),
     etaMin: 9,
     capacityKg: 750,
     modelHint: 'Tata Ace',
@@ -207,7 +207,7 @@ abstract final class Seed {
   static const pickupTruck = VehicleType(
     kind: VehicleKind.pickup,
     name: 'Pickup',
-    fareRule: FareRule(base: 250, perKm: 45, perMin: 1, minFare: 500),
+    fareRule: FareRule(base: 250, perKm: 45, perMin: 1, minFare: 500, waitPerMin: 3),
     etaMin: 12,
     capacityKg: 1500,
     modelHint: 'Bolero',
@@ -215,7 +215,7 @@ abstract final class Seed {
   static const truck = VehicleType(
     kind: VehicleKind.truck,
     name: 'Truck 14ft / 17ft',
-    fareRule: FareRule(base: 500, perKm: 70, perMin: 1.5, minFare: 1000),
+    fareRule: FareRule(base: 500, perKm: 70, perMin: 1.5, minFare: 1000, waitPerMin: 4),
     etaMin: 15,
     capacityKg: 4000,
     modelHint: '14ft / 17ft',
@@ -526,7 +526,7 @@ abstract final class Seed {
     final d = RidoClock.today;
     DateTime t(int h, int m) => DateTime(d.year, d.month, d.day, h, m);
     return [
-      EarningsTrip(id: 'e1', time: t(15, 42), from: 'Gandhipuram', to: 'Brookefields', fare: 38, paymentMode: PaymentMode.upi, distanceKm: 4.2, durationMin: 14, passengerName: 'Priya'),
+      EarningsTrip(id: 'e1', time: t(15, 42), from: 'Gandhipuram', to: 'Brookefields', fare: 38, paymentMode: PaymentMode.upi, distanceKm: 4.2, durationMin: 14, passengerName: 'Priya', waitingCharge: 3),
       EarningsTrip(id: 'e2', time: t(14, 55), from: 'Town Hall', to: 'Ukkadam', fare: 32, paymentMode: PaymentMode.cash, distanceKm: 1.4, durationMin: 6, passengerName: 'Suresh'),
       EarningsTrip(id: 'e3', time: t(14, 10), from: 'PSG Tech', to: 'Tidel Park', fare: 64, paymentMode: PaymentMode.upi, distanceKm: 3.4, durationMin: 11, passengerName: 'Anitha'),
       EarningsTrip(id: 'e4', time: t(13, 20), from: 'RS Puram', to: 'Saibaba Colony', fare: 41, paymentMode: PaymentMode.cash, distanceKm: 3.1, durationMin: 10, passengerName: 'Gokul'),

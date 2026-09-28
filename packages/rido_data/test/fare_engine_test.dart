@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rido_data/rido_data.dart';
+import 'package:rido_data/src/api/api_mappers.dart' show quoteFromJson;
 
 void main() {
   group('FareEngine', () {
@@ -99,5 +100,60 @@ void main() {
         }, expected);
       });
     }
+  });
+
+  // Same cases as apps/api/src/modules/fares/fare-engine.spec.ts ("shared waiting case").
+  group('shared waiting cases (test/fixtures/fare_cases.json)', () {
+    final cases = (jsonDecode(File('test/fixtures/fare_cases.json').readAsStringSync()) as Map<String, dynamic>)['waitingCases']
+        as List<dynamic>;
+
+    test('has at least 10 cases', () => expect(cases.length, greaterThanOrEqualTo(10)));
+
+    for (final c in cases.cast<Map<String, dynamic>>()) {
+      test(c['name'] as String, () {
+        final input = c['input'] as Map<String, dynamic>;
+        final expected = c['expected'] as Map<String, dynamic>;
+        final vehicle = Seed.vehicle(vehicleKindFromApi(input['vehicleKind']));
+        final q = FareEngine.quoteRule(
+          vehicle,
+          vehicle.fareRule,
+          RouteEstimate(
+            distanceKm: (input['distanceKm'] as num?)?.toDouble() ?? 1,
+            durationMin: (input['durationMin'] as int?) ?? 1,
+          ),
+          multiplier: (input['multiplier'] as num?)?.toDouble() ?? 1,
+          freeWaitMin: (input['freeWaitMin'] as int?) ?? FareEngine.freeWaitMin,
+          waitMaxCharge: (input['waitMaxCharge'] as int?) ?? FareEngine.waitMaxCharge,
+        );
+        expect(q.waitPerMin, expected['waitPerMin']);
+        final arrived = DateTime(2026, 9, 28, 10);
+        final charge = q.waitingFrom(arrived).chargeAt(arrived.add(Duration(seconds: input['waitedSec'] as int)));
+        expect(charge, expected['waitingCharge']);
+        final fare = FareEngine.withWaiting(q, charge);
+        expect(fare.subtotal + fare.peakCharge + fare.waitingCharge, fare.total);
+        if (expected['total'] != null) expect(fare.total, expected['total']);
+      });
+    }
+  });
+
+  group('WaitingTerms', () {
+    final arrived = DateTime(2026, 9, 28, 10);
+    const terms = (freeMin: 3, perMin: 2, maxCharge: 30);
+    final w = WaitingTerms(arrivedAt: arrived, freeMin: terms.freeMin, perMin: terms.perMin, maxCharge: terms.maxCharge);
+
+    test('counts the free minutes down, then charges each started minute', () {
+      expect(w.freeLeft(arrived.add(const Duration(seconds: 15))), const Duration(minutes: 2, seconds: 45));
+      expect(w.freeLeft(arrived.add(const Duration(minutes: 4))), Duration.zero);
+      expect(w.chargeAt(arrived.add(const Duration(minutes: 3))), 0);
+      expect(w.chargeAt(arrived.add(const Duration(minutes: 3, seconds: 1))), 2);
+      expect(w.chargeAt(arrived.add(const Duration(hours: 2))), 30);
+    });
+
+    test('quotes from the API carry the terms; old fares fall back to the vehicle rate', () {
+      final q = quoteFromJson({'vehicleKind': 'CAB', 'total': 132, 'waitingCharge': 4, 'freeWaitMin': 5, 'waitPerMin': 3, 'waitMaxCharge': 40});
+      expect([q.waitingCharge, q.freeWaitMin, q.waitPerMin, q.waitMaxCharge, q.hasWaiting], [4, 5, 3, 40, true]);
+      final old = quoteFromJson({'vehicleKind': 'CAB', 'total': 132});
+      expect([old.waitingCharge, old.freeWaitMin, old.waitPerMin, old.waitMaxCharge, old.hasWaiting], [0, 3, 2, 30, false]);
+    });
   });
 }

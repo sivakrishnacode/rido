@@ -25,6 +25,10 @@ export const SETTING_DEFAULTS = {
   notMovingRecheckMin: 2,
   /** Minutes the driver waits at the pickup before they may cancel as "Passenger didn't come" (no fault). */
   noShowWaitMin: 5,
+  /** Waiting charge: minutes at the pickup (after "Arrived") that are free; then each started minute costs the vehicle's `waitPerMin`. */
+  freeWaitMin: 3,
+  /** Waiting charge cap per trip, in rupees. */
+  waitMaxCharge: 30,
   /** A started trip still running after max(this, stuckDurationFactor × estimated minutes) is flagged for admins. */
   stuckTripMinMin: 120,
   stuckDurationFactor: 4,

@@ -8,7 +8,7 @@ import type { Prisma, Trip } from '../../generated/prisma/client.js';
 import { CancelCode, CancelledBy, Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { MAX_RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
-import { type FareQuote, haversineMeters } from '../fares/fare-engine.js';
+import { type FareQuote, haversineMeters, waitingCharge, waitingTerms, withWaitingCharge } from '../fares/fare-engine.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
 import { DemandService } from '../geo/demand.service.js';
 import { GeoService } from '../geo/geo.service.js';
@@ -329,11 +329,30 @@ export class TripsService {
     if (trip.kind !== TripKind.PARCEL) await this.otpGuard.check({ tripId, expected: trip.otp, given: otp, who: 'rider' });
     const startedAt = new Date();
     const to = trip.kind === TripKind.PARCEL ? TripStatus.PICKED_UP : TripStatus.IN_PROGRESS;
-    const updated = await this.move({ driverId, tripId, to, data: { startedAt } });
+    const waiting = await this.waitingFare(trip, startedAt);
+    const updated = await this.move({ driverId, tripId, to, data: { startedAt, ...waiting } });
     await this.track.setPhase(tripId, 't');
     await Promise.all([this.jobs.cancel(TRIP_JOBS.noShow, tripId), this.jobs.cancel(TRIP_JOBS.pickupCap, tripId)]);
     await this.jobs.schedule(TRIP_JOBS.stuck, tripId, stuckAt(startedAt.getTime(), trip.durationMin, await this.settings.all()), { driverId });
     return updated;
+  }
+
+  /**
+   * The fare with its waiting charge for a start at [startedAt] (driver arrived → start, first `freeWaitMin` free, then
+   * `waitPerMin` per started minute, capped at `waitMaxCharge`; the terms quoted with the fare win over today's
+   * settings). Rides and parcels alike. Nothing to change → `{}`.
+   */
+  private async waitingFare(trip: Trip, startedAt: Date): Promise<{ fare?: Prisma.InputJsonValue; fareTotal?: number }> {
+    if (!trip.arrivedAt) return {};
+    const fare = (trip.fare ?? {}) as Partial<FareQuote> & { total: number };
+    const s = await this.settings.all();
+    const perMin = typeof fare.waitPerMin === 'number' ? fare.waitPerMin : await this.fares.waitPerMin({ lat: trip.pickupLat, lng: trip.pickupLng }, trip.vehicleKind);
+    const terms = waitingTerms(fare, { freeMin: s.freeWaitMin, perMin, maxCharge: s.waitMaxCharge });
+    const charge = waitingCharge({ waitedMs: startedAt.getTime() - trip.arrivedAt.getTime(), ...terms });
+    const was = fare.waitingCharge ?? 0;
+    if (charge === was) return {};
+    const withWait = withWaitingCharge({ ...fare, total: fare.total ?? trip.fareTotal }, charge);
+    return { fare: withWait as unknown as Prisma.InputJsonValue, fareTotal: trip.fareTotal - was + charge };
   }
 
   /**

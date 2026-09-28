@@ -170,6 +170,10 @@ export async function setCityFare(cityId: string, kind: VehicleKind, input: Fare
   if (!Number.isFinite(perKm) || perKm < 0 || perKm > 500) return { ok: false, error: "Per km must be ₹0–₹500" };
   if (!Number.isFinite(perMin) || perMin < 0 || perMin > 100) return { ok: false, error: "Per minute must be ₹0–₹100" };
   if (!Number.isInteger(minFare) || minFare < 0 || minFare > 20_000) return { ok: false, error: "Minimum fare must be a whole number, ₹0–₹20,000" };
+  const { waitPerMin } = input;
+  if (waitPerMin !== undefined && (!Number.isInteger(waitPerMin) || waitPerMin < 0 || waitPerMin > 100)) {
+    return { ok: false, error: "Waiting per minute must be a whole number, ₹0–₹100" };
+  }
   const res = await run(() => adminApi.setFare(cityId, kind, input), "Fare saved", [`/cities/${cityId}`]);
   return plain(res);
 }

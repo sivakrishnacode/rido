@@ -205,6 +205,12 @@ export interface FareBreakdown {
   readonly subtotal: number;
   readonly multiplier?: number;
   readonly peakCharge: number;
+  /** Waiting at the pickup past the free minutes (set when the ride starts; never surged). */
+  readonly waitingCharge?: number;
+  /** The waiting terms quoted with the fare. */
+  readonly freeWaitMin?: number;
+  readonly waitPerMin?: number;
+  readonly waitMaxCharge?: number;
   readonly total: number;
   readonly distanceKm?: number;
   readonly durationMin?: number;
@@ -404,6 +410,8 @@ export interface CityFareRule {
   readonly perKm: number;
   readonly perMin: number;
   readonly minFare: number;
+  /** Waiting charge per started minute (null = the built-in rate). */
+  readonly waitPerMin: number | null;
   readonly isActive: boolean;
   readonly updatedAt: string;
 }
@@ -421,6 +429,8 @@ export interface CityFare {
   readonly perKm: number;
   readonly perMin: number;
   readonly minFare: number;
+  /** Waiting charge per started minute after the free minutes (the built-in rate when the city has none). */
+  readonly waitPerMin: number;
   readonly isActive: boolean;
   readonly isDefault: boolean;
 }
@@ -543,6 +553,9 @@ export interface Settings {
   readonly notMovingMinProgressM: number;
   readonly notMovingRecheckMin: number;
   readonly noShowWaitMin: number;
+  /** Waiting charge: free minutes after "Arrived", then the vehicle's waitPerMin per started minute, up to the cap. */
+  readonly freeWaitMin: number;
+  readonly waitMaxCharge: number;
   readonly stuckTripMinMin: number;
   readonly stuckDurationFactor: number;
   readonly pickupHardCapMin: number;

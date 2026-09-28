@@ -31,9 +31,15 @@ class P22TripDetailsScreen extends ConsumerWidget {
     if (diff == 0) return q;
     // Put the difference on the distance line (the part that varies with the real route);
     // if that would go negative, the rest comes off the peak line.
+    // Waiting is its own line and never moves.
     final distance = (q.distanceCharge + diff).clamp(0, 1 << 30);
     final subtotal = q.base + distance + q.timeCharge + q.minFareTopUp;
-    return q.copyWith(distanceCharge: distance, subtotal: subtotal, peakCharge: trip.fare - subtotal, total: trip.fare);
+    return q.copyWith(
+      distanceCharge: distance,
+      subtotal: subtotal,
+      peakCharge: trip.fare - subtotal - q.waitingCharge,
+      total: trip.fare,
+    );
   }
 
   @override
@@ -80,7 +86,8 @@ class _Details extends StatelessWidget {
         '${q.distanceKm.toStringAsFixed(1)} km · ${q.durationMin} min',
         'Base ${formatInr(q.base)} · Distance ${formatInr(q.distanceCharge)} · Time ${formatInr(q.timeCharge)}'
             '${q.minFareTopUp > 0 ? ' · Minimum fare ${formatInr(q.minFareTopUp)}' : ''}'
-            '${q.hasPeak ? ' · Peak ${formatInr(q.peakCharge)}' : ''}',
+            '${q.hasPeak ? ' · Peak ${formatInr(q.peakCharge)}' : ''}'
+            '${q.hasWaiting ? ' · Waiting ${formatInr(q.waitingCharge)}' : ''}',
         'Total: ${formatInr(trip.fare)} (paid to the driver, ${trip.paymentMode == PaymentMode.upi ? 'UPI' : 'cash'})',
       ].join('\n');
 
@@ -289,6 +296,7 @@ class _Details extends StatelessWidget {
                           tag: '${quote.multiplier.toStringAsFixed(1)}x', signed: true)
                     else if (quote.peakCharge != 0)
                       FareLine('Adjustment', quote.peakCharge, signed: true),
+                    if (quote.hasWaiting) FareBreakdown.waitingLine(quote),
                     const FareLine('Rido commission', 0, tag: '0%'),
                   ],
                   footer: Text(
@@ -414,6 +422,8 @@ class _FareTable extends StatelessWidget {
               tag: pill('${quote.multiplier.toStringAsFixed(1)}x', RidoColors.warningTint, RidoColors.warningText))
         else if (quote.peakCharge != 0)
           row('Adjustment', formatInrSigned(quote.peakCharge)),
+        if (quote.hasWaiting)
+          row('Waiting charge · after ${quote.freeWaitMin} free min', formatInrSigned(quote.waitingCharge)),
         row('Rido commission', formatInr(0),
             tag: pill('0%', RidoColors.coral50, RidoColors.coral600), amountColor: RidoColors.success),
         const Divider(height: 20),

@@ -18,14 +18,14 @@ import { previewFare } from "@/lib/validation";
 
 import { resetCityFare, setCityFare } from "../../actions";
 
-type Row = { base: string; perKm: string; perMin: string; minFare: string };
+type Row = { base: string; perKm: string; perMin: string; minFare: string; waitPerMin: string };
 
 function toRow(f: CityFare): Row {
-  return { base: String(f.base), perKm: String(f.perKm), perMin: String(f.perMin), minFare: String(f.minFare) };
+  return { base: String(f.base), perKm: String(f.perKm), perMin: String(f.perMin), minFare: String(f.minFare), waitPerMin: String(f.waitPerMin) };
 }
 
 function parseRow(r: Row) {
-  return { base: Number(r.base), perKm: Number(r.perKm), perMin: Number(r.perMin), minFare: Number(r.minFare) };
+  return { base: Number(r.base), perKm: Number(r.perKm), perMin: Number(r.perMin), minFare: Number(r.minFare), waitPerMin: Number(r.waitPerMin) };
 }
 
 function rowErrors(r: Row): string | null {
@@ -34,6 +34,7 @@ function rowErrors(r: Row): string | null {
   if (r.perKm === "" || !(v.perKm >= 0 && v.perKm <= 500)) return "Per km: ₹0–500";
   if (r.perMin === "" || !(v.perMin >= 0 && v.perMin <= 100)) return "Per min: ₹0–100";
   if (r.minFare === "" || !Number.isInteger(v.minFare) || v.minFare < 0 || v.minFare > 20_000) return "Min fare: whole ₹0–20,000";
+  if (r.waitPerMin === "" || !Number.isInteger(v.waitPerMin) || v.waitPerMin < 0 || v.waitPerMin > 100) return "Waiting: whole ₹0–100";
   return null;
 }
 
@@ -65,6 +66,7 @@ function FareRow({ cityId, fare, row, onChange }: { cityId: string; fare: CityFa
       <TableCell>{cell("perKm", "0.5", "per km")}</TableCell>
       <TableCell>{cell("perMin", "0.05", "per minute")}</TableCell>
       <TableCell>{cell("minFare", "1", "minimum fare")}</TableCell>
+      <TableCell>{cell("waitPerMin", "1", "waiting per minute")}</TableCell>
       <TableCell className="pr-4">
         <div className="flex items-center justify-end gap-1">
           {error && isDirty && <span className="mr-1 text-xs text-error">{error}</span>}
@@ -118,7 +120,8 @@ export function FaresEditor({ cityId, fares }: { cityId: string; fares: CityFare
         <CardHeader className="border-b">
           <CardTitle className="font-semibold">Fares</CardTitle>
           <CardDescription>
-            fare = max(min fare, (base + per km × km + per min × min) × multiplier), each line floored to the rupee.
+            fare = max(min fare, (base + per km × km + per min × min) × multiplier), each line floored to the rupee. Waiting at
+            the pickup is added at start: the vehicle&apos;s rate per started minute after the free minutes, never surged.
           </CardDescription>
         </CardHeader>
         <Table>
@@ -129,13 +132,14 @@ export function FaresEditor({ cityId, fares }: { cityId: string; fares: CityFare
               <TableHead>Per km ₹</TableHead>
               <TableHead>Per min ₹</TableHead>
               <TableHead>Min fare ₹</TableHead>
+              <TableHead title="Per started minute after the free waiting minutes (Settings › Waiting charge)">Waiting ₹/min</TableHead>
               <TableHead className="pr-4" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {fares.map((f) => (
               <FareRow
-                key={`${f.vehicleKind}-${f.isDefault}-${f.base}-${f.perKm}-${f.perMin}-${f.minFare}`}
+                key={`${f.vehicleKind}-${f.isDefault}-${f.base}-${f.perKm}-${f.perMin}-${f.minFare}-${f.waitPerMin}`}
                 cityId={cityId}
                 fare={f}
                 row={rows[f.vehicleKind] ?? toRow(f)}
@@ -198,6 +202,9 @@ export function FaresEditor({ cityId, fares }: { cityId: string; fares: CityFare
                 <dt>Total</dt>
                 <dd className="tabular-nums">{formatInr(quote.total)}</dd>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Plus waiting: {formatInr(parseRow(row).waitPerMin)} per started minute after the free minutes (Settings).
+              </p>
             </dl>
           ) : (
             <p className="text-sm text-error">Fix this vehicle&apos;s rates to see a preview.</p>
