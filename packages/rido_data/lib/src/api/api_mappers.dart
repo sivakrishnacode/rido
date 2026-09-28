@@ -87,6 +87,7 @@ FareQuote quoteFromJson(Json j) => FareQuote(
           ? _i(j['waitPerMin'])
           : vehicleTypeFor(vehicleKindFromApi(j['vehicleKind'])).fareRule.waitPerMin,
       waitMaxCharge: _i(j['waitMaxCharge'], FareEngine.waitMaxCharge),
+      previousCancellationFee: _i(j['previousCancellationFee']),
     );
 
 /// A driver (`Driver` with its `user`).
@@ -350,6 +351,7 @@ EarningsSummary earningsFromJson(Json j) => EarningsSummary(
             to: _s(t['to']),
             fare: _i(t['fare']),
             waitingCharge: _i(t['waitingCharge']),
+            previousCancellationFee: _i(t['previousCancellationFee']),
             paymentMode: enumFromApi(PaymentMode.values, t['paymentMode'], PaymentMode.cash),
             distanceKm: _d(t['distanceKm']),
             durationMin: _i(t['durationMin']),

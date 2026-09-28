@@ -3,7 +3,7 @@ import type { Response } from 'express';
 
 import { Roles } from '../../core/auth/roles.decorator.js';
 import { FileStorageService } from '../../core/storage/file-storage.service.js';
-import type { Announcement, AuditLog, Payment } from '../../generated/prisma/client.js';
+import type { Announcement, AuditLog, CancellationDue, Payment } from '../../generated/prisma/client.js';
 import { Role } from '../../generated/prisma/enums.js';
 import { DemandService, DemandSnapshot } from '../geo/demand.service.js';
 import { HexStatsService, type HexStatsSummary } from '../geo/hex-stats.service.js';
@@ -82,6 +82,12 @@ export class AdminOpsController {
   @Get('payments')
   payments(@Query() q: ListQueryDto): Promise<Paged<Payment>> {
     return this.ops.payments(q);
+  }
+
+  /** Cancellation fees report (who owed whom; the ride that collected it). */
+  @Get('cancellation-dues')
+  cancellationDues(@Query() q: ListQueryDto): Promise<Paged<CancellationDue> & { totals: { pending: number; applied: number } }> {
+    return this.ops.cancellationDues(q);
   }
 
   @Get('announcements')

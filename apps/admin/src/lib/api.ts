@@ -14,6 +14,7 @@ import type {
   AuditLog,
   City,
   CityDetail,
+  CancellationDue,
   CityFare,
   CityFareRule,
   CityListItem,
@@ -237,6 +238,8 @@ export const adminApi = {
   // Operations
   live: () => apiFetch<LiveData>("/admin/live"),
   payments: (q: ListQuery = {}) => apiFetch<Paged<PaymentRow>>("/admin/payments", { query: listQuery(q) }),
+  cancellationDues: (q: ListQuery = {}) =>
+    apiFetch<Paged<CancellationDue> & { totals: { pending: number; applied: number } }>("/admin/cancellation-dues", { query: listQuery(q) }),
   announcements: () => apiFetch<Announcement[]>("/admin/announcements"),
   createAnnouncement: (data: AnnouncementInput) => apiFetch<Announcement>("/admin/announcements", { method: "POST", body: data }),
   setAnnouncementActive: (id: string, isActive: boolean) =>

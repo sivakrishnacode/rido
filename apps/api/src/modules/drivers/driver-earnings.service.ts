@@ -30,6 +30,8 @@ export interface Earnings {
     fare: number;
     /** Part of [fare] paid for waiting at the pickup (0 = none). */
     waitingCharge: number;
+    /** Part of [fare] that was the passenger's earlier cancellation fee (collected by this driver, owed to another). */
+    previousCancellationFee: number;
     paymentMode: string;
     distanceKm: number;
     durationMin: number;
@@ -120,6 +122,7 @@ export class DriverEarningsService {
         to: t.dropName,
         fare: t.fareTotal,
         waitingCharge: fareLine(t.fare, 'waitingCharge'),
+        previousCancellationFee: fareLine(t.fare, 'previousCancellationFee'),
         paymentMode: t.paymentMode,
         distanceKm: t.distanceKm,
         durationMin: t.startedAt && t.endedAt ? Math.max(1, Math.round((t.endedAt.getTime() - t.startedAt.getTime()) / 60_000)) : t.durationMin,

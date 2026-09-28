@@ -5,7 +5,7 @@ import type { AuthUser } from '../../core/auth/auth-user.js';
 import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
-import { CancelCode, CancelFault, CancelledBy, Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
+import { CancelCode, CancelFault, CancelledBy, DueStatus, Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { MAX_RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
 import { type FareQuote, haversineMeters, waitingCharge, waitingTerms, withWaitingCharge } from '../fares/fare-engine.js';
@@ -23,6 +23,7 @@ import type { BookTripDto } from './dto/book-trip.dto.js';
 import type { CancelTripDto } from './dto/cancel-trip.dto.js';
 import { resolveCancel } from './cancel-codes.js';
 import { cancelSignals, type CancelSignals, faultVerdict, type FaultVerdict } from './cancel-fault.js';
+import { cancellationDueAmount, withCancellationFee } from './cancellation-dues.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
 import { checkNearStop, positionForCheck } from './trip-position.js';
@@ -59,7 +60,7 @@ const TRIP_INCLUDE = {
 type CancelInfo = { by: CancelledBy; code: CancelCode; note: string | null };
 
 /** The verdict of one cancellation and what it was based on. */
-type Judged = { signals: CancelSignals; verdict: FaultVerdict };
+type Judged = { signals: CancelSignals; verdict: FaultVerdict; /** Cancellation fee owed to the driver (0 = none). */ due: number };
 
 /**
  * "Passenger didn't come" only after the driver has waited at the pickup (`noShowAt`); before that → 400
@@ -389,17 +390,45 @@ export class TripsService {
       isDropFar: !!check.farReason || (check.distanceM ?? 0) > s.dropRadiusM,
     });
     const review = notes.length ? { needsReview: true, reviewNote: mergeReviewNote(trip.reviewNote, notes) } : {};
+    const dues = await this.pendingDues(trip, s.cancellationFeeEnabled);
     const updated = await this.move({
       driverId,
       tripId,
       to: isParcel ? TripStatus.DELIVERED : TripStatus.COMPLETED,
-      data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason, ...path, ...review },
+      data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason, ...path, ...review, ...dues.fare },
       // Counted in the same transaction as the guarded status change, so a double tap counts the ride once.
-      after: (tx) => tx.driver.update({ where: { id: driverId }, data: { ridesCount: { increment: 1 } } }),
+      after: async (tx) => {
+        await tx.driver.update({ where: { id: driverId }, data: { ridesCount: { increment: 1 } } });
+        if (dues.ids.length === 0) return;
+        const { count } = await tx.cancellationDue.updateMany({
+          where: { id: { in: dues.ids }, status: DueStatus.PENDING },
+          data: { status: DueStatus.APPLIED, appliedTripId: tripId, appliedAt: new Date() },
+        });
+        // Taken by another ride meanwhile: roll back, the retry recounts.
+        if (count !== dues.ids.length) throw new ConflictException('This trip has changed. Please try again');
+      },
     });
     await this.location.releaseBusy(driverId, tripId);
     await this.clearTripJobs(tripId);
     return updated;
+  }
+
+  /**
+   * The passenger's unpaid cancellation fees, added to this ride's fare as "Previous cancellation fee" (rides only,
+   * only while `cancellationFeeEnabled`); the driver collects them in cash. Nothing → no fare change.
+   */
+  private async pendingDues(trip: Trip, isEnabled: boolean): Promise<{ ids: string[]; fare: { fare?: Prisma.InputJsonValue; fareTotal?: number } }> {
+    if (!isEnabled || trip.kind !== TripKind.RIDE) return { ids: [], fare: {} };
+    const dues = await this.prisma.cancellationDue.findMany({
+      where: { passengerId: trip.passengerId, status: DueStatus.PENDING, tripId: { not: trip.id } },
+      select: { id: true, amount: true },
+    });
+    const fee = dues.reduce((a, d) => a + d.amount, 0);
+    if (fee === 0) return { ids: [], fare: {} };
+    const fare = (trip.fare ?? {}) as { total?: number; previousCancellationFee?: number };
+    const was = fare.previousCancellationFee ?? 0;
+    const withFee = withCancellationFee({ ...fare, total: fare.total ?? trip.fareTotal }, fee);
+    return { ids: dues.map((d) => d.id), fare: { fare: withFee as unknown as Prisma.InputJsonValue, fareTotal: trip.fareTotal - was + fee } };
   }
 
   /**
@@ -475,7 +504,7 @@ export class TripsService {
         },
       });
       if (count === 0) return false;
-      await tx.tripCancellation.create({ data: this.cancellationRow(trip, c, true, judged) });
+      await this.recordCancellation(tx, trip, c, true, judged);
       return true;
     });
     if (!applied) return null;
@@ -515,7 +544,7 @@ export class TripsService {
         data: { status: TripStatus.CANCELLED, cancelledBy: c.by, cancelCode: c.code, cancelReason: c.note, cancelledAt: new Date() },
       });
       if (count === 0) return false;
-      await tx.tripCancellation.create({ data: this.cancellationRow(trip, history, false, judged) });
+      await this.recordCancellation(tx, trip, history, false, judged);
       return true;
     });
   }
@@ -526,7 +555,19 @@ export class TripsService {
     const at = trip.driverId ? await this.location.position(trip.driverId).catch(() => null) : null;
     const nowM = at ? Math.round(haversineMeters(at, { lat: trip.pickupLat, lng: trip.pickupLng })) : null;
     const signals = cancelSignals({ by: c.by, code: c.code, trip, nowM, now, noShowWaitMin: s.noShowWaitMin, freeWaitMin: s.freeWaitMin });
-    return { signals, verdict: faultVerdict(signals) };
+    const verdict = faultVerdict(signals);
+    const due = cancellationDueAmount({ enabled: s.cancellationFeeEnabled, fee: s.cancellationFee, verdict, signals });
+    return { signals, verdict, due };
+  }
+
+  /** The history row of a cancel and, when the passenger owes a cancellation fee, the due (owed to the driver). */
+  private async recordCancellation(tx: Prisma.TransactionClient, trip: Trip, c: CancelInfo, reassigned: boolean, judged: Judged): Promise<void> {
+    const row = await tx.tripCancellation.create({ data: this.cancellationRow(trip, c, reassigned, judged) });
+    if (judged.due > 0 && trip.driverId) {
+      await tx.cancellationDue.create({
+        data: { passengerId: trip.passengerId, tripId: trip.id, cancellationId: row.id, owedToDriverId: trip.driverId, amount: judged.due },
+      });
+    }
   }
 
   private cancellationRow(trip: Trip, c: CancelInfo, reassigned: boolean, judged: Judged): Prisma.TripCancellationUncheckedCreateInput {

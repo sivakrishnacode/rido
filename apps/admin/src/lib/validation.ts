@@ -25,6 +25,8 @@ const RULES: Record<string, (v: SettingValue) => string | null> = {
   noShowWaitMin: (v) => (inRange(v, 1, 30, true) ? null : "No-show wait must be 1–30 whole minutes"),
   freeWaitMin: (v) => (inRange(v, 0, 30, true) ? null : "Free waiting must be 0–30 whole minutes"),
   waitMaxCharge: (v) => (inRange(v, 0, 1000, true) ? null : "Waiting cap must be ₹0–₹1,000 (whole rupees)"),
+  cancellationFeeEnabled: (v) => (typeof v === "boolean" ? null : "Cancellation fee must be on or off"),
+  cancellationFee: (v) => (inRange(v, 0, 500, true) ? null : "Cancellation fee must be ₹0–₹500 (whole rupees)"),
   stuckTripMinMin: (v) => (inRange(v, 30, 720, true) ? null : "Stuck trip must be 30–720 whole minutes"),
   stuckDurationFactor: (v) => (inRange(v, 1, 10) ? null : "Stuck factor must be 1–10"),
   pickupHardCapMin: (v) => (inRange(v, 15, 240, true) ? null : "Cancel after must be 15–240 whole minutes"),

@@ -29,6 +29,13 @@ export const SETTING_DEFAULTS = {
   freeWaitMin: 3,
   /** Waiting charge cap per trip, in rupees. */
   waitMaxCharge: 30,
+  /**
+   * Cancellation fee. Off until the owner decides the policy (rides are cash, there is no settlement between drivers).
+   * On: a passenger who cancels after the driver arrived and waited the free minutes (verdict PASSENGER) owes
+   * [cancellationFee] to that driver, added to their next completed ride as "Previous cancellation fee".
+   */
+  cancellationFeeEnabled: false,
+  cancellationFee: 10,
   /** A started trip still running after max(this, stuckDurationFactor × estimated minutes) is flagged for admins. */
   stuckTripMinMin: 120,
   stuckDurationFactor: 4,

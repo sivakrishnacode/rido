@@ -48,6 +48,7 @@ class FareBreakdown extends StatelessWidget {
         FareLine('Subtotal', q.subtotal, emphasis: true),
         if (q.hasPeak) FareLine('Peak time', q.peakCharge, tag: '${q.multiplier.toStringAsFixed(1)}x', signed: true),
         if (q.hasWaiting) waitingLine(q),
+        if (q.hasCancellationFee) cancellationFeeLine(q),
         const FareLine('Rido commission', 0, tag: '0%'),
       ],
     );
@@ -56,6 +57,10 @@ class FareBreakdown extends StatelessWidget {
   /// "Waiting charge +₹3 · after 3 free min" (only add it when [FareQuote.hasWaiting]).
   static FareLine waitingLine(FareQuote q) =>
       FareLine('Waiting charge', q.waitingCharge, note: 'after ${q.freeWaitMin} free min', signed: true);
+
+  /// "Previous cancellation fee +₹10" (only add it when [FareQuote.hasCancellationFee]).
+  static FareLine cancellationFeeLine(FareQuote q) =>
+      FareLine('Previous cancellation fee', q.previousCancellationFee, signed: true);
 
   final List<FareLine> lines;
   final int total;

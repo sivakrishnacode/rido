@@ -416,10 +416,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
-      await _jobs.complete(job.id, at: _position, farReason: farReason);
+      final update = await _jobs.complete(job.id, at: _position, farReason: farReason);
       if (!ref.mounted) return;
       _unwatchJob();
-      state = state.copyWith(phase: JobPhase.collect, etaMin: 0);
+      // The final fare (it may include the passenger's earlier cancellation fee): D-19 collects this.
+      state = state.copyWith(phase: JobPhase.collect, etaMin: 0, job: job.copyWith(fare: update.trip.fare));
       return;
     }
     _sim.cancelAll();

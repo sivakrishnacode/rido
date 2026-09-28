@@ -268,6 +268,15 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                   <dd className="tabular-nums">{formatInr(Number(fare.peakCharge ?? 0))}</dd>
                 </div>
               )}
+              {Number(fare.previousCancellationFee ?? 0) > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-navy-700">
+                    Previous cancellation fee
+                    <span className="block text-xs text-muted-foreground">Collected for another driver (Finance › Cancellation fees)</span>
+                  </dt>
+                  <dd className="tabular-nums">{formatInr(Number(fare.previousCancellationFee ?? 0))}</dd>
+                </div>
+              )}
               {Number(fare.waitingCharge ?? 0) > 0 && (
                 <div className="flex justify-between">
                   <dt className="text-navy-700">

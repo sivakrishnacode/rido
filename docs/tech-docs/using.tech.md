@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -186,7 +186,7 @@ Never commit real `.env` files.
   "Waiting ₹/min" column in Cities › Fares, Settings › Waiting charge. Migration `20260928180000_waiting_charge`.
 - **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds,
   offerSeconds, maxCandidates, maxReassigns, notMovingMinMin, notMovingEtaFactor, notMovingMinProgressM,
-  notMovingRecheckMin, noShowWaitMin, freeWaitMin, waitMaxCharge, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
+  notMovingRecheckMin, noShowWaitMin, freeWaitMin, waitMaxCharge, cancellationFeeEnabled, cancellationFee, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
   contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
@@ -286,6 +286,22 @@ Never commit real `.env` files.
     constants. Migration `20260928190000_cancellation_fault` backfills old rows from `isDriverFault` (DRIVER) and the
     no-show / Butterfly codes (PASSENGER), rule `backfill`, no signals. Admin: the trip page's Cancellations list shows
     the verdict, rule and signals; the trips list shows the fault under a cancelled trip's status.
+  - **Cancellation fee (28 Sep 2026, like Namma Yatri's `CancellationDues`; OFF by default):** settings
+    `cancellationFeeEnabled` (default **false**: the owner hasn't decided the policy, rides are cash and there is no
+    settlement between drivers) and `cancellationFee` (default ₹10). While on, a cancellation whose verdict is
+    PASSENGER after the driver had arrived and waited at least `freeWaitMin` (`trips/cancellation-dues.ts`
+    `cancellationDueAmount`: e.g. rule `passenger_after_wait`, or a driver's `PASSENGER_NO_SHOW`) writes a
+    `CancellationDue` (passenger, cancelled trip, `cancellationId`, `owedToDriverId` = the driver who waited,
+    `amount`, `status` PENDING) in the same transaction as the cancellation row. The passenger's next **ride** that
+    completes while the setting is on gets every PENDING due as one fare line `previousCancellationFee` (`fare.total`
+    and `fareTotal` grow; not in the quote at booking) and the dues become APPLIED with `appliedTripId` in the same
+    transaction as the guarded completion (a due taken meanwhile rolls it back → 409, the retry recounts). That
+    ride's driver collects it in cash (the driver app refreshes the job fare from the complete response, so D-19 shows
+    it). No settlement: `GET /v1/admin/cancellation-dues?status=PENDING|APPLIED&page` (passenger, owed-to driver,
+    cancelled trip, the ride and driver that collected it, `totals.pending` / `totals.applied`) feeds admin Finance ›
+    Cancellation fees. Apps show "Previous cancellation fee" on the fare breakdowns, P-22 / receipt and D-23b (driver
+    earnings trips carry `previousCancellationFee`); admin trip page shows the line. Settings › Cancellation fee.
+    Migration `20260928200000_cancellation_dues`.
   - **Reassign on driver cancel (28 Sep 2026, like Namma Yatri's `reAllocateBookingIfPossible`):** a driver cancel in
     `DRIVER_ASSIGNED` / `DRIVER_ARRIVED` no longer ends the trip (`TripsService.dropTrip`): a guarded update puts it
     back to `SEARCHING` (transitions allow both → SEARCHING), clears `driverId` / `assignedAt` / `arrivedAt` / the
@@ -336,7 +352,7 @@ Never commit real `.env` files.
   (`trip.pickup-progress`, `trip.no-show`, `trip.stuck`, `trip.pickup-cap`, see "Trip timeouts"), `offer.expire` (an offer's `offerSeconds` timeout, payload `{driverId}`) and `dispatch.research` (search again 4 s
   after the queue ran out); both are cancelled when the search stops. Before, these were in-memory `setTimeout`s and an
   API restart lost every open offer until the 15 s sweep. `runDue(now)` runs due jobs directly (tests).
-- **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, IdentityVerification, Trip, TripCancellation, Plan, Subscription,
+- **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, IdentityVerification, Trip, TripCancellation, CancellationDue, Plan, Subscription,
   Payment, SupportTicket. Money in whole rupees (Int). Migrations in `apps/api/prisma/migrations`.
 - **Redis keys:**
 
@@ -606,7 +622,7 @@ accepts unknown subtype names without error, so use only catalog names (read the
   zones editor painted on the map with outside-area warning, per-city fares with preview calculator, city settings and
   delete), Plans (price + active per vehicle × period), Settings (pricing, dispatch, driver plans switch, contribute page,
   support phone),
-  Announcements. Finance: Payments. System: Audit log (expandable JSON). Every page has `loading.tsx` skeletons,
+  Announcements. Finance: Payments, Cancellation fees (report of fees owed and collected, 6). System: Audit log (expandable JSON). Every page has `loading.tsx` skeletons,
   `error.tsx` (retry) and empty states.
 - **Maps (Google Maps JavaScript API):** `src/components/map/google/rido-map.tsx` wraps `APIProvider` (`language=en`,
   `region=IN`) + `Map` with a light JSON style (land `#EEF0F3`, white roads, water `#D5E5F1`, parks `#DDEBD8`, POIs,

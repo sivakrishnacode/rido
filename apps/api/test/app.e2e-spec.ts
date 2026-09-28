@@ -502,6 +502,62 @@ describe('Rido API (e2e)', () => {
     expect(detail.cancellations).toMatchObject([{ fault: 'PASSENGER', faultRule: 'passenger_after_wait' }]);
   }, 45_000);
 
+  it('cancellation fee (off by default): owed after a late passenger cancel, collected on the next ride', async () => {
+    const settings = app.get(SettingsService);
+    const redis = app.get(RedisService);
+    /** The driver arrived 4 min ago (accepted 10 min ago) on [tripId]. */
+    const waitedFourMin = (tripId: string) =>
+      prisma.trip.update({ where: { id: tripId }, data: { arrivedAt: new Date(Date.now() - 240_000), assignedAt: new Date(Date.now() - 600_000) } });
+
+    // Off (the default): a late cancel owes nothing.
+    const off = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+    await http.post(`/v1/trips/${off.trip.id}/arrived`).set(off.driver).expect(200);
+    await waitedFourMin(off.trip.id);
+    await http.post(`/v1/trips/${off.trip.id}/cancel`).set(off.pax).send({ code: 'CHANGED_MIND' }).expect(200);
+    expect(await prisma.cancellationDue.count({ where: { tripId: off.trip.id } })).toBe(0);
+    await http.post('/v1/drivers/me/offline').set(off.driver);
+
+    await settings.update({ cancellationFeeEnabled: true });
+    try {
+      // The passenger cancels after the driver waited: ₹10 owed to that driver.
+      const first = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+      await http.post(`/v1/trips/${first.trip.id}/arrived`).set(first.driver).expect(200);
+      await waitedFourMin(first.trip.id);
+      await http.post(`/v1/trips/${first.trip.id}/cancel`).set(first.pax).send({ code: 'CHANGED_MIND' }).expect(200);
+      const due = await prisma.cancellationDue.findFirstOrThrow({ where: { tripId: first.trip.id } });
+      expect(due).toMatchObject({ owedToDriverId: first.driverId, amount: 10, status: 'PENDING', appliedTripId: null });
+      await http.post('/v1/drivers/me/offline').set(first.driver);
+
+      // Their next ride, with another driver, carries it as its own line; that driver collects it.
+      const cells = await redis.keys('h3:drv:BIKE:*');
+      if (cells.length) await redis.del(...cells);
+      const next = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
+      const nextAuth = { Authorization: `Bearer ${next}` };
+      const trip = (await http.post('/v1/trips').set(first.pax).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+      expect(trip.fareTotal).toBe(35); // not in the quote: added at completion
+      expect((await acceptWhenOffered(trip.id, next)).status).toBe(200);
+      await http.post(`/v1/trips/${trip.id}/arrived`).set(nextAuth).expect(200);
+      await http.post(`/v1/trips/${trip.id}/start`).set(nextAuth).send({ otp: trip.otp }).expect(200);
+      await http.post('/v1/drivers/me/location').set(nextAuth).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
+      const done = (await http.post(`/v1/trips/${trip.id}/complete`).set(nextAuth).send({}).expect(200)).body;
+      expect(done).toMatchObject({ fareTotal: 45, fare: { previousCancellationFee: 10, total: 45, subtotal: 35 } });
+      expect(await prisma.cancellationDue.findUniqueOrThrow({ where: { id: due.id } })).toMatchObject({ status: 'APPLIED', appliedTripId: trip.id });
+
+      // The admin report shows who it was owed to and the ride that collected it.
+      const admin = await adminAuth();
+      const report = (await http.get('/v1/admin/cancellation-dues?status=APPLIED').set(admin).expect(200)).body;
+      expect(report.items.find((d: { id: string }) => d.id === due.id)).toMatchObject({
+        amount: 10,
+        owedTo: { id: first.driverId },
+        appliedTrip: { id: trip.id },
+      });
+      expect(report.totals.applied).toBeGreaterThanOrEqual(10);
+      await http.post('/v1/drivers/me/offline').set(nextAuth);
+    } finally {
+      await settings.update({ cancellationFeeEnabled: false });
+    }
+  }, 60_000);
+
   it('charges waiting past the free minutes at start, as its own fare line (not surged)', async () => {
     const { trip, driver } = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
     expect(trip.fare).toMatchObject({ waitingCharge: 0, freeWaitMin: 3, waitPerMin: 1, waitMaxCharge: 30 });

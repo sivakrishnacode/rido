@@ -128,6 +128,12 @@ enum CancelFault {
   SHARED
 }
 
+/// A cancellation fee owed by a passenger: PENDING until it is added to their next completed ride, then APPLIED.
+enum DueStatus {
+  PENDING
+  APPLIED
+}
+
 enum PaymentMode {
   CASH
   UPI
@@ -218,6 +224,7 @@ model User {
   tickets            SupportTicket[]
   devices            DeviceToken[]
   identityChecks     IdentityVerification[]
+  cancellationDues   CancellationDue[]
 }
 
 /// One Didit verification session. Only the last 4 digits of the document number are kept.
@@ -317,6 +324,8 @@ model Driver {
   trips             Trip[]
   cancellations     TripCancellation[]
   subscriptions     Subscription[]
+  /// Cancellation fees passengers owe this driver (they waited, the passenger cancelled).
+  duesOwed          CancellationDue[]
 }
 
 model KycDocument {
@@ -415,6 +424,9 @@ model Trip {
   driver             Driver?            @relation(fields: [driverId], references: [id])
   tickets            SupportTicket[]
   cancellations      TripCancellation[]
+  /// Cancellation fees from this (cancelled) trip, and the fees this (completed) ride's fare collected.
+  dues               CancellationDue[]  @relation("DueTrip")
+  collectedDues      CancellationDue[]  @relation("DueAppliedTrip")
 
   @@index([passengerId, createdAt])
   @@index([driverId, createdAt])
@@ -453,6 +465,33 @@ model TripCancellation {
   @@index([tripId])
   @@index([driverId, createdAt])
   @@index([passengerId, createdAt])
+}
+
+/// A cancellation fee (setting `cancellationFeeEnabled`, off by default): the passenger cancelled after the driver
+/// arrived and waited (verdict PASSENGER), so they owe [amount] to [owedToDriverId]. It is added to the passenger's
+/// next completed ride as "Previous cancellation fee" and that ride's driver collects it in cash; there is no
+/// settlement between drivers (this row records who it was owed to, for the admin report).
+model CancellationDue {
+  id             String    @id @default(cuid())
+  passengerId    String
+  /// The cancelled trip and its cancellation row.
+  tripId         String
+  cancellationId String?   @unique
+  owedToDriverId String
+  amount         Int
+  status         DueStatus @default(PENDING)
+  /// The completed ride whose fare included it.
+  appliedTripId  String?
+  appliedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  passenger      User      @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  trip           Trip      @relation("DueTrip", fields: [tripId], references: [id], onDelete: Cascade)
+  appliedTrip    Trip?     @relation("DueAppliedTrip", fields: [appliedTripId], references: [id], onDelete: SetNull)
+  owedTo         Driver    @relation(fields: [owedToDriverId], references: [id], onDelete: Cascade)
+
+  @@index([passengerId, status])
+  @@index([owedToDriverId, createdAt])
+  @@index([status, createdAt])
 }
 
 /// Price list: one row per vehicle and period (daily / weekly / monthly).

@@ -211,6 +211,8 @@ export interface FareBreakdown {
   readonly freeWaitMin?: number;
   readonly waitPerMin?: number;
   readonly waitMaxCharge?: number;
+  /** The passenger's earlier cancellation fee, added to this completed ride (collected by its driver). */
+  readonly previousCancellationFee?: number;
   readonly total: number;
   readonly distanceKm?: number;
   readonly durationMin?: number;
@@ -325,6 +327,28 @@ export interface SupportTicketBase {
   readonly status: TicketStatus;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export type DueStatus = "PENDING" | "APPLIED";
+export const DUE_STATUSES: readonly DueStatus[] = ["PENDING", "APPLIED"];
+
+/** GET /admin/cancellation-dues item: a passenger's cancellation fee owed to a driver (report only, no settlement). */
+export interface CancellationDue {
+  readonly id: string;
+  readonly amount: number;
+  readonly status: DueStatus;
+  readonly createdAt: string;
+  readonly appliedAt: string | null;
+  readonly passenger: { readonly id: string; readonly name: string | null; readonly phone: string };
+  readonly owedTo: { readonly id: string; readonly plate: string; readonly user: { readonly name: string | null; readonly phone: string } };
+  /** The cancelled trip. */
+  readonly trip: { readonly id: string; readonly createdAt: string; readonly cancelledAt: string | null; readonly pickupName: string };
+  /** The ride whose fare collected it; its driver took the cash. */
+  readonly appliedTrip: {
+    readonly id: string;
+    readonly endedAt: string | null;
+    readonly driver: { readonly id: string; readonly plate: string; readonly user: { readonly name: string | null; readonly phone: string } } | null;
+  } | null;
 }
 
 /** GET /admin/tickets item. */
@@ -563,6 +587,9 @@ export interface Settings {
   /** Waiting charge: free minutes after "Arrived", then the vehicle's waitPerMin per started minute, up to the cap. */
   readonly freeWaitMin: number;
   readonly waitMaxCharge: number;
+  /** Cancellation fee (off by default): owed after a passenger cancels once the driver arrived and waited. */
+  readonly cancellationFeeEnabled: boolean;
+  readonly cancellationFee: number;
   readonly stuckTripMinMin: number;
   readonly stuckDurationFactor: number;
   readonly pickupHardCapMin: number;

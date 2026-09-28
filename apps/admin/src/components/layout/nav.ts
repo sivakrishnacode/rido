@@ -9,6 +9,7 @@ import {
   LifeBuoyIcon,
   MegaphoneIcon,
   RadarIcon,
+  ReceiptIndianRupeeIcon,
   RouteIcon,
   ScrollTextIcon,
   SettingsIcon,
@@ -60,7 +61,13 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { href: "/announcements", label: "Announcements", icon: MegaphoneIcon },
     ],
   },
-  { label: "Finance", items: [{ href: "/payments", label: "Payments", icon: WalletCardsIcon }] },
+  {
+    label: "Finance",
+    items: [
+      { href: "/payments", label: "Payments", icon: WalletCardsIcon },
+      { href: "/cancellation-fees", label: "Cancellation fees", icon: ReceiptIndianRupeeIcon },
+    ],
+  },
   {
     label: "System",
     items: [

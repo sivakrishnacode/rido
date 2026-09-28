@@ -152,6 +152,8 @@ void main() {
     test('quotes from the API carry the terms; old fares fall back to the vehicle rate', () {
       final q = quoteFromJson({'vehicleKind': 'CAB', 'total': 132, 'waitingCharge': 4, 'freeWaitMin': 5, 'waitPerMin': 3, 'waitMaxCharge': 40});
       expect([q.waitingCharge, q.freeWaitMin, q.waitPerMin, q.waitMaxCharge, q.hasWaiting], [4, 5, 3, 40, true]);
+      final fee = quoteFromJson({'vehicleKind': 'BIKE', 'subtotal': 35, 'total': 45, 'previousCancellationFee': 10});
+      expect([fee.previousCancellationFee, fee.hasCancellationFee], [10, true]);
       final old = quoteFromJson({'vehicleKind': 'CAB', 'total': 132});
       expect([old.waitingCharge, old.freeWaitMin, old.waitPerMin, old.waitMaxCharge, old.hasWaiting], [0, 3, 2, 30, false]);
     });

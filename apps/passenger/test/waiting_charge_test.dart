@@ -42,4 +42,22 @@ void main() {
     expect(shown.peakCharge, 0);
     expect(shown.subtotal + shown.peakCharge + shown.waitingCharge, 38);
   });
+
+  test('P-22 keeps an earlier cancellation fee as its own line', () {
+    final base = FareEngine.quote(Seed.bike, const RouteEstimate(distanceKm: 4.2, durationMin: 14));
+    final q = base.copyWith(previousCancellationFee: 10, total: base.total + 10);
+    final trip = Trip(
+      id: 't2',
+      kind: TripKind.ride,
+      vehicle: VehicleKind.bike,
+      pickup: Seed.gandhipuram,
+      drop: Seed.brookefields,
+      fare: 45,
+      status: TripStatus.completed,
+      startedAt: DateTime(2026, 9, 28, 10),
+      quote: q,
+    );
+    final shown = P22TripDetailsScreen.quoteFor(trip);
+    expect([shown.previousCancellationFee, shown.peakCharge, shown.total], [10, 0, 45]);
+  });
 }

@@ -120,7 +120,7 @@ class VehicleType {
 }
 
 /// A fully itemised fare. Every line is a whole rupee and the lines add up exactly to [total]:
-/// subtotal + peakCharge + waitingCharge = total.
+/// subtotal + peakCharge + waitingCharge + previousCancellationFee = total.
 @immutable
 class FareQuote {
   const FareQuote({
@@ -140,6 +140,7 @@ class FareQuote {
     this.freeWaitMin = 3,
     this.waitPerMin = 0,
     this.waitMaxCharge = 30,
+    this.previousCancellationFee = 0,
   });
 
   final VehicleType vehicle;
@@ -168,10 +169,16 @@ class FareQuote {
   final int waitPerMin;
   final int waitMaxCharge;
 
+  /// The passenger's earlier cancellation fee, added to this completed ride (the driver collects it in cash).
+  final int previousCancellationFee;
+
   bool get hasPeak => multiplier > 1.0 && peakCharge > 0;
 
   /// Show the "Waiting charge" line only when there is one.
   bool get hasWaiting => waitingCharge > 0;
+
+  /// Show the "Previous cancellation fee" line only when there is one.
+  bool get hasCancellationFee => previousCancellationFee > 0;
 
   /// The waiting timer for a driver who arrived at [arrivedAt], on this fare's terms.
   WaitingTerms waitingFrom(DateTime arrivedAt) =>
@@ -194,6 +201,7 @@ class FareQuote {
     int? freeWaitMin,
     int? waitPerMin,
     int? waitMaxCharge,
+    int? previousCancellationFee,
   }) =>
       FareQuote(
         vehicle: vehicle ?? this.vehicle,
@@ -212,6 +220,7 @@ class FareQuote {
         freeWaitMin: freeWaitMin ?? this.freeWaitMin,
         waitPerMin: waitPerMin ?? this.waitPerMin,
         waitMaxCharge: waitMaxCharge ?? this.waitMaxCharge,
+        previousCancellationFee: previousCancellationFee ?? this.previousCancellationFee,
       );
 }
 

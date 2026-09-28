@@ -85,6 +85,15 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
+    group: "Cancellation fee",
+    description:
+      "Off by default (policy not decided). On: a passenger who cancels after the driver arrived and waited the free minutes owes this fee to that driver; it is added to their next completed ride as \"Previous cancellation fee\" and that ride's driver collects it in cash. No settlement between drivers: Finance › Cancellation fees shows who it was owed to.",
+    fields: [
+      { key: "cancellationFeeEnabled", label: "Cancellation fee", hint: "Off = nobody is charged for cancelling" },
+      { key: "cancellationFee", label: "Fee", hint: "Per late cancellation", step: "5", suffix: "₹" },
+    ],
+  },
+  {
     group: "Driver plans",
     description: "Off = Rido is free: drivers see no plans and can always go online. Trial and grace apply to new subscriptions when plans are on.",
     fields: [

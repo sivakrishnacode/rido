@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
-import type { Announcement, AuditLog, Payment, Prisma } from '../../generated/prisma/client.js';
+import type { Announcement, AuditLog, CancellationDue, Payment, Prisma } from '../../generated/prisma/client.js';
 import { TripStatus } from '../../generated/prisma/enums.js';
 import type { Paged } from './admin.types.js';
 import type { CreateAnnouncementDto } from './dto/announcement.dto.js';
@@ -60,6 +60,37 @@ export class AdminOpsService {
       this.prisma.payment.count({ where }),
     ]);
     return { items, total, page, pageSize };
+  }
+
+  /**
+   * Cancellation fees (report only, no settlement): who owed whom, for which cancelled trip, and the ride whose
+   * fare collected it (its driver took the cash). `?status=PENDING|APPLIED`. [totals]: sums per status.
+   */
+  async cancellationDues(q: ListQueryDto): Promise<Paged<CancellationDue> & { totals: { pending: number; applied: number } }> {
+    const page = q.page ?? 1;
+    const pageSize = q.pageSize ?? 20;
+    const status = q.status === 'PENDING' || q.status === 'APPLIED' ? q.status : undefined;
+    const where: Prisma.CancellationDueWhereInput = { status };
+    const person = { select: { id: true, name: true, phone: true } } as const;
+    const driver = { select: { id: true, plate: true, user: { select: { name: true, phone: true } } } } as const;
+    const [items, total, sums] = await Promise.all([
+      this.prisma.cancellationDue.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          passenger: person,
+          owedTo: driver,
+          trip: { select: { id: true, createdAt: true, cancelledAt: true, pickupName: true } },
+          appliedTrip: { select: { id: true, endedAt: true, driver } },
+        },
+      }),
+      this.prisma.cancellationDue.count({ where }),
+      this.prisma.cancellationDue.groupBy({ by: ['status'], _sum: { amount: true } }),
+    ]);
+    const sum = (s: string) => sums.find((x) => x.status === s)?._sum.amount ?? 0;
+    return { items, total, page, pageSize, totals: { pending: sum('PENDING'), applied: sum('APPLIED') } };
   }
 
   announcements(): Promise<Announcement[]> {

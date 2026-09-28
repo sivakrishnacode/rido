@@ -38,4 +38,12 @@ void main() {
     expect(labels(waited), contains('Waiting charge'));
     expect(FareBreakdown.fromQuote(waited).total, 38);
   });
+
+  test('a previous cancellation fee is its own line, only when there is one', () {
+    final q = FareEngine.quote(Seed.bike, const RouteEstimate(distanceKm: 4.2, durationMin: 14));
+    List<String> labels(FareQuote q) => [for (final l in FareBreakdown.fromQuote(q).lines) l.label];
+    expect(labels(q), isNot(contains('Previous cancellation fee')));
+    final withFee = q.copyWith(previousCancellationFee: 10, total: q.total + 10);
+    expect(labels(withFee), contains('Previous cancellation fee'));
+  });
 }
