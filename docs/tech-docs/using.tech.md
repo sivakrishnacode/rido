@@ -211,6 +211,12 @@ Never commit real `.env` files.
     reason it proceeds and stores `arrivedDistanceM` / `arrivedFarReason` / `endDistanceM` / `endFarReason` on the trip
     (admin trip page shows them). Parcels: the delivery OTP is checked first. Unknown position → not enforced.
     Errors may carry `code` / `details` (global filter); apps read them as `ApiException.code` / `.tooFar`.
+  - **Guarded status changes (28 Sep 2026):** arrived / start / complete / cancel update with
+    `updateMany where {id, status: <checked status>}` (like accept), so a cancel can't overwrite a ride the driver
+    started at the same moment (the loser gets 409, or cancel re-checks and 400s). Retrying a step that already went
+    through (double tap, lost response) returns the trip (200). Complete counts `Driver.ridesCount` in the same
+    transaction as the guarded update (a double tap counts once). Cancel / complete free the driver
+    (`driver:busy`) only while it still points at that trip. Cancelling a cancelled trip returns it.
   - Global JWT/roles guards now skip non-HTTP contexts: sockets authenticate on connect. (Before this, `trip:join` and
     `driver:location` crashed in the guard, so live tracking never reached passengers.)
 - **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, IdentityVerification, Trip, Plan, Subscription,

@@ -11,6 +11,9 @@ export const DRIVER_H3_RES = 8;
 const RING_SPACING_KM = 0.92;
 const ALIVE_TTL_S = 90;
 
+/** Deletes KEYS[1] only while it still holds ARGV[1] (compare-and-delete). */
+export const DEL_IF_EQUALS = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+
 /** A nearby available driver, found by hexagon rings. */
 export interface NearbyDriver {
   readonly driverId: string;
@@ -71,6 +74,11 @@ export class DriverLocationService {
   async setBusy(driverId: string, tripId: string | null): Promise<void> {
     if (tripId) await this.redis.set(`driver:busy:${driverId}`, tripId);
     else await this.redis.del(`driver:busy:${driverId}`);
+  }
+
+  /** Frees the driver only if they are still busy with [tripId] (not with a trip they have moved on to). */
+  async releaseBusy(driverId: string, tripId: string): Promise<void> {
+    await this.redis.eval(DEL_IF_EQUALS, 1, `driver:busy:${driverId}`, tripId);
   }
 
   activeTrip(driverId: string): Promise<string | null> {

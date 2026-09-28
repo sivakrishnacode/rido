@@ -132,8 +132,17 @@ describe('Rido API (e2e)', () => {
     await http.post(`/v1/trips/${trip.id}/arrived`).set(auth).expect(200);
     await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: '0000' === trip.otp ? '1111' : '0000' }).expect(400);
     await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: trip.otp }).expect(200);
-    // Ended at the drop (farther than dropRadiusM would need a reason).
-    const done = await http.post(`/v1/trips/${trip.id}/complete`).set(auth).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(200);
+    // A retried start is fine; the passenger can't cancel a ride that has started.
+    expect((await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: trip.otp }).expect(200)).body.status).toBe('IN_PROGRESS');
+    await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${passenger}`).send({}).expect(400);
+    // Ended at the drop (farther than dropRadiusM would need a reason). A double tap counts the ride once.
+    const end = { lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng };
+    const [done, again] = await Promise.all([
+      http.post(`/v1/trips/${trip.id}/complete`).set(auth).send(end),
+      http.post(`/v1/trips/${trip.id}/complete`).set(auth).send(end),
+    ]);
+    expect([done.status, again.status]).toEqual([200, 200]);
+    expect((await prisma.driver.findUniqueOrThrow({ where: { id: reg.body.driver.id } })).ridesCount).toBe(1);
     await http.post(`/v1/trips/${trip.id}/rate`).set('Authorization', `Bearer ${passenger}`).send({ rating: 5 }).expect(200);
 
     // Assert

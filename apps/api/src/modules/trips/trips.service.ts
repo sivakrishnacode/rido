@@ -241,6 +241,7 @@ export class TripsService {
   /** Driver at the pickup. Too far from it without a reason → 422 TOO_FAR (see [checkNearStop]). */
   async arrived(driverId: string, tripId: string, pos: PositionCheckDto = {}): Promise<Trip> {
     const trip = await this.driverTrip(driverId, tripId);
+    if (trip.status === TripStatus.DRIVER_ARRIVED) return this.current(tripId);
     const check = checkNearStop({
       stop: 'pickup',
       at: await this.driverPosition(driverId, pos),
@@ -260,6 +261,8 @@ export class TripsService {
   /** Ride: driver enters the passenger's OTP to start. Parcel: marks picked up. */
   async start(driverId: string, tripId: string, otp?: string): Promise<Trip> {
     const trip = await this.driverTrip(driverId, tripId);
+    // A retry (double tap, lost response) of a start that already went through.
+    if (trip.status === TripStatus.IN_PROGRESS || trip.status === TripStatus.PICKED_UP) return this.current(tripId);
     if (trip.kind === TripKind.PARCEL) return this.move({ driverId, tripId, to: TripStatus.PICKED_UP, data: { startedAt: new Date() } });
     if (otp !== trip.otp) throw new BadRequestException('Wrong OTP, please try again');
     return this.move({ driverId, tripId, to: TripStatus.IN_PROGRESS, data: { startedAt: new Date() } });
@@ -272,6 +275,10 @@ export class TripsService {
   async complete(driverId: string, tripId: string, body: { otp?: string } & PositionCheckDto = {}): Promise<Trip> {
     const trip = await this.driverTrip(driverId, tripId);
     const isParcel = trip.kind === TripKind.PARCEL;
+    if (trip.status === TripStatus.COMPLETED || trip.status === TripStatus.DELIVERED) {
+      await this.location.releaseBusy(driverId, tripId);
+      return this.current(tripId);
+    }
     if (isParcel && body.otp !== trip.otp) throw new BadRequestException('Wrong OTP, please try again');
     const check = checkNearStop({
       stop: 'drop',
@@ -285,20 +292,35 @@ export class TripsService {
       tripId,
       to: isParcel ? TripStatus.DELIVERED : TripStatus.COMPLETED,
       data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason },
+      // Counted in the same transaction as the guarded status change, so a double tap counts the ride once.
+      after: (tx) => tx.driver.update({ where: { id: driverId }, data: { ridesCount: { increment: 1 } } }),
     });
-    await this.prisma.driver.update({ where: { id: driverId }, data: { ridesCount: { increment: 1 } } });
-    await this.location.setBusy(driverId, null);
+    await this.location.releaseBusy(driverId, tripId);
     return updated;
   }
 
+  /**
+   * Cancels, guarded on the status it was checked in: if the trip moved meanwhile (a driver accepted or started),
+   * it is checked again, so a cancel never overwrites a ride that has started. Cancelling twice returns the trip.
+   */
   async cancel(user: AuthUser, tripId: string, reason?: string): Promise<Trip> {
-    const trip = await this.get(user, tripId);
-    if (isFinished(trip.status) || !canTransition({ kind: trip.kind, from: trip.status, to: TripStatus.CANCELLED })) {
-      throw new BadRequestException('This trip can no longer be cancelled');
+    let trip = await this.get(user, tripId);
+    for (let attempt = 1; ; attempt++) {
+      if (trip.status === TripStatus.CANCELLED) return trip;
+      if (isFinished(trip.status) || !canTransition({ kind: trip.kind, from: trip.status, to: TripStatus.CANCELLED })) {
+        throw new BadRequestException('This trip can no longer be cancelled');
+      }
+      const { count } = await this.prisma.trip.updateMany({
+        where: { id: tripId, status: trip.status },
+        data: { status: TripStatus.CANCELLED, cancelReason: reason },
+      });
+      if (count === 1) break;
+      if (attempt >= 3) throw new ConflictException('This trip is changing right now. Please try again');
+      trip = await this.get(user, tripId);
     }
-    await this.prisma.trip.update({ where: { id: tripId }, data: { status: TripStatus.CANCELLED, cancelReason: reason } });
     await this.dispatch.stop(tripId);
-    if (trip.driverId) await this.location.setBusy(trip.driverId, null);
+    // The status matched, so this is the driver the trip had; free them only if they are still on it.
+    if (trip.driverId) await this.location.releaseBusy(trip.driverId, tripId);
     return this.publish(tripId, user.driverId && trip.driverId === user.driverId ? 'DRIVER' : 'PASSENGER');
   }
 
@@ -320,13 +342,44 @@ export class TripsService {
     return trip;
   }
 
-  private async move(params: { driverId: string; tripId: string; to: TripStatus; data?: Prisma.TripUpdateInput }): Promise<Trip> {
+  /**
+   * Moves the driver's trip to [to]. The update is guarded on the status it was checked in (like [accept]), so it
+   * can't overwrite a change made at the same moment (e.g. the passenger cancelling). A retry of a step that
+   * already went through returns the trip as it is. [after] runs in the same transaction, only if the move applied.
+   */
+  private async move(params: {
+    driverId: string;
+    tripId: string;
+    to: TripStatus;
+    data?: Prisma.TripUpdateManyMutationInput;
+    after?: (tx: Prisma.TransactionClient) => Promise<unknown>;
+  }): Promise<Trip> {
     const trip = await this.driverTrip(params.driverId, params.tripId);
+    if (trip.status === params.to) return this.current(trip.id);
     if (!canTransition({ kind: trip.kind, from: trip.status, to: params.to })) {
       throw new BadRequestException(`Cannot go from ${trip.status} to ${params.to}`);
     }
-    await this.prisma.trip.update({ where: { id: trip.id }, data: { ...params.data, status: params.to } });
+    const applied = await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.trip.updateMany({
+        where: { id: trip.id, driverId: params.driverId, status: trip.status },
+        data: { ...params.data, status: params.to },
+      });
+      if (count === 0) return false;
+      await params.after?.(tx);
+      return true;
+    });
+    if (!applied) {
+      const now = await this.driverTrip(params.driverId, params.tripId);
+      if (now.status === params.to) return this.current(trip.id);
+      throw new ConflictException(now.status === TripStatus.CANCELLED ? 'This trip was cancelled' : 'This trip has changed. Please refresh');
+    }
     return this.publish(trip.id, 'DRIVER');
+  }
+
+  /** The trip as it is now, for the driver (no OTP, nothing emitted). */
+  private async current(tripId: string): Promise<Trip> {
+    const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE });
+    return { ...trip, otp: '' };
   }
 
   /** Emits the fresh trip to both sides (socket + push) and returns it. [by] caused the change. */
