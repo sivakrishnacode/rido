@@ -155,6 +155,19 @@ class _FakeTrips extends LiveTrips {
   Future<void> rate(String tripId, int rating) async => calls.add('rate:$rating');
 }
 
+
+/// Counts fare requests; answers at once with the local engine.
+class _CountingRides extends MockRideRepository {
+  _CountingRides(super.db, super.settings);
+  final asked = <String>[];
+
+  @override
+  Future<List<FareQuote>> quotes(Place from, Place to, {bool womenOnly = false}) async {
+    asked.add('${from.id}>${to.id}');
+    return FareEngine.quoteAll(rideVehicles, FareEngine.estimate(from, to));
+  }
+}
+
 Future<void> _settle() async {
   for (var i = 0; i < 5; i++) {
     await Future<void>.delayed(Duration.zero);
@@ -285,6 +298,34 @@ void main() {
     await _settle();
     await f.finishRide();
     expect(c.read(rideFlowProvider).rider, isNull);
+  });
+
+  test('P-10: changing a stop after fares loaded fetches them again (no endless "Getting fares…")', () async {
+    late _CountingRides rides;
+    final c = ProviderContainer(overrides: [
+      isLiveApiProvider.overrideWithValue(true),
+      realtimeProvider.overrideWithValue(realtime),
+      liveTripsProvider.overrideWithValue(trips),
+      rideRepositoryProvider.overrideWith((ref) => rides = _CountingRides(ref.watch(mockDatabaseProvider), () => ref.read(demoSettingsProvider))),
+    ]);
+    addTearDown(c.dispose);
+    final f = c.read(rideFlowProvider.notifier);
+    f.setDrop(Seed.brookefields);
+    await f.loadQuotes();
+    expect(c.read(rideFlowProvider).serverQuotes, isNotNull);
+
+    // The pickup moves while P-10 is open (GPS resolved, or edited and back): fares reload by themselves.
+    f.setPickup(Seed.rsPuram);
+    expect(c.read(rideFlowProvider).serverQuotes, isNull);
+    await _settle();
+    expect(c.read(rideFlowProvider).serverQuotes, isNotNull);
+    expect(rides.asked.last, '${Seed.rsPuram.id}>${Seed.brookefields.id}');
+
+    // Same place again (only the name filled in): the fares stay, no new request.
+    final n = rides.asked.length;
+    f.setPickup(Seed.rsPuram);
+    expect(c.read(rideFlowProvider).serverQuotes, isNotNull);
+    expect(rides.asked.length, n);
   });
 
   test('Skip on P-20 sends no rating', () async {

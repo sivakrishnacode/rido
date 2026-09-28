@@ -254,6 +254,12 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
   }
 
   void _setPickup(Place p) {
+    final before = state.pickup;
+    final hadQuotes = state.serverQuotes != null || state.quotesError != null;
+    if (_samePlace(before, p)) {
+      state = state.copyWith(pickup: p);
+      return;
+    }
     state = state.copyWith(
       pickup: p,
       route: roadPath(p.location, state.drop.location, mode: _mode),
@@ -261,9 +267,17 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
       quotesError: null,
     );
     _refreshRoute();
+    // Fares were on screen (or had failed): fetch them for the new stop, else the skeleton never ends.
+    if (hadQuotes) unawaited(loadQuotes());
   }
 
   void setDrop(Place p) {
+    final before = state.drop;
+    final hadQuotes = state.serverQuotes != null || state.quotesError != null;
+    if (_samePlace(before, p)) {
+      state = state.copyWith(drop: p, dropSet: true);
+      return;
+    }
     state = state.copyWith(
       drop: p,
       dropSet: true,
@@ -272,6 +286,8 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
       quotesError: null,
     );
     _refreshRoute();
+    // Fares were on screen (or had failed): fetch them for the new stop, else the skeleton never ends.
+    if (hadQuotes) unawaited(loadQuotes());
   }
 
   void updateDetails(ParcelDetails d) {

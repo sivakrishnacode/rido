@@ -259,6 +259,12 @@ class RideFlowController extends Notifier<RideFlowState> {
 
   // ---------------------------------------------------------------- planning
   void setPickup(Place p) {
+    final before = state.pickup;
+    final hadQuotes = state.serverQuotes != null || state.quotesError != null;
+    if (_samePlace(before, p)) {
+      state = state.copyWith(pickup: p);
+      return;
+    }
     state = state.copyWith(
       pickup: p,
       route: roadPath(p.location, state.drop.location, mode: _mode),
@@ -266,9 +272,17 @@ class RideFlowController extends Notifier<RideFlowState> {
       quotesError: null,
     );
     _refreshRoute();
+    // Fares were on screen (or had failed): fetch them for the new stop, else the skeleton never ends.
+    if (hadQuotes) unawaited(loadQuotes());
   }
 
   void setDrop(Place p) {
+    final before = state.drop;
+    final hadQuotes = state.serverQuotes != null || state.quotesError != null;
+    if (_samePlace(before, p)) {
+      state = state.copyWith(drop: p);
+      return;
+    }
     state = state.copyWith(
       drop: p,
       route: roadPath(state.pickup.location, p.location, mode: _mode),
@@ -276,6 +290,8 @@ class RideFlowController extends Notifier<RideFlowState> {
       quotesError: null,
     );
     _refreshRoute();
+    // Fares were on screen (or had failed): fetch them for the new stop, else the skeleton never ends.
+    if (hadQuotes) unawaited(loadQuotes());
   }
 
   void selectVehicle(VehicleKind v) => state = state.copyWith(vehicle: v);
