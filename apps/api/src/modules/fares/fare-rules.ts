@@ -1,6 +1,6 @@
 import type { VehicleKind } from '../../generated/prisma/enums.js';
 
-/** Per-vehicle rates. fare = max(minFare, base + perKm × km + perMin × min) × multiplier. */
+/** Per-vehicle rates. fare = max(minFare, (base + perKm × km + perMin × min) × multiplier). */
 export interface FareRule {
   readonly base: number;
   readonly perKm: number;

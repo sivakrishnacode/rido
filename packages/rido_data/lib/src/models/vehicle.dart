@@ -18,7 +18,7 @@ enum VehicleKind {
 /// What a driver does on Rido: carry passengers or carry goods.
 enum WorkType { rides, deliveries }
 
-/// Per-vehicle fare rules. fare = max(minFare, base + perKm × km + perMin × min) × multiplier.
+/// Per-vehicle fare rules. fare = max(minFare, (base + perKm × km + perMin × min) × multiplier).
 @immutable
 class FareRule {
   const FareRule({

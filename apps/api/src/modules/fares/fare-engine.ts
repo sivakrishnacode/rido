@@ -13,7 +13,10 @@ export interface RouteEstimate {
   readonly durationMin: number;
 }
 
-/** Itemised quote; every line is a whole rupee and they add up exactly to [total]. */
+/**
+ * Itemised quote; every line is a whole rupee and they add up exactly to [total]:
+ * base + distanceCharge + timeCharge + minFareTopUp = subtotal, subtotal + peakCharge = total.
+ */
 export interface FareQuote extends RouteEstimate {
   readonly vehicleKind: VehicleKind;
   readonly base: number;
@@ -28,7 +31,8 @@ export interface FareQuote extends RouteEstimate {
 
 const ROAD_FACTOR = 1.3;
 const AVERAGE_SPEED_KMH = 18;
-const MAX_MULTIPLIER = 1.5;
+/** Cap when the caller passes no `maxMultiplier` (the admin setting's default). */
+export const MAX_MULTIPLIER = 1.5;
 const EPS = 1e-9;
 const EARTH_RADIUS_M = 6_371_000;
 
@@ -67,23 +71,31 @@ export function estimateRoute(from: GeoPoint, to: GeoPoint): RouteEstimate {
   return { distanceKm: km, durationMin: Math.max(1, Math.round((km / AVERAGE_SPEED_KMH) * 60)) };
 }
 
-/** Builds the itemised fare for one vehicle. */
+/**
+ * Builds the itemised fare for one vehicle:
+ * total = max(minFare, floor((base + perKm·km + perMin·min) × multiplier)), each line floored to the rupee.
+ * The multiplier applies to the ride (base + distance + time) only, never to the minimum-fare top-up.
+ */
 export function quoteFare(params: {
   vehicleKind: VehicleKind;
   route: RouteEstimate;
   multiplier?: number;
+  /** Cap for [multiplier] (admin `maxMultiplier` setting); defaults to [MAX_MULTIPLIER]. */
+  maxMultiplier?: number;
   /** Per-city rates (admin panel); defaults to the built-in [FARE_RULES]. */
   rule?: { base: number; perKm: number; perMin: number; minFare: number };
 }): FareQuote {
   const { vehicleKind, route } = params;
   const rule = params.rule ?? FARE_RULES[vehicleKind];
-  const multiplier = Math.min(MAX_MULTIPLIER, Math.max(1, params.multiplier ?? CURRENT_MULTIPLIER));
+  const cap = Math.max(1, params.maxMultiplier ?? MAX_MULTIPLIER);
+  const multiplier = Math.min(cap, Math.max(1, params.multiplier ?? CURRENT_MULTIPLIER));
   const distanceCharge = floorRupee(rule.perKm * route.distanceKm);
   const timeCharge = floorRupee(rule.perMin * route.durationMin);
   const raw = rule.base + distanceCharge + timeCharge;
-  const minFareTopUp = Math.max(0, rule.minFare - raw);
+  const surged = floorRupee(raw * multiplier);
+  const minFareTopUp = Math.max(0, rule.minFare - surged);
   const subtotal = raw + minFareTopUp;
-  const total = floorRupee(subtotal * multiplier);
+  const total = surged + minFareTopUp;
   return {
     vehicleKind,
     ...route,

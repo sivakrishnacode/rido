@@ -41,4 +41,19 @@ describe('fare engine', () => {
     expect(q.base + q.distanceCharge + q.timeCharge + q.minFareTopUp).toBe(q.subtotal);
     expect(q.subtotal + q.peakCharge).toBe(q.total);
   });
+
+  it('caps the multiplier at the admin maxMultiplier', () => {
+    const route = estimateRoute(gandhipuram, raceCourse);
+    expect(quoteFare({ vehicleKind: 'CAB', route, multiplier: 1.4, maxMultiplier: 1.2 }).multiplier).toBe(1.2);
+    expect(quoteFare({ vehicleKind: 'CAB', route, multiplier: 1.4, maxMultiplier: 0.5 }).multiplier).toBe(1);
+  });
+
+  it('applies the multiplier before the minimum fare, never to the top-up', () => {
+    // Bike 0.5 km / 1 min: 12 + 2 + 0 = 14, × 1.5 = 21, topped up to the ₹25 minimum (not 25 × 1.5).
+    const q = quoteFare({ vehicleKind: 'BIKE', route: { distanceKm: 0.5, durationMin: 1 }, multiplier: 1.5 });
+    expect(q).toMatchObject({ subtotal: 18, minFareTopUp: 4, peakCharge: 7, total: 25 });
+    // Surge that already clears the minimum needs no top-up: 12 + 10 + 0 = 22 × 1.5 = 33.
+    const big = quoteFare({ vehicleKind: 'BIKE', route: { distanceKm: 2, durationMin: 1 }, multiplier: 1.5 });
+    expect(big).toMatchObject({ minFareTopUp: 0, subtotal: 22, peakCharge: 11, total: 33 });
+  });
 });

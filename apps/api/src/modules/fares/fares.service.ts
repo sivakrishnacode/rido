@@ -57,11 +57,12 @@ export class FaresService {
     const wantGoods = params.kind === TripKind.PARCEL;
     const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: wantGoods ? VehicleKind.THREE_WHEELER : VehicleKind.CAB });
     const here = await this.geo.locate(params.pickup);
+    const { maxMultiplier } = await this.settings.all();
     const kinds = (Object.keys(FARE_RULES) as VehicleKind[]).filter((k) => FARE_RULES[k].isGoods === wantGoods);
     return Promise.all(
       kinds.map(async (vehicleKind) => {
         const rule = (await this.geo.fareRule(here.cityId, vehicleKind)) ?? undefined;
-        return quoteFare({ vehicleKind, route, multiplier: here.multiplier, rule });
+        return quoteFare({ vehicleKind, route, multiplier: here.multiplier, maxMultiplier, rule });
       }),
     );
   }
@@ -70,13 +71,15 @@ export class FaresService {
   async quoteOnRoute(params: { pickup: GeoPoint; route: RouteEstimate; vehicleKind: VehicleKind }): Promise<FareQuote> {
     const here = await this.geo.locate(params.pickup);
     const rule = (await this.geo.fareRule(here.cityId, params.vehicleKind)) ?? undefined;
-    return quoteFare({ vehicleKind: params.vehicleKind, route: params.route, multiplier: here.multiplier, rule });
+    const { maxMultiplier } = await this.settings.all();
+    return quoteFare({ vehicleKind: params.vehicleKind, route: params.route, multiplier: here.multiplier, maxMultiplier, rule });
   }
 
   async quoteOne(params: { pickup: GeoPoint; drop: GeoPoint; vehicleKind: VehicleKind }): Promise<FareQuote> {
     const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: params.vehicleKind });
     const here = await this.geo.locate(params.pickup);
     const rule = (await this.geo.fareRule(here.cityId, params.vehicleKind)) ?? undefined;
-    return quoteFare({ vehicleKind: params.vehicleKind, route, multiplier: here.multiplier, rule });
+    const { maxMultiplier } = await this.settings.all();
+    return quoteFare({ vehicleKind: params.vehicleKind, route, multiplier: here.multiplier, maxMultiplier, rule });
   }
 }

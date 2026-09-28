@@ -19,12 +19,17 @@ describe("fare preview (same maths as the API fare engine)", () => {
     });
   });
 
-  it("tops up to the minimum fare and caps the multiplier at 1.5", () => {
+  it("surges the ride before the minimum-fare top-up and caps the multiplier at 1.5", () => {
     const q = previewFare(bike, 0.5, 1, 3);
-    expect(q.subtotal).toBe(25);
-    expect(q.minFareTopUp).toBe(25 - (12 + 2 + 0));
     expect(q.multiplier).toBe(1.5);
-    expect(q.total).toBe(37);
+    expect(q.peakCharge).toBe(21 - 14); // (12 + 2 + 0) × 1.5 = 21
+    expect(q.minFareTopUp).toBe(25 - 21);
+    expect(q.subtotal).toBe(14 + 4);
+    expect(q.total).toBe(25);
+  });
+
+  it("respects a lower maxMultiplier", () => {
+    expect(previewFare(bike, 4.2, 14, 1.4, 1.2).multiplier).toBe(1.2);
   });
 });
 

@@ -53,6 +53,12 @@ void main() {
       expect(q.multiplier, 1.5);
     });
 
+    test('multiplier applies before the minimum fare, never to the top-up', () {
+      // Bike 0.5 km / 1 min: 12 + 2 + 0 = 14, x 1.5 = 21, topped up to the ₹25 minimum.
+      final q = FareEngine.quote(Seed.bike, const RouteEstimate(distanceKm: 0.5, durationMin: 1), multiplier: 1.5);
+      expect([q.subtotal, q.minFareTopUp, q.peakCharge, q.total], [18, 4, 7, 25]);
+    });
+
     test('fallback distance is haversine x 1.3', () {
       final r = FareEngine.estimate(Seed.townHall, Seed.singanallur);
       expect(r.distanceKm, greaterThan(7));

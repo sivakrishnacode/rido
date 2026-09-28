@@ -118,7 +118,7 @@ export function FaresEditor({ cityId, fares }: { cityId: string; fares: CityFare
         <CardHeader className="border-b">
           <CardTitle className="font-semibold">Fares</CardTitle>
           <CardDescription>
-            fare = max(min fare, base + per km × km + per min × min) × multiplier, each line floored to the rupee.
+            fare = max(min fare, (base + per km × km + per min × min) × multiplier), each line floored to the rupee.
           </CardDescription>
         </CardHeader>
         <Table>

@@ -132,7 +132,8 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
 - **Apps use the live API by default.** Mock mode: `--dart-define=RIDO_LIVE_API=false`.
 - **Dev login:** any 6-digit OTP except `000000` (`OTP_DEV_MODE=true`). Admin phone: `9000000001`. Ride OTP `4829`,
   delivery OTP `7153`.
-- **Fare engine** (same in the apps and the API): `max(minFare, base + perKm·km + perMin·min) × multiplier (≤ 1.5)`,
+- **Fare engine** (same in the apps and the API): `max(minFare, (base + perKm·km + perMin·min) × multiplier)`,
+  multiplier ≤ `maxMultiplier` (1.5) and never applied to the minimum-fare top-up,
   each line rounded down. No peak by default (`currentMultiplier` 1.0): demo quotes ₹35 / ₹66 / ₹132 (the design
   frames show ₹38 / ₹72 / ₹145 at 1.1x).
 - **H3:** res 8 for service areas, zones, the driver index and heatmaps; res 7 for demand and surge; res 9/8/7 for

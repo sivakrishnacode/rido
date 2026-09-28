@@ -20,9 +20,10 @@ class RouteEstimate {
 
 /// Pure-Dart fare engine used by every screen that shows a price.
 ///
-/// fare = max(minFare, base + perKm × km + perMin × min) × multiplier (capped at 1.5).
+/// fare = max(minFare, (base + perKm × km + perMin × min) × multiplier), multiplier capped at 1.5.
+/// The multiplier applies to the ride only, never to the minimum-fare top-up.
 /// Every line is rounded DOWN to a whole rupee and the peak line is the difference,
-/// so the breakdown always adds up exactly to the total.
+/// so the breakdown always adds up exactly to the total (same as apps/api fare-engine.ts).
 abstract final class FareEngine {
   static const double roadFactor = 1.3;
   static const double averageSpeedKmh = 18;
@@ -68,16 +69,21 @@ abstract final class FareEngine {
   static int _floor(double v) => (v + _eps).floor();
 
   /// Builds the itemised quote for one vehicle.
-  static FareQuote quote(VehicleType vehicle, RouteEstimate route, {double multiplier = currentMultiplier}) {
-    final rule = vehicle.fareRule;
-    final m = multiplier.clamp(1.0, maxMultiplier);
+  static FareQuote quote(VehicleType vehicle, RouteEstimate route, {double multiplier = currentMultiplier}) =>
+      quoteRule(vehicle, vehicle.fareRule, route, multiplier: multiplier);
+
+  /// [quote] with explicit [rule] rates (per-city fares; shared fixture tests).
+  static FareQuote quoteRule(VehicleType vehicle, FareRule rule, RouteEstimate route,
+      {double multiplier = currentMultiplier, double cap = maxMultiplier}) {
+    final m = multiplier.clamp(1.0, math.max(1.0, cap)).toDouble();
     final base = rule.base;
     final distanceCharge = _floor(rule.perKm * route.distanceKm);
     final timeCharge = _floor(rule.perMin * route.durationMin);
     final raw = base + distanceCharge + timeCharge;
-    final topUp = math.max(0, rule.minFare - raw);
+    final surged = _floor(raw * m);
+    final topUp = math.max(0, rule.minFare - surged);
     final subtotal = raw + topUp;
-    final total = _floor(subtotal * m);
+    final total = surged + topUp;
     return FareQuote(
       vehicle: vehicle,
       distanceKm: route.distanceKm,

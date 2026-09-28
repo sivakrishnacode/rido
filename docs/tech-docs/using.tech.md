@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (no default peak markup: `currentMultiplier` 1.0)
+Last updated: 28 Sep 2026 (no default peak markup: `currentMultiplier` 1.0; surge before the minimum fare)
 
 ---
 
@@ -164,6 +164,10 @@ Never commit real `.env` files.
   until 28 Sep 2026, which put "Peak 1.1x" on every trip). A value saved in admin Settings is an `AppSetting` row and
   overrides the default, so after deploying check Settings › Current multiplier on staging and set it to 1.0. The apps
   hide the "Peak time" line when the multiplier is 1.0.
+  Formula (`fare-engine.ts`, same in the Dart engine and the admin preview): `total = max(minFare, floor((base +
+  perKm·km + perMin·min) × multiplier))`, each line floored; the multiplier never applies to the minimum-fare top-up
+  (since 28 Sep 2026; before, a short surged ride paid minFare × multiplier). Quotes cap the multiplier at the
+  `maxMultiplier` setting.
 - **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds,
   offerSeconds, maxCandidates, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,

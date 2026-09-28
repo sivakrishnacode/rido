@@ -90,20 +90,24 @@ export interface FarePreview {
 
 /**
  * Mirrors apps/api/src/modules/fares/fare-engine.ts: each line floored to the rupee,
- * subtotal = max(minFare, base + perKm×km + perMin×min), total = floor(subtotal × multiplier), multiplier 1.0–1.5.
+ * total = max(minFare, floor((base + perKm×km + perMin×min) × multiplier)), multiplier 1.0–[maxMultiplier] (≤ 1.5).
+ * The multiplier never applies to the minimum-fare top-up.
  */
 export function previewFare(
   rule: { base: number; perKm: number; perMin: number; minFare: number },
   km: number,
   minutes: number,
   multiplier = 1,
+  maxMultiplier = 1.5,
 ): FarePreview {
-  const m = Math.min(1.5, Math.max(1, Number.isFinite(multiplier) ? multiplier : 1));
+  const cap = Math.max(1, Number.isFinite(maxMultiplier) ? maxMultiplier : 1.5);
+  const m = Math.min(cap, Math.max(1, Number.isFinite(multiplier) ? multiplier : 1));
   const distanceCharge = floorRupee(rule.perKm * Math.max(0, km));
   const timeCharge = floorRupee(rule.perMin * Math.max(0, minutes));
   const raw = rule.base + distanceCharge + timeCharge;
-  const minFareTopUp = Math.max(0, rule.minFare - raw);
+  const surged = floorRupee(raw * m);
+  const minFareTopUp = Math.max(0, rule.minFare - surged);
   const subtotal = raw + minFareTopUp;
-  const total = floorRupee(subtotal * m);
+  const total = surged + minFareTopUp;
   return { base: rule.base, distanceCharge, timeCharge, minFareTopUp, subtotal, multiplier: m, peakCharge: total - subtotal, total };
 }

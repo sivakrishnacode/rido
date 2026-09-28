@@ -160,7 +160,8 @@ Details (auth flow, env vars, maps, tests): [docs/tech-docs/using.tech.md](docs/
   fare rules, history, chat, tickets, plan, earnings, requests). The prototype runs on a fixed calendar day,
   24 Sep 2026 (`RidoClock`), so the free trial and "next debit 24 Oct 2026" always line up.
 - **Fare engine:** `packages/rido_data/lib/src/fare_engine.dart`, a pure function:
-  `fare = max(minFare, base + perKm × km + perMin × min) × multiplier (cap 1.5)`, every line rounded down to the rupee
+  `fare = max(minFare, (base + perKm × km + perMin × min) × multiplier)` (cap 1.5; the multiplier never applies to
+  the minimum-fare top-up), every line rounded down to the rupee
   so the breakdown adds up exactly. Distance = haversine × 1.3 (the demo routes use measured distances), duration =
   distance ÷ 18 km/h. Unit tests: `packages/rido_data/test/fare_engine_test.dart`.
 - **Timings:** `SimTimings` in `packages/rido_data/lib/src/demo_settings.dart` (one place; fast mode divides by 3).
