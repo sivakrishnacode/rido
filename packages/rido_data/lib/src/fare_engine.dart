@@ -28,8 +28,8 @@ abstract final class FareEngine {
   static const double averageSpeedKmh = 18;
   static const double maxMultiplier = 1.5;
 
-  /// Current demand multiplier shown as "Peak time (1.1x)".
-  static const double currentMultiplier = 1.1;
+  /// Multiplier when none is given: no peak markup ("Peak time" shows only above 1.0).
+  static const double currentMultiplier = 1.0;
 
   static const double _eps = 1e-9;
 

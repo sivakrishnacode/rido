@@ -114,7 +114,7 @@ npm run test:e2e -w @rido/api       # full ride lifecycle against the real DB + 
 | users | `GET/PATCH /me`, `POST/DELETE /me/emergency-contacts`, `POST/DELETE /me/saved-places` |
 | places | `GET /places/autocomplete?q&session`, `GET /places/details/:id`, `GET /places/reverse?lat&lng` |
 | maps | `POST /maps/route` (road polyline, once per leg) |
-| fares | `POST /fares/quote` (same engine as the apps: ₹38 / ₹72 / ₹145) |
+| fares | `POST /fares/quote` (same engine as the apps: ₹35 / ₹66 / ₹132, no peak by default) |
 | drivers | `POST /drivers`, `GET /drivers/me`, KYC `POST /drivers/me/documents/:type`, `POST /drivers/me/online|offline|location`, admin `POST /admin/drivers/:id/review` |
 | trips | `POST /trips`, `GET /trips`, `GET /trips/:id`, `POST /trips/:id/accept|decline|arrived|start|complete|cancel|rate` |
 | app-config | `GET /app-config` (public: plans switch, contribute page UPI ID and monthly cost) |

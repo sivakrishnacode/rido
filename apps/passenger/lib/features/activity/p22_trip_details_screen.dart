@@ -80,7 +80,7 @@ class _Details extends StatelessWidget {
         '${q.distanceKm.toStringAsFixed(1)} km · ${q.durationMin} min',
         'Base ${formatInr(q.base)} · Distance ${formatInr(q.distanceCharge)} · Time ${formatInr(q.timeCharge)}'
             '${q.minFareTopUp > 0 ? ' · Minimum fare ${formatInr(q.minFareTopUp)}' : ''}'
-            '${q.peakCharge > 0 ? ' · Peak ${formatInr(q.peakCharge)}' : ''}',
+            '${q.hasPeak ? ' · Peak ${formatInr(q.peakCharge)}' : ''}',
         'Total: ${formatInr(trip.fare)} (paid to the driver, ${trip.paymentMode == PaymentMode.upi ? 'UPI' : 'cash'})',
       ].join('\n');
 
@@ -284,9 +284,11 @@ class _Details extends StatelessWidget {
                     FareLine('Time charge', quote.timeCharge, note: '${quote.durationMin} min'),
                     if (quote.minFareTopUp > 0) FareLine('Minimum fare top-up', quote.minFareTopUp),
                     FareLine('Subtotal', quote.subtotal, emphasis: true),
-                    if (quote.peakCharge != 0)
+                    if (quote.hasPeak)
                       FareLine('Peak time', quote.peakCharge,
-                          tag: '${quote.multiplier.toStringAsFixed(1)}x', signed: true),
+                          tag: '${quote.multiplier.toStringAsFixed(1)}x', signed: true)
+                    else if (quote.peakCharge != 0)
+                      FareLine('Adjustment', quote.peakCharge, signed: true),
                     const FareLine('Rido commission', 0, tag: '0%'),
                   ],
                   footer: Text(
@@ -407,9 +409,11 @@ class _FareTable extends StatelessWidget {
         if (quote.minFareTopUp > 0) row('Minimum fare top-up', formatInr(quote.minFareTopUp)),
         const Padding(padding: EdgeInsets.symmetric(vertical: 6), child: CustomPaint(painter: _DashPainter(), size: Size(double.infinity, 1))),
         row('Subtotal', formatInr(quote.subtotal), bold: true),
-        if (quote.peakCharge != 0)
+        if (quote.hasPeak)
           row('Peak time', formatInrSigned(quote.peakCharge),
-              tag: pill('${quote.multiplier.toStringAsFixed(1)}x', RidoColors.warningTint, RidoColors.warningText)),
+              tag: pill('${quote.multiplier.toStringAsFixed(1)}x', RidoColors.warningTint, RidoColors.warningText))
+        else if (quote.peakCharge != 0)
+          row('Adjustment', formatInrSigned(quote.peakCharge)),
         row('Rido commission', formatInr(0),
             tag: pill('0%', RidoColors.coral50, RidoColors.coral600), amountColor: RidoColors.success),
         const Divider(height: 20),

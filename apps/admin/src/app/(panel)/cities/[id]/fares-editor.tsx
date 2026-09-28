@@ -107,7 +107,7 @@ export function FaresEditor({ cityId, fares }: { cityId: string; fares: CityFare
   const [kind, setKind] = useState<VehicleKind>(fares[0]?.vehicleKind ?? "BIKE");
   const [km, setKm] = useState("4.2");
   const [min, setMin] = useState("14");
-  const [mult, setMult] = useState("1.1");
+  const [mult, setMult] = useState("1");
 
   const row = rows[kind];
   const quote = row && !rowErrors(row) ? previewFare(parseRow(row), Number(km) || 0, Number(min) || 0, Number(mult) || 1) : null;

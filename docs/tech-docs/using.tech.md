@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 ("Who's riding?": book for someone else, Butterfly for a woman rider)
+Last updated: 28 Sep 2026 (no default peak markup: `currentMultiplier` 1.0)
 
 ---
 
@@ -160,7 +160,10 @@ Never commit real `.env` files.
   Bookings with a pickup or drop outside the hexes (or in a NO_SERVICE zone) are refused. Seed: Coimbatore, 1,519 cells
   (18 km) + 3 DEMAND zones. With no cities configured, everything is serviceable.
 - **Per-city fares:** `CityFareRule` overrides the built-in rates per vehicle; the surge zone or `currentMultiplier`
-  setting sets the multiplier, capped by `maxMultiplier`.
+  setting sets the multiplier, capped by `maxMultiplier`. `currentMultiplier` defaults to **1.0** (no markup; it was 1.1
+  until 28 Sep 2026, which put "Peak 1.1x" on every trip). A value saved in admin Settings is an `AppSetting` row and
+  overrides the default, so after deploying check Settings › Current multiplier on staging and set it to 1.0. The apps
+  hide the "Peak time" line when the multiplier is 1.0.
 - **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds,
   offerSeconds, maxCandidates, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
@@ -686,11 +689,11 @@ suggestion's name.
 
 | Package | Checks |
 |---|---|
-| rido_data | fare engine unit tests (₹38/72/145, ₹49/180/420, lines add up) |
+| rido_data | fare engine unit tests (₹35/66/132 with no peak; design ₹38/72/145, ₹49/180/420 at 1.1x; lines add up) |
 | rido_ui | formatter tests |
 | passenger / driver | every Design gallery frame at 360 and 430 px, main-path flow tests (fast mode, fake time) |
 | api | unit (fare engine, transitions, subscriptions, maps service, polyline) + e2e (full ride lifecycle, fallbacks) |
-| admin | Vitest unit: ₹ Indian formatting, IST dates, paging/URL builder, API URL + error helpers, safe post-login redirect, JWT role/expiry check, fare preview = API engine (₹38 demo trip), H3 circle fill/undo, settings validation |
+| admin | Vitest unit: ₹ Indian formatting, IST dates, paging/URL builder, API URL + error helpers, safe post-login redirect, JWT role/expiry check, fare preview = API engine (₹38 demo trip at 1.1x), H3 circle fill/undo, settings validation |
 
 `npm run check` must pass with zero analyzer issues before merging.
 

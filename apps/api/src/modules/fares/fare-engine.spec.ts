@@ -13,16 +13,23 @@ describe('fare engine', () => {
     expect(route).toEqual({ distanceKm: 4.2, durationMin: 14 });
   });
 
-  it('matches the ride fares in the designs', () => {
+  it('adds no peak markup by default', () => {
     const route = estimateRoute(gandhipuram, brookefields);
-    const totals = (['BIKE', 'AUTO', 'CAB'] as const).map((k) => quoteFare({ vehicleKind: k, route }).total);
+    const quotes = (['BIKE', 'AUTO', 'CAB'] as const).map((k) => quoteFare({ vehicleKind: k, route }));
+    expect(quotes.map((q) => q.total)).toEqual([35, 66, 132]);
+    expect(quotes.every((q) => q.multiplier === 1 && q.peakCharge === 0)).toBe(true);
+  });
+
+  it('matches the ride fares in the designs (peak 1.1x)', () => {
+    const route = estimateRoute(gandhipuram, brookefields);
+    const totals = (['BIKE', 'AUTO', 'CAB'] as const).map((k) => quoteFare({ vehicleKind: k, route, multiplier: 1.1 }).total);
     expect(totals).toEqual([38, 72, 145]);
   });
 
-  it('matches the goods fares in the designs', () => {
+  it('matches the goods fares in the designs (peak 1.1x)', () => {
     const route = estimateRoute(peelamedu, raceCourse);
     const totals = (['GOODS_BIKE', 'THREE_WHEELER', 'MINI_TRUCK'] as const).map(
-      (k) => quoteFare({ vehicleKind: k, route }).total,
+      (k) => quoteFare({ vehicleKind: k, route, multiplier: 1.1 }).total,
     );
     expect(totals).toEqual([49, 180, 420]);
   });

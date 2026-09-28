@@ -44,8 +44,8 @@ const KNOWN_ROUTES_KM: Readonly<Record<string, number>> = {
   'psg-tech|tidel-park': 3.4,
 };
 
-/** Current demand multiplier ("Peak time 1.1x"). */
-export const CURRENT_MULTIPLIER = 1.1;
+/** Multiplier when the caller gives none: no peak markup (the live one comes from GeoService.locate). */
+export const CURRENT_MULTIPLIER = 1.0;
 
 function floorRupee(v: number): number {
   return Math.floor(v + EPS);

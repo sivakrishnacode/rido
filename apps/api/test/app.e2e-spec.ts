@@ -96,9 +96,9 @@ describe('Rido API (e2e)', () => {
     await http.get('/v1/me').expect(401);
   });
 
-  it('quotes the design fares', async () => {
+  it('quotes fares with no peak markup by default', async () => {
     const res = await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200);
-    expect(res.body.quotes.map((q: { total: number }) => q.total)).toEqual([38, 72, 145]);
+    expect(res.body.quotes.map((q: { total: number }) => q.total)).toEqual([35, 66, 132]);
   });
 
   it('runs a bike ride end to end', async () => {
@@ -146,7 +146,7 @@ describe('Rido API (e2e)', () => {
     await http.post(`/v1/trips/${trip.id}/rate`).set('Authorization', `Bearer ${passenger}`).send({ rating: 5 }).expect(200);
 
     // Assert
-    expect(trip.fareTotal).toBe(38);
+    expect(trip.fareTotal).toBe(35);
     expect(done.body.status).toBe('COMPLETED');
     const history = await http.get('/v1/trips').set('Authorization', `Bearer ${passenger}`).expect(200);
     expect(history.body[0].id).toBe(trip.id);
@@ -182,7 +182,7 @@ describe('Rido API (e2e)', () => {
     const quotes = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200)).body.quotes;
     const bike = quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'BIKE');
     expect(typeof bike.pickupEtaMin).toBe('number');
-    expect(bike.total).toBe(38);
+    expect(bike.total).toBe(35);
     const far = { lat: 11.2, lng: 77.2, name: 'Far away' };
     const empty = (await http.post('/v1/fares/quote').send({ pickup: far, drop: BROOKEFIELDS }).expect(200)).body.quotes;
     expect(empty.every((q: { pickupEtaMin: number | null }) => q.pickupEtaMin === null)).toBe(true);
@@ -261,13 +261,13 @@ describe('Rido API (e2e)', () => {
 
     // Assert
     const autoAlt = alts.find((a: { vehicleKind: string }) => a.vehicleKind === 'AUTO');
-    expect(autoAlt.quote.total).toBe(72);
+    expect(autoAlt.quote.total).toBe(66);
     expect(autoAlt.driversNearby).toBeGreaterThan(0);
     expect(alts.map((a: { vehicleKind: string }) => a.vehicleKind)).not.toContain('CAB');
     expect(added.alsoKinds).toEqual(['AUTO']);
     expect(accepted.status).toBe(200);
     expect(accepted.body.vehicleKind).toBe('AUTO');
-    expect(accepted.body.fareTotal).toBe(72);
+    expect(accepted.body.fareTotal).toBe(66);
     await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
   });
 

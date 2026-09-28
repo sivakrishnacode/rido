@@ -1,7 +1,7 @@
 /** Platform settings editable in the admin panel, with their defaults. */
 export const SETTING_DEFAULTS = {
-  /** Default demand multiplier ("Peak time"), 1.0–1.5. */
-  currentMultiplier: 1.1,
+  /** Platform-wide demand multiplier ("Peak time"), 1.0–1.5. 1.0 = no markup; surge zones and live demand still apply. */
+  currentMultiplier: 1.0,
   /** Hard cap for any multiplier (surge zones included). */
   maxMultiplier: 1.5,
   /** Driver search radius around the pickup when a booking starts searching. */

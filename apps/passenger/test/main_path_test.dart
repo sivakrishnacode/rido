@@ -1,6 +1,6 @@
 // Main passenger path, end to end with fast mode and fake time:
-// Home → search "Brook" → Brookefields Mall → Book Bike · ₹38 → driver found → arrives →
-// ride starts → arrived → rate → back Home, and the ride is at the top of Activity.
+// Home → search "Brook" → Brookefields Mall → Book Bike · ₹35 → driver found → arrives →
+// ride starts → arrived → rate → back Home, and the ride is in Activity.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rido_data/rido_data.dart';
@@ -52,13 +52,14 @@ void main() {
     await tester.tap(find.text('Brookefields Mall').hitTestable().first);
     await advance(tester, const Duration(seconds: 1));
 
-    // P-10: Bike is selected by default; fare is ₹38.
-    final book = find.text('Book Bike · ₹38');
+    // P-10: Bike is selected by default; fare is ₹35 (no peak markup by default).
+    final book = find.text('Book Bike · ₹35');
     expect(book, findsOneWidget);
     expect(container.read(rideFlowProvider).drop, Seed.brookefields);
     await tester.tap(book);
     await advance(tester, const Duration(milliseconds: 300));
     expect(container.read(rideFlowProvider).phase, RidePhase.searching);
+    final tripId = container.read(rideFlowProvider).tripId;
 
     // The simulated backend takes it from here.
     await waitFor(tester, find.byType(P13DriverAssignedScreen));
@@ -66,7 +67,7 @@ void main() {
     await waitFor(tester, find.byType(P15DriverArrivedScreen));
     await waitFor(tester, find.byType(P16RideInProgressScreen));
     await waitFor(tester, find.byType(P19RideCompletedScreen), timeout: const Duration(seconds: 30));
-    expect(find.text('₹38'), findsWidgets);
+    expect(find.text('₹35'), findsWidgets);
 
     // P-19 → P-20 → Submit.
     await tester.tap(find.text('Done, rate your ride'));
@@ -78,10 +79,11 @@ void main() {
     // Repositories use Future.delayed, so pump fake time until the history loads.
     container.listen(tripHistoryProvider, (_, _) {});
     await advance(tester, const Duration(seconds: 2));
-    final history = container.read(tripHistoryProvider).requireValue;
-    expect(history.first.status, TripStatus.completed);
-    expect(history.first.fare, 38);
-    expect(history.first.drop, Seed.brookefields);
+    // Look the ride up by id: the seeded history has a later-today trip, so "first" depends on the clock.
+    final ride = container.read(tripHistoryProvider).requireValue.firstWhere((t) => t.id == tripId);
+    expect(ride.status, TripStatus.completed);
+    expect(ride.fare, 35);
+    expect(ride.drop, Seed.brookefields);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox());
