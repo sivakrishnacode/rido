@@ -40,7 +40,7 @@ export function SosActions({ id, tripId, status }: { id: string; tripId: string;
   }
 
   return (
-    <div className="relative z-10 flex flex-wrap justify-end gap-2">
+    <div className="relative z-10 flex flex-wrap gap-2">
       {status === "OPEN" && (
         <Button size="sm" onClick={ack} disabled={isPending}>
           {isPending ? <Loader2Icon className="animate-spin" /> : <HandIcon />} Acknowledge

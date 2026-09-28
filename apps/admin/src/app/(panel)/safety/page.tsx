@@ -51,9 +51,7 @@ export default async function SafetyPage({ searchParams }: PageProps<"/safety">)
                 <TableHead className="pl-4">Raised</TableHead>
                 <TableHead>Who</TableHead>
                 <TableHead>Trip</TableHead>
-                <TableHead>Where</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="pr-4 text-right">Action</TableHead>
+                <TableHead className="pr-4">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -65,9 +63,16 @@ export default async function SafetyPage({ searchParams }: PageProps<"/safety">)
                   <TableRow key={s.id} className={cn(isOpen && "bg-error-tint/60 hover:bg-error-tint")}>
                     <TableCell className="pl-4 whitespace-nowrap">
                       <span className={cn("block", isOpen ? "font-semibold text-error" : "text-navy-700")}>{formatDateTime(s.createdAt)}</span>
-                      <span className="text-xs text-muted-foreground">{sosSourceLabel(s.source)}</span>
+                      <span className="block text-xs text-muted-foreground">{sosSourceLabel(s.source)}</span>
+                      {map ? (
+                        <a href={map} target="_blank" rel="noreferrer" className="relative z-10 text-xs font-medium text-coral-600 hover:underline">
+                          Where: open map
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Where: unknown</span>
+                      )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-64 whitespace-normal">
                       <Link href={`/users/${s.user.id}`} className="font-medium text-navy-900 hover:text-coral-600">
                         {displayName(s.user)}
                       </Link>
@@ -80,30 +85,19 @@ export default async function SafetyPage({ searchParams }: PageProps<"/safety">)
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-xs whitespace-normal">
+                    <TableCell className="max-w-64 whitespace-normal">
                       <Link href={`/trips/${s.trip.id}`} className="font-mono text-xs font-medium text-coral-600 hover:underline">
                         #{shortId(s.trip.id)}
                       </Link>{" "}
                       <StatusBadge status={s.trip.status} className="ml-1" />
-                      <span className="block truncate text-xs text-navy-700">
+                      <span className="block line-clamp-2 text-xs text-navy-700">
                         {s.trip.pickupName} → {s.trip.dropName}
                       </span>
                       {s.trip.driver && <PlateBadge plate={s.trip.driver.plate} className="mt-1" />}
                     </TableCell>
-                    <TableCell>
-                      {map ? (
-                        <a href={map} target="_blank" rel="noreferrer" className="text-sm font-medium text-coral-600 hover:underline">
-                          Open map
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">Unknown</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-56 whitespace-normal">
+                    <TableCell className="max-w-60 min-w-44 space-y-2 pr-4 whitespace-normal">
                       <StatusBadge status={s.status} className={cn(isOpen && "bg-error text-white")} />
-                      {s.note && <span className="mt-1 block line-clamp-2 text-xs text-navy-700">{s.note}</span>}
-                    </TableCell>
-                    <TableCell className="pr-4 text-right">
+                      {s.note && <span className="block line-clamp-2 text-xs text-navy-700">{s.note}</span>}
                       <SosActions id={s.id} tripId={s.trip.id} status={s.status} />
                     </TableCell>
                   </TableRow>
