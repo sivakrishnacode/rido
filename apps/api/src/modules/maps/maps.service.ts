@@ -7,7 +7,8 @@ import { GoogleMapsClient, PlaceSuggestion, ResolvedPlace, RoadRoute, TravelMode
 import type { LatLngLiteral } from './polyline.js';
 
 const DAY_S = 86_400;
-const TTL = { autocomplete: DAY_S, details: 30 * DAY_S, geocode: 30 * DAY_S, route: 6 * 3600 } as const;
+/** Places content (suggestions, names, addresses) is never cached: Google's Places terms allow storing only place IDs. */
+const TTL = { geocode: 30 * DAY_S, route: 6 * 3600 } as const;
 
 /**
  * Google Maps Platform with Redis caching (the biggest cost lever), and a local fallback
@@ -27,11 +28,12 @@ export class MapsService {
   async autocomplete(params: { input: string; sessionToken: string }): Promise<PlaceSuggestion[] | null> {
     const input = params.input.trim().toLowerCase();
     if (input.length < 3) return [];
-    return this.cached(`maps:ac:${input}`, TTL.autocomplete, () => this.google.autocomplete({ ...params, input }));
+    return this.google.autocomplete({ ...params, input });
   }
 
   details(params: { placeId: string; sessionToken?: string }): Promise<ResolvedPlace | null> {
-    return this.cached(`maps:pd:${params.placeId}`, TTL.details, () => this.google.placeDetails(params));
+    // Always from Google: it also ends the autocomplete session, so its keystrokes aren't billed one by one.
+    return this.google.placeDetails(params);
   }
 
   reverseGeocode(point: LatLngLiteral): Promise<ResolvedPlace | null> {
@@ -41,8 +43,8 @@ export class MapsService {
   }
 
   /** Road route (Google when enabled; cached ~6 h on a ~100 m grid), else null. */
-  route(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind; fromIsStop?: boolean }): Promise<RoadRoute | null> {
-    const mode = MapsService.mode(params.vehicleKind);
+  route(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind; stops?: boolean }): Promise<RoadRoute | null> {
+    const mode = MapsService.travelMode(params.vehicleKind);
     return this.cached(MapsService.routeKey(mode, params), TTL.route, () => this.google.route({ ...params, mode }));
   }
 
@@ -51,18 +53,22 @@ export class MapsService {
    * trip's route-deviation check). Null on a miss, without Google, or for the measured demo routes.
    */
   async cachedRoute(params: { from: LatLngLiteral; to: LatLngLiteral; vehicleKind?: VehicleKind }): Promise<RoadRoute | null> {
-    const hit = await this.redis.get(MapsService.routeKey(MapsService.mode(params.vehicleKind), params));
+    const hit = await this.redis.get(MapsService.routeKey(MapsService.travelMode(params.vehicleKind), params));
     return hit ? (JSON.parse(hit) as RoadRoute) : null;
   }
 
-  private static mode(kind?: VehicleKind): TravelMode {
-    return kind === VehicleKind.BIKE || kind === VehicleKind.GOODS_BIKE ? 'TWO_WHEELER' : 'DRIVE';
+  /** Google travel mode for a vehicle: always DRIVE (see [TravelMode]); kept per vehicle for cache keys. */
+  static travelMode(_kind?: VehicleKind): TravelMode {
+    return 'DRIVE';
   }
 
-  /** `rt2`: routes snap stops with `vehicleStopover` (older `maps:rt:` entries, some via a flyover, expire unused). */
-  private static routeKey(mode: TravelMode, p: { from: LatLngLiteral; to: LatLngLiteral; fromIsStop?: boolean }): string {
-    const g = (q: LatLngLiteral): string => `${q.lat.toFixed(3)},${q.lng.toFixed(3)}`;
-    return `maps:rt2:${mode}${p.fromIsStop === false ? ':drv' : ''}:${g(p.from)}:${g(p.to)}`;
+  /** `rt2`: fare routes snap stops with `vehicleStopover` (older `maps:rt:` entries, some via a flyover, expire unused); `:eta` = no stopover. */
+  private static routeKey(mode: TravelMode, p: { from: LatLngLiteral; to: LatLngLiteral; stops?: boolean }): string {
+    // Fare routes on a ~11 m grid: Google snaps the first asker's exact pins, so a coarser square could hand a pin
+    // on the street the route computed for one on the flyover. ETAs go cell centre to cell centre (already shared).
+    const d = p.stops === false ? 3 : 4;
+    const g = (q: LatLngLiteral): string => `${q.lat.toFixed(d)},${q.lng.toFixed(d)}`;
+    return `maps:rt2:${mode}${p.stops === false ? ':eta' : ''}:${g(p.from)}:${g(p.to)}`;
   }
 
   /** Distance/duration for fares: measured demo routes first, then Google road distance, then haversine × 1.3. */

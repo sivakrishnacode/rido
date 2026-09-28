@@ -49,8 +49,20 @@ describe('MapsService', () => {
     expect(await maps.cachedRoute({ from: gandhipuram, to: vellalore })).toBeNull();
     await maps.estimate({ from: gandhipuram, to: vellalore });
     expect((await maps.cachedRoute({ from: gandhipuram, to: vellalore }))?.encodedPolyline).toBe('route-from-quote');
-    // Another travel mode (bike = two-wheeler) is its own cache entry.
-    expect(await maps.cachedRoute({ from: gandhipuram, to: vellalore, vehicleKind: 'BIKE' })).toBeNull();
+    // Every vehicle drives, so a bike's trip reads the same route.
+    expect((await maps.cachedRoute({ from: gandhipuram, to: vellalore, vehicleKind: 'BIKE' }))?.encodedPolyline).toBe('route-from-quote');
     expect(route).toHaveBeenCalledTimes(1);
+  });
+
+  it('never caches Places content (only place IDs may be stored): each call asks Google', async () => {
+    const autocomplete = vi.fn(async () => [{ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore' }]);
+    const placeDetails = vi.fn(async () => ({ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore', lat: 10.99, lng: 76.96 }));
+    const maps = new MapsService({ isEnabled: true, autocomplete, placeDetails } as unknown as GoogleMapsClient, fakeRedis());
+    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's' });
+    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's' });
+    await maps.details({ placeId: 'p1', sessionToken: 's' });
+    await maps.details({ placeId: 'p1', sessionToken: 's' });
+    expect(autocomplete).toHaveBeenCalledTimes(2);
+    expect(placeDetails).toHaveBeenCalledTimes(2);
   });
 });

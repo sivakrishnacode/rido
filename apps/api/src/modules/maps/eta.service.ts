@@ -34,7 +34,8 @@ export class EtaService {
     const minTrips = await this.settings.get('historicalEtaMinTrips');
     const learned = minTrips > 0 ? this.hexStats.speedKmh({ from: params.from, to: params.to, hour: istHour(new Date()), minTrips }) : null;
     if (learned) return etaMinutes(roadKm(params.from, params.to), learned.speed);
-    const key = `eta:${params.useRoad ? 'road' : 'est'}:${a}:${b}`;
+    // Per travel mode: a bike (two-wheeler) and a cab ETA for the same cells differ.
+    const key = `eta:${params.useRoad ? 'road' : 'est'}:${MapsService.travelMode(params.vehicleKind)}:${a}:${b}`;
     const hit = await this.redis.get(key);
     if (hit) return Number(hit);
     const eta = await this.compute(a, b, params);
@@ -49,7 +50,7 @@ export class EtaService {
     const to = { lat: bLat, lng: bLng };
     // 2. Road ETA, 3. straight-line estimate.
     if (params.useRoad && this.maps.isGoogleEnabled) {
-      const road = await this.maps.route({ from, to, vehicleKind: params.vehicleKind, fromIsStop: false });
+      const road = await this.maps.route({ from, to, vehicleKind: params.vehicleKind, stops: false });
       if (road) return Math.max(1, road.durationMin);
     }
     return etaMinutes(roadKm(from, to), FALLBACK_KMH);

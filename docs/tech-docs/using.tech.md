@@ -416,7 +416,7 @@ Never commit real `.env` files.
 | `trip:otp-tries:<tripId>` | Ride / delivery OTP tries this minute (5 allowed) | 60 s from the first try |
 | `driver:online_since:<id>`, `driver:online_secs:<id>:<day>` | Online session start; online seconds per IST day | – / 40 d |
 | `kyc:event:<event_id>` | Didit webhook already handled (idempotency) | 2 d |
-| `maps:ac:*`, `maps:pd:*`, `maps:rg:*`, `maps:rt2:*` | Google response cache (`rt2`: routes with `vehicleStopover` stops; `:drv` = ETA from a moving driver) | 1 d / 30 d / 30 d / 6 h |
+| `maps:rg:*`, `maps:rt2:*`, `eta:road:<mode>:*` | Google response cache: reverse geocode (~11 m grid), fare routes (`vehicleStopover` stops, ~11 m grid), ETAs (`maps:rt2:DRIVE:eta:*` and `eta:*`, cell centres, no stopover, no path). Autocomplete and Place Details are **not** cached (Places terms allow storing only place IDs; Place Details also ends the session so keystrokes aren't billed singly) | 30 d / 6 h / 10 min |
 
 - **Dispatch (Uber-style, see owner ref "How Uber finds your driver"):**
   1. Drivers are indexed by H3 cell (res 8) in Redis sets `h3:drv:<kind>:<cell>`; no distance scan over all drivers.
@@ -917,7 +917,7 @@ suggestion's name.
   accept → arrived → start(OTP) → complete, GPS over the socket (`DriverFix`) with a buffered batch / HTTP heartbeat
   fallback, chat, restore).
 - **Routes:** `RoadRouter.backend = backendRouter(api)` → `POST /v1/maps/route` (Google on the server, Redis-cached,
-  two-wheeler for bikes via `travelModeFor`), then OSRM. The apps no longer need the app-side Google web-services key
+  every vehicle as DRIVE), then OSRM. The apps no longer need the app-side Google web-services key
   (key 3) in live mode; places search also goes through the API.
 - **Mapping:** `api_mappers.dart` (API enums `GOODS_BIKE` ↔ app `goodsBike`; NO_DRIVERS folds into cancelled; parcel
   details stored as JSON on the trip; the ride OTP doubles as the parcel delivery OTP). Tests: `test/api_mappers_test.dart`.
@@ -1137,7 +1137,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Admin panel | **Done (25 Sep 2026)**: `apps/admin`, all modules above. KYC files open via `/files/:name` (S3). Follow-up: no 2FA/IP allow-list for admins yet |
 | Google Maps on device | Verify the Google engine on a real phone with keys (never run with a key yet) |
 | Google logo padding | **Done**: `RidoMap.mapPadding` (→ `GoogleMap.padding`) on map screens with sheets; the shared camera-fit still ignores it (passenger works around it with `sheetMapInsets`) |
-| Two-wheeler routing | **Done**: `travelModeFor(vehicle)` on every leg; backend routes bikes as TWO_WHEELER. Route cache key ignores the mode (minor) |
+| Two-wheeler routing | **Changed (28 Sep 2026)**: the backend routes every vehicle as DRIVE. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3× Essentials, 7k free); bike fares are priced on the car route so the booked fare matches P-10. Google Routes billing: `vehicleStopover` (fare routes) bills at Pro; ETAs stay Essentials |
 | Google search in pickers | **Done**: saved-place editor and parcel picker search through the API |
 | H3 | See plan below |
 

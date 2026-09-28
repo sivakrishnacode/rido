@@ -22,9 +22,15 @@ export interface RoadRoute {
   readonly points: LatLngLiteral[];
 }
 
-export type TravelMode = 'DRIVE' | 'TWO_WHEELER';
+/**
+ * Every route drives. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3×
+ * Essentials, 7k free a month); bikes are priced on the car route anyway so the fare matches P-10.
+ */
+export type TravelMode = 'DRIVE';
 
 const TIMEOUT_MS = 5000;
+/** ETAs have fallbacks (learned speeds, estimate), so they give Google less time. */
+const ETA_TIMEOUT_MS = 2500;
 /** Bias results to Coimbatore (30 km). */
 const BIAS = { latitude: 11.0168, longitude: 76.9658, radius: 30_000 } as const;
 
@@ -81,12 +87,15 @@ export class GoogleMapsClient {
 
   /** Geocoding API reverse lookup. */
   async reverseGeocode(point: LatLngLiteral): Promise<ResolvedPlace | null> {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${point.lat},${point.lng}&key=${this.env.googleMapsApiKey}`;
-    const json = await this.call<{ status: string; results?: { place_id: string; formatted_address: string; address_components?: { long_name: string; types: string[] }[] }[] }>(
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${point.lat},${point.lng}&language=en&key=${this.env.googleMapsApiKey}`;
+    const json = await this.call<{ status: string; results?: { place_id: string; formatted_address: string; types?: string[]; address_components?: { long_name: string; types: string[] }[] }[] }>(
       url,
       { method: 'GET', isKeyInUrl: true },
     );
-    const first = json?.status === 'OK' ? json.results?.[0] : undefined;
+    // The first result can be a plus code ("7Q6M+2X Coimbatore") or an unnamed road: take the first real address.
+    const results = json?.status === 'OK' ? (json.results ?? []) : [];
+    const isReal = (r: (typeof results)[number]): boolean => !r.types?.includes('plus_code') && !/^unnamed road/i.test(r.formatted_address);
+    const first = results.find(isReal) ?? results[0];
     if (!first) return null;
     const area = first.address_components?.find((c) => c.types.includes('sublocality') || c.types.includes('locality'));
     return { placeId: first.place_id, name: area?.long_name ?? first.formatted_address.split(',')[0], address: first.formatted_address, ...point };
@@ -96,9 +105,11 @@ export class GoogleMapsClient {
   /**
    * `vehicleStopover` snaps a stop to a road where a vehicle can pull over, not a flyover or highway passing
    * above it: a drop pinned on the Ukkadam flyover was routed 16.5 km round via Podanur instead of 11.4 km along
-   * Trichy Road. [fromIsStop] false = the origin is a moving driver (ETA), who may really be on that highway.
+   * Trichy Road. It bills the request at Routes Pro (Essentials without it), so only fare routes set [stops];
+   * ETAs (cell centre to cell centre, often a moving driver) leave it off.
    */
-  async route(params: { from: LatLngLiteral; to: LatLngLiteral; mode: TravelMode; fromIsStop?: boolean }): Promise<RoadRoute | null> {
+  async route(params: { from: LatLngLiteral; to: LatLngLiteral; mode: TravelMode; stops?: boolean }): Promise<RoadRoute | null> {
+    const isEta = params.stops === false;
     const wp = (p: LatLngLiteral, isStop: boolean): object => ({
       location: { latLng: { latitude: p.lat, longitude: p.lng } },
       ...(isStop && { vehicleStopover: true }),
@@ -107,30 +118,34 @@ export class GoogleMapsClient {
       'https://routes.googleapis.com/directions/v2:computeRoutes',
       {
         method: 'POST',
-        fieldMask: 'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline',
-        body: JSON.stringify({ origin: wp(params.from, params.fromIsStop ?? true), destination: wp(params.to, true), travelMode: params.mode, routingPreference: params.mode === 'DRIVE' ? 'TRAFFIC_UNAWARE' : undefined, regionCode: 'in' }),
+        // An ETA needs no path (smaller answer, same SKU).
+        fieldMask: isEta ? 'routes.distanceMeters,routes.duration' : 'routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline',
+        timeoutMs: isEta ? ETA_TIMEOUT_MS : TIMEOUT_MS,
+        body: JSON.stringify({ origin: wp(params.from, params.stops ?? true), destination: wp(params.to, params.stops ?? true), travelMode: params.mode, routingPreference: params.mode === 'DRIVE' ? 'TRAFFIC_UNAWARE' : undefined, regionCode: 'in' }),
       },
     );
     const r = json?.routes?.[0];
-    if (!r?.distanceMeters || !r.polyline?.encodedPolyline) return null;
+    const encoded = r?.polyline?.encodedPolyline ?? '';
+    if (!r?.distanceMeters || (!isEta && !encoded)) return null;
     const seconds = Number((r.duration ?? '0s').replace('s', ''));
     return {
       distanceKm: Math.round((r.distanceMeters / 1000) * 10) / 10,
       durationMin: Math.max(1, Math.round(seconds / 60)),
-      encodedPolyline: r.polyline.encodedPolyline,
-      points: decodePolyline(r.polyline.encodedPolyline),
+      encodedPolyline: encoded,
+      points: encoded ? decodePolyline(encoded) : [],
     };
   }
 
-  private async call<T>(url: string, opts: { method: 'GET' | 'POST'; body?: string; fieldMask?: string; isKeyInUrl?: boolean }): Promise<T | null> {
+  private async call<T>(url: string, opts: { method: 'GET' | 'POST'; body?: string; fieldMask?: string; isKeyInUrl?: boolean; timeoutMs?: number }): Promise<T | null> {
     if (!this.isEnabled) return null;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (!opts.isKeyInUrl) headers['X-Goog-Api-Key'] = this.env.googleMapsApiKey;
     if (opts.fieldMask) headers['X-Goog-FieldMask'] = opts.fieldMask;
     try {
-      const res = await fetch(url, { method: opts.method, headers, body: opts.body, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      const res = await fetch(url, { method: opts.method, headers, body: opts.body, signal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS) });
       if (!res.ok) {
-        this.logger.warn(`Google ${new URL(url).pathname} → ${res.status}`);
+        // 429 = quota / rate limit: callers fall back to local estimates.
+        this.logger.warn(`Google ${new URL(url).pathname} → ${res.status}${res.status === 429 ? ' (quota exceeded)' : ''}`);
         return null;
       }
       return (await res.json()) as T;
