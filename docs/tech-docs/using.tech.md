@@ -1164,6 +1164,12 @@ applied on start. No `currentMultiplier` row was stored, so the new 1.0 default 
 `SHARE_BASE_URL=https://admin.65-0-233-253.sslip.io` to `/opt/rido/.env` and restart the API (share links point at
 localhost until then). Install the new APKs: older driver builds send no trip GPS, so their trips land in Needs review.
 
+**Deployed 29 Sep 2026:** driver Home demand chip with area names, D-07 cards + Help, swipe to accept + voice,
+booking preferences (migration `driver_booking_prefs` applied on start), stacked requests (`maxOpenOffers` 3 by
+default, no row stored) (`fdb7f15..619b77e`). Checked live: `/health` 200, hotspots carry `name`,
+`GET/PUT /drivers/me/booking-preferences` and `GET /trips/offers` work for a test driver (prefs cleared after).
+`SHARE_BASE_URL` is set on the server. Drivers need the new APK for voice, swipe, preferences and stacked cards.
+
 **Capacity (measured 26 Sep 2026, t3.small):** cached fare quotes at 50 concurrent connections: ~890 req/s average
 (peak 1,340), p50 43 ms, p99 ~200 ms, no errors; the API process used both vCPUs while Postgres/Redis stayed idle.
 Planning figures with headroom: ~300–400 req/s sustained, ~1,500–2,500 concurrent app users, ~300–500 online
