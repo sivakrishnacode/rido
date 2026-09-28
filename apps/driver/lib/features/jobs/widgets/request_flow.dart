@@ -9,6 +9,7 @@ import '../../../state/driver_session.dart';
 import '../../../state/live_helpers.dart';
 import '../../../state/request_voice.dart';
 import 'job_common.dart';
+import 'request_stack_view.dart';
 
 /// Shared D-15 / D-20 logic: the request in focus follows the session (a declined, timed-out or withdrawn request
 /// makes way for the next stacked one without leaving the screen), Accept → [acceptRoute], and the card closes
@@ -61,6 +62,12 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
   /// Call from build: follows the session's request in focus.
   void listenForRequests() {
     if (showcase) return;
+    // Each request that joins the list is read out too.
+    ref.listen(driverSessionProvider.select((s) => s.queued.map((q) => q.request.id).join(',')), (_, _) {
+      for (final q in ref.read(driverSessionProvider).queued) {
+        _announce(q.request);
+      }
+    });
     ref.listen(driverSessionProvider.select((s) => s.incoming?.id), (prev, next) {
       if (!mounted) return;
       final incoming = ref.read(driverSessionProvider).incoming;
@@ -134,95 +141,41 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
     _closeIfEmpty();
   }
 
-  /// The other open requests as chips (tap one to look at it), or nothing.
-  Widget stackChips() {
-    if (showcase) return const SizedBox.shrink();
-    final queued = ref.watch(driverSessionProvider.select((s) => s.queued));
-    return RequestStackChips(
-      queued: queued,
-      onFocus: (id) => ref.read(driverSessionProvider.notifier).focusQueued(id),
-    );
+  /// Accepts [tripId] from the comparison list.
+  Future<void> acceptOffer(String tripId) async {
+    if (tripId != _last.id) {
+      ref.read(driverSessionProvider.notifier).focusQueued(tripId);
+      _last = ref.read(driverSessionProvider).incoming ?? _last;
+      _handledId = null;
+    }
+    await accept();
   }
-}
 
-/// "+2 more": the other open requests, each with its fare, pickup distance and a shrinking ring; tap to switch.
-class RequestStackChips extends StatelessWidget {
-  const RequestStackChips({super.key, required this.queued, required this.onFocus});
-  final List<QueuedOffer> queued;
-  final ValueChanged<String> onFocus;
-
-  @override
-  Widget build(BuildContext context) {
-    if (queued.isEmpty) return const SizedBox.shrink();
-    final t = context.type;
-    return Padding(
-      padding: const EdgeInsets.only(top: RidoSpacing.m),
-      child: SizedBox(
-        height: 52,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            Center(
-              child: Text('+${queued.length} more', style: t.bodySmallMedium.copyWith(color: Colors.white)),
-            ),
-            for (final q in queued)
-              Padding(
-                padding: const EdgeInsets.only(left: RidoSpacing.s),
-                child: _StackChip(offer: q, onTap: () => onFocus(q.request.id)),
-              ),
-          ],
-        ),
-      ),
-    );
+  /// Declines (or lets go of, [timedOut]) [tripId] from the comparison list.
+  void declineOffer(String tripId, {bool timedOut = false}) {
+    if (tripId == _last.id) {
+      timedOut ? timeout() : decline();
+      return;
+    }
+    ref.read(driverSessionProvider.notifier).declineOffer(tripId, timedOut: timedOut);
   }
-}
 
-class _StackChip extends StatelessWidget {
-  const _StackChip({required this.offer, required this.onTap});
-  final QueuedOffer offer;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.type;
-    final r = offer.request;
-    final left = offer.expiresAt.difference(DateTime.now());
-    return Semantics(
-      button: true,
-      label: 'Another request, ${formatInr(r.fare)}, pickup ${formatKm(r.pickupDistanceKm)} away. Tap to see it',
-      excludeSemantics: true,
-      child: Material(
-        color: RidoColors.surface,
-        shape: const StadiumBorder(),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, RidoSpacing.m, 6),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              SizedBox(
-                width: 32,
-                height: 32,
-                child: CountdownRing(
-                  key: ValueKey('chip-${r.id}'),
-                  duration: left.isNegative ? const Duration(seconds: 1) : left,
-                  running: true,
-                  color: RidoColors.coral600,
-                  trackColor: RidoColors.coral100,
-                  size: 32,
-                  strokeWidth: 3,
-                  child: Icon(r.vehicle.icon, size: 16, color: RidoColors.coral600),
-                ),
-              ),
-              const SizedBox(width: RidoSpacing.s),
-              Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(formatInr(r.fare), style: t.bodySemibold.copyWith(height: 1.1)),
-                Text('${formatKm(r.pickupDistanceKm)} away', style: t.caption.copyWith(color: RidoColors.navy700)),
-              ]),
-            ]),
-          ),
-        ),
-      ),
+  /// Two or more open requests: the comparison list (rail of rings + a card each); null with just one.
+  Widget? stackView({bool delivery = false}) {
+    if (showcase) return null;
+    final s = ref.watch(driverSessionProvider);
+    final incoming = s.incoming;
+    if (incoming == null || s.queued.isEmpty) return null;
+    return RequestStackView(
+      delivery: delivery,
+      entries: [
+        (request: incoming, expiresAt: s.incomingExpiresAt ?? DateTime.now().add(countdown)),
+        for (final q in s.queued) (request: q.request, expiresAt: q.expiresAt),
+      ],
+      acceptingId: accepting ? _last.id : null,
+      onAccept: acceptOffer,
+      onDecline: declineOffer,
+      onExpired: (id) => declineOffer(id, timedOut: true),
     );
   }
 }

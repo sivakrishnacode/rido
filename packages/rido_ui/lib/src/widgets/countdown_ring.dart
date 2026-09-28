@@ -18,7 +18,11 @@ class CountdownRing extends StatefulWidget {
     this.color = Colors.white,
     this.trackColor = const Color(0x33000000),
     this.running = true,
+    this.showBadge = true,
   });
+
+  /// False hides the "9s" badge (small rings, e.g. a list of requests).
+  final bool showBadge;
 
   final Duration duration;
   final Widget child;
@@ -67,19 +71,21 @@ class _CountdownRingState extends State<CountdownRing> with SingleTickerProvider
           label: '$remaining seconds left',
           child: SizedBox(
             width: widget.size,
-            height: widget.size + 16,
+            height: widget.size + (widget.showBadge ? 16 : 0),
             child: Stack(
               alignment: Alignment.center,
               children: [
                 Positioned(
-                  top: 16,
+                  top: widget.showBadge ? 16 : 0,
                   child: CustomPaint(
                     size: Size.square(widget.size),
                     painter: _RingPainter(1 - _c.value, widget.color, widget.trackColor, widget.strokeWidth),
                   ),
                 ),
-                Positioned(top: 16, width: widget.size, height: widget.size, child: Center(child: child)),
                 Positioned(
+                    top: widget.showBadge ? 16 : 0, width: widget.size, height: widget.size, child: Center(child: child)),
+                if (widget.showBadge)
+                  Positioned(
                   top: 0,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

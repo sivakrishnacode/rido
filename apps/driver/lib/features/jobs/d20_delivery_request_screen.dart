@@ -43,6 +43,17 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
   Widget build(BuildContext context) {
     final t = context.type;
     listenForRequests();
+    // Two or more open requests: compare them side by side.
+    final stack = stackView(delivery: true);
+    if (stack != null) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) decline();
+        },
+        child: stack,
+      );
+    }
     final r0 = request;
     final parcel = r0.parcel;
     final payer = parcel?.payer == ParcelPayer.receiver ? 'Receiver' : 'Sender';
@@ -60,7 +71,6 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
         countdown: countdown,
         running: running,
         onTimeout: timeout,
-        stack: stackChips(),
         below: Container(
           padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.s),
           decoration: const BoxDecoration(color: RidoColors.navy900, borderRadius: RidoRadii.pillRadius),

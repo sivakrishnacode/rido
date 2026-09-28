@@ -34,6 +34,17 @@ class _D15RideRequestScreenState extends ConsumerState<D15RideRequestScreen> wit
   Widget build(BuildContext context) {
     final t = context.type;
     listenForRequests();
+    // Two or more open requests: compare them side by side.
+    final stack = stackView(delivery: false);
+    if (stack != null) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) decline();
+        },
+        child: stack,
+      );
+    }
     final r = request;
     return PopScope(
       canPop: false,
@@ -52,7 +63,6 @@ class _D15RideRequestScreenState extends ConsumerState<D15RideRequestScreen> wit
         onTimeout: timeout,
         below: Text('Cash / UPI to you · 100% yours',
             textAlign: TextAlign.center, style: t.body.copyWith(color: Colors.white)),
-        stack: stackChips(),
         details: [
           RequestRoute(request: r),
           const SizedBox(height: RidoSpacing.xl),

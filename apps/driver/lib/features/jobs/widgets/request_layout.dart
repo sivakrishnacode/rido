@@ -24,11 +24,7 @@ class RequestTakeover extends StatelessWidget {
     required this.onAccept,
     required this.onDecline,
     this.accepting = false,
-    this.stack,
   });
-
-  /// The other open requests (chips under the header), when a driver has more than one.
-  final Widget? stack;
 
   final String title;
   final Widget tag;
@@ -90,7 +86,6 @@ class RequestTakeover extends StatelessWidget {
                       ),
                       const SizedBox(height: RidoSpacing.l),
                       below,
-                      ?stack,
                     ],
                   ),
                 ),
@@ -236,7 +231,10 @@ class RequestCustomerCard extends StatelessWidget {
 
 /// Speaker button on the request header: turns reading requests aloud on or off (saved on the phone).
 class RequestVoiceToggle extends ConsumerWidget {
-  const RequestVoiceToggle({super.key});
+  const RequestVoiceToggle({super.key, this.dark = true});
+
+  /// On the coral header (white icon); false on a light background.
+  final bool dark;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -244,8 +242,9 @@ class RequestVoiceToggle extends ConsumerWidget {
     return IconButton(
       tooltip: on ? 'Voice on. Tap to mute' : 'Voice off. Tap to read requests aloud',
       onPressed: () => ref.read(requestVoiceProvider.notifier).setEnabled(!on),
-      style: IconButton.styleFrom(backgroundColor: RidoColors.coral700),
-      icon: Icon(on ? Symbols.volume_up_rounded : Symbols.volume_off_rounded, color: Colors.white, fill: 1),
+      style: IconButton.styleFrom(backgroundColor: dark ? RidoColors.coral700 : RidoColors.inputBg),
+      icon: Icon(on ? Symbols.volume_up_rounded : Symbols.volume_off_rounded,
+          color: dark ? Colors.white : RidoColors.navy900, fill: 1),
     );
   }
 }

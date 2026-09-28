@@ -361,6 +361,25 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     );
   }
 
+  /// Declines [tripId], in focus or stacked ([timedOut]: its ring ran out, nothing is sent; the server moves it on).
+  void declineOffer(String tripId, {bool timedOut = false}) {
+    if (state.incoming?.id == tripId) {
+      timedOut ? requestTimedOut() : declineRequest();
+      return;
+    }
+    if (!state.queued.any((q) => q.request.id == tripId)) return;
+    state = state.copyWith(queued: [for (final q in state.queued) if (q.request.id != tripId) q]);
+    if (timedOut || !_live) return;
+    _closedOffers.add(tripId);
+    _quiet(_jobs.decline(tripId));
+  }
+
+  /// Accepts [tripId] from the list of open requests (brought into focus first).
+  Future<void> acceptOffer(String tripId) {
+    if (state.incoming?.id != tripId) focusQueued(tripId);
+    return acceptRequest();
+  }
+
   /// The oldest stacked request (not yet expired) comes into focus; false (and nothing in focus) when none is left.
   bool _promoteNext() {
     final now = DateTime.now().add(const Duration(seconds: 1));
