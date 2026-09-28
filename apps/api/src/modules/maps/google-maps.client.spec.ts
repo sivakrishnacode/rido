@@ -95,6 +95,21 @@ describe('GoogleMapsClient.reverseGeocode', () => {
     expect(urls[0]).toContain('extra_computations=ADDRESS_DESCRIPTORS');
   });
 
+  it('an untyped plus-code address: prefers a real one, else drops the code from the front', async () => {
+    stubFetch({ status: 'OK', results: [{ place_id: 'x', formatted_address: 'X2JR+9H, ELGI Nagar, Singanallur, Coimbatore', types: ['street_address'] }] });
+    const only = await client.reverseGeocode(from);
+    expect(only).toMatchObject({ placeId: 'x', address: 'ELGI Nagar, Singanallur, Coimbatore', name: 'ELGI Nagar' });
+    vi.unstubAllGlobals();
+    stubFetch({
+      status: 'OK',
+      results: [
+        { place_id: 'x', formatted_address: 'X2JR+9H, ELGI Nagar, Coimbatore', types: ['street_address'] },
+        { place_id: 'real', formatted_address: 'Kamaraj Rd, ELGI Nagar, Coimbatore', types: ['route'] },
+      ],
+    });
+    expect(await client.reverseGeocode(from)).toMatchObject({ placeId: 'real' });
+  });
+
   it('adds the nearest landmark as a meeting point', async () => {
     stubFetch({ status: 'OK', address_descriptor: ukkadamDescriptor, results: [{ place_id: 'u', formatted_address: 'Ukkadam, Coimbatore', types: ['route'] }] });
     expect((await client.reverseGeocode(ukkadamFlyover))?.landmark).toBe('Near Ukkadam Bus stand');

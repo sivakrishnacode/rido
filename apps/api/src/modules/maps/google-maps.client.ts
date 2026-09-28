@@ -123,6 +123,8 @@ export function parseMatrix(elements: readonly MatrixElement[], origins: number)
 export type TravelMode = 'DRIVE';
 
 const TIMEOUT_MS = 5000;
+/** An Open Location Code ("plus code") at the start of an address: 2–8 code letters, "+", 2–3 more. */
+const PLUS_CODE_START = /^[23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{2,3}\b/i;
 /** ETAs have fallbacks (learned speeds, estimate), so they give Google less time. */
 const ETA_TIMEOUT_MS = 2500;
 
@@ -199,16 +201,19 @@ export class GoogleMapsClient {
       url,
       { method: 'GET', isKeyInUrl: true },
     );
-    // The first result can be a plus code ("7Q6M+2X Coimbatore") or an unnamed road: take the first real address.
+    // The first result can be a plus code ("7Q6M+2X Coimbatore", typed plus_code or not: "X2JR+9H, ELGI Nagar, …")
+    // or an unnamed road: take the first real address; if there is none, drop the code from the front.
     const results = json?.status === 'OK' ? (json.results ?? []) : [];
-    const isReal = (r: (typeof results)[number]): boolean => !r.types?.includes('plus_code') && !/^unnamed road/i.test(r.formatted_address);
+    const isReal = (r: (typeof results)[number]): boolean =>
+      !r.types?.includes('plus_code') && !PLUS_CODE_START.test(r.formatted_address) && !/^unnamed road/i.test(r.formatted_address);
     const first = results.find(isReal) ?? results[0];
     if (!first) return null;
+    const address = first.formatted_address.replace(PLUS_CODE_START, '').replace(/^[,\s]+/, '') || first.formatted_address;
     const area = first.address_components?.find((c) => c.types.includes('sublocality') || c.types.includes('locality'));
     return {
       placeId: first.place_id,
-      name: area?.long_name ?? first.formatted_address.split(',')[0],
-      address: first.formatted_address,
+      name: area?.long_name ?? address.split(',')[0],
+      address,
       landmark: landmarkLabel(json?.address_descriptor),
       ...point,
     };
