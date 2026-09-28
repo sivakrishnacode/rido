@@ -1,9 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
+import type { Job } from '../../core/jobs/job-runner.js';
+import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
-import { SafetyEventKind, TripKind } from '../../generated/prisma/enums.js';
+import { SafetyEventKind, TripKind, TripStatus } from '../../generated/prisma/enums.js';
 import type { LocationFix } from '../drivers/location-fix.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -31,6 +33,11 @@ export interface SafetyCheck {
 
 /** A route deviation is recorded at most once per this many minutes (and pushed at most once per it). */
 export const DEVIATION_DEDUPE_MIN = 10;
+
+/** Durable job: "Did you reach safely?" a few minutes after a night ride ends (keyed by the trip id). */
+export const SAFE_ARRIVAL_JOB = 'safety.arrival-check';
+/** Minutes after the end of a night ride before "Did you reach safely?". */
+export const SAFE_ARRIVAL_DELAY_MIN = 5;
 
 /** The `safety.check` socket payload for [c]. */
 export function safetyCheckPayload(c: SafetyCheck): { tripId: string; kind: string; eventId: string; title: string; message: string } {
@@ -62,7 +69,7 @@ const num = (v: string | undefined): number | null => (v === undefined || v === 
  * throws into the GPS path.
  */
 @Injectable()
-export class SafetyMonitorService {
+export class SafetyMonitorService implements OnModuleInit {
   private readonly logger = new Logger(SafetyMonitorService.name);
   private readonly routes = new Map<string, { encoded: string; points: LatLngLiteral[] }>();
 
@@ -71,7 +78,12 @@ export class SafetyMonitorService {
     private readonly prisma: PrismaService,
     private readonly notifier: NotifierService,
     private readonly settings: SettingsService,
+    private readonly jobs: JobsService,
   ) {}
+
+  onModuleInit(): void {
+    this.jobs.register(SAFE_ARRIVAL_JOB, (j: Job<unknown>) => this.safeArrival(j.id));
+  }
 
   /**
    * The ride started: remember what the checks need (the quoted route too, when the trip has one). A night ride
@@ -103,6 +115,34 @@ export class SafetyMonitorService {
       payload: { check: 'NIGHT_START' },
       title: 'Share your trip with a friend?',
       message: "It's late. Send someone a live link to your ride",
+    });
+  }
+
+  /**
+   * A ride was completed: if it started or ended at night, "Did you reach safely?" is scheduled for
+   * [SAFE_ARRIVAL_DELAY_MIN] minutes later (a durable job, so a restart doesn't lose it).
+   */
+  async rideCompleted(trip: Trip): Promise<void> {
+    if (trip.kind !== TripKind.RIDE || trip.status !== TripStatus.COMPLETED) return;
+    const s = await this.settings.all();
+    const ended = trip.endedAt ?? new Date();
+    const wasNight = [trip.startedAt, ended].some((d) => d && isNightIst(d, s.nightStartHour, s.nightEndHour));
+    if (wasNight) await this.jobs.schedule(SAFE_ARRIVAL_JOB, trip.id, ended.getTime() + SAFE_ARRIVAL_DELAY_MIN * 60_000);
+  }
+
+  /** The job: record the check and push the passenger (answered with the same sheet; "No, I need help" = SOS). */
+  async safeArrival(tripId: string): Promise<void> {
+    const trip = await this.prisma.trip.findUnique({ where: { id: tripId }, select: { id: true, passengerId: true, status: true } });
+    if (trip?.status !== TripStatus.COMPLETED) return;
+    await this.alert({
+      tripId,
+      passengerId: trip.passengerId,
+      isRide: true,
+      kind: SafetyEventKind.NIGHT_CHECK,
+      checkKind: 'SAFE_ARRIVAL',
+      payload: { check: 'SAFE_ARRIVAL' },
+      title: 'Did you reach safely?',
+      message: 'Tap to let us know, or to get help',
     });
   }
 

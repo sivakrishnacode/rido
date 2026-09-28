@@ -428,6 +428,8 @@ export class TripsService {
     });
     await this.location.releaseBusy(driverId, tripId);
     await this.clearTripJobs(tripId);
+    // Night ride: "Did you reach safely?" a few minutes from now (safety module).
+    await this.safety.rideCompleted(updated).catch((e: Error) => this.logger.warn(`Arrival check for ${tripId} not scheduled: ${e.message}`));
     return updated;
   }
 

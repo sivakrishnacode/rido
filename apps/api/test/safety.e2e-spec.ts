@@ -5,6 +5,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module.js';
+import { JobsService } from '../src/core/jobs/jobs.service.js';
 import { PrismaService } from '../src/core/prisma/prisma.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
 import { isNightIst, istHourOf } from '../src/modules/safety/night-window.js';
@@ -258,6 +259,53 @@ describe('Rido safety (e2e)', () => {
 
       await http.post('/v1/drivers/me/location').set(t.driver).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
       await http.post(`/v1/trips/${t.trip.id}/complete`).set(t.driver).send({}).expect(200);
+      await http.post('/v1/drivers/me/offline').set(t.driver);
+    } finally {
+      await settings.update({ nightStartHour: 22, nightEndHour: 5 });
+    }
+  }, 45_000);
+
+  it('after a night ride asks "Did you reach safely?"; "No, I need help" alerts admins with an SOS', async () => {
+    const settings = app.get(SettingsService);
+    const jobs = app.get(JobsService);
+    const hour = istHourOf(new Date());
+    await settings.update({ nightStartHour: hour, nightEndHour: (hour + 2) % 24 });
+    try {
+      const t = await assignedBikeTrip();
+      await startRide(t);
+      await http.post('/v1/drivers/me/location').set(t.driver).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
+      const done = (await http.post(`/v1/trips/${t.trip.id}/complete`).set(t.driver).send({}).expect(200)).body;
+      const due = await jobs.scheduledAt('safety.arrival-check', t.trip.id);
+      expect(due).toBe(new Date(done.endedAt).getTime() + 5 * 60_000);
+      await jobs.runDue(due!);
+      expect(await jobs.scheduledAt('safety.arrival-check', t.trip.id)).toBeNull();
+      const check = await prisma.safetyEvent.findFirstOrThrow({ where: { tripId: t.trip.id, kind: 'NIGHT_CHECK', payload: { path: ['check'], equals: 'SAFE_ARRIVAL' } } });
+      expect(check.payload).toMatchObject({ pushed: true });
+
+      const help = (await http.post(`/v1/trips/${t.trip.id}/safety-check`).set(t.pax).send({ answer: 'HELP', eventId: check.id, lat: 11.0091, lng: 76.9601 }).expect(200)).body;
+      expect(help.sos.sos).toMatchObject({ source: 'ARRIVAL', status: 'OPEN', lat: 11.0091, lng: 76.9601 });
+      expect(help.sos.sos.note).toMatch(/Did you reach safely/);
+      expect((await prisma.safetyEvent.findUniqueOrThrow({ where: { id: check.id } })).payload).toMatchObject({ answer: 'HELP' });
+      const queue = (await http.get('/v1/admin/sos?status=OPEN').set(await adminAuth()).expect(200)).body;
+      expect(queue.items.map((i: { id: string }) => i.id)).toContain(help.sos.sos.id);
+      await http.post('/v1/drivers/me/offline').set(t.driver);
+    } finally {
+      await settings.update({ nightStartHour: 22, nightEndHour: 5 });
+    }
+  }, 45_000);
+
+  it('no arrival check after a daytime ride', async () => {
+    const settings = app.get(SettingsService);
+    const hour = istHourOf(new Date());
+    // A night window that excludes now.
+    await settings.update({ nightStartHour: (hour + 3) % 24, nightEndHour: (hour + 4) % 24 });
+    try {
+      const t = await assignedBikeTrip();
+      await startRide(t);
+      await http.post('/v1/drivers/me/location').set(t.driver).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
+      await http.post(`/v1/trips/${t.trip.id}/complete`).set(t.driver).send({}).expect(200);
+      expect(await app.get(JobsService).scheduledAt('safety.arrival-check', t.trip.id)).toBeNull();
+      expect(await prisma.safetyEvent.count({ where: { tripId: t.trip.id, kind: 'NIGHT_CHECK' } })).toBe(0);
       await http.post('/v1/drivers/me/offline').set(t.driver);
     } finally {
       await settings.update({ nightStartHour: 22, nightEndHour: 5 });
