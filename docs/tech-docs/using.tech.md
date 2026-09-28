@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (no default peak markup: `currentMultiplier` 1.0; surge before the minimum fare)
+Last updated: 28 Sep 2026 (no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -615,7 +615,9 @@ suggestion's name.
 - **API:** `NotificationsModule` (global). `PushService` = firebase-admin (HTTP v1) with the service account from
   `FIREBASE_SERVICE_ACCOUNT_B64` (base64 JSON in the server's `.env`, mode 600; empty = push off, logged). Device
   tokens in `DeviceToken` (token PK, userId, app PASSENGER|DRIVER); `POST /me/devices {token, app}`,
-  `DELETE /me/devices/:token`; tokens FCM reports as dead are deleted. Pushes never fail the request.
+  `DELETE /me/devices/:token`; tokens FCM reports as dead are deleted. Pushes never fail the request: callers use
+  `void this.notifier.x(...)` and every `NotifierService` method catches and logs its own errors (DB lookups included,
+  28 Sep 2026). `main.ts` also logs any `unhandledRejection` instead of letting Node exit.
 - **What is sent (`NotifierService`):**
 
 | Event | To | Channel |
@@ -625,7 +627,7 @@ suggestion's name.
 | New request (high priority, TTL = offer seconds, so a late push never shows) | Driver | `ride_requests` |
 | Cancelled by the passenger | Driver | `trip_updates` |
 | Chat message | The other side | `chat` |
-| KYC document rejected (with reason) / all verified ("You're approved!") | Driver | `account` |
+| KYC document rejected (with reason) / all verified ("You're approved!", "Go online to start earning"; mentions plans only when `driverPlansEnabled`) | Driver | `account` |
 | Admin announcement (active, already started) | Topic `all`, `passengers` or `drivers` | `announcements` |
 
 - **Apps (`RidoPush` in rido_data):** Firebase init in `main()` (live mode), Android channels with the same ids,

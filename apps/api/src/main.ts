@@ -20,4 +20,11 @@ async function bootstrap(): Promise<void> {
   Logger.log(`Rido API listening on :${env.port} (${env.nodeEnv})`, 'Bootstrap');
 }
 
+// Safety net: a stray fire-and-forget promise (e.g. `void someAsync()`) that rejects is logged, not fatal. Node would
+// otherwise exit on an unhandled rejection and drop every live trip socket with it.
+process.on('unhandledRejection', (reason) => {
+  const detail = reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
+  Logger.error(`Unhandled promise rejection: ${detail}`, undefined, 'Process');
+});
+
 await bootstrap();

@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Announcement, Trip } from '../../generated/prisma/client.js';
 import { AnnouncementAudience, AppKind, TripKind, TripStatus } from '../../generated/prisma/enums.js';
+import { SettingsService } from '../settings/settings.service.js';
 import { PUSH_TOPICS, PushService } from './push.service.js';
 
 type Party = { name: string | null; phone?: string | null };
@@ -27,16 +28,48 @@ function first(name: string | null | undefined, fallback: string): string {
 /**
  * What each event says, and to whom. Passenger app: trip progress, no drivers, chat. Driver app: ride requests
  * (urgent), cancellations, chat, KYC decisions. Both: admin announcements on topics.
+ *
+ * Fire-and-forget: callers use `void this.notifier.x(...)`, so no method ever throws or rejects. A failed lookup or
+ * push is logged and dropped (a missed notification must never fail the request or crash the process).
  */
 @Injectable()
 export class NotifierService {
+  private readonly logger = new Logger(NotifierService.name);
+
   constructor(
     private readonly push: PushService,
     private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
   ) {}
+
+  /** Runs [send], logging instead of throwing. */
+  private safe(event: string, send: () => void): void {
+    try {
+      send();
+    } catch (e) {
+      this.fail(event, e);
+    }
+  }
+
+  /** Async [safe]: the returned promise always resolves. */
+  private async safeAsync(event: string, send: () => Promise<void>): Promise<void> {
+    try {
+      await send();
+    } catch (e) {
+      this.fail(event, e);
+    }
+  }
+
+  private fail(event: string, e: unknown): void {
+    this.logger.warn(`Notification "${event}" not sent: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   /** After a status change. [by] = who caused it (a cancellation is only pushed to the other side). */
   tripChanged(trip: TripWithPeople, by: 'PASSENGER' | 'DRIVER' | 'SYSTEM'): void {
+    this.safe(`trip ${trip.status}`, () => this.sendTripChanged(trip, by));
+  }
+
+  private sendTripChanged(trip: TripWithPeople, by: 'PASSENGER' | 'DRIVER' | 'SYSTEM'): void {
     const isParcel = trip.kind === TripKind.PARCEL;
     const driver = first(trip.driver?.user.name, 'Your driver');
     const data = { type: 'trip', tripId: trip.id, status: trip.status, kind: trip.kind };
@@ -78,40 +111,47 @@ export class NotifierService {
   }
 
   /** New request for a driver: urgent (wakes the phone), dropped by FCM once the offer has expired. */
-  async offer(params: { driverId: string; trip: Trip; pickupEtaMin: number | null; expiresInSeconds: number }): Promise<void> {
-    const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
-    if (!driver) return;
-    const t = params.trip;
-    const eta = params.pickupEtaMin ? ` · ${params.pickupEtaMin} min away` : '';
-    this.push.toUser(driver.userId, AppKind.DRIVER, {
-      title: `New ${t.kind === TripKind.PARCEL ? 'delivery' : 'ride'} request · ₹${t.fareTotal}`,
-      body: `${t.pickupName} → ${t.dropName}${eta}`,
-      channel: 'ride_requests',
-      data: { type: 'offer', tripId: t.id },
-      isUrgent: true,
-      ttlSeconds: params.expiresInSeconds,
+  offer(params: { driverId: string; trip: Trip; pickupEtaMin: number | null; expiresInSeconds: number }): Promise<void> {
+    return this.safeAsync('offer', async () => {
+      const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
+      if (!driver) return;
+      const t = params.trip;
+      const eta = params.pickupEtaMin ? ` · ${params.pickupEtaMin} min away` : '';
+      this.push.toUser(driver.userId, AppKind.DRIVER, {
+        title: `New ${t.kind === TripKind.PARCEL ? 'delivery' : 'ride'} request · ₹${t.fareTotal}`,
+        body: `${t.pickupName} → ${t.dropName}${eta}`,
+        channel: 'ride_requests',
+        data: { type: 'offer', tripId: t.id },
+        isUrgent: true,
+        ttlSeconds: params.expiresInSeconds,
+      });
     });
   }
 
   /** Chat message to the other side of the trip. */
-  async chat(params: { tripId: string; from: 'PASSENGER' | 'DRIVER'; text: string }): Promise<void> {
-    const trip = await this.prisma.trip.findUnique({
-      where: { id: params.tripId },
-      include: { driver: { select: { userId: true, user: { select: { name: true } } } }, passenger: { select: { name: true } } },
+  chat(params: { tripId: string; from: 'PASSENGER' | 'DRIVER'; text: string }): Promise<void> {
+    return this.safeAsync('chat', async () => {
+      const trip = await this.prisma.trip.findUnique({
+        where: { id: params.tripId },
+        include: { driver: { select: { userId: true, user: { select: { name: true } } } }, passenger: { select: { name: true } } },
+      });
+      if (!trip) return;
+      const data = { type: 'chat', tripId: trip.id };
+      const body = params.text.length > 140 ? `${params.text.slice(0, 137)}…` : params.text;
+      if (params.from === 'PASSENGER' && trip.driver) {
+        this.push.toUser(trip.driver.userId, AppKind.DRIVER, { title: first(trip.passenger.name, 'Customer'), body, channel: 'chat', data });
+      } else if (params.from === 'DRIVER') {
+        this.push.toUser(trip.passengerId, AppKind.PASSENGER, { title: first(trip.driver?.user.name, 'Your driver'), body, channel: 'chat', data });
+      }
     });
-    if (!trip) return;
-    const data = { type: 'chat', tripId: trip.id };
-    const body = params.text.length > 140 ? `${params.text.slice(0, 137)}…` : params.text;
-    if (params.from === 'PASSENGER' && trip.driver) {
-      this.push.toUser(trip.driver.userId, AppKind.DRIVER, { title: first(trip.passenger.name, 'Customer'), body, channel: 'chat', data });
-    } else if (params.from === 'DRIVER') {
-      this.push.toUser(trip.passengerId, AppKind.PASSENGER, { title: first(trip.driver?.user.name, 'Your driver'), body, channel: 'chat', data });
-    }
   }
 
-  /** An admin verified or rejected a KYC document (or the whole application). */
   /** Didit identity result. Drivers hear about approval from [kycReviewed] once their documents are verified too. */
   identityChanged(params: { userId: string; purpose: 'DRIVER' | 'RIDER'; status: string }): void {
+    this.safe('identity', () => this.sendIdentityChanged(params));
+  }
+
+  private sendIdentityChanged(params: { userId: string; purpose: 'DRIVER' | 'RIDER'; status: string }): void {
     const app = params.purpose === 'DRIVER' ? AppKind.DRIVER : AppKind.PASSENGER;
     const data = { type: 'identity', status: params.status };
     if (params.status === 'DECLINED') {
@@ -122,47 +162,61 @@ export class NotifierService {
   }
 
   /** A profile photo went to admin review: tell the driver it is being checked. */
-  async photoSubmitted(driverId: string): Promise<void> {
-    const driver = await this.prisma.driver.findUnique({ where: { id: driverId }, select: { userId: true } });
-    if (!driver) return;
-    this.push.toUser(driver.userId, AppKind.DRIVER, {
-      title: 'Photo received',
-      body: "We're checking your profile photo. You can go online once it's approved",
-      channel: 'account',
-      data: { type: 'photo', status: 'IN_REVIEW' },
-    });
-  }
-
-  async photoReviewed(params: { driverId: string; isApproved: boolean; reason: string }): Promise<void> {
-    const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
-    if (!driver) return;
-    this.push.toUser(driver.userId, AppKind.DRIVER, {
-      title: params.isApproved ? 'Profile photo approved' : 'Please retake your photo',
-      body: params.isApproved ? 'Riders will see it on their trip. You can go online now' : `${params.reason}. Tap to retake`,
-      channel: 'account',
-      data: { type: 'photo', status: params.isApproved ? 'APPROVED' : 'REJECTED' },
-    });
-  }
-
-  async kycReviewed(params: { driverId: string; type?: string; status: 'VERIFIED' | 'REJECTED' | 'APPROVED'; reason?: string | null }): Promise<void> {
-    const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
-    if (!driver) return;
-    const data = { type: 'kyc', status: params.status };
-    if (params.status === 'APPROVED') {
-      this.push.toUser(driver.userId, AppKind.DRIVER, { title: "You're approved! 🎉", body: 'Choose a plan and go online to start earning', channel: 'account', data });
-    } else if (params.status === 'REJECTED') {
-      const doc = DOC_LABEL[params.type ?? ''] ?? 'A document';
+  photoSubmitted(driverId: string): Promise<void> {
+    return this.safeAsync('photo submitted', async () => {
+      const driver = await this.prisma.driver.findUnique({ where: { id: driverId }, select: { userId: true } });
+      if (!driver) return;
       this.push.toUser(driver.userId, AppKind.DRIVER, {
-        title: `${doc} needs attention`,
-        body: `${params.reason ?? 'Please upload a clearer photo'}. Tap to re-upload`,
+        title: 'Photo received',
+        body: "We're checking your profile photo. You can go online once it's approved",
         channel: 'account',
-        data,
+        data: { type: 'photo', status: 'IN_REVIEW' },
       });
-    }
+    });
+  }
+
+  photoReviewed(params: { driverId: string; isApproved: boolean; reason: string }): Promise<void> {
+    return this.safeAsync('photo reviewed', async () => {
+      const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
+      if (!driver) return;
+      this.push.toUser(driver.userId, AppKind.DRIVER, {
+        title: params.isApproved ? 'Profile photo approved' : 'Please retake your photo',
+        body: params.isApproved ? 'Riders will see it on their trip. You can go online now' : `${params.reason}. Tap to retake`,
+        channel: 'account',
+        data: { type: 'photo', status: params.isApproved ? 'APPROVED' : 'REJECTED' },
+      });
+    });
+  }
+
+  /** An admin verified or rejected a KYC document, or approved the whole application. */
+  kycReviewed(params: { driverId: string; type?: string; status: 'VERIFIED' | 'REJECTED' | 'APPROVED'; reason?: string | null }): Promise<void> {
+    return this.safeAsync('kyc reviewed', async () => {
+      const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
+      if (!driver) return;
+      const data = { type: 'kyc', status: params.status };
+      if (params.status === 'APPROVED') {
+        // Paid plans are off (free app): no "Choose a plan" unless they are switched back on.
+        const plans = await this.settings.get('driverPlansEnabled').catch(() => false);
+        const body = plans ? 'Choose a plan and go online to start earning' : 'Go online to start earning';
+        this.push.toUser(driver.userId, AppKind.DRIVER, { title: "You're approved! 🎉", body, channel: 'account', data });
+      } else if (params.status === 'REJECTED') {
+        const doc = DOC_LABEL[params.type ?? ''] ?? 'A document';
+        this.push.toUser(driver.userId, AppKind.DRIVER, {
+          title: `${doc} needs attention`,
+          body: `${params.reason ?? 'Please upload a clearer photo'}. Tap to re-upload`,
+          channel: 'account',
+          data,
+        });
+      }
+    });
   }
 
   /** Admin announcement → the matching topic. */
   announcement(a: Announcement): void {
+    this.safe('announcement', () => this.sendAnnouncement(a));
+  }
+
+  private sendAnnouncement(a: Announcement): void {
     if (!a.isActive || a.startsAt > new Date()) return;
     const topic = a.audience === AnnouncementAudience.PASSENGER ? PUSH_TOPICS.PASSENGER : a.audience === AnnouncementAudience.DRIVER ? PUSH_TOPICS.DRIVER : PUSH_TOPICS.ALL;
     this.push.toTopic(topic, { title: a.title, body: a.body, channel: 'announcements', data: { type: 'announcement', id: a.id } });
