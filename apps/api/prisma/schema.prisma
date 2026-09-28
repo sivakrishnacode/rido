@@ -370,6 +370,8 @@ model Trip {
   cancelledBy      CancelledBy?
   cancelCode       CancelCode?
   cancelledAt      DateTime?
+  /// Times a driver dropped this trip and it went back to searching (capped by the `maxReassigns` setting).
+  reassignCount    Int                @default(0)
   /// Driver's distance from the pickup when marking "Arrived", and the reason given when outside `arrivalRadiusM`.
   arrivedDistanceM Int?
   arrivedFarReason String?

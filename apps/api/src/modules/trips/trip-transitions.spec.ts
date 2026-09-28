@@ -1,4 +1,4 @@
-import { canTransition, isFinished } from './trip-transitions.js';
+import { canReassign, canTransition, isFinished } from './trip-transitions.js';
 
 describe('trip transitions', () => {
   it('lets a ride go through its lifecycle', () => {
@@ -18,5 +18,15 @@ describe('trip transitions', () => {
     expect(canTransition({ kind: 'RIDE', from: 'IN_PROGRESS', to: 'CANCELLED' })).toBe(false);
     expect(canTransition({ kind: 'RIDE', from: 'COMPLETED', to: 'CANCELLED' })).toBe(false);
     expect(isFinished('DELIVERED')).toBe(true);
+  });
+
+  it('lets a dropped trip go back to searching before pickup only', () => {
+    expect(canTransition({ kind: 'RIDE', from: 'DRIVER_ARRIVED', to: 'SEARCHING' })).toBe(true);
+    expect(canTransition({ kind: 'PARCEL', from: 'DRIVER_ARRIVED', to: 'SEARCHING' })).toBe(true);
+    expect(canReassign({ kind: 'RIDE', status: 'DRIVER_ASSIGNED' })).toBe(true);
+    expect(canReassign({ kind: 'PARCEL', status: 'DRIVER_ARRIVED' })).toBe(true);
+    expect(canReassign({ kind: 'RIDE', status: 'IN_PROGRESS' })).toBe(false);
+    expect(canReassign({ kind: 'PARCEL', status: 'PICKED_UP' })).toBe(false);
+    expect(canReassign({ kind: 'RIDE', status: 'SEARCHING' })).toBe(false);
   });
 });

@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -169,7 +169,7 @@ Never commit real `.env` files.
   (since 28 Sep 2026; before, a short surged ride paid minFare × multiplier). Quotes cap the multiplier at the
   `maxMultiplier` setting.
 - **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds,
-  offerSeconds, maxCandidates, trialDays,
+  offerSeconds, maxCandidates, maxReassigns, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
   contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
@@ -252,6 +252,19 @@ Never commit real `.env` files.
     `Trip.arrivedAt` is set on "Arrived". Apps: S-03 / D-16 / D-17 send codes (`CancelCode` in rido_data, with the
     sheet labels and per-side lists); admin trip page shows who / why / when, the note, every cancellation and the
     arrival time; the trips CSV has the new columns. The Butterfly-for-others report count uses the code.
+  - **Reassign on driver cancel (28 Sep 2026, like Namma Yatri's `reAllocateBookingIfPossible`):** a driver cancel in
+    `DRIVER_ASSIGNED` / `DRIVER_ARRIVED` no longer ends the trip (`TripsService.dropTrip`): a guarded update puts it
+    back to `SEARCHING` (transitions allow both → SEARCHING), clears `driverId` / `assignedAt` / `arrivedAt` / the
+    arrival check, increments `Trip.reassignCount`, records a `TripCancellation` (`reassigned: true`), frees the
+    driver, adds them to `dispatch:<id>:declined` (never offered it again), restarts the search time
+    (`dispatch:<id>:since`) and re-runs dispatch (`DispatchService.restart`). The update (`trip.updated`, SEARCHING)
+    also goes to the driver's room; the driver's response is the trip (no OTP). Passenger push "Finding you another
+    driver"; the app shows S-02 ("… had to cancel. We're finding you another driver", same fare) until someone
+    accepts (PP-07 again for parcels, with a notice). After `maxReassigns` (setting, **default 2**) drops, the next
+    driver cancel ends the trip: `CANCELLED`, `cancelledBy SYSTEM`, `cancelCode NO_DRIVERS` (the history keeps the
+    driver's code); passenger push/notice "Your driver couldn't make it and no other driver is free". A
+    `BUTTERFLY_MISMATCH` cancel still ends the trip (the booking itself was wrong). Not handled: a "Book any" trip
+    taken by an added vehicle keeps that vehicle when it searches again (the booked kind was overwritten on accept).
   - Global JWT/roles guards now skip non-HTTP contexts: sockets authenticate on connect. (Before this, `trip:join` and
     `driver:location` crashed in the guard, so live tracking never reached passengers.)
 - **Durable jobs (28 Sep 2026, `core/jobs`, like Namma Yatri's `lib/scheduler`):** `JobsService.schedule(kind, id,
@@ -531,7 +544,7 @@ accepts unknown subtype names without error, so use only catalog names (read the
 - **Settings (`/settings`):** renders every key `GET /v1/admin/settings` returns: "Pricing & surge"
   (dynamicSurgeEnabled, surgeSensitivity, demandWindowMin, surgeMinRequests, maxMultiplier, currentMultiplier, with the
   formula and a live example: ratio 3 → 1 + 0.1 × 2 = 1.2×), "Dispatch & ETA" (batchWindowMs, useRoadEta,
-  historicalEtaMinTrips, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds, offerSeconds, maxCandidates), Driver
+  historicalEtaMinTrips, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds, offerSeconds, maxCandidates, maxReassigns), Driver
   plans, Support, and any new key in
   "Other" (typed from the API value). Only changed keys are sent; values are validated client + server side.
 - **Travel speeds (`/travel-speeds`, System):** `GET /v1/admin/hex-stats?res=9|8|7&hour=&sort=busiest|slowest|fastest&used=true`.
@@ -835,7 +848,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 |---|---|
 | Apps → API | **Done (26 Sep 2026)**: both apps run on the API by default (see 7b); mock mode via `--dart-define=RIDO_LIVE_API=false`. Needs a real-phone pass (two phones: passenger + approved online driver) |
 | Push (FCM) | **Done (26 Sep 2026)**, see 7c. Verify on phones; rotate the service-account key that was pasted in chat (`e73622ac…`) and update `FIREBASE_SERVICE_ACCOUNT_B64` on the server |
-| Driver re-search | A driver cancel ends the trip (CANCELLED); re-dispatch instead so the passenger's S-02 "finding another driver" is real |
+| Driver re-search | **Done (28 Sep 2026)**: a driver cancel before pickup sends the trip back to searching (≤ `maxReassigns`), see 6 "Reassign on driver cancel" |
 | Trip `updatedAt` | Add to Trip JSON so apps can order pushed updates reliably (apps guard with a status order today) |
 | SOS / tracking link | No SOS service (apps raise a "Safety concern" ticket + dialer) and no public trip-tracking page yet |
 | Women-driver preference | **Done (27 Sep 2026)** as Butterfly: booking sends `womenDriver`, dispatch filters (ONLY) or ranks (PREFERRED) by driver gender, see 7 Dispatch step 4 |

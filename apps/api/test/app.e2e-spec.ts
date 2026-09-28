@@ -361,9 +361,60 @@ describe('Rido API (e2e)', () => {
     expect(await redis.exists(`driver:busy:${driverId}`)).toBe(0);
     // The other trip searches again every few seconds.
     expect((await acceptWhenOffered(other, bike, 80)).status).toBe(200);
-    await http.post(`/v1/trips/${other}/cancel`).set('Authorization', `Bearer ${bike}`).send({}).expect(200);
+    await http.post(`/v1/trips/${other}/cancel`).set('Authorization', `Bearer ${other === a.id ? paxA : paxB}`).send({}).expect(200);
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${bike}`).expect(200);
   }, 45_000);
+
+  it('a driver cancel before pickup finds another driver; the reassign limit then cancels the trip', async () => {
+    // Arrange: only these two bike drivers are indexed; one rider.
+    const redis = app.get(RedisService);
+    const settings = app.get(SettingsService);
+    const cells = await redis.keys('h3:drv:BIKE:*');
+    if (cells.length) await redis.del(...cells);
+    const drivers = [await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 }), await onlineDriver('BIKE', { lat: 11.0188, lng: 76.973 })];
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+    /** Waits for whichever of [tokens] has the offer, accepts it, returns that driver's token. */
+    const acceptByAnyone = async (tokens: string[]): Promise<string> => {
+      for (let i = 0; i < 80; i++) {
+        for (const t of tokens) {
+          if ((await http.post(`/v1/trips/${trip.id}/accept`).set('Authorization', `Bearer ${t}`)).status === 200) return t;
+        }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      throw new Error('nobody got the offer');
+    };
+    await settings.update({ maxReassigns: 1 });
+    try {
+      // Act 1: the first driver arrives, then cancels with a code.
+      const first = await acceptByAnyone(drivers);
+      const firstId = (await http.get('/v1/drivers/me').set('Authorization', `Bearer ${first}`).expect(200)).body.id as string;
+      await http.post(`/v1/trips/${trip.id}/arrived`).set('Authorization', `Bearer ${first}`).expect(200);
+      const dropped = (await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${first}`).send({ code: 'VEHICLE_ISSUE' }).expect(200)).body;
+
+      // Assert 1: back to searching without them; they are free, excluded, and the drop is on record.
+      expect(dropped).toMatchObject({ status: 'SEARCHING', driverId: null, reassignCount: 1, arrivedAt: null, cancelledBy: null, otp: '' });
+      expect((await http.get(`/v1/trips/${trip.id}`).set(pax).expect(200)).body.status).toBe('SEARCHING');
+      expect(await redis.exists(`driver:busy:${firstId}`)).toBe(0);
+      expect(await redis.sismember(`dispatch:${trip.id}:declined`, firstId)).toBe(1);
+      expect(await prisma.tripCancellation.findMany({ where: { tripId: trip.id } })).toMatchObject([
+        { by: 'DRIVER', code: 'VEHICLE_ISSUE', driverId: firstId, fromStatus: 'DRIVER_ARRIVED', reassigned: true, isDriverFault: true },
+      ]);
+
+      // Act 2: the other driver gets it (never the one who dropped it), then cancels too: the limit is reached.
+      const second = await acceptByAnyone(drivers);
+      expect(second).not.toBe(first);
+      const ended = (await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${second}`).send({ code: 'TOO_FAR' }).expect(200)).body;
+
+      // Assert 2: cancelled by the system; the history keeps both drivers' reasons.
+      expect(ended).toMatchObject({ status: 'CANCELLED', cancelledBy: 'SYSTEM', cancelCode: 'NO_DRIVERS' });
+      const history = await prisma.tripCancellation.findMany({ where: { tripId: trip.id }, orderBy: { createdAt: 'asc' } });
+      expect(history.map((h) => [h.code, h.reassigned])).toEqual([['VEHICLE_ISSUE', true], ['TOO_FAR', false]]);
+    } finally {
+      await settings.update({ maxReassigns: 2 });
+      for (const d of drivers) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
+    }
+  }, 60_000);
 
   it('keeps offer timeouts as durable Redis jobs', async () => {
     // Arrange: the only bike driver gets the offer.

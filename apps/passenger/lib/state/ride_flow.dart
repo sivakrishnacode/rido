@@ -509,9 +509,7 @@ class RideFlowController extends Notifier<RideFlowState> {
         state = state.copyWith(phase: RidePhase.planning, busy: false, tripQuote: null);
         ref.invalidate(tripHistoryProvider);
         if (!byMe) {
-          final reason = u.json['cancelReason'];
-          final why = reason is String && reason.trim().isNotEmpty ? ' ($reason)' : '';
-          ref.read(appNoticeProvider.notifier).show('$who$why. You can book again.', goTo: Routes.ride);
+          ref.read(appNoticeProvider.notifier).show(cancelledNotice(u, who: who, bookAgain: 'You can book again.'), goTo: Routes.ride);
         }
       case RidePhase.noDrivers:
         _stopFollowing();

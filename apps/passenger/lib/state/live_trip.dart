@@ -89,6 +89,23 @@ bool isStaleStatus(String next, String? last) {
   return statusRank(next) < statusRank(last);
 }
 
+/// What to tell the passenger when the server cancelled their trip (not their own cancel). [who] is e.g.
+/// "Karthik cancelled the ride" when a driver was on the way. The system cancels after drivers kept dropping the trip
+/// (reassign limit): no driver name or note then. Otherwise the driver's note, else their reason code, is added.
+String cancelledNotice(LiveTripUpdate u, {required String who, required String bookAgain}) {
+  if (u.cancelledBy == CancelledBy.system) {
+    return u.cancelCode == CancelCode.noDrivers
+        ? "Your driver couldn't make it and no other driver is free. $bookAgain"
+        : 'Your trip was cancelled. $bookAgain';
+  }
+  final note = u.json['cancelReason'];
+  final code = u.cancelCode;
+  final why = note is String && note.trim().isNotEmpty
+      ? note.trim()
+      : (code != null && code != CancelCode.other ? code.label : null);
+  return '$who${why == null ? '' : ' ($why)'}. $bookAgain';
+}
+
 /// A user-facing message for a failed API call.
 String apiErrorMessage(Object error) => switch (error) {
   ApiException(:final message) => message,

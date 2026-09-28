@@ -518,6 +518,8 @@ export interface Settings {
   readonly searchExpandSeconds: number;
   readonly offerSeconds: number;
   readonly maxCandidates: number;
+  /** A driver cancel before pickup sends the trip back to searching this many times. */
+  readonly maxReassigns: number;
   readonly trialDays: number;
   readonly graceDays: number;
   /** Bookings are collected this long, then assigned together (dispatch batching). */

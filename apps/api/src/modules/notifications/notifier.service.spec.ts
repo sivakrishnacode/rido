@@ -51,4 +51,15 @@ describe('NotifierService', () => {
     await notifier.kycReviewed({ driverId: 'd1', status: 'APPROVED' });
     expect(toUser).toHaveBeenCalledWith('u1', 'DRIVER', expect.objectContaining({ body: 'Choose a plan and go online to start earning' }));
   });
+
+  it('tells the passenger a dropped trip is finding another driver (not the first search)', () => {
+    const { notifier, toUser } = setup();
+    const trip = { id: 't1', kind: 'RIDE', status: 'SEARCHING', passengerId: 'p1', reassignCount: 0 } as unknown as TripWithPeople;
+    notifier.tripChanged(trip, 'PASSENGER');
+    expect(toUser).not.toHaveBeenCalled();
+    notifier.tripChanged({ ...trip, reassignCount: 1 }, 'DRIVER');
+    expect(toUser).toHaveBeenCalledWith('p1', 'PASSENGER', expect.objectContaining({ title: 'Finding you another driver' }));
+    notifier.tripChanged({ ...trip, reassignCount: 1 }, 'SYSTEM');
+    expect(toUser).toHaveBeenLastCalledWith('p1', 'PASSENGER', expect.objectContaining({ body: expect.stringContaining("wasn't on the way") }));
+  });
 });

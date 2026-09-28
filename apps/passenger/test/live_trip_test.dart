@@ -179,4 +179,25 @@ void main() {
     expect(text, contains('https://maps.google.com/?q=11.01000,76.96000'));
     expect(text, isNot(contains('+919876543210')));
   });
+
+  group('cancelledNotice', () {
+    final base = tripFromJson({'id': 't1', 'kind': 'RIDE', 'status': 'CANCELLED', 'vehicleKind': 'BIKE'});
+    LiveTripUpdate u(Map<String, Object?> j) => LiveTripUpdate(base, 'CANCELLED', {'id': 't1', 'status': 'CANCELLED', ...j});
+
+    test("adds the driver's note, else the code label (not OTHER)", () {
+      expect(cancelledNotice(u({'cancelledBy': 'DRIVER', 'cancelCode': 'OTHER', 'cancelReason': 'Tyre burst'}), who: 'Arun cancelled the ride', bookAgain: 'Book again.'),
+          'Arun cancelled the ride (Tyre burst). Book again.');
+      expect(cancelledNotice(u({'cancelledBy': 'DRIVER', 'cancelCode': 'BUTTERFLY_MISMATCH'}), who: 'Arun cancelled the ride', bookAgain: 'Book again.'),
+          'Arun cancelled the ride (Rider is not a woman). Book again.');
+      expect(cancelledNotice(u({'cancelledBy': 'DRIVER', 'cancelCode': 'OTHER'}), who: 'Arun cancelled the ride', bookAgain: 'Book again.'),
+          'Arun cancelled the ride. Book again.');
+    });
+
+    test('the reassign limit (system, no drivers) names nobody and hides the internal note', () {
+      expect(
+        cancelledNotice(u({'cancelledBy': 'SYSTEM', 'cancelCode': 'NO_DRIVERS', 'cancelReason': 'internal'}), who: 'Arun cancelled the ride', bookAgain: 'Book again.'),
+        "Your driver couldn't make it and no other driver is free. Book again.",
+      );
+    });
+  });
 }

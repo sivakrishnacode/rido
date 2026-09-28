@@ -55,6 +55,7 @@ const GROUPS: readonly Group[] = [
       { key: "searchExpandSeconds", label: "Widen over", hint: "Seconds from the start radius to the maximum (0 = at once)", step: "5", suffix: "s" },
       { key: "offerSeconds", label: "Offer time", hint: "Seconds each driver has to accept", step: "1", suffix: "s" },
       { key: "maxCandidates", label: "Drivers per booking", hint: "Offered one at a time before \"No drivers\"", step: "1" },
+      { key: "maxReassigns", label: "Reassigns per trip", hint: "A driver cancel before pickup finds another driver this many times, then cancels the trip", step: "1" },
       { key: "arrivalRadiusM", label: "Arrived within", hint: "Farther from the pickup, the driver must give a reason to mark Arrived", step: "10", suffix: "m" },
       { key: "dropRadiusM", label: "End trip within", hint: "Farther from the drop, the driver must give a reason to end the trip", step: "10", suffix: "m" },
     ],

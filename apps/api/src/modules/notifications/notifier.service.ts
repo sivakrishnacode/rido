@@ -84,6 +84,13 @@ export class NotifierService {
       this.push.toUser(trip.passengerId, AppKind.PASSENGER, { title, body, channel: 'trip_updates', data });
 
     switch (trip.status) {
+      case TripStatus.SEARCHING:
+        // Back to searching after a driver dropped it (reassign).
+        if (trip.reassignCount === 0) return;
+        return toPassenger(
+          'Finding you another driver',
+          by === 'SYSTEM' ? "Your driver wasn't on the way, so we're finding you another one at the same fare" : "Your driver cancelled. We're finding you another one at the same fare",
+        );
       case TripStatus.DRIVER_ASSIGNED:
         return toPassenger(
           isParcel ? 'Delivery partner assigned' : 'Driver on the way',
@@ -103,6 +110,9 @@ export class NotifierService {
         return toPassenger('No drivers nearby', 'Please try again in a minute or pick another vehicle');
       case TripStatus.CANCELLED:
         if (by === 'DRIVER') return toPassenger(`${isParcel ? 'Delivery' : 'Ride'} cancelled`, `${driver} cancelled. Please book again`);
+        if (by === 'SYSTEM') {
+          return toPassenger(`${isParcel ? 'Delivery' : 'Ride'} cancelled`, "Your driver couldn't make it and no other driver is free. Please book again");
+        }
         if (by === 'PASSENGER' && trip.driver) {
           this.push.toUser(trip.driver.userId, AppKind.DRIVER, {
             title: `${isParcel ? 'Delivery' : 'Ride'} cancelled`,

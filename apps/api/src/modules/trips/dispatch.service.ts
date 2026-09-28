@@ -130,6 +130,20 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * The trip's driver dropped it before pickup and it is SEARCHING again: search now, never offering it to
+   * [excludedDriverId] again, with the full search time from here.
+   */
+  async restart(tripId: string, excludedDriverId: string): Promise<void> {
+    await this.redis
+      .multi()
+      .sadd(`dispatch:${tripId}:declined`, excludedDriverId)
+      .expire(`dispatch:${tripId}:declined`, 900)
+      .set(`dispatch:${tripId}:since`, String(Date.now()), 'EX', 900)
+      .sadd(PENDING_KEY, tripId)
+      .exec();
+  }
+
+  /**
    * The passenger added a vehicle to a searching trip: search again now (without cutting short an open offer) and
    * give the search its full time again from here.
    */

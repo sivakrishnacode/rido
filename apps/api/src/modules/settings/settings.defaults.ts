@@ -14,6 +14,8 @@ export const SETTING_DEFAULTS = {
   offerSeconds: 15,
   /** Drivers offered per booking before "No drivers". */
   maxCandidates: 5,
+  /** A driver cancel before pickup sends the trip back to searching this many times; the next one cancels it. */
+  maxReassigns: 2,
   /** Free-trial length for new drivers. */
   trialDays: 30,
   /** Days a lapsed plan can still go online. */

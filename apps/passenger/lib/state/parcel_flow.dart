@@ -462,9 +462,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
         state = state.copyWith(phase: ParcelPhase.planning, busy: false, tripQuote: null);
         ref.invalidate(tripHistoryProvider);
         if (!byMe) {
-          final reason = u.json['cancelReason'];
-          final why = reason is String && reason.trim().isNotEmpty ? ' ($reason)' : '';
-          ref.read(appNoticeProvider.notifier).show('Your delivery was cancelled$why', goTo: Routes.parcel);
+          ref.read(appNoticeProvider.notifier).show(cancelledNotice(u, who: 'Your delivery was cancelled', bookAgain: 'You can book again.'), goTo: Routes.parcel);
         }
       case ParcelPhase.noDrivers:
         _stopFollowing();
