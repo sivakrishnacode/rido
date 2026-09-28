@@ -42,4 +42,10 @@ export class ListQueryDto {
   @IsString()
   @MaxLength(5)
   blocked?: string;
+
+  /** Trips list: "true" = only trips flagged for review (e.g. running far too long). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  review?: string;
 }

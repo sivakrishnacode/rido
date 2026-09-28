@@ -161,6 +161,17 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                 )}
               </Field>
             </dl>
+            {t.needsReview && (
+              <p className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning-text">
+                Needs review: {t.reviewNote ?? "flagged by a trip timeout"}. The driver was asked to end the trip; it is never
+                completed automatically.
+              </p>
+            )}
+            {(t.reassignCount ?? 0) > 0 && (
+              <p className="rounded-lg bg-muted px-3 py-2 text-sm text-navy-700">
+                Sent back to search for another driver {t.reassignCount} time{t.reassignCount === 1 ? "" : "s"} (see Cancellations).
+              </p>
+            )}
             {t.arrivedFarReason && (
               <p className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning-text">
                 Marked arrived {formatMetres(t.arrivedDistanceM)} from the pickup: {t.arrivedFarReason}

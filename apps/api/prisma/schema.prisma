@@ -382,6 +382,13 @@ model Trip {
   assignedAt       DateTime?
   /// When the driver marked "Arrived" (starts the passenger no-show wait).
   arrivedAt        DateTime?
+  /// arrivedAt + `noShowWaitMin`: from then the driver may cancel as PASSENGER_NO_SHOW (not held against them).
+  noShowAt         DateTime?
+  /// Straight-line metres from the driver to the pickup when they accepted (the "not moving" check compares to it).
+  acceptDistanceM  Int?
+  /// Flagged for an admin, e.g. a trip still running long after it should have ended ([reviewNote] says why).
+  needsReview      Boolean            @default(false)
+  reviewNote       String?
   startedAt        DateTime?
   endedAt          DateTime?
   passenger        User               @relation("PassengerTrips", fields: [passengerId], references: [id])
@@ -392,6 +399,7 @@ model Trip {
   @@index([passengerId, createdAt])
   @@index([driverId, createdAt])
   @@index([status])
+  @@index([needsReview])
   @@index([pickupCell])
   @@index([dropCell])
 }

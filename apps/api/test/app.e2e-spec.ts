@@ -318,6 +318,7 @@ describe('Rido API (e2e)', () => {
       // Assert
       expect(accepted.status).toBe(200);
       expect(accepted.body.vehicleKind).toBe('CAB');
+      await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${passenger}`).send({}).expect(200);
     } finally {
       await settings.update({ searchRadiusKm: 5, maxSearchRadiusKm: 15, searchExpandSeconds: 45 });
     }
@@ -414,6 +415,100 @@ describe('Rido API (e2e)', () => {
       await settings.update({ maxReassigns: 2 });
       for (const d of drivers) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
     }
+  }, 60_000);
+
+  /** Only this bike driver is indexed, online at [at]; a new rider books a bike ride and the driver accepts it. */
+  async function assignedBikeTrip(at: { lat: number; lng: number }) {
+    const redis = app.get(RedisService);
+    const cells = await redis.keys('h3:drv:BIKE:*');
+    if (cells.length) await redis.del(...cells);
+    const token = await onlineDriver('BIKE', at);
+    const driver = { Authorization: `Bearer ${token}` };
+    const driverId = (await http.get('/v1/drivers/me').set(driver).expect(200)).body.id as string;
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+    expect((await acceptWhenOffered(trip.id, token)).status).toBe(200);
+    return { trip, driver, driverId, pax };
+  }
+
+  it('no-show: the driver may cancel without fault only after waiting at the pickup', async () => {
+    const jobs = app.get(JobsService);
+    const { trip, driver, pax } = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+    expect(await jobs.scheduledAt('trip.pickup-progress', trip.id)).not.toBeNull();
+
+    // Too early: before arriving, and right after.
+    const early = await http.post(`/v1/trips/${trip.id}/cancel`).set(driver).send({ code: 'PASSENGER_NO_SHOW' }).expect(400);
+    expect(early.body.code).toBe('NO_SHOW_TOO_EARLY');
+    const arrived = (await http.post(`/v1/trips/${trip.id}/arrived`).set(driver).expect(200)).body;
+    expect(new Date(arrived.noShowAt).getTime() - new Date(arrived.arrivedAt).getTime()).toBe(5 * 60_000);
+    expect(await jobs.scheduledAt('trip.pickup-progress', trip.id)).toBeNull();
+    expect(await jobs.scheduledAt('trip.no-show', trip.id)).toBe(new Date(arrived.noShowAt).getTime());
+    const wait = await http.post(`/v1/trips/${trip.id}/cancel`).set(driver).send({ code: 'PASSENGER_NO_SHOW' }).expect(400);
+    expect(wait.body.details.retryInSeconds).toBeGreaterThan(250);
+
+    // The wait is over (the job fires, then the clock moves past noShowAt): cancelled, not held against the driver.
+    expect(await jobs.runDue(new Date(arrived.noShowAt).getTime())).toBeGreaterThanOrEqual(1);
+    await prisma.trip.update({ where: { id: trip.id }, data: { noShowAt: new Date(Date.now() - 1000) } });
+    const done = (await http.post(`/v1/trips/${trip.id}/cancel`).set(driver).send({ code: 'PASSENGER_NO_SHOW' }).expect(200)).body;
+    expect(done).toMatchObject({ status: 'CANCELLED', cancelledBy: 'DRIVER', cancelCode: 'PASSENGER_NO_SHOW' });
+    expect(await prisma.tripCancellation.findFirst({ where: { tripId: trip.id } })).toMatchObject({ reassigned: false, isDriverFault: false });
+    for (const kind of ['trip.no-show', 'trip.pickup-cap', 'trip.pickup-progress']) expect(await jobs.scheduledAt(kind, trip.id)).toBeNull();
+    expect((await http.get(`/v1/trips/${trip.id}`).set(pax).expect(200)).body.status).toBe('CANCELLED');
+    await http.post('/v1/drivers/me/offline').set(driver);
+  }, 45_000);
+
+  it('a driver who is not moving is nudged, then the ride goes to another driver', async () => {
+    const jobs = app.get(JobsService);
+    const redis = app.get(RedisService);
+    // ~1.5 km east of the pickup, and staying there.
+    const { trip, driver, driverId, pax } = await assignedBikeTrip({ lat: 11.0183, lng: 76.9862 });
+    const accepted = await prisma.trip.findUniqueOrThrow({ where: { id: trip.id } });
+    expect(accepted.acceptDistanceM).toBeGreaterThan(1300);
+    const firstCheck = await jobs.scheduledAt('trip.pickup-progress', trip.id);
+    expect(firstCheck! - accepted.assignedAt!.getTime()).toBeGreaterThanOrEqual(3 * 60_000);
+
+    // First check: nudge and check again. Second: the trip goes back to searching without them.
+    await jobs.runDue(firstCheck!);
+    expect((await prisma.trip.findUniqueOrThrow({ where: { id: trip.id } })).status).toBe('DRIVER_ASSIGNED');
+    const recheck = await jobs.scheduledAt('trip.pickup-progress', trip.id);
+    expect(recheck).not.toBeNull();
+    await http.post('/v1/drivers/me/location').set(driver).send({ lat: 11.0183, lng: 76.9862 }).expect(204);
+    await jobs.runDue(recheck!);
+
+    const now = await prisma.trip.findUniqueOrThrow({ where: { id: trip.id }, include: { cancellations: true } });
+    expect(now).toMatchObject({ status: 'SEARCHING', driverId: null, reassignCount: 1 });
+    expect(now.cancellations).toMatchObject([{ by: 'SYSTEM', code: 'DRIVER_NOT_MOVING', driverId, reassigned: true, isDriverFault: true }]);
+    expect(await redis.exists(`driver:busy:${driverId}`)).toBe(0);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({ code: 'WAIT_TOO_LONG' }).expect(200);
+    await http.post('/v1/drivers/me/offline').set(driver);
+  }, 45_000);
+
+  it('flags a started trip that runs far too long, and cancels one never started (safety net)', async () => {
+    const jobs = app.get(JobsService);
+    const { trip, driver } = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+
+    // Never started: the pickup cap cancels it (by the system).
+    const cap = await jobs.scheduledAt('trip.pickup-cap', trip.id);
+    expect(cap! - Date.now()).toBeGreaterThan(55 * 60_000);
+    await app.get(RedisService).zadd('jobs:due', Date.now() - 1, `trip.pickup-cap|${trip.id}`);
+    await jobs.runDue();
+    expect(await prisma.trip.findUniqueOrThrow({ where: { id: trip.id } })).toMatchObject({ status: 'CANCELLED', cancelledBy: 'SYSTEM', cancelCode: 'STUCK' });
+    await http.post('/v1/drivers/me/offline').set(driver);
+
+    // Started and still running long after its estimate: flagged for admins, never completed.
+    const second = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
+    await http.post(`/v1/trips/${second.trip.id}/arrived`).set(second.driver).expect(200);
+    await http.post(`/v1/trips/${second.trip.id}/start`).set(second.driver).send({ otp: second.trip.otp }).expect(200);
+    const stuck = await jobs.scheduledAt('trip.stuck', second.trip.id);
+    expect(stuck! - Date.now()).toBeGreaterThan(115 * 60_000);
+    expect(await jobs.scheduledAt('trip.no-show', second.trip.id)).toBeNull();
+    await app.get(RedisService).zadd('jobs:due', Date.now() - 1, `trip.stuck|${second.trip.id}`);
+    await jobs.runDue();
+    expect(await prisma.trip.findUniqueOrThrow({ where: { id: second.trip.id } })).toMatchObject({ status: 'IN_PROGRESS', needsReview: true });
+    await http.post('/v1/drivers/me/location').set(second.driver).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
+    await http.post(`/v1/trips/${second.trip.id}/complete`).set(second.driver).send({}).expect(200);
+    expect(await jobs.scheduledAt('trip.stuck', second.trip.id)).toBeNull();
+    await http.post('/v1/drivers/me/offline').set(second.driver);
   }, 60_000);
 
   it('keeps offer timeouts as durable Redis jobs', async () => {

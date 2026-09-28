@@ -3,7 +3,7 @@
 Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 28 Sep 2026 (driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 28 Sep 2026 (trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -169,7 +169,8 @@ Never commit real `.env` files.
   (since 28 Sep 2026; before, a short surged ride paid minFare × multiplier). Quotes cap the multiplier at the
   `maxMultiplier` setting.
 - **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds,
-  offerSeconds, maxCandidates, maxReassigns, trialDays,
+  offerSeconds, maxCandidates, maxReassigns, notMovingMinMin, notMovingEtaFactor, notMovingMinProgressM,
+  notMovingRecheckMin, noShowWaitMin, stuckTripMinMin, stuckDurationFactor, pickupHardCapMin, trialDays,
   graceDays, batchWindowMs, useRoadEta, supportPhone, driverPlansEnabled, contributeUpiId, contributePayeeName,
   contributeNote, costServersInr, costMapsInr, costSmsInr, costOtherInr (defaults in `settings.defaults.ts`, cached
   15 s). Dispatch reads radius, offer time, candidates, batch window and ETA source from here. See 6a for the free-app
@@ -265,6 +266,29 @@ Never commit real `.env` files.
     driver's code); passenger push/notice "Your driver couldn't make it and no other driver is free". A
     `BUTTERFLY_MISMATCH` cancel still ends the trip (the booking itself was wrong). Not handled: a "Book any" trip
     taken by an added vehicle keeps that vehicle when it searches again (the booked kind was overwritten on accept).
+  - **Trip timeouts (28 Sep 2026, durable jobs, `trips/trip-timeouts*.ts`, like Namma Yatri's allocator jobs):**
+    scheduled by `TripsService`, run by `TripTimeoutsService`; each handler first checks the trip is still in that
+    step with that driver (stale jobs do nothing), and every cancel / reassign / completion clears the trip's jobs.
+    - `trip.pickup-progress` (on accept, at max(`notMovingMinMin` 3, `notMovingEtaFactor` 1.5 × pickup ETA) min):
+      still DRIVER_ASSIGNED and not `notMovingMinProgressM` (150 m) closer to the pickup than at accept
+      (`Trip.acceptDistanceM`, straight line; no fresh GPS = not moving) → socket `trip.nudge` `{tripId, kind:
+      NOT_MOVING, title, message}` + push "Are you on the way?", re-checked after `notMovingRecheckMin` (2) min; the
+      second failed check reassigns as `SYSTEM` / `DRIVER_NOT_MOVING` (counts against the driver) and tells the
+      driver. A driver who made progress isn't checked again (the cap below still applies).
+    - `trip.no-show` (on arrived, at `Trip.noShowAt` = arrivedAt + `noShowWaitMin` 5): nudge the driver
+      (`NO_SHOW_ALLOWED`: they may cancel as "Passenger didn't come", no fault) and push the passenger "Your driver is
+      waiting". A driver cancel with `PASSENGER_NO_SHOW` before `noShowAt` (or before arriving) → **400
+      `NO_SHOW_TOO_EARLY`** `{details: {retryInSeconds}}`; after it the trip is CANCELLED (never reassigned).
+    - `trip.stuck` (on start, at max(`stuckTripMinMin` 120, `stuckDurationFactor` 4 × estimated min)): still
+      IN_PROGRESS / PICKED_UP → `Trip.needsReview = true` + `reviewNote`, driver nudged (`END_TRIP`). Never completed
+      automatically. Admin: "Needs review" filter on Trips (`GET /admin/trips?review=true`) and a note on the trip page.
+    - `trip.pickup-cap` (on accept, at `pickupHardCapMin` 60): still not started → CANCELLED by `SYSTEM` / `STUCK`,
+      driver freed and told; passenger push "It didn't start in time".
+    Driver app: `trip.nudge` shows as a notice (`LiveJobs.nudges`); a `trip.updated` SEARCHING for its job (taken
+    off) or a system cancel ends the job with its own notice (`jobEndedNotice`); D-17 has "Passenger didn't come?"
+    counting down to `noShowAt` (`NoShowButton`), then cancels with `PASSENGER_NO_SHOW`. All settings are in admin
+    Settings › Trip timeouts. Migration `20260928160000_trip_timeouts` (`noShowAt`, `acceptDistanceM`,
+    `needsReview`, `reviewNote`).
   - Global JWT/roles guards now skip non-HTTP contexts: sockets authenticate on connect. (Before this, `trip:join` and
     `driver:location` crashed in the guard, so live tracking never reached passengers.)
 - **Durable jobs (28 Sep 2026, `core/jobs`, like Namma Yatri's `lib/scheduler`):** `JobsService.schedule(kind, id,
@@ -274,8 +298,8 @@ Never commit real `.env` files.
   Every instance polls once a second; a Lua script claims due jobs atomically and **leases** them (score moved 60 s
   ahead) so a process that dies mid-run lets the job run again instead of losing it; finish / retry only act while the
   lease is still theirs (a handler may schedule its own key again). A throwing handler is logged and retried with
-  backoff `backoffMs × 2^(n-1)`, then dropped with an error log. No BullMQ / extra dependency. Kinds in use:
-  `offer.expire` (an offer's `offerSeconds` timeout, payload `{driverId}`) and `dispatch.research` (search again 4 s
+  backoff `backoffMs × 2^(n-1)`, then dropped with an error log. No BullMQ / extra dependency. Kinds in use: the trip timeouts
+  (`trip.pickup-progress`, `trip.no-show`, `trip.stuck`, `trip.pickup-cap`, see "Trip timeouts"), `offer.expire` (an offer's `offerSeconds` timeout, payload `{driverId}`) and `dispatch.research` (search again 4 s
   after the queue ran out); both are cancelled when the search stops. Before, these were in-memory `setTimeout`s and an
   API restart lost every open offer until the 15 s sweep. `runDue(now)` runs due jobs directly (tests).
 - **Database (Prisma):** User, EmergencyContact, SavedPlace, Place, Driver, KycDocument, IdentityVerification, Trip, TripCancellation, Plan, Subscription,

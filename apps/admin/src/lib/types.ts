@@ -256,6 +256,14 @@ export interface TripBase {
   readonly createdAt: string;
   readonly assignedAt: string | null;
   readonly arrivedAt?: string | null;
+  /** From then the driver may cancel as a passenger no-show. */
+  readonly noShowAt?: string | null;
+  /** Straight-line metres from the driver to the pickup at accept. */
+  readonly acceptDistanceM?: number | null;
+  /** Flagged by a timeout (e.g. still running far past its estimate); [reviewNote] says why. */
+  readonly needsReview?: boolean;
+  readonly reviewNote?: string | null;
+  readonly reassignCount?: number;
   readonly startedAt: string | null;
   readonly endedAt: string | null;
 }
@@ -520,6 +528,15 @@ export interface Settings {
   readonly maxCandidates: number;
   /** A driver cancel before pickup sends the trip back to searching this many times. */
   readonly maxReassigns: number;
+  /** Trip timeouts (trip-timeouts.ts): not moving, no-show wait, stuck trips, never-started cap. */
+  readonly notMovingMinMin: number;
+  readonly notMovingEtaFactor: number;
+  readonly notMovingMinProgressM: number;
+  readonly notMovingRecheckMin: number;
+  readonly noShowWaitMin: number;
+  readonly stuckTripMinMin: number;
+  readonly stuckDurationFactor: number;
+  readonly pickupHardCapMin: number;
   readonly trialDays: number;
   readonly graceDays: number;
   /** Bookings are collected this long, then assigned together (dispatch batching). */

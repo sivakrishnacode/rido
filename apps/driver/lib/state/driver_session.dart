@@ -56,6 +56,7 @@ class DriverSessionState {
     this.todayRides = Seed.todayRides,
     this.gpsLost = false,
     this.notice,
+    this.noShowAt,
   });
 
   final bool online;
@@ -87,6 +88,9 @@ class DriverSessionState {
   final bool gpsLost;
   final SessionNotice? notice;
 
+  /// At the pickup: from then the driver may cancel as "Passenger didn't come" (the server enforces the wait).
+  final DateTime? noShowAt;
+
   bool get onJob => job != null && phase != JobPhase.none;
 
   DriverSessionState copyWith({
@@ -106,6 +110,7 @@ class DriverSessionState {
     int? todayRides,
     bool? gpsLost,
     SessionNotice? notice,
+    DateTime? noShowAt,
   }) =>
       DriverSessionState(
         online: online ?? this.online,
@@ -122,6 +127,7 @@ class DriverSessionState {
         todayRides: todayRides ?? this.todayRides,
         gpsLost: gpsLost ?? this.gpsLost,
         notice: notice ?? this.notice,
+        noShowAt: clearJob ? null : (noShowAt ?? this.noShowAt),
       );
 }
 
@@ -143,6 +149,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   StreamSubscription<LiveOffer>? _offerSub;
   StreamSubscription<bool>? _connectionSub;
   StreamSubscription<LiveTripUpdate>? _jobSub;
+  StreamSubscription<TripNudge>? _nudgeSub;
+
+  /// The driver's own cancel is in flight: its SEARCHING / CANCELLED push is not "the server ended your job".
+  bool _cancelling = false;
   Timer? _ticker;
   LatLng? _position;
   double _heading = 0;
@@ -350,13 +360,13 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
-      await _jobs.arrived(job.id, at: _position, farReason: farReason);
-      if (ref.mounted) state = state.copyWith(phase: JobPhase.atPickup, etaMin: 0);
+      final update = await _jobs.arrived(job.id, at: _position, farReason: farReason);
+      if (ref.mounted) state = state.copyWith(phase: JobPhase.atPickup, etaMin: 0, noShowAt: update.noShowAt ?? _defaultNoShowAt());
       return;
     }
     _sim.cancelAll();
     _sim.place(job.pickup.location);
-    state = state.copyWith(phase: JobPhase.atPickup, etaMin: 0);
+    state = state.copyWith(phase: JobPhase.atPickup, etaMin: 0, noShowAt: _defaultNoShowAt());
   }
 
   /// D-17 (mock only): true if [code] matches the ride OTP (4829). With the live API the server checks it
@@ -473,11 +483,19 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _scheduleRequest(_t(SimTimings.nextRequest));
   }
 
+  /// The API's default no-show wait (5 min), for mock mode and an older API without `noShowAt`.
+  DateTime _defaultNoShowAt() => DateTime.now().add(const Duration(minutes: 5));
+
   /// D-16 overflow → Cancel ride → reason [code]. Back to D-14 online. Live API: throws when the API refuses.
   Future<void> cancelJob({CancelCode code = CancelCode.other, String? note}) async {
     final job = state.job;
     if (_live) {
-      if (job != null) await _jobs.cancel(job.id, code: code, note: note);
+      _cancelling = true;
+      try {
+        if (job != null) await _jobs.cancel(job.id, code: code, note: note);
+      } finally {
+        _cancelling = false;
+      }
       if (!ref.mounted) return;
       _endJob();
       return;
@@ -563,7 +581,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   Future<void> _restoreJob(LiveTripUpdate update) async {
     final phase = jobPhaseForStatus(update.status);
     final job = rideRequestFromUpdate(update);
-    state = state.copyWith(online: true, job: job, phase: phase, selfieDoneThisSession: true);
+    state = state.copyWith(online: true, job: job, phase: phase, selfieDoneThisSession: true, noShowAt: update.noShowAt);
     _watchJob(job.id);
     try {
       _onFix(await ref.read(driverLocatorProvider).currentFix(), upload: false);
@@ -730,8 +748,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     try {
       final active = await _jobs.active();
       if (!ref.mounted || state.job?.id != job.id || state.phase == JobPhase.collect) return;
-      if (active == null || active.trip.id != job.id || active.status == 'CANCELLED') {
-        _endJob(notice: _cancelledNotice(job));
+      if (active != null && active.trip.id == job.id && active.status == 'CANCELLED') {
+        _endJob(notice: jobEndedNotice(active, job));
+      } else if (active == null || active.trip.id != job.id) {
+        _endJob(notice: const SessionNotice('This ride was cancelled or given to another driver', jobEnded: true));
       }
     } catch (_) {
       // Checked again on the next reconnect.
@@ -740,22 +760,28 @@ class DriverSessionController extends Notifier<DriverSessionState> {
 
   void _watchJob(String tripId) {
     _jobSub?.cancel();
+    _nudgeSub?.cancel();
     _jobSub = _jobs.updates(tripId).listen((u) {
       final job = state.job;
-      if (!ref.mounted || job == null || u.trip.id != job.id) return;
-      if (u.status == 'CANCELLED' && state.phase != JobPhase.collect) _endJob(notice: _cancelledNotice(job));
+      if (!ref.mounted || job == null || u.trip.id != job.id || state.phase == JobPhase.collect || _cancelling) return;
+      // CANCELLED, or back to SEARCHING without this driver (the server gave the ride to another driver).
+      if (u.status == 'CANCELLED' || u.status == 'SEARCHING') _endJob(notice: jobEndedNotice(u, job));
+    }, onError: (Object _) {});
+    _nudgeSub = _jobs.nudges(tripId).listen((n) {
+      if (!ref.mounted || state.job?.id != n.tripId) return;
+      // Ending nudges come with a trip update, which closes the job with its own notice.
+      if (n.kind == 'REASSIGNED' || n.kind == 'CANCELLED') return;
+      final sep = RegExp(r'[.?!]$').hasMatch(n.title) ? ' ' : '. ';
+      state = state.copyWith(notice: SessionNotice(n.message.isEmpty ? n.title : '${n.title}$sep${n.message}'));
     }, onError: (Object _) {});
   }
 
   void _unwatchJob() {
     _jobSub?.cancel();
     _jobSub = null;
+    _nudgeSub?.cancel();
+    _nudgeSub = null;
   }
-
-  SessionNotice _cancelledNotice(RideRequest job) => SessionNotice(
-        job.isDelivery ? 'The sender cancelled this delivery' : '${job.customerName.split(' ').first} cancelled the ride',
-        jobEnded: true,
-      );
 
   void _endJob({SessionNotice? notice}) {
     final job = state.job;
@@ -795,3 +821,21 @@ final earningsProvider = FutureProvider.family<EarningsSummary, EarningsPeriod>(
   ref.watch(demoSettingsProvider.select((s) => (s.emptyEarnings, s.offline, s.slowLoading)));
   return ref.watch(driverRepositoryProvider).earnings(period);
 });
+
+/// What the driver is told when their job ends from the server's side: the passenger cancelled, the system cancelled
+/// (it never started), or it went back to searching without them (they weren't moving to the pickup).
+SessionNotice jobEndedNotice(LiveTripUpdate u, RideRequest job) {
+  if (u.status == 'SEARCHING') {
+    return const SessionNotice("You weren't moving towards the pickup, so the ride went to another driver", jobEnded: true);
+  }
+  if (u.cancelledBy == CancelledBy.system) {
+    return SessionNotice(
+      u.cancelCode == CancelCode.stuck ? "The ride didn't start in time, so it was cancelled" : 'This ride was cancelled',
+      jobEnded: true,
+    );
+  }
+  return SessionNotice(
+    job.isDelivery ? 'The sender cancelled this delivery' : '${job.customerName.split(' ').first} cancelled the ride',
+    jobEnded: true,
+  );
+}

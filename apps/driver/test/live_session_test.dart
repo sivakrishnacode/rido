@@ -18,7 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _here = LatLng(11.0168, 76.9558);
 
-LiveTripUpdate _update(String id, String status) {
+LiveTripUpdate _update(String id, String status, {Map<String, Object?> extra = const {}}) {
   final r = Seed.rideRequest;
   return LiveTripUpdate(
     Trip(
@@ -36,6 +36,7 @@ LiveTripUpdate _update(String id, String status) {
     ),
     status,
     {
+      ...extra,
       'id': id,
       'status': status,
       'passenger': {'name': 'Priya', 'phone': '+919876543210'},
@@ -67,6 +68,9 @@ class FakeJobs extends LiveJobs {
 
   final offersCtl = StreamController<LiveOffer>.broadcast();
   final updatesCtl = StreamController<LiveTripUpdate>.broadcast();
+  final nudgesCtl = StreamController<TripNudge>.broadcast();
+  @override
+  Stream<TripNudge> nudges(String tripId) => nudgesCtl.stream.where((n) => n.tripId == tripId);
   final calls = <String>[];
   Object? onlineError;
   Object? acceptError;
@@ -363,6 +367,41 @@ void main() {
     expect(state().phase, JobPhase.none);
     expect(state().notice?.jobEnded, isTrue);
     expect(state().notice?.message, 'Priya cancelled the ride');
+  });
+
+  test('the server giving the ride to another driver ends the job with its own notice', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(_offer('t1'));
+    await pumpEventQueue();
+    await session().acceptRequest();
+    jobs.nudgesCtl.add(const TripNudge(tripId: 't1', kind: 'NOT_MOVING', title: 'Are you on the way?', message: 'Please head to the pickup'));
+    await pumpEventQueue();
+    expect(state().job, isNotNull);
+    expect(state().notice?.message, 'Are you on the way? Please head to the pickup');
+    jobs.updatesCtl.add(_update('t1', 'SEARCHING'));
+    await pumpEventQueue();
+    expect(state().job, isNull);
+    expect(state().notice?.message, contains('went to another driver'));
+  });
+
+  test('a system cancel (never started) says so', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(_offer('t1'));
+    await pumpEventQueue();
+    await session().acceptRequest();
+    jobs.updatesCtl.add(_update('t1', 'CANCELLED', extra: {'cancelledBy': 'SYSTEM', 'cancelCode': 'STUCK'}));
+    await pumpEventQueue();
+    expect(state().notice?.message, "The ride didn't start in time, so it was cancelled");
+  });
+
+  test('arriving stores when a no-show cancel is allowed', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(_offer('t1'));
+    await pumpEventQueue();
+    await session().acceptRequest();
+    await session().arrivedAtPickup();
+    expect(state().noShowAt, isNotNull);
+    expect(state().noShowAt!.difference(DateTime.now()).inSeconds, greaterThan(200));
   });
 
   test('after a cancel the job steps refuse instead of carrying on without a job', () async {

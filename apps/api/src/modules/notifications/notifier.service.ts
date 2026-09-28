@@ -111,7 +111,10 @@ export class NotifierService {
       case TripStatus.CANCELLED:
         if (by === 'DRIVER') return toPassenger(`${isParcel ? 'Delivery' : 'Ride'} cancelled`, `${driver} cancelled. Please book again`);
         if (by === 'SYSTEM') {
-          return toPassenger(`${isParcel ? 'Delivery' : 'Ride'} cancelled`, "Your driver couldn't make it and no other driver is free. Please book again");
+          return toPassenger(
+            `${isParcel ? 'Delivery' : 'Ride'} cancelled`,
+            trip.cancelCode === 'NO_DRIVERS' ? "Your driver couldn't make it and no other driver is free. Please book again" : "It didn't start in time. Please book again",
+          );
         }
         if (by === 'PASSENGER' && trip.driver) {
           this.push.toUser(trip.driver.userId, AppKind.DRIVER, {
@@ -142,6 +145,23 @@ export class NotifierService {
         isUrgent: true,
         ttlSeconds: params.expiresInSeconds,
       });
+    });
+  }
+
+  /**
+   * A trip reminder from a timeout job (driver not moving, no-show wait over, trip running too long, trip taken off
+   * the driver) to the driver's or the passenger's app. [kind] goes in the data (`type: 'nudge'`).
+   */
+  tripNudge(params: { to: 'DRIVER' | 'PASSENGER'; tripId: string; driverId?: string; passengerId?: string; kind: string; title: string; body: string }): Promise<void> {
+    return this.safeAsync(`nudge ${params.kind}`, async () => {
+      const data = { type: 'nudge', tripId: params.tripId, kind: params.kind };
+      if (params.to === 'PASSENGER') {
+        if (params.passengerId) this.push.toUser(params.passengerId, AppKind.PASSENGER, { title: params.title, body: params.body, channel: 'trip_updates', data });
+        return;
+      }
+      if (!params.driverId) return;
+      const driver = await this.prisma.driver.findUnique({ where: { id: params.driverId }, select: { userId: true } });
+      if (driver) this.push.toUser(driver.userId, AppKind.DRIVER, { title: params.title, body: params.body, channel: 'trip_updates', data });
     });
   }
 

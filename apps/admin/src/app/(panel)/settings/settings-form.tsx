@@ -61,6 +61,21 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
+    group: "Trip timeouts",
+    description:
+      "Durable timers per trip. Not moving: first check after max(minimum, factor × pickup ETA); a driver who hasn't got closer is nudged, and on the second failed check the ride goes to another driver. Started trips running far too long are flagged for review, never ended automatically.",
+    fields: [
+      { key: "notMovingMinMin", label: "Not moving: first check after", hint: "At least this many minutes after accept", step: "1", suffix: "min" },
+      { key: "notMovingEtaFactor", label: "Not moving: × pickup ETA", hint: "First check at this × the pickup ETA, if later", step: "0.1", suffix: "×" },
+      { key: "notMovingMinProgressM", label: "Not moving: must get closer by", hint: "Straight-line metres towards the pickup since accepting", step: "10", suffix: "m" },
+      { key: "notMovingRecheckMin", label: "Not moving: check again after", hint: "After the nudge; the second failed check reassigns", step: "1", suffix: "min" },
+      { key: "noShowWaitMin", label: "No-show wait", hint: "Minutes at the pickup before the driver may cancel as \"Passenger didn't come\" (no fault)", step: "1", suffix: "min" },
+      { key: "stuckTripMinMin", label: "Stuck trip after", hint: "Started trips running at least this long are flagged…", step: "10", suffix: "min" },
+      { key: "stuckDurationFactor", label: "Stuck: × estimate", hint: "…or this × the estimated minutes, if longer", step: "0.5", suffix: "×" },
+      { key: "pickupHardCapMin", label: "Not started: cancel after", hint: "Safety net: accepted trips not started by then are cancelled", step: "5", suffix: "min" },
+    ],
+  },
+  {
     group: "Driver plans",
     description: "Off = Rido is free: drivers see no plans and can always go online. Trial and grace apply to new subscriptions when plans are on.",
     fields: [

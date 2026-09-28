@@ -31,6 +31,12 @@ class LiveTripUpdate {
   CancelledBy? get cancelledBy => CancelledBy.fromApi(json['cancelledBy']);
   CancelCode? get cancelCode => CancelCode.fromApi(json['cancelCode']);
 
+  /// At the pickup: from then the driver may cancel as "Passenger didn't come" (after the no-show wait).
+  DateTime? get noShowAt => json['noShowAt'] is String ? DateTime.tryParse(json['noShowAt'] as String)?.toLocal() : null;
+
+  /// Times a driver dropped this trip and it searched again.
+  int get reassignCount => (json['reassignCount'] as num?)?.toInt() ?? 0;
+
   /// "Book any": vehicles the passenger added to the search besides [Trip.vehicle].
   List<VehicleKind> get alsoVehicles => [for (final k in (json['alsoKinds'] as List?) ?? const []) vehicleKindFromApi(k)];
 }
@@ -155,6 +161,24 @@ class LiveTrips {
   static LiveTripUpdate _update(Json j) => LiveTripUpdate(tripFromJson(j), apiStatusOf(j), j);
 }
 
+/// A reminder about the driver's current trip (`trip.nudge`). [kind]: NOT_MOVING, NO_SHOW_ALLOWED, END_TRIP,
+/// REASSIGNED, CANCELLED.
+class TripNudge {
+  const TripNudge({required this.tripId, required this.kind, required this.title, required this.message});
+
+  factory TripNudge.fromJson(Json j) => TripNudge(
+        tripId: '${j['tripId'] ?? ''}',
+        kind: '${j['kind'] ?? ''}',
+        title: '${j['title'] ?? ''}',
+        message: '${j['message'] ?? ''}',
+      );
+
+  final String tripId;
+  final String kind;
+  final String title;
+  final String message;
+}
+
 /// A request offered to this driver, with how long it stays open.
 class LiveOffer {
   const LiveOffer(this.request, this.expiresInSeconds);
@@ -186,6 +210,10 @@ class LiveJobs {
     final res = await api.get('/trips/offer');
     return res == null ? null : _offer(_map(res));
   }
+
+  /// Reminders from the server's trip timeouts (`trip.nudge`): "Are you on the way?", the no-show wait is over,
+  /// "Please end the trip", the ride went to another driver.
+  Stream<TripNudge> nudges(String tripId) => realtime.on('trip.nudge').where((j) => j['tripId'] == tripId).map(TripNudge.fromJson);
 
   /// Status changes of the job (e.g. the passenger cancelled).
   Stream<LiveTripUpdate> updates(String tripId) =>

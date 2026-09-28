@@ -16,6 +16,20 @@ export const SETTING_DEFAULTS = {
   maxCandidates: 5,
   /** A driver cancel before pickup sends the trip back to searching this many times; the next one cancels it. */
   maxReassigns: 2,
+  /** "Driver not moving": first check max(this, notMovingEtaFactor × pickup ETA) minutes after accept. */
+  notMovingMinMin: 3,
+  notMovingEtaFactor: 1.5,
+  /** The driver must have got at least this much closer to the pickup (straight line) since accepting. */
+  notMovingMinProgressM: 150,
+  /** After a nudge, check again this many minutes later; the second failed check gives the ride to another driver. */
+  notMovingRecheckMin: 2,
+  /** Minutes the driver waits at the pickup before they may cancel as "Passenger didn't come" (no fault). */
+  noShowWaitMin: 5,
+  /** A started trip still running after max(this, stuckDurationFactor × estimated minutes) is flagged for admins. */
+  stuckTripMinMin: 120,
+  stuckDurationFactor: 4,
+  /** Safety net: a trip still not started this many minutes after accept is cancelled by the system. */
+  pickupHardCapMin: 60,
   /** Free-trial length for new drivers. */
   trialDays: 30,
   /** Days a lapsed plan can still go online. */

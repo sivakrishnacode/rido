@@ -132,10 +132,12 @@ export interface ListQuery {
   readonly kind?: string;
   readonly role?: string;
   readonly blocked?: string;
+  /** Trips: "true" = flagged for review only. */
+  readonly review?: string;
 }
 
 function listQuery(q: ListQuery): QueryInput {
-  return { page: q.page, pageSize: q.pageSize, q: q.q, status: q.status, kind: q.kind, role: q.role, blocked: q.blocked };
+  return { page: q.page, pageSize: q.pageSize, q: q.q, status: q.status, kind: q.kind, role: q.role, blocked: q.blocked, review: q.review };
 }
 
 const enc = encodeURIComponent;

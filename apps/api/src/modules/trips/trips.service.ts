@@ -2,17 +2,19 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { randomInt } from 'node:crypto';
 
 import type { AuthUser } from '../../core/auth/auth-user.js';
+import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
 import { CancelCode, CancelledBy, Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { MAX_RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
-import type { FareQuote } from '../fares/fare-engine.js';
+import { type FareQuote, haversineMeters } from '../fares/fare-engine.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
 import { DemandService } from '../geo/demand.service.js';
 import { GeoService } from '../geo/geo.service.js';
 import { cellAt } from '../geo/h3.util.js';
 import { FaresService } from '../fares/fares.service.js';
+import { EtaService } from '../maps/eta.service.js';
 import { NotifierService, type TripWithPeople } from '../notifications/notifier.service.js';
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { asVehicle, DispatchService } from './dispatch.service.js';
@@ -25,6 +27,7 @@ import { checkNearStop, positionForCheck } from './trip-position.js';
 import { averageRating } from './driver-rating.js';
 import { TripOtpGuard } from './trip-otp-guard.js';
 import { canReassign, canTransition, isFinished } from './trip-transitions.js';
+import { ALL_TRIP_JOBS, noShowAt, pickupCapAt, pickupCheckAt, stuckAt, TRIP_JOBS } from './trip-timeouts.js';
 
 /** H3 resolution stored on trips for heatmaps. */
 const HEAT_RES = 8;
@@ -52,6 +55,20 @@ const TRIP_INCLUDE = {
 
 type CancelInfo = { by: CancelledBy; code: CancelCode; note: string | null };
 
+/**
+ * "Passenger didn't come" only after the driver has waited at the pickup (`noShowAt`); before that → 400
+ * `NO_SHOW_TOO_EARLY` with `details.retryInSeconds`.
+ */
+function checkNoShowWait(trip: Trip, now = Date.now()): void {
+  if (trip.status === TripStatus.DRIVER_ARRIVED && trip.noShowAt && trip.noShowAt.getTime() <= now) return;
+  const retryInSeconds = trip.status === TripStatus.DRIVER_ARRIVED && trip.noShowAt ? Math.ceil((trip.noShowAt.getTime() - now) / 1000) : null;
+  throw new BadRequestException({
+    code: 'NO_SHOW_TOO_EARLY',
+    message: retryInSeconds === null ? 'Mark "Arrived" and wait for the passenger first' : `Please wait ${Math.ceil(retryInSeconds / 60)} more min for the passenger`,
+    details: { retryInSeconds },
+  });
+}
+
 /** [trip] as a driver may see it: the ride / delivery OTP is only for the passenger to read out. */
 const hideOtp = <T extends Trip>(trip: T): T => ({ ...trip, otp: '' });
 
@@ -69,6 +86,8 @@ export class TripsService {
     private readonly notifier: NotifierService,
     private readonly settings: SettingsService,
     private readonly otpGuard: TripOtpGuard,
+    private readonly jobs: JobsService,
+    private readonly eta: EtaService,
   ) {}
 
   /** Quotes, stores and starts dispatching a trip. */
@@ -181,17 +200,27 @@ export class TripsService {
     // "Book any": a driver of an added vehicle takes the trip as that vehicle, at its fare.
     const matched = asVehicle(booked, driver?.vehicleKind);
     const switched = matched.vehicleKind !== booked.vehicleKind;
+    // Where the driver is now: the "not moving" check compares later positions to this.
+    const pickup = { lat: booked.pickupLat, lng: booked.pickupLng };
+    const at = await this.location.position(driverId);
+    const acceptDistanceM = at ? Math.round(haversineMeters(at, pickup)) : null;
+    const acceptedAt = new Date();
     const { count } = await this.prisma.trip.updateMany({
       where: { id: tripId, status: TripStatus.SEARCHING },
       data: {
         status: TripStatus.DRIVER_ASSIGNED,
         driverId,
-        assignedAt: new Date(),
+        assignedAt: acceptedAt,
+        acceptDistanceM,
         ...(switched && { vehicleKind: matched.vehicleKind, fare: matched.fare as Prisma.InputJsonValue, fareTotal: matched.fareTotal }),
       },
     });
     if (count === 0) throw new ConflictException('Trip already taken or cancelled');
     await this.dispatch.stop(tripId);
+    const s = await this.settings.all();
+    const etaMin = at ? await this.eta.minutes({ from: at, to: pickup, vehicleKind: matched.vehicleKind, useRoad: s.useRoadEta }).catch(() => null) : null;
+    await this.jobs.schedule(TRIP_JOBS.pickupProgress, tripId, pickupCheckAt(acceptedAt.getTime(), etaMin, s), { driverId, strikes: 0 });
+    await this.jobs.schedule(TRIP_JOBS.pickupCap, tripId, pickupCapAt(acceptedAt.getTime(), s), { driverId });
     return hideOtp(await this.publish(tripId, 'DRIVER'));
   }
 
@@ -269,12 +298,17 @@ export class TripsService {
       radiusM: await this.settings.get('arrivalRadiusM'),
       farReason: pos.farReason,
     });
-    return this.move({
+    const now = Date.now();
+    const s = await this.settings.all();
+    const updated = await this.move({
       driverId,
       tripId,
       to: TripStatus.DRIVER_ARRIVED,
-      data: { arrivedAt: new Date(), arrivedDistanceM: check.distanceM, arrivedFarReason: check.farReason },
+      data: { arrivedAt: new Date(now), noShowAt: new Date(noShowAt(now, s)), arrivedDistanceM: check.distanceM, arrivedFarReason: check.farReason },
     });
+    await this.jobs.cancel(TRIP_JOBS.pickupProgress, tripId);
+    if (updated.noShowAt) await this.jobs.schedule(TRIP_JOBS.noShow, tripId, updated.noShowAt, { driverId });
+    return updated;
   }
 
   /** The server's fresh GPS fix, else the one sent with the request (see [positionForCheck]). */
@@ -287,9 +321,13 @@ export class TripsService {
     const trip = await this.driverTrip(driverId, tripId);
     // A retry (double tap, lost response) of a start that already went through.
     if (trip.status === TripStatus.IN_PROGRESS || trip.status === TripStatus.PICKED_UP) return this.current(tripId);
-    if (trip.kind === TripKind.PARCEL) return this.move({ driverId, tripId, to: TripStatus.PICKED_UP, data: { startedAt: new Date() } });
-    await this.otpGuard.check({ tripId, expected: trip.otp, given: otp, who: 'rider' });
-    return this.move({ driverId, tripId, to: TripStatus.IN_PROGRESS, data: { startedAt: new Date() } });
+    if (trip.kind !== TripKind.PARCEL) await this.otpGuard.check({ tripId, expected: trip.otp, given: otp, who: 'rider' });
+    const startedAt = new Date();
+    const to = trip.kind === TripKind.PARCEL ? TripStatus.PICKED_UP : TripStatus.IN_PROGRESS;
+    const updated = await this.move({ driverId, tripId, to, data: { startedAt } });
+    await Promise.all([this.jobs.cancel(TRIP_JOBS.noShow, tripId), this.jobs.cancel(TRIP_JOBS.pickupCap, tripId)]);
+    await this.jobs.schedule(TRIP_JOBS.stuck, tripId, stuckAt(startedAt.getTime(), trip.durationMin, await this.settings.all()), { driverId });
+    return updated;
   }
 
   /**
@@ -320,6 +358,7 @@ export class TripsService {
       after: (tx) => tx.driver.update({ where: { id: driverId }, data: { ridesCount: { increment: 1 } } }),
     });
     await this.location.releaseBusy(driverId, tripId);
+    await this.clearTripJobs(tripId);
     return updated;
   }
 
@@ -337,7 +376,8 @@ export class TripsService {
     const { code, note } = resolveCancel({ by, ...body });
     for (let attempt = 1; ; attempt++) {
       if (trip.status === TripStatus.CANCELLED) return by === CancelledBy.DRIVER ? hideOtp(trip) : trip;
-      if (by === CancelledBy.DRIVER && code !== CancelCode.BUTTERFLY_MISMATCH && canReassign(trip)) {
+      if (code === CancelCode.PASSENGER_NO_SHOW) checkNoShowWait(trip);
+      if (by === CancelledBy.DRIVER && code !== CancelCode.BUTTERFLY_MISMATCH && code !== CancelCode.PASSENGER_NO_SHOW && canReassign(trip)) {
         const dropped = await this.dropTrip(trip, { by, code, note });
         if (dropped) return hideOtp(dropped);
       } else {
@@ -353,6 +393,7 @@ export class TripsService {
       trip = now;
     }
     await this.dispatch.stop(tripId);
+    await this.clearTripJobs(tripId);
     // The status matched, so this is the driver the trip had; free them only if they are still on it.
     if (trip.driverId) await this.location.releaseBusy(trip.driverId, tripId);
     const published = await this.publish(tripId, by);
@@ -373,6 +414,7 @@ export class TripsService {
       const ended = { by: CancelledBy.SYSTEM, code: CancelCode.NO_DRIVERS, note: 'The driver cancelled and no more reassigns are allowed' };
       if (!(await this.markCancelled(trip, ended, c))) return null;
       await this.dispatch.stop(trip.id);
+      await this.clearTripJobs(trip.id);
       await this.location.releaseBusy(driverId, trip.id);
       return this.publish(trip.id, 'SYSTEM', driverId);
     }
@@ -384,6 +426,8 @@ export class TripsService {
           driverId: null,
           assignedAt: null,
           arrivedAt: null,
+          noShowAt: null,
+          acceptDistanceM: null,
           arrivedDistanceM: null,
           arrivedFarReason: null,
           reassignCount: { increment: 1 },
@@ -394,9 +438,28 @@ export class TripsService {
       return true;
     });
     if (!applied) return null;
+    await this.clearTripJobs(trip.id);
     await this.location.releaseBusy(driverId, trip.id);
     await this.dispatch.restart(trip.id, driverId);
     return this.publish(trip.id, c.by === CancelledBy.SYSTEM ? 'SYSTEM' : 'DRIVER', driverId);
+  }
+
+  /**
+   * The system cancels [trip] (e.g. never started long after accept): guarded like a user cancel, frees the driver.
+   * Null when the trip had moved on.
+   */
+  async systemCancel(trip: Trip, code: CancelCode, note: string): Promise<Trip | null> {
+    if (isFinished(trip.status) || !canTransition({ kind: trip.kind, from: trip.status, to: TripStatus.CANCELLED })) return null;
+    if (!(await this.markCancelled(trip, { by: CancelledBy.SYSTEM, code, note }))) return null;
+    await this.dispatch.stop(trip.id);
+    await this.clearTripJobs(trip.id);
+    if (trip.driverId) await this.location.releaseBusy(trip.driverId, trip.id);
+    return this.publish(trip.id, 'SYSTEM', trip.driverId ?? undefined);
+  }
+
+  /** Drops every pending timeout of the trip (it ended, or changed driver). */
+  private async clearTripJobs(tripId: string): Promise<void> {
+    await Promise.all(ALL_TRIP_JOBS.map((kind) => this.jobs.cancel(kind, tripId)));
   }
 
   /**

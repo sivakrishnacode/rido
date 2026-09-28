@@ -19,10 +19,10 @@ export const metadata: Metadata = { title: "Trips" };
 
 export default async function TripsPage({ searchParams }: PageProps<"/trips">) {
   const sp = await searchParams;
-  const query = { q: param(sp.q), status: param(sp.status), kind: param(sp.kind) };
+  const query = { q: param(sp.q), status: param(sp.status), kind: param(sp.kind), review: param(sp.review) };
   const page = parsePage(sp.page);
   const data = await adminApi.trips({ ...query, page, pageSize: DEFAULT_PAGE_SIZE });
-  const isFiltered = !!(query.q || query.status || query.kind);
+  const isFiltered = !!(query.q || query.status || query.kind || query.review);
 
   return (
     <>
@@ -36,6 +36,7 @@ export default async function TripsPage({ searchParams }: PageProps<"/trips">) {
         filters={[
           { name: "kind", label: "Kinds", options: [{ value: "RIDE", label: "Rides" }, { value: "PARCEL", label: "Parcels" }] },
           { name: "status", label: "Statuses", options: TRIP_STATUSES.map((s) => ({ value: s, label: humanize(s) })) },
+          { name: "review", label: "All trips", options: [{ value: "true", label: "Needs review" }] },
         ]}
       />
       <Card className="gap-0 py-0">
@@ -87,6 +88,9 @@ export default async function TripsPage({ searchParams }: PageProps<"/trips">) {
                   <TableCell className="text-right font-medium tabular-nums">{formatInr(t.fareTotal)}</TableCell>
                   <TableCell className="pr-4">
                     <StatusBadge status={t.status} />
+                    {t.needsReview && (
+                      <span className="mt-1 block text-[11px] font-medium text-warning-text">Needs review</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

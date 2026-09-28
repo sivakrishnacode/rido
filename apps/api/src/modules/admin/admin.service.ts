@@ -80,6 +80,7 @@ export class AdminService {
     const where: Prisma.TripWhereInput = {
       status: q.status ? (q.status as Trip['status']) : undefined,
       kind: q.kind === 'RIDE' || q.kind === 'PARCEL' ? q.kind : undefined,
+      needsReview: q.review === 'true' ? true : undefined,
       OR: q.q ? [{ id: { contains: q.q } }, { pickupName: { contains: q.q, mode: 'insensitive' } }, { dropName: { contains: q.q, mode: 'insensitive' } }] : undefined,
     };
     const [items, total] = await Promise.all([

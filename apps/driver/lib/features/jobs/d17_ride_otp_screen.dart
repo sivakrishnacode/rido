@@ -8,6 +8,7 @@ import '../../router/routes.dart';
 import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import 'widgets/job_common.dart';
+import 'widgets/no_show_button.dart';
 import 'widgets/otp_step.dart';
 
 /// D-17 Enter ride OTP: "Ask Priya for the 4-digit OTP". 4829 → Start ride → D-18;
@@ -108,6 +109,30 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
     context.go(Routes.home);
   }
 
+  Future<void> _cancelNoShow() async {
+    final ok = await showRidoConfirm(
+      context,
+      title: "Passenger didn't come?",
+      message: "Cancel this ride as a no-show. It won't count against you.",
+      confirmLabel: 'Cancel ride',
+      cancelLabel: 'Keep waiting',
+      icon: Symbols.person_off_rounded,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(driverSessionProvider.notifier).cancelJob(code: CancelCode.passengerNoShow);
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      showRidoSnack(context, userMessage(e));
+      return;
+    }
+    if (!mounted) return;
+    showRidoSnack(context, 'Ride cancelled · ${CancelCode.passengerNoShow.label}');
+    context.go(Routes.home);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.type;
@@ -147,6 +172,15 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
           ),
         ]),
         ),
+        // After the no-show wait: cancel without it counting against the driver.
+        if (!widget.showcase) ...[
+          const SizedBox(height: RidoSpacing.s),
+          NoShowButton(
+            noShowAt: ref.watch(driverSessionProvider.select((s) => s.noShowAt)),
+            enabled: !_busy,
+            onCancel: _cancelNoShow,
+          ),
+        ],
         // Butterfly (women only): the driver may cancel, with no penalty, if the rider is not a woman.
         if (_job.isWomenOnly && !widget.showcase) ...[
           const SizedBox(height: RidoSpacing.s),
