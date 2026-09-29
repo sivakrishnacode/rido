@@ -14,13 +14,13 @@ The project was called **Rido** until 29 Sep 2026. In code the prefix is now `Tt
 `com.tamiltaxi.passenger` / `com.tamiltaxi.driver`, and Postgres uses database, user and password `tamiltaxi`.
 Existing external resources keep their old names because they can't be renamed: the SSH key `rido-key.pem`, the
 security group `rido-sg`, the EC2 tag `rido-server`, the AWS CLI profile `rido`, IAM user `rido-deployer`, instance role
-`rido-ec2-uploads`, S3 bucket `rido-uploads-786020471552`, the Firebase project `rido-93cd3`, the Google Cloud project
+`rido-ec2-uploads`, S3 bucket `rido-uploads-786020471552`, the Google Cloud project
 `rido-prod` and its API keys (`rido-android-maps`, `rido-server`, `rido-app-services`).
 
 After the rename, outside the repo:
-- **Firebase:** add Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver` to the Firebase project and put
-  the new `google-services.json` in `apps/*/android/app/`. Until then, Android builds fail at the Google Services step
-  (the old file only lists `com.rido.*`).
+- **Firebase: done 29 Sep 2026.** New project `tamiltaxi-85a28` with both new app IDs. Its `google-services.json`
+  is in `apps/*/android/app/`, and staging's `FIREBASE_SERVICE_ACCOUNT_B64` holds its key (checked with a dry-run
+  send). The old project `rido-93cd3` is unused and can be deleted once the new apps have received a push.
 - **Maps key `rido-android-maps`:** add the two new package names and their SHA-1 to its Android restriction, or the
   map stays blank in new builds.
 - **Local Docker:** the compose project is now `tamiltaxi`, so `docker compose up -d` starts fresh `tamiltaxi_*`
@@ -991,8 +991,9 @@ suggestion's name.
 
 ## 7c. Push notifications (FCM)
 
-- **Firebase project `rido-93cd3`** (Spark, free). Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver`; their
-  `android/app/google-services.json` is per machine and git-ignored (originals in `~/rido-secrets/`). Without the file
+- **Firebase project `tamiltaxi-85a28`** (Spark, free; since 29 Sep 2026, was `rido-93cd3`). Android apps
+  `com.tamiltaxi.passenger` and `com.tamiltaxi.driver` share one `google-services.json` (both clients); it is per
+  machine and git-ignored (originals and the service-account key in `~/tamiltaxi-secrets/`). Without the file
   the apps build and run without push (the Google Services Gradle plugin is only applied when it exists).
 - **API:** `NotificationsModule` (global). `PushService` = firebase-admin (HTTP v1) with the service account from
   `FIREBASE_SERVICE_ACCOUNT_B64` (base64 JSON in the server's `.env`, mode 600; empty = push off, logged). Device
