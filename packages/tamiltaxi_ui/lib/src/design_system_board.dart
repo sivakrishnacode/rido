@@ -110,7 +110,7 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
       padding: const EdgeInsets.only(bottom: TtSpacing.s),
       child: Row(
         children: [
-          const TtWordmark(size: 32),
+          const TtWordmark(size: 22),
           const SizedBox(width: TtSpacing.m),
           Expanded(
             child: Column(
@@ -147,7 +147,7 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
               height: 64,
               alignment: Alignment.center,
               decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16), boxShadow: TtShadows.soft),
-              child: Text('ri', style: t.display.copyWith(color: Colors.white, height: 1)),
+              child: TtWordmark(size: 19, color: Colors.white, roadColor: bg == TtColors.navy900 ? TtColors.coral500 : null),
             ),
             const SizedBox(height: 6),
             SizedBox(
@@ -165,7 +165,7 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
             const TtWordmark(size: 72),
             const SizedBox(height: TtSpacing.m),
             Text(
-              'Primary wordmark · Poppins Bold, −2% tracking · dot = coral-500',
+              'Primary logo · Manrope ExtraBold · the x is a flyover road',
               textAlign: TextAlign.center,
               style: t.caption.copyWith(color: TtColors.navy500),
             ),
@@ -179,7 +179,7 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
         padding: const EdgeInsets.all(TtSpacing.xl),
         child: Column(
           children: [
-            const TtWordmark(size: 56, color: Colors.white),
+            const TtWordmark(size: 56, color: Colors.white, roadColor: TtColors.coral500),
             const SizedBox(height: TtSpacing.xs),
             Text('DRIVER', style: t.overline.copyWith(color: Colors.white, letterSpacing: 2)),
             const SizedBox(height: TtSpacing.m),

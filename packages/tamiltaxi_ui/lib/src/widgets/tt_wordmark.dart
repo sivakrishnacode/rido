@@ -1,76 +1,55 @@
 import 'package:flutter/material.dart';
 
 import '../theme/tt_colors.dart';
-import '../theme/tt_tokens.dart';
+import 'tt_logo_paths.dart';
 
-/// The lowercase "tamiltaxi" wordmark in bold rounded type with a coral dot on the "i".
-/// Drawn as text with a dotless "ı" plus a measured coral circle, so it scales cleanly.
-class TtWordmark extends StatefulWidget {
-  const TtWordmark({super.key, this.size = 48, this.color = TtColors.navy900, this.dotColor = TtColors.coral500});
+/// The Tamil Taxi logo: "Tamil / Taxi" in Manrope ExtraBold whose x is a flyover road with lane dashes.
+/// Drawn from outline paths (see [TtLogoPaths]), so it never depends on a font being loaded.
+///
+/// [size] is the font size the letters are set at; the stacked logo is about 1.7 × [size] tall.
+/// [roadColor] defaults to coral when the letters are the default navy, and to [color] otherwise
+/// (white on coral stays all white).
+class TtWordmark extends StatelessWidget {
+  const TtWordmark({super.key, this.size = 48, this.color = TtColors.navy900, this.roadColor, this.stacked = true});
 
-  /// Font size of the letters.
   final double size;
   final Color color;
-  final Color dotColor;
+  final Color? roadColor;
 
-  @override
-  State<TtWordmark> createState() => _TtWordmarkState();
-}
-
-class _TtWordmarkState extends State<TtWordmark> {
-  // The dot position is measured from the font, so re-measure when fonts finish loading.
-  void _fontsChanged() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    PaintingBinding.instance.systemFonts.addListener(_fontsChanged);
-  }
-
-  @override
-  void dispose() {
-    PaintingBinding.instance.systemFonts.removeListener(_fontsChanged);
-    super.dispose();
-  }
+  /// Two lines ("Tamil" over "Taxi", the primary logo) or one line for app bars and other short, wide spaces.
+  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
-    final size = widget.size;
-    final color = widget.color;
-    final dotColor = widget.dotColor;
-    final style = context.type.display.copyWith(
-      fontSize: size,
-      height: 1.1,
-      color: color,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -size * 0.02,
-    );
-    final dir = Directionality.of(context);
-    final r = TextPainter(text: TextSpan(text: 'r', style: style), textDirection: dir)..layout();
-    final ri = TextPainter(text: TextSpan(text: 'rı', style: style), textDirection: dir)..layout();
-    final full = TextPainter(text: TextSpan(text: 'rıdo', style: style), textDirection: dir)..layout();
-    final iWidth = ri.width - r.width;
-    final dot = size * 0.2;
+    final w = (stacked ? TtLogoPaths.stackedWidth : TtLogoPaths.oneLineWidth) * size;
+    final h = (stacked ? TtLogoPaths.stackedHeight : TtLogoPaths.oneLineHeight) * size;
+    final road = roadColor ?? (color == TtColors.navy900 ? TtColors.coral500 : color);
     return Semantics(
-      label: 'tamiltaxi',
+      label: 'Tamil Taxi',
       excludeSemantics: true,
-      child: SizedBox(
-        width: full.width,
-        height: full.height,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Text('rıdo', style: style),
-            Positioned(
-              left: r.width + iWidth / 2 - dot / 2,
-              top: full.height * 0.1,
-              child: Container(width: dot, height: dot, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
-            ),
-          ],
-        ),
-      ),
+      child: CustomPaint(size: Size(w, h), painter: _LogoPainter(size, color, road, stacked)),
     );
   }
+}
+
+class _LogoPainter extends CustomPainter {
+  _LogoPainter(this.scale, this.color, this.road, this.stacked);
+
+  final double scale;
+  final Color color;
+  final Color road;
+  final bool stacked;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final m = Matrix4.diagonal3Values(scale, scale, 1).storage;
+    final fg = (stacked ? TtLogoPaths.stackedFg() : TtLogoPaths.oneLineFg()).transform(m);
+    final rd = (stacked ? TtLogoPaths.stackedRoad() : TtLogoPaths.oneLineRoad()).transform(m);
+    canvas.drawPath(fg, Paint()..color = color..isAntiAlias = true);
+    canvas.drawPath(rd, Paint()..color = road..isAntiAlias = true);
+  }
+
+  @override
+  bool shouldRepaint(_LogoPainter old) =>
+      old.scale != scale || old.color != color || old.road != road || old.stacked != stacked;
 }

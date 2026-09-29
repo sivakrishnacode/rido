@@ -64,7 +64,7 @@ class TtAppBar extends StatelessWidget implements PreferredSizeWidget {
             )
           : null,
       title: showWordmark
-          ? const TtWordmark(size: 26, color: Colors.white)
+          ? const TtWordmark(size: 26, color: Colors.white, stacked: false)
           : title == null
               ? null
               : Column(

@@ -40,7 +40,7 @@ class D02WelcomeScreen extends StatelessWidget {
                         padding: EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, 0),
                         child: Row(
                           children: [
-                            DriverWordmark(size: 28),
+                            DriverWordmark(size: 28, stacked: false),
                             SizedBox(width: TtSpacing.s),
                             DriverTag(),
                           ],

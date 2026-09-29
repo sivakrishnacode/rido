@@ -9,7 +9,6 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/session_actions.dart';
-import 'widgets/font_safe_wordmark.dart';
 
 /// P-01 Splash: coral background, white "tamiltaxi" wordmark and the tagline.
 /// After [SimTimings.splash] it routes to onboarding, sign-in or Home.
@@ -85,7 +84,7 @@ class _P01SplashScreenState extends ConsumerState<P01SplashScreen> {
           child: Stack(
             children: [
               const Center(
-                child: FontSafeWordmark(size: 84, color: TtColors.surface, dotColor: TtColors.navy900),
+                child: TtWordmark(size: 84, color: TtColors.surface),
               ),
               Positioned(
                 left: TtSpacing.xl,

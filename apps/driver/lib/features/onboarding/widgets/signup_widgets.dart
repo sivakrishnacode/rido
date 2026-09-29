@@ -463,37 +463,14 @@ class AuthHeader extends StatelessWidget {
       );
 }
 
-/// [TtWordmark] measures its letters when it builds; on the very first screen the bundled
-/// fonts may still be loading, so this rebuilds it once they are ready.
-class DriverWordmark extends StatefulWidget {
-  const DriverWordmark({super.key, this.size = 48, this.color = Colors.white});
+/// The logo on the driver app's navy screens: white letters with the coral road (the reversed logo).
+class DriverWordmark extends StatelessWidget {
+  const DriverWordmark({super.key, this.size = 48, this.color = Colors.white, this.stacked = true});
   final double size;
   final Color color;
-
-  @override
-  State<DriverWordmark> createState() => _DriverWordmarkState();
-}
-
-class _DriverWordmarkState extends State<DriverWordmark> {
-  int _generation = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    PaintingBinding.instance.systemFonts.addListener(_fontsChanged);
-  }
-
-  void _fontsChanged() {
-    if (mounted) setState(() => _generation++);
-  }
-
-  @override
-  void dispose() {
-    PaintingBinding.instance.systemFonts.removeListener(_fontsChanged);
-    super.dispose();
-  }
+  final bool stacked;
 
   @override
   Widget build(BuildContext context) =>
-      TtWordmark(key: ValueKey(_generation), size: widget.size, color: widget.color);
+      TtWordmark(size: size, color: color, roadColor: TtColors.coral500, stacked: stacked);
 }
