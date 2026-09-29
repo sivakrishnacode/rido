@@ -9,9 +9,9 @@ Last updated: 25 Sep 2026
 
 | Name | Key | Used in | Restrictions |
 |---|---|---|---|
-| rido-android-maps | `<key>` | `apps/passenger/android/local.properties`, `apps/driver/android/local.properties` (`MAPS_API_KEY`) | None for now (planned: Android apps + SHA-1, Maps SDK for Android) |
-| rido-server | `<key>` | `/.env`, `apps/api/.env` (`GOOGLE_MAPS_API_KEY`) | None for now (planned: IP address, Places/Geocoding/Routes) |
-| rido-app-services | `<key>` | `/.dart-defines.json` (`GOOGLE_MAPS_API_KEY`) | None for now (planned: Places/Geocoding/Routes only) |
+| tamiltaxi-android-maps | `<key>` | `apps/passenger/android/local.properties`, `apps/driver/android/local.properties` (`MAPS_API_KEY`) | None for now (planned: Android apps + SHA-1, Maps SDK for Android) |
+| tamiltaxi-server | `<key>` | `/.env`, `apps/api/.env` (`GOOGLE_MAPS_API_KEY`) | None for now (planned: IP address, Places/Geocoding/Routes) |
+| tamiltaxi-app-services | `<key>` | `/.dart-defines.json` (`GOOGLE_MAPS_API_KEY`) | None for now (planned: Places/Geocoding/Routes only) |
 
 Auto-created "Maps Platform API Key": delete it (unused).
 

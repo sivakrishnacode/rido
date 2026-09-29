@@ -12,9 +12,9 @@ the API falls back to seeded places and straight-line distances.
 
 | Key | Used by | APIs it may call | Restricted to |
 |---|---|---|---|
-| **1. `rido-android-maps`** | Both Android apps, to draw the map | Maps SDK for Android | Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver` + signing SHA-1 |
-| **2. `rido-server`** | Backend (`apps/api`) | Places API (New), Geocoding API, Routes API | Your server's IP address |
-| **3. `rido-app-services`** (prototype only) | Apps' direct search / geocode / route calls; **for now also the admin panel's maps** | Places API (New), Geocoding API, Routes API, **Maps JavaScript API** | API restrictions only (see note) |
+| **1. `tamiltaxi-android-maps`** | Both Android apps, to draw the map | Maps SDK for Android | Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver` + signing SHA-1 |
+| **2. `tamiltaxi-server`** | Backend (`apps/api`) | Places API (New), Geocoding API, Routes API | Your server's IP address |
+| **3. `tamiltaxi-app-services`** (prototype only) | Apps' direct search / geocode / route calls; **for now also the admin panel's maps** | Places API (New), Geocoding API, Routes API, **Maps JavaScript API** | API restrictions only (see note) |
 | **4. `tamiltaxi-admin-web`** (recommended, not created yet) | Admin panel maps in the browser (`apps/admin`) | Maps JavaScript API only | HTTP referrers: your admin domain(s), plus `http://localhost:3001/*` for dev |
 
 **Why key 3 exists:** the apps currently call Places, Geocoding and Routes directly over HTTPS. Those calls can't
@@ -71,22 +71,22 @@ App integrity**.
 
 Go to **APIs & Services → Credentials → Create credentials → API key**. For each new key, click **Edit API key**:
 
-### Key 1: `rido-android-maps`
-- **Name:** `rido-android-maps`
+### Key 1: `tamiltaxi-android-maps`
+- **Name:** `tamiltaxi-android-maps`
 - **Application restrictions:** Android apps → **Add** twice:
   - Package `com.tamiltaxi.passenger`, SHA-1 `B5:C9:F1:A3:D4:2E:20:F7:24:2A:F7:94:54:CC:26:36:3B:4D:52:99`
   - Package `com.tamiltaxi.driver`, same SHA-1
   - Later, add the release / Play signing SHA-1 for both packages.
 - **API restrictions:** Restrict key → **Maps SDK for Android** only.
 
-### Key 2: `rido-server`
-- **Name:** `rido-server`
+### Key 2: `tamiltaxi-server`
+- **Name:** `tamiltaxi-server`
 - **Application restrictions:** IP addresses → your server's public IP (for local testing, add your own public IP
   from https://ifconfig.me, or leave unrestricted temporarily).
 - **API restrictions:** **Places API (New)**, **Geocoding API**, **Routes API**.
 
-### Key 3: `rido-app-services` (prototype only)
-- **Name:** `rido-app-services`
+### Key 3: `tamiltaxi-app-services` (prototype only)
+- **Name:** `tamiltaxi-app-services`
 - **Application restrictions:** None (see "Why key 3 exists" above).
 - **API restrictions:** **Places API (New)**, **Geocoding API**, **Routes API**.
 

@@ -15,14 +15,14 @@ The project was called **Rido** until 29 Sep 2026. In code the prefix is now `Tt
 Existing external resources keep their old names because they can't be renamed: the SSH key `rido-key.pem`, the
 security group `rido-sg`, the EC2 tag `rido-server`, the AWS CLI profile `rido`, IAM user `rido-deployer`, instance role
 `rido-ec2-uploads`, S3 bucket `rido-uploads-786020471552`, the Google Cloud project
-`rido-prod` and its API keys (`rido-android-maps`, `rido-server`, `rido-app-services`).
+`rido-prod` (its API keys were renamed to `tamiltaxi-android-maps`, `tamiltaxi-server` and `tamiltaxi-app-services`).
 
 After the rename, outside the repo:
 - **Firebase: done 29 Sep 2026.** New project `tamiltaxi-85a28` with both new app IDs. Its `google-services.json`
   is in `apps/*/android/app/`, and staging's `FIREBASE_SERVICE_ACCOUNT_B64` holds its key (checked with a dry-run
   send). The old project `rido-93cd3` is unused and can be deleted once the new apps have received a push.
-- **Maps key `rido-android-maps`:** add the two new package names and their SHA-1 to its Android restriction, or the
-  map stays blank in new builds.
+- **Maps key: done 29 Sep 2026.** `tamiltaxi-android-maps` allows `com.tamiltaxi.passenger` and `com.tamiltaxi.driver`
+  (debug-keystore SHA-1); the old `com.rido.*` entries can be removed once no old build is in use.
 - **Local Docker:** the compose project is now `tamiltaxi`, so `docker compose up -d` starts fresh `tamiltaxi_*`
   volumes (run `prisma:migrate` and the seeds). The old `rido_*` volumes can be deleted.
 
@@ -159,10 +159,10 @@ Never commit real `.env` files.
 | `DEV_OTP_CODE` | API | empty (`.env.example`: 123456) | the only OTP that works in dev mode; **required** with `OTP_DEV_MODE` when `NODE_ENV=production`. Keep it secret on staging |
 | `CORS_ORIGINS` | API | `*` | comma-separated list in production |
 | `SEED_ON_START` | API container | true | re-runs the idempotent seed on boot |
-| `GOOGLE_MAPS_API_KEY` | API | empty | key 2 `rido-server` (IP-restricted): Places (New), Geocoding, Routes; empty = local fallback |
-| `GOOGLE_MAPS_API_KEY` (dart-define) | Flutter apps | empty | key 3 `rido-app-services` (API-restricted only): the apps' direct Places/Geocoding/Routes calls; also switches the map to Google |
+| `GOOGLE_MAPS_API_KEY` | API | empty | key 2 `tamiltaxi-server` (IP-restricted): Places (New), Geocoding, Routes; empty = local fallback |
+| `GOOGLE_MAPS_API_KEY` (dart-define) | Flutter apps | empty | key 3 `tamiltaxi-app-services` (API-restricted only): the apps' direct Places/Geocoding/Routes calls; also switches the map to Google |
 | `/.dart-defines.json` | `scripts/flutter.sh` (run/build) | absent | holds `GOOGLE_MAPS_API_KEY` for the apps |
-| `MAPS_API_KEY` (`/.dart-defines.json`, else `apps/*/android/local.properties` or env) | Android manifest | empty | key 1 `rido-android-maps` (package + SHA-1 restricted): Maps SDK for Android |
+| `MAPS_API_KEY` (`/.dart-defines.json`, else `apps/*/android/local.properties` or env) | Android manifest | empty | key 1 `tamiltaxi-android-maps` (package + SHA-1 restricted): Maps SDK for Android |
 | `CARTO_KEY` (dart-define) | Flutter apps | built-in | CARTO basemap key (`?key=`), used when Google Maps is off |
 | `ADMIN_PHONES` | API | empty (`.env.example`: 9000000001) | comma-separated phones that always sign in as ADMIN (admin panel login); the API container reads it on start |
 | `API_URL` | admin (server side only) | `http://localhost:3000/v1`; compose sets `http://api:3000/v1` | the browser never calls the API directly |
