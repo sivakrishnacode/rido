@@ -15,7 +15,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       <section className="relative hidden overflow-hidden bg-navy-900 p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <Wordmark tone="white" className="text-4xl" />
+        <Wordmark tone="white" stacked className="text-5xl" />
         <div className="max-w-md space-y-4">
           <p className="text-sm font-medium tracking-wide text-coral-100 uppercase">Coimbatore · zero commission</p>
           <h1 className="text-3xl leading-tight font-semibold">
@@ -33,7 +33,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <section className="flex items-center justify-center px-4 py-12 sm:px-8">
         <div className="w-full max-w-sm space-y-8">
           <div className="space-y-2">
-            <Wordmark className="text-3xl lg:hidden" />
+            <Wordmark className="mb-4 text-3xl lg:hidden" />
             <h2 className="text-2xl font-semibold text-navy-900">Sign in</h2>
             <p className="text-sm text-muted-foreground">Use the mobile number registered as a Tamil Taxi admin.</p>
           </div>

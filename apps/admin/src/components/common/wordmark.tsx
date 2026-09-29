@@ -1,27 +1,42 @@
 import { cn } from "@/lib/utils";
 
-/** "tamiltaxi" wordmark: navy letters, the dot of the i in coral. */
-export function Wordmark({ className, tone = "navy" }: { className?: string; tone?: "navy" | "white" }) {
+import { LOGO_PATHS } from "./logo-paths";
+
+/**
+ * The Tamil Taxi logo: "Tamil Taxi" in Manrope ExtraBold whose x is a flyover road with lane dashes.
+ * Drawn from outline paths, so it never depends on a font. Sized by font size (`text-3xl` etc.): the letters are set
+ * at 1em. `stacked` gives the two-line primary logo, otherwise one line. The road is always coral; the letters are
+ * navy, or white on dark backgrounds.
+ */
+export function Wordmark({
+  className,
+  tone = "navy",
+  stacked = false,
+}: {
+  className?: string;
+  tone?: "navy" | "white";
+  stacked?: boolean;
+}) {
+  const logo = stacked ? LOGO_PATHS.stacked : LOGO_PATHS.oneLine;
   return (
     <span
-      aria-label="tamiltaxi"
+      role="img"
+      aria-label="Tamil Taxi"
       className={cn(
-        "inline-flex items-baseline font-heading font-bold leading-none tracking-tight select-none",
+        "inline-block leading-none select-none",
         tone === "white" ? "text-white" : "text-navy-900",
         className,
       )}
     >
-      <span aria-hidden>r</span>
-      <span aria-hidden className="relative inline-block">
-        ı
-        <span
-          className={cn(
-            "absolute left-1/2 top-[0.02em] size-[0.2em] -translate-x-1/2 rounded-full",
-            tone === "white" ? "bg-white" : "bg-coral-600",
-          )}
-        />
-      </span>
-      <span aria-hidden>do</span>
+      <svg
+        viewBox={`0 0 ${logo.width} ${logo.height}`}
+        style={{ height: `${logo.height / 100}em`, width: `${logo.width / 100}em` }}
+        className="block"
+        aria-hidden
+      >
+        <path d={logo.fg} fill="currentColor" />
+        <path d={logo.road} fill="#F4511E" />
+      </svg>
     </span>
   );
 }
