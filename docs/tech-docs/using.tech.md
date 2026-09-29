@@ -1207,6 +1207,14 @@ default, no row stored) (`fdb7f15..619b77e`). Checked live: `/health` 200, hotsp
 **Deployed 29 Sep 2026:** `DEV_OTP_CODE` (secret 6 digits in `/opt/tamiltaxi/.env`, value in the git-ignored
 `credentials.local.md`): staging no longer accepts any OTP. Checked live: a wrong code gets 401, the secret code 200.
 
+**Deployed 29 Sep 2026 (rename):** staging moved from `/opt/rido` (compose project `rido`) to `/opt/tamiltaxi`
+(project `tamiltaxi`, images `tamiltaxi-api:local` / `tamiltaxi-admin:local`). The database was dumped
+(`~/rido-20260929.dump` on the server), restored into the new `tamiltaxi` database and user with the same password,
+and the Caddy and uploads volumes were copied, so data and HTTPS certificates carried over (19 users, 44 trips).
+Checked live: `/health` 200, admin sign-in page, app-config. Rollback: the old `rido_*` volumes, `/opt/rido` and the
+dump are kept; delete them once the new stack has run for a week (`docker volume rm rido_postgres-data rido_redis-data
+rido_uploads rido_caddy_data rido_caddy_config`).
+
 **Capacity (measured 26 Sep 2026, t3.small):** cached fare quotes at 50 concurrent connections: ~890 req/s average
 (peak 1,340), p50 43 ms, p99 ~200 ms, no errors; the API process used both vCPUs while Postgres/Redis stayed idle.
 Planning figures with headroom: ~300–400 req/s sustained, ~1,500–2,500 concurrent app users, ~300–500 online
