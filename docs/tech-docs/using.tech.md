@@ -1141,7 +1141,13 @@ suggestion's name.
 - Impeller runs on **OpenGL ES** (`io.flutter.embedding.android.ImpellerBackend=opengles` in both manifests): the
   Vulkan backend lagged frames on MediaTek/Mali devices (bottom sheet looked stuck).
 - Permissions: INTERNET, ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION (passenger).
-- Launcher icons and native splash generated from the brand board (`res/mipmap-*`, `drawable-nodpi/splash_logo.png`).
+- Launcher icons and native splash (29 Sep 2026, new logo): rider = "Tamil / Taxi" on coral; driver = the same on navy
+  with a coral DRIVER band. `res/mipmap-*` hold `ic_launcher` (legacy, rounded), `ic_launcher_foreground` (adaptive,
+  name inside the 66 dp safe zone) and `ic_launcher_monochrome` (Android 13 themed icon); ≤ 96 px sizes use a cut
+  without lane dashes. `drawable-*/ic_notification.png` (and the driver's `notification_icon.png`) is the white road x;
+  `drawable-nodpi/splash_logo.png` is the stacked logo (150×103 dp in `launch_background.xml`); the driver bubble
+  (`assets/brand/tt_icon.png`) is the road x on coral. All are rendered from the logo masters in the separate
+  `tamiltaxi-logo` kit (`tools/install_android_icons.py`), not drawn by hand.
 - Release signing is not configured yet (uses debug keys). Add `android/key.properties` (git-ignored) before store release.
 
 ---
