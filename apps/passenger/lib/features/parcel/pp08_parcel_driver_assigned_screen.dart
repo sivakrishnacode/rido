@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../common/map_insets.dart';
@@ -22,7 +22,7 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
 
   Future<void> _cancel(BuildContext context, WidgetRef ref) async {
     final name = ref.read(parcelFlowProvider).driver.firstName;
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Cancel this delivery?',
       message: '$name is already on the way to the pickup. You can book again any time.',
@@ -35,10 +35,10 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
     final error = await ref.read(parcelFlowProvider.notifier).cancel();
     if (!context.mounted) return;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
       return;
     }
-    showRidoSnack(context, 'Delivery cancelled');
+    showTtSnack(context, 'Delivery cancelled');
     context.go(Routes.parcel);
   }
 
@@ -70,7 +70,7 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
         if (!didPop) context.go(Routes.parcel);
       },
       child: Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: Stack(
           children: [
             Positioned.fill(
@@ -87,7 +87,7 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                     EdgeInsets.fromLTRB(64, top + 80, 64, height * 0.62 + 32),
                     height * 0.62,
                   );
-                  return RidoMap(
+                  return TtMap(
                     pickup: s.pickup.location,
                     pulseAt: noVehicleYet ? s.pickup.location : null,
                     route: atPickup || approach.length < 2 ? const [] : remainingPath(approach, pos, fix?.progress ?? 0),
@@ -140,7 +140,7 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                       const SizedBox(height: 2),
                       Text(
                         atPickup ? 'Check the parcel together before handing it over' : 'Arriving in $eta min',
-                        style: t.bodyMedium.copyWith(color: atPickup ? RidoColors.navy700 : RidoColors.success),
+                        style: t.bodyMedium.copyWith(color: atPickup ? TtColors.navy700 : TtColors.success),
                       ),
                       const SizedBox(height: 16),
                       StepperTimeline(steps: parcelSteps, currentIndex: s.stepIndex.clamp(0, 1)),
@@ -169,8 +169,8 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                             child: ParcelRoundAction(
                               icon: Symbols.call_rounded,
                               label: 'Call',
-                              bg: RidoColors.coral600,
-                              fg: RidoColors.surface,
+                              bg: TtColors.coral600,
+                              fg: TtColors.surface,
                               onTap: () => callNumber(context, driver.phone, name: driver.firstName),
                             ),
                           ),
@@ -178,8 +178,8 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                             child: ParcelRoundAction(
                               icon: Symbols.chat_rounded,
                               label: 'Chat',
-                              bg: RidoColors.coral50,
-                              fg: RidoColors.coral600,
+                              bg: TtColors.coral50,
+                              fg: TtColors.coral600,
                               onTap: () => context.push(Routes.parcelChat),
                             ),
                           ),
@@ -188,8 +188,8 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                             child: ParcelRoundAction(
                               icon: Symbols.share_location_rounded,
                               label: 'Share tracking',
-                              bg: RidoColors.inputBg,
-                              fg: RidoColors.navy900,
+                              bg: TtColors.inputBg,
+                              fg: TtColors.navy900,
                               onTap: () => shareParcelWithReceiver(context, s, ctrl.vehicle.value?.position),
                             ),
                           ),
@@ -197,9 +197,9 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                             child: ParcelRoundAction(
                               icon: Symbols.close_rounded,
                               label: 'Cancel',
-                              bg: RidoColors.errorTint,
-                              fg: RidoColors.error,
-                              labelColor: RidoColors.error,
+                              bg: TtColors.errorTint,
+                              fg: TtColors.error,
+                              labelColor: TtColors.error,
                               onTap: () => _cancel(context, ref),
                             ),
                           ),

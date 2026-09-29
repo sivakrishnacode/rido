@@ -1,6 +1,6 @@
 # Running cost and scaling plan
 
-What it costs to run Rido, how long the free tiers last, and what to change as trips grow. Rido is free for
+What it costs to run Tamil Taxi, how long the free tiers last, and what to change as trips grow. Tamil Taxi is free for
 drivers and riders (0% commission, no subscription), so running cost per trip is the number that matters.
 
 Last updated: 29 Sep 2026. Prices are list prices at $1 = ₹88. Recheck them before acting on this.
@@ -256,7 +256,7 @@ The limits of the single server, in the order they are hit:
 
 ### Before a public launch
 
-- [ ] Real domain; set `API_HOST` / `ADMIN_HOST`, rebuild the apps with `RIDO_API_URL`.
+- [ ] Real domain; set `API_HOST` / `ADMIN_HOST`, rebuild the apps with `TT_API_URL`.
 - [ ] SMS provider in `OtpService.deliver`, then `OTP_DEV_MODE=false`.
 - [ ] Automated Postgres backups to S3.
 - [ ] P-10 change (§5).

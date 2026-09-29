@@ -14,6 +14,6 @@ export async function GET(request: NextRequest) {
     if (!res.ok) return NextResponse.json({ message: `Demand failed (${res.status})` }, { status: 502 });
     return NextResponse.json(await res.json(), { headers: { "cache-control": "no-store" } });
   } catch {
-    return NextResponse.json({ message: "Cannot reach the Rido API" }, { status: 503 });
+    return NextResponse.json({ message: "Cannot reach the Tamil Taxi API" }, { status: 503 });
   }
 }

@@ -24,7 +24,7 @@ function newSession(): string {
 }
 
 /**
- * Locality search over the Rido API (Google Places Autocomplete with the server key, cached in Redis).
+ * Locality search over the Tamil Taxi API (Google Places Autocomplete with the server key, cached in Redis).
  * Debounced 300 ms, ≥ 3 characters, one session token per search that ends with the details call.
  */
 export function PlaceSearch({ onSelect, className }: { onSelect: (place: FoundPlace) => void; className?: string }) {

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/export/[enti
       cache: "no-store",
     });
   } catch {
-    return NextResponse.json({ message: "Cannot reach the Rido API" }, { status: 503 });
+    return NextResponse.json({ message: "Cannot reach the Tamil Taxi API" }, { status: 503 });
   }
   if (res.status === 401) return NextResponse.redirect(publicUrl(request, "/auth/signout?expired=1"));
   if (!res.ok || !res.body) return NextResponse.json({ message: `Export failed (${res.status})` }, { status: res.status });
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/export/[enti
   return new Response(res.body, {
     headers: {
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="rido-${entity}-${day}.csv"`,
+      "content-disposition": `attachment; filename="tamiltaxi-${entity}-${day}.csv"`,
       "cache-control": "no-store",
     },
   });

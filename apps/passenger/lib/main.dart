@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import 'app.dart';
 
@@ -14,12 +14,12 @@ Future<void> main() async {
     final api = ApiClient(baseUrl: kApiBaseUrl, session: session);
     RoadRouter.backend = backendRouter(api);
     // Push notifications (FCM); null when this build has no google-services.json.
-    final push = await RidoPush.create(api, app: PushApp.passenger);
-    runApp(ProviderScope(overrides: liveApiOverrides(api, push: push), child: const RidoPassengerApp()));
+    final push = await TtPush.create(api, app: PushApp.passenger);
+    runApp(ProviderScope(overrides: liveApiOverrides(api, push: push), child: const TtPassengerApp()));
     return;
   }
-  // Seed data + trip simulator (--dart-define=RIDO_LIVE_API=false). Road-following routes for the demo
+  // Seed data + trip simulator (--dart-define=TT_LIVE_API=false). Road-following routes for the demo
   // trips (falls back to curved lines offline).
   RoadRouter.prefetchDemoRoutes();
-  runApp(const ProviderScope(child: RidoPassengerApp()));
+  runApp(const ProviderScope(child: TtPassengerApp()));
 }

@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
@@ -37,7 +37,7 @@ class S01NoDriversScreen extends ConsumerWidget {
     final error = vehicle == null ? await flow.book() : await flow.retryWith(vehicle);
     if (!context.mounted) return;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
       return;
     }
     context.go(Routes.findingDriver);
@@ -64,7 +64,7 @@ class S01NoDriversScreen extends ConsumerWidget {
         if (!didPop) _back(context, ref);
       },
       child: TripSheetScaffold(
-        map: (context, h) => RidoMap(
+        map: (context, h) => TtMap(
           pickup: ride.pickup.location,
           fitPoints: [offsetPoint(ride.pickup.location, 700, 0), offsetPoint(ride.pickup.location, 700, 180)],
           fitPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).fit,
@@ -89,7 +89,7 @@ class S01NoDriversScreen extends ConsumerWidget {
                 size: 120,
                 badge: Symbols.search_off_rounded,
                 label: 'No drivers nearby',
-                child: Icon(ride.vehicle.icon, fill: 1, size: 64, color: RidoColors.coral500),
+                child: Icon(ride.vehicle.icon, fill: 1, size: 64, color: TtColors.coral500),
               ),
             ),
             const SizedBox(height: 16),
@@ -97,18 +97,18 @@ class S01NoDriversScreen extends ConsumerWidget {
             const SizedBox(height: 6),
             Text(
               'Try ${others.join(' or ')}, or try again in a few minutes',
-              style: t.body.copyWith(color: RidoColors.navy700),
+              style: t.body.copyWith(color: TtColors.navy700),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
-            RidoButton(
+            TtButton(
               label: 'Try ${alt.label} · ${formatInr(altQuote.total)}',
               icon: alt.icon,
               loading: ride.busy,
               onPressed: ride.busy ? null : () => _rebook(context, ref, vehicle: alt),
             ),
             const SizedBox(height: 10),
-            RidoButton.secondary(
+            TtButton.secondary(
               label: 'Retry',
               onPressed: ride.busy ? null : () => _rebook(context, ref),
             ),
@@ -127,9 +127,9 @@ class _SearchRingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     final r = size.width / 2 - 2;
-    canvas.drawCircle(c, r, Paint()..color = RidoColors.navy500.withValues(alpha: 0.08));
-    _dashed(canvas, c, r, RidoColors.navy500, 2.4, 40);
-    _dashed(canvas, c, r * 0.5, RidoColors.navy300, 2, 22);
+    canvas.drawCircle(c, r, Paint()..color = TtColors.navy500.withValues(alpha: 0.08));
+    _dashed(canvas, c, r, TtColors.navy500, 2.4, 40);
+    _dashed(canvas, c, r * 0.5, TtColors.navy300, 2, 22);
   }
 
   void _dashed(Canvas canvas, Offset c, double r, Color color, double width, int dashes) {

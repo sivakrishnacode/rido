@@ -2,8 +2,8 @@
 // "open soon" state when no UPI ID is set.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 
@@ -11,7 +11,7 @@ Future<void> _pump(WidgetTester tester, ContributeInfo info, ValueChanged<int?> 
   await loadTestFonts();
   usePhone(tester);
   await tester.pumpWidget(MaterialApp(
-    theme: RidoTheme.light(),
+    theme: TtTheme.light(),
     home: Scaffold(body: ContributeView(info: info, onPay: onPay)),
   ));
 }
@@ -38,7 +38,7 @@ void main() {
   testWidgets('no UPI ID and no cost yet: no pay button, no cost card', (tester) async {
     await _pump(tester, AppConfig.fallback.contribute, (_) {});
     expect(find.text('Contributions open soon.'), findsOneWidget);
-    expect(find.byType(RidoButton), findsNothing);
+    expect(find.byType(TtButton), findsNothing);
     expect(find.text('What it costs to run'), findsNothing);
   });
 }

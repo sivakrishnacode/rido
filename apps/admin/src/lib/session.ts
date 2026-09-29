@@ -6,9 +6,9 @@ import { decodeJwt } from "./jwt";
 import type { User } from "./types";
 
 /** httpOnly cookie holding the API JWT. Never readable from client JS. */
-export const TOKEN_COOKIE = "rido_admin_token";
+export const TOKEN_COOKIE = "tt_admin_token";
 /** httpOnly cookie with the signed-in admin's name/phone for the user menu. */
-export const USER_COOKIE = "rido_admin_user";
+export const USER_COOKIE = "tt_admin_user";
 
 export interface SessionUser {
   readonly name: string | null;

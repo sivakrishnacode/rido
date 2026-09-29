@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Native launch screen: brand colour with the rido wordmark. -->
+<!-- Native launch screen: brand colour with the tamiltaxi wordmark. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/ic_launcher_background" />
     <item android:width="240dp" android:height="100dp" android:gravity="center">

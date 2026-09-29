@@ -1,4 +1,4 @@
-// Rido database schema (PostgreSQL). Money is stored in whole rupees (Int), matching the fare engine.
+// Tamil Taxi database schema (PostgreSQL). Money is stored in whole rupees (Int), matching the fare engine.
 
 generator client {
   provider = "prisma-client"
@@ -554,7 +554,7 @@ model CancellationDue {
   @@index([status, createdAt])
 }
 
-/// An SOS from the passenger or driver app (safety/sos.service.ts): where they were, and what the Rido team did.
+/// An SOS from the passenger or driver app (safety/sos.service.ts): where they were, and what the Tamil Taxi team did.
 /// Admins are pushed at once (setting `sosAdminAlert`) and work the queue on the admin SOS page.
 model Sos {
   id             String      @id @default(cuid())
@@ -655,7 +655,7 @@ model SupportTicket {
   @@index([userId])
 }
 
-/// A city Rido operates in. The service area is a set of H3 cells at [h3Resolution].
+/// A city Tamil Taxi operates in. The service area is a set of H3 cells at [h3Resolution].
 model City {
   id           String         @id // slug, e.g. "coimbatore"
   name         String

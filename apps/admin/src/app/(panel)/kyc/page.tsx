@@ -59,7 +59,7 @@ export default async function KycPage({ searchParams }: PageProps<"/kyc">) {
             icon={ClipboardCheckIcon}
             title={status === "UNDER_REVIEW" ? "Queue is empty" : `No ${TAB_LABEL[status].toLowerCase()} documents`}
             description={
-              status === "UNDER_REVIEW" ? "New uploads from the Rido Driver app land here for review." : "Nothing in this list right now."
+              status === "UNDER_REVIEW" ? "New uploads from the Tamil Taxi Driver app land here for review." : "Nothing in this list right now."
             }
           />
         ) : (

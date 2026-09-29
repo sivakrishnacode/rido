@@ -1,6 +1,6 @@
-# Contributing to Rido
+# Contributing to Tamil Taxi
 
-Thanks for helping. Rido is a free ride-hailing and parcel app: drivers pay no commission and no subscription.
+Thanks for helping. Tamil Taxi is a free ride-hailing and parcel app: drivers pay no commission and no subscription.
 Every contribution that makes it better, or cheaper to run, helps drivers keep more of what they earn.
 
 You don't need to know the whole stack. Flutter developers, TypeScript / NestJS developers, designers, testers,
@@ -10,7 +10,7 @@ people who know Indian mobility rules, and people who can fix OpenStreetMap road
 
 | You know | Good places to start |
 |---|---|
-| Flutter / Dart | Passenger and driver screens (`apps/*/lib/features`), the shared widgets (`packages/rido_ui`), widget tests |
+| Flutter / Dart | Passenger and driver screens (`apps/*/lib/features`), the shared widgets (`packages/tamiltaxi_ui`), widget tests |
 | TypeScript / NestJS | API modules (`apps/api/src/modules`): dispatch, fares, maps, notifications |
 | React / Next.js | The admin panel (`apps/admin`) |
 | DevOps | CI, backups, [self-hosted OSRM](docs/COST_AND_SCALING.md#6-change-2-self-hosted-osrm) |
@@ -35,7 +35,7 @@ Prerequisites:
 The Flutter SDK is found through `$FLUTTER`, your `PATH`, or `~/development/flutter`.
 
 ```bash
-git clone https://github.com/<you>/rido.git && cd rido
+git clone https://github.com/<you>/tamiltaxi.git && cd tamiltaxi
 npm install && npm run get      # JS deps, flutter pub get everywhere, prisma generate
 npm run check                   # analyze + test everything: should pass before you change anything
 ```
@@ -44,8 +44,8 @@ npm run check                   # analyze + test everything: should pass before 
 
 | Mode | Command | Needs |
 |---|---|---|
-| **Mock** (no backend, seed data, simulated trips) | `cd apps/passenger && sh ../../scripts/flutter.sh run --dart-define=RIDO_LIVE_API=false` | Nothing else |
-| **Your own backend** | Start the backend (next section), then `flutter run --dart-define=RIDO_API_URL=http://10.0.2.2:3000/v1` (emulator) or your PC's LAN IP (phone) | Docker |
+| **Mock** (no backend, seed data, simulated trips) | `cd apps/passenger && sh ../../scripts/flutter.sh run --dart-define=TT_LIVE_API=false` | Nothing else |
+| **Your own backend** | Start the backend (next section), then `flutter run --dart-define=TT_API_URL=http://10.0.2.2:3000/v1` (emulator) or your PC's LAN IP (phone) | Docker |
 
 Without either flag the apps talk to the maintainer's staging server, which is for the maintainer's testing. Please
 use mock mode or your own backend for development.
@@ -66,9 +66,9 @@ For API work with hot reload:
 ```bash
 docker compose up -d postgres redis
 cp apps/api/.env.example apps/api/.env
-npm run prisma:deploy -w @rido/api && npm run prisma:seed -w @rido/api
-npm run start:dev -w @rido/api        # any 6-digit OTP except 000000 signs in
-npm run seed:test-drivers -w @rido/api  # 11 approved drivers (cab, bike, auto, goods…) to sign in as
+npm run prisma:deploy -w @tamiltaxi/api && npm run prisma:seed -w @tamiltaxi/api
+npm run start:dev -w @tamiltaxi/api        # any 6-digit OTP except 000000 signs in
+npm run seed:test-drivers -w @tamiltaxi/api  # 11 approved drivers (cab, bike, auto, goods…) to sign in as
 ```
 
 Google Maps keys are optional: without them the apps use CARTO tiles and the API uses seeded places and straight-line
@@ -93,9 +93,9 @@ distances. To use Google, see [docs/GOOGLE_MAPS_SETUP.md](docs/GOOGLE_MAPS_SETUP
 
 | You changed | Run |
 |---|---|
-| Flutter (`apps/passenger`, `apps/driver`, `packages/*`) | `npm run analyze && npm test`, or `npx turbo run analyze test --filter=@rido/driver` |
-| API | `npm run analyze -w @rido/api && npm test -w @rido/api`; for flows or DB changes also `npm run test:e2e -w @rido/api` |
-| Admin | `npm run analyze -w @rido/admin && npm test -w @rido/admin` |
+| Flutter (`apps/passenger`, `apps/driver`, `packages/*`) | `npm run analyze && npm test`, or `npx turbo run analyze test --filter=@tamiltaxi/driver` |
+| API | `npm run analyze -w @tamiltaxi/api && npm test -w @tamiltaxi/api`; for flows or DB changes also `npm run test:e2e -w @tamiltaxi/api` |
+| Admin | `npm run analyze -w @tamiltaxi/admin && npm test -w @tamiltaxi/admin` |
 | Anything | `npm run check` must pass with **zero analyzer issues**. CI runs it on every PR |
 
 ### Commit messages
@@ -118,8 +118,8 @@ Examples:
   timer or per GPS update. Cache Google responses. Say in the PR if a change adds paid calls. See
   [docs/COST_AND_SCALING.md](docs/COST_AND_SCALING.md) and the cost rules in
   [using.tech.md §7](docs/tech-docs/using.tech.md#7-maps-and-location).
-- **The fare engine exists twice,** in `packages/rido_data` (apps) and `apps/api` (server). Both run the shared cases
-  in `packages/rido_data/test/fixtures/fare_cases.json`, so change both together.
+- **The fare engine exists twice,** in `packages/tamiltaxi_data` (apps) and `apps/api` (server). Both run the shared cases
+  in `packages/tamiltaxi_data/test/fixtures/fare_cases.json`, so change both together.
 - **Prisma queries are lazy.** `void prisma.x.create(...)` never runs: always `await` it or attach `.catch()`.
 - **Admin runs on Next.js 16.** Read [apps/admin/AGENTS.md](apps/admin/AGENTS.md) before writing admin code; APIs
   differ from older Next.js versions.
@@ -131,7 +131,7 @@ Examples:
 
 ## Licence
 
-Rido is licensed under the [GNU AGPL-3.0](LICENSE). By opening a pull request, you agree that your contribution is
+Tamil Taxi is licensed under the [GNU AGPL-3.0](LICENSE). By opening a pull request, you agree that your contribution is
 released under the same licence. The vendored `packages/flutter_overlay_window` keeps its own MIT licence.
 
 ## Conduct

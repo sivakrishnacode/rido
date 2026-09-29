@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../home/widgets/navy_header.dart';
 
@@ -33,11 +33,11 @@ class EarningsHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     return NavyHeader(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, RidoSpacing.xl),
+      padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.xl),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text('Earnings', style: t.display.copyWith(color: Colors.white)),
-        const SizedBox(height: RidoSpacing.l),
-        RidoSegmented<EarningsPeriod>(
+        const SizedBox(height: TtSpacing.l),
+        TtSegmented<EarningsPeriod>(
           dark: true,
           options: EarningsPeriod.values,
           labelOf: (p) => switch (p) {
@@ -48,7 +48,7 @@ class EarningsHeader extends StatelessWidget {
           selected: period,
           onChanged: onPeriod,
         ),
-        const SizedBox(height: RidoSpacing.xl),
+        const SizedBox(height: TtSpacing.xl),
         if (total == null)
           const Align(
             alignment: Alignment.centerLeft,
@@ -61,7 +61,7 @@ class EarningsHeader extends StatelessWidget {
             child: Text('${formatInr(total!)} ${periodSuffix(period)}', style: t.heroSmall.copyWith(color: Colors.white)),
           ),
         if (commissionSaved != null) ...[
-          const SizedBox(height: RidoSpacing.s),
+          const SizedBox(height: TtSpacing.s),
           Text.rich(
             TextSpan(children: [
               const TextSpan(text: 'You kept 100%. Commission saved: '),
@@ -70,7 +70,7 @@ class EarningsHeader extends StatelessWidget {
                 style: t.bodySemibold.copyWith(color: Colors.white),
               ),
             ]),
-            style: RidoTextStyles.tabular(t.body.copyWith(color: Colors.white.withValues(alpha: 0.85))),
+            style: TtTextStyles.tabular(t.body.copyWith(color: Colors.white.withValues(alpha: 0.85))),
           ),
         ],
       ]),

@@ -79,7 +79,7 @@ async function signOutAndRedirect(): Promise<never> {
   redirect(isCleared ? "/login?expired=1" : "/auth/signout?expired=1");
 }
 
-/** Typed fetch against the Rido API. Server-side only: the JWT never reaches the browser. */
+/** Typed fetch against the Tamil Taxi API. Server-side only: the JWT never reaches the browser. */
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", query, body, auth = true } = options;
   const headers: Record<string, string> = { accept: "application/json" };
@@ -100,7 +100,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       signal: AbortSignal.timeout(15_000),
     });
   } catch {
-    throw new ApiError(503, "Cannot reach the Rido API. Is it running?");
+    throw new ApiError(503, "Cannot reach the Tamil Taxi API. Is it running?");
   }
 
   const text = await res.text();

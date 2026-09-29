@@ -1,8 +1,8 @@
 // Too many wrong OTPs (429 OTP_LOCKED): the OTP screens keep their button off for details.retryInSeconds.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/jobs/widgets/otp_step.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/jobs/widgets/otp_step.dart';
 
 class _Probe extends StatefulWidget {
   const _Probe();

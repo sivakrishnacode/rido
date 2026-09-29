@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../account/d26_account_screen.dart';
@@ -148,8 +148,8 @@ class DesignSystemScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Scaffold(
-        backgroundColor: RidoColors.background,
-        appBar: RidoAppBar.driver(title: 'Design system', subtitle: 'Rido Driver · live board', showBack: true),
+        backgroundColor: TtColors.background,
+        appBar: TtAppBar.driver(title: 'Design system', subtitle: 'Tamil Taxi Driver · live board', showBack: true),
         body: DesignSystemBoard(),
       );
 }
@@ -173,9 +173,9 @@ class _FrameNotFound extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: const RidoAppBar.driver(title: 'Frame not found', showBack: true),
+        appBar: const TtAppBar.driver(title: 'Frame not found', showBack: true),
         body: EmptyState(
-          illustration: const RidoIllustration(IllustrationKind.emptyTrips, width: 200, height: 160),
+          illustration: const TtIllustration(IllustrationKind.emptyTrips, width: 200, height: 160),
           title: 'Frame not found',
           message: 'There is no designed frame called "$frameId".',
           actionLabel: 'Back to gallery',
@@ -190,8 +190,8 @@ class _EmptyEarningsFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Scaffold(
-        backgroundColor: RidoColors.background,
-        appBar: RidoAppBar.driver(title: 'Earnings', showBack: true),
+        backgroundColor: TtColors.background,
+        appBar: TtAppBar.driver(title: 'Earnings', showBack: true),
         body: S15EmptyEarningsView(showcase: true),
       );
 }

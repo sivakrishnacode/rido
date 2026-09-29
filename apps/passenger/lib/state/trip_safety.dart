@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 /// Live API: the trip's live-tracking link (`POST /trips/:id/share`), fetched once per trip; null when it couldn't
 /// be made (offline, trip ended long ago) or in seed-data mode. The link itself stays valid until 30 min after the

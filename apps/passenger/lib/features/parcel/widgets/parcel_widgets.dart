@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../common/launch.dart';
 import '../../../common/place_search.dart';
@@ -35,7 +35,7 @@ String fullPhone(String text) => apiPhone(text);
 
 /// Flat vehicle "illustration": a coral-50 tile with a filled coral vehicle symbol.
 class ParcelVehicleArt extends StatelessWidget {
-  const ParcelVehicleArt({super.key, required this.kind, this.width = 64, this.height = 52, this.tile = RidoColors.coral50});
+  const ParcelVehicleArt({super.key, required this.kind, this.width = 64, this.height = 52, this.tile = TtColors.coral50});
 
   final VehicleKind kind;
   final double width;
@@ -46,9 +46,9 @@ class ParcelVehicleArt extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         width: width,
         height: height,
-        decoration: BoxDecoration(color: tile, borderRadius: RidoRadii.cardRadius),
+        decoration: BoxDecoration(color: tile, borderRadius: TtRadii.cardRadius),
         alignment: Alignment.center,
-        child: Icon(kind.icon, fill: 1, color: RidoColors.coral500, size: math.min(width, height) * 0.66),
+        child: Icon(kind.icon, fill: 1, color: TtColors.coral500, size: math.min(width, height) * 0.66),
       );
 }
 
@@ -63,13 +63,13 @@ class ParcelStepAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(64);
 
   @override
-  Widget build(BuildContext context) => RidoAppBar(
+  Widget build(BuildContext context) => TtAppBar(
         title: title,
         actions: [
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: Text('Step $step of 3', style: context.type.bodySmall.copyWith(color: RidoColors.navy500)),
+              child: Text('Step $step of 3', style: context.type.bodySmall.copyWith(color: TtColors.navy500)),
             ),
           ),
         ],
@@ -89,9 +89,9 @@ class ParcelLocationCard extends StatelessWidget {
     final t = context.type;
     return Container(
       decoration: BoxDecoration(
-        color: RidoColors.surface,
-        borderRadius: RidoRadii.cardRadius,
-        border: Border.all(color: RidoColors.divider),
+        color: TtColors.surface,
+        borderRadius: TtRadii.cardRadius,
+        border: Border.all(color: TtColors.divider),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -99,7 +99,7 @@ class ParcelLocationCard extends StatelessWidget {
         children: [
           SizedBox(
             height: 140,
-            child: RidoMap(
+            child: TtMap(
               key: ValueKey(place.id),
               center: place.location,
               zoom: 15.5,
@@ -115,8 +115,8 @@ class ParcelLocationCard extends StatelessWidget {
                     Symbols.location_on_rounded,
                     fill: 1,
                     size: 44,
-                    color: isPickup ? RidoColors.success : RidoColors.coral500,
-                    shadows: const [Shadow(color: RidoColors.shadow, blurRadius: 6, offset: Offset(0, 2))],
+                    color: isPickup ? TtColors.success : TtColors.coral500,
+                    shadows: const [Shadow(color: TtColors.shadow, blurRadius: 6, offset: Offset(0, 2))],
                   ),
                 ),
               ],
@@ -132,7 +132,7 @@ class ParcelLocationCard extends StatelessWidget {
                     children: [
                       Text(place.name, style: t.bodySemibold.copyWith(fontSize: 17), maxLines: 1, overflow: TextOverflow.ellipsis),
                       Text(place.address,
-                          style: t.bodySmall.copyWith(color: RidoColors.navy500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          style: t.bodySmall.copyWith(color: TtColors.navy500), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ),
@@ -141,8 +141,8 @@ class ParcelLocationCard extends StatelessWidget {
                   onPressed: onChange,
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(48, 44),
-                    foregroundColor: RidoColors.navy900,
-                    side: const BorderSide(color: RidoColors.divider),
+                    foregroundColor: TtColors.navy900,
+                    side: const BorderSide(color: TtColors.divider),
                     shape: const StadiumBorder(),
                     textStyle: t.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                   ),
@@ -217,14 +217,14 @@ class ParcelPhoneField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: t.bodySmallMedium.copyWith(color: RidoColors.navy700)),
+        Text(label, style: t.bodySmallMedium.copyWith(color: TtColors.navy700)),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
           keyboardType: TextInputType.phone,
           inputFormatters: [_PhoneFormatter()],
           onChanged: onChanged,
-          style: RidoTextStyles.tabular(t.body.copyWith(letterSpacing: 0.5)),
+          style: TtTextStyles.tabular(t.body.copyWith(letterSpacing: 0.5)),
           decoration: InputDecoration(
             hintText: '98765 43210',
             errorText: errorText,
@@ -235,7 +235,7 @@ class ParcelPhoneField extends StatelessWidget {
                 children: [
                   Text('+91', style: t.body),
                   const SizedBox(width: 12),
-                  Container(width: 1, height: 24, color: RidoColors.divider),
+                  Container(width: 1, height: 24, color: TtColors.divider),
                 ],
               ),
             ),
@@ -256,7 +256,7 @@ class ParcelRoundAction extends StatelessWidget {
     required this.onTap,
     required this.bg,
     required this.fg,
-    this.labelColor = RidoColors.navy900,
+    this.labelColor = TtColors.navy900,
   });
 
   final IconData icon;
@@ -273,7 +273,7 @@ class ParcelRoundAction extends StatelessWidget {
         excludeSemantics: true,
         child: InkWell(
           onTap: onTap,
-          borderRadius: RidoRadii.cardRadius,
+          borderRadius: TtRadii.cardRadius,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
@@ -305,8 +305,8 @@ class ParcelTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.pillRadius),
-        child: Text(text, style: context.type.bodySmallMedium.copyWith(color: RidoColors.navy700)),
+        decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.pillRadius),
+        child: Text(text, style: context.type.bodySmallMedium.copyWith(color: TtColors.navy700)),
       );
 }
 
@@ -322,9 +322,9 @@ class ParcelSheetPanel extends StatelessWidget {
         constraints: BoxConstraints(maxHeight: maxHeight ?? double.infinity),
         child: DecoratedBox(
           decoration: const BoxDecoration(
-            color: RidoColors.surface,
-            borderRadius: RidoRadii.sheetTop,
-            boxShadow: RidoShadows.raised,
+            color: TtColors.surface,
+            borderRadius: TtRadii.sheetTop,
+            boxShadow: TtShadows.raised,
           ),
           child: SafeArea(
             top: false,

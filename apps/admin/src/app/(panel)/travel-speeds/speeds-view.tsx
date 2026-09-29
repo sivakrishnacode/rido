@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/common/page";
 import { HeatLayer, type HeatHover } from "@/components/map/google/heat-layer";
 import { HexLayer } from "@/components/map/google/hex-layer";
-import { RidoMap } from "@/components/map/google/rido-map";
+import { TtMap } from "@/components/map/google/tamiltaxi-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -413,7 +413,7 @@ export function SpeedsView({
               </button>
             ))}
           </nav>
-          <RidoMap center={selected ? cellCentre(selected.fromCell) : { lat: 11.0168, lng: 76.9658 }} zoom={12} className="h-[420px] border">
+          <TtMap center={selected ? cellCentre(selected.fromCell) : { lat: 11.0168, lng: 76.9658 }} zoom={12} className="h-[420px] border">
             {mapMode === "pair" && selected && (
               <>
                 <HexLayer cells={[selected.fromCell]} style={{ color: "#D84315", fillColor: "#F4511E", fillOpacity: 0.3, weight: 2 }} zIndex={2} />
@@ -431,7 +431,7 @@ export function SpeedsView({
                 <FitCells cells={areaCellIds} />
               </>
             )}
-          </RidoMap>
+          </TtMap>
           {mapMode === "pair" && selected && (
             <p className="px-1 text-xs text-muted-foreground">
               <span className="font-medium text-coral-700">■ from</span> {name(selected.fromCell)} ·{" "}

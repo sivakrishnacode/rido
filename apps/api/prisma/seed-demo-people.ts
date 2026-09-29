@@ -1,7 +1,7 @@
 // Demo passengers, drivers (KYC, subscriptions, payments) and support tickets (opt-in). Ids start with "demo_".
 // Run after seed-demo-trips: demo trips are spread across these passengers and finished ones get a driver.
-//   npm run seed:demo-people -w @rido/api            # add (idempotent)
-//   npm run seed:demo-people -w @rido/api -- --clear # remove them
+//   npm run seed:demo-people -w @tamiltaxi/api            # add (idempotent)
+//   npm run seed:demo-people -w @tamiltaxi/api -- --clear # remove them
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 

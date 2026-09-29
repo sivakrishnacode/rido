@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
@@ -34,7 +34,7 @@ class PP04ParcelDetailsScreen extends ConsumerWidget {
     final d = s.details;
 
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       appBar: const ParcelStepAppBar(title: 'Parcel details', step: 3),
       body: Column(
         children: [
@@ -67,7 +67,7 @@ class PP04ParcelDetailsScreen extends ConsumerWidget {
                     added: d.hasPhoto,
                     onTap: () {
                       ctrl.updateDetails(d.copyWith(hasPhoto: !d.hasPhoto));
-                      showRidoSnack(context, d.hasPhoto ? 'Photo removed' : 'Photo added', success: !d.hasPhoto);
+                      showTtSnack(context, d.hasPhoto ? 'Photo removed' : 'Photo added', success: !d.hasPhoto);
                     },
                   ),
                   const SizedBox(height: 16),
@@ -84,7 +84,7 @@ class PP04ParcelDetailsScreen extends ConsumerWidget {
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: RidoButton(
+              child: TtButton(
                 label: 'Continue',
                 onPressed: s.noProhibitedItems ? () => context.push(Routes.parcelReview) : null,
               ),
@@ -109,10 +109,10 @@ class _PhotoTile extends StatelessWidget {
       label: added ? 'Photo added. Tap to remove' : 'Add photo of parcel, optional',
       excludeSemantics: true,
       child: Material(
-        color: added ? RidoColors.successTint : RidoColors.background,
+        color: added ? TtColors.successTint : TtColors.background,
         shape: RoundedRectangleBorder(
-          borderRadius: RidoRadii.cardRadius,
-          side: BorderSide(color: added ? RidoColors.success : RidoColors.navy300),
+          borderRadius: TtRadii.cardRadius,
+          side: BorderSide(color: added ? TtColors.success : TtColors.navy300),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -125,13 +125,13 @@ class _PhotoTile extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: RidoColors.surface,
-                    borderRadius: RidoRadii.cardRadius,
-                    border: Border.all(color: RidoColors.divider),
+                    color: TtColors.surface,
+                    borderRadius: TtRadii.cardRadius,
+                    border: Border.all(color: TtColors.divider),
                   ),
                   child: Icon(
                     added ? Symbols.image_rounded : Symbols.add_a_photo_rounded,
-                    color: added ? RidoColors.success : RidoColors.coral600,
+                    color: added ? TtColors.success : TtColors.coral600,
                     size: 28,
                   ),
                 ),
@@ -141,11 +141,11 @@ class _PhotoTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(added ? 'Photo added ✓' : 'Add photo of parcel',
-                          style: t.bodySemibold.copyWith(color: added ? RidoColors.successText : RidoColors.navy900)),
+                          style: t.bodySemibold.copyWith(color: added ? TtColors.successText : TtColors.navy900)),
                       const SizedBox(height: 2),
                       Text(
                         added ? 'parcel_photo.jpg · Tap to remove' : 'Optional · helps the driver pick the right vehicle',
-                        style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                        style: t.bodySmall.copyWith(color: TtColors.navy500),
                       ),
                     ],
                   ),
@@ -168,10 +168,10 @@ class _ProhibitedCheck extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return RidoCard(
+    return TtCard(
       onTap: () => onChanged(!value),
       padding: const EdgeInsets.fromLTRB(8, 8, 16, 4),
-      borderColor: value ? RidoColors.coral100 : RidoColors.divider,
+      borderColor: value ? TtColors.coral100 : TtColors.divider,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -191,13 +191,13 @@ class _ProhibitedCheck extends StatelessWidget {
                   Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text('Required. ', style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+                      Text('Required. ', style: t.bodySmall.copyWith(color: TtColors.navy700)),
                       TextButton(
                         onPressed: onSeeList,
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           minimumSize: const Size(48, 40),
-                          foregroundColor: RidoColors.coral600,
+                          foregroundColor: TtColors.coral600,
                           textStyle: t.bodySmall.copyWith(fontWeight: FontWeight.w600),
                         ),
                         child: const Text('See list'),

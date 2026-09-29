@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// Too many wrong OTPs: the API answers 429 `OTP_LOCKED` and refuses the OTP for `details.retryInSeconds`.
 /// The screen keeps its button off (and the message up) until then.
@@ -59,31 +59,31 @@ class OtpStepScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
-      appBar: RidoAppBar.driver(title: appBarTitle, showBack: true),
+      backgroundColor: TtColors.surface,
+      appBar: TtAppBar.driver(title: appBarTitle, showBack: true),
       body: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.xxl, RidoSpacing.gutter, RidoSpacing.l),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.xxl, TtSpacing.gutter, TtSpacing.l),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Text(title, style: t.display),
-                const SizedBox(height: RidoSpacing.s),
-                Text(subtitle, style: t.body.copyWith(color: RidoColors.navy700)),
-                const SizedBox(height: RidoSpacing.xl),
+                const SizedBox(height: TtSpacing.s),
+                Text(subtitle, style: t.body.copyWith(color: TtColors.navy700)),
+                const SizedBox(height: TtSpacing.xl),
                 otp,
                 if (error != null) ...[
-                  const SizedBox(height: RidoSpacing.m),
+                  const SizedBox(height: TtSpacing.m),
                   Semantics(
                     liveRegion: true,
                     child: Row(children: [
-                      const Icon(Symbols.error_rounded, color: RidoColors.error, fill: 1, size: 20),
-                      const SizedBox(width: RidoSpacing.s),
-                      Expanded(child: Text(error!, style: t.bodySmallMedium.copyWith(color: RidoColors.error))),
+                      const Icon(Symbols.error_rounded, color: TtColors.error, fill: 1, size: 20),
+                      const SizedBox(width: TtSpacing.s),
+                      Expanded(child: Text(error!, style: t.bodySmallMedium.copyWith(color: TtColors.error))),
                     ]),
                   ),
                 ],
-                const SizedBox(height: RidoSpacing.xl),
+                const SizedBox(height: TtSpacing.xl),
                 extra,
               ]),
             ),
@@ -91,8 +91,8 @@ class OtpStepScaffold extends StatelessWidget {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.s, RidoSpacing.gutter, RidoSpacing.l),
-              child: RidoButton(label: buttonLabel, loading: busy, onPressed: onSubmit),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.gutter, TtSpacing.l),
+              child: TtButton(label: buttonLabel, loading: busy, onPressed: onSubmit),
             ),
           ),
         ],

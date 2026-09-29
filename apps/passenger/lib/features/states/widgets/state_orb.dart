@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// Flat "orb" illustration used by the ride state and success screens (P-19, S-01, S-02, S-06):
 /// a coral-50 outer circle, an optional coral-100 inner circle, a centre widget, an optional
@@ -11,7 +11,7 @@ class StateOrb extends StatelessWidget {
     this.size = 144,
     this.inner = false,
     this.badge,
-    this.badgeColor = RidoColors.navy900,
+    this.badgeColor = TtColors.navy900,
     this.accentDots = false,
     this.label,
   });
@@ -43,17 +43,17 @@ class StateOrb extends StatelessWidget {
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            Container(width: d, height: d, decoration: const BoxDecoration(color: RidoColors.coral50, shape: BoxShape.circle)),
+            Container(width: d, height: d, decoration: const BoxDecoration(color: TtColors.coral50, shape: BoxShape.circle)),
             if (inner)
               Container(
                 width: d * 0.72,
                 height: d * 0.72,
-                decoration: const BoxDecoration(color: RidoColors.coral100, shape: BoxShape.circle),
+                decoration: const BoxDecoration(color: TtColors.coral100, shape: BoxShape.circle),
               ),
             child,
             if (accentDots) ...[
-              Positioned(top: d * 0.14, right: d * 0.1, child: _dot(d * 0.1, RidoColors.navy900)),
-              Positioned(bottom: d * 0.18, left: d * 0.12, child: _dot(d * 0.068, RidoColors.success)),
+              Positioned(top: d * 0.14, right: d * 0.1, child: _dot(d * 0.1, TtColors.navy900)),
+              Positioned(bottom: d * 0.18, left: d * 0.12, child: _dot(d * 0.068, TtColors.success)),
             ],
             if (badge != null)
               Positioned(
@@ -65,7 +65,7 @@ class StateOrb extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: badgeColor,
                     shape: BoxShape.circle,
-                    border: Border.all(color: RidoColors.surface, width: 3),
+                    border: Border.all(color: TtColors.surface, width: 3),
                   ),
                   child: Icon(badge, size: d * 0.15, color: Colors.white, fill: 1, weight: 600),
                 ),

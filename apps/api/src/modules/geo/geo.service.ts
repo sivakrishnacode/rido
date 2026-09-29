@@ -12,7 +12,7 @@ interface CityIndex {
   readonly service: ReadonlySet<string>;
 }
 
-/** Where a point is: its city, H3 cell, zones and whether Rido serves it. */
+/** Where a point is: its city, H3 cell, zones and whether Tamil Taxi serves it. */
 export interface PointInfo {
   readonly cityId: string | null;
   readonly cell: string | null;

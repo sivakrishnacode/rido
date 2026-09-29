@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
 import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// Zoom levels for the layers: the service area when zoomed out, demand hexes in the city view, their nested hexes
 /// once zoomed in far enough to tell streets apart (like H3's hex-in-hex grid).
@@ -36,8 +36,8 @@ List<MapPolygon> demandPolygons(DemandMap? map) {
     for (final ring in map.serviceArea)
       MapPolygon(
         points: ring,
-        fillColor: RidoColors.navy900.withValues(alpha: 0.04),
-        strokeColor: RidoColors.navy900.withValues(alpha: 0.4),
+        fillColor: TtColors.navy900.withValues(alpha: 0.04),
+        strokeColor: TtColors.navy900.withValues(alpha: 0.4),
         strokeWidth: 1,
         maxZoom: kServiceAreaMaxZoom,
       ),

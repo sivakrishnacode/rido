@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
@@ -36,7 +36,7 @@ class _P25bNewTicketScreenState extends ConsumerState<P25bNewTicketScreen> {
   }
 
   Future<void> _changeTrip(List<Trip> trips) async {
-    final picked = await showRidoSheet<String>(
+    final picked = await showTtSheet<String>(
       context,
       builder: (ctx) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -59,16 +59,16 @@ class _P25bNewTicketScreenState extends ConsumerState<P25bNewTicketScreen> {
     try {
       await ref.read(supportRepositoryProvider).raiseTicket(topic: topic, description: description, tripId: _tripId);
     } on OfflineException {
-      if (mounted) showRidoSnack(context, "You're offline. Try again when you're connected.");
+      if (mounted) showTtSnack(context, "You're offline. Try again when you're connected.");
       return;
     } on ApiException catch (e) {
       // e.g. the description is too short for the API's validation.
-      if (mounted) showRidoSnack(context, e.message);
+      if (mounted) showTtSnack(context, e.message);
       return;
     }
     ref.invalidate(ticketsProvider);
     if (!mounted) return;
-    showRidoSnack(context, 'Ticket raised. We usually reply within 24 hours.', success: true);
+    showTtSnack(context, 'Ticket raised. We usually reply within 24 hours.', success: true);
     _close();
   }
 
@@ -85,13 +85,13 @@ class _P25bNewTicketScreenState extends ConsumerState<P25bNewTicketScreen> {
     final waiting = _tripId != null && history.isLoading && !history.hasValue;
 
     return Scaffold(
-      appBar: RidoAppBar(
+      appBar: TtAppBar(
         title: 'Raise a ticket',
         backIcon: Symbols.close_rounded,
         onBack: _close,
         bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1)),
       ),
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: waiting
           ? const Center(child: CircularProgressIndicator())
           : NewTicketView(
@@ -124,8 +124,8 @@ class _TripOption extends StatelessWidget {
             Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.cardRadius),
-              child: Icon(ref.icon, color: RidoColors.coral500, fill: 1),
+              decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
+              child: Icon(ref.icon, color: TtColors.coral500, fill: 1),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -133,11 +133,11 @@ class _TripOption extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(ref.title, style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(ref.subtitle, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                  Text(ref.subtitle, style: t.bodySmall.copyWith(color: TtColors.navy500)),
                 ],
               ),
             ),
-            if (selected) const Icon(Symbols.check_circle_rounded, fill: 1, color: RidoColors.coral600),
+            if (selected) const Icon(Symbols.check_circle_rounded, fill: 1, color: TtColors.coral600),
           ],
         ),
       ),

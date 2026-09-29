@@ -31,4 +31,4 @@ body:
       description: Device and Android version, live API or mock mode, commit or APK version, logs or screenshots.
   - type: markdown
     attributes:
-      value: "**Security issue?** Don't file it here. See [SECURITY.md](https://github.com/sivakrishnacode/rido/blob/main/SECURITY.md)."
+      value: "**Security issue?** Don't file it here. See [SECURITY.md](https://github.com/sivakrishnacode/tamiltaxi/blob/main/SECURITY.md)."

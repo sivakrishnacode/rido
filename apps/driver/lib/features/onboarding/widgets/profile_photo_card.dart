@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../router/routes.dart';
 import '../../../state/driver_account.dart';
@@ -32,9 +32,9 @@ class ProfilePhotoCard extends ConsumerWidget {
                     ? 'Riders see this photo on their trip'
                     : 'Riders see it on their trip. Take a clear, bright photo';
     final Widget trailing = profile.hasPendingPhoto
-        ? const IconPill(label: 'In review', icon: Symbols.schedule_rounded, bg: RidoColors.warningTint, fg: RidoColors.warningText)
+        ? const IconPill(label: 'In review', icon: Symbols.schedule_rounded, bg: TtColors.warningTint, fg: TtColors.warningText)
         : Material(
-            color: isLocked ? RidoColors.inputBg : RidoColors.coral600,
+            color: isLocked ? TtColors.inputBg : TtColors.coral600,
             shape: const StadiumBorder(),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -44,32 +44,32 @@ class ProfilePhotoCard extends ConsumerWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Symbols.photo_camera_rounded, color: isLocked ? RidoColors.navy500 : Colors.white, size: 20),
+                    Icon(Symbols.photo_camera_rounded, color: isLocked ? TtColors.navy500 : Colors.white, size: 20),
                     const SizedBox(width: 6),
                     Text(hasPhoto || rejected ? 'Retake' : 'Take photo',
-                        style: t.button.copyWith(color: isLocked ? RidoColors.navy500 : Colors.white)),
+                        style: t.button.copyWith(color: isLocked ? TtColors.navy500 : Colors.white)),
                   ]),
                 ),
               ),
             ),
           );
     return Container(
-      padding: const EdgeInsets.all(RidoSpacing.l),
+      padding: const EdgeInsets.all(TtSpacing.l),
       decoration: BoxDecoration(
-        color: RidoColors.surface,
-        borderRadius: RidoRadii.cardRadius,
-        border: Border.all(color: rejected ? RidoColors.error : RidoColors.divider),
+        color: TtColors.surface,
+        borderRadius: TtRadii.cardRadius,
+        border: Border.all(color: rejected ? TtColors.error : TtColors.divider),
       ),
       child: Row(children: [
         DriverAvatar(driver: profile, size: 44, tone: AvatarTone.navy),
-        const SizedBox(width: RidoSpacing.m),
+        const SizedBox(width: TtSpacing.m),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Profile photo', style: t.bodySemibold),
-            Text(subtitle, style: t.bodySmall.copyWith(color: rejected ? RidoColors.error : RidoColors.navy500)),
+            Text(subtitle, style: t.bodySmall.copyWith(color: rejected ? TtColors.error : TtColors.navy500)),
           ]),
         ),
-        const SizedBox(width: RidoSpacing.s),
+        const SizedBox(width: TtSpacing.s),
         trailing,
       ]),
     );

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../router/routes.dart';
@@ -46,21 +46,21 @@ class P22TripDetailsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final trip = ref.watch(tripByIdProvider(tripId));
     return Scaffold(
-      appBar: const RidoAppBar(
+      appBar: const TtAppBar(
         title: 'Trip details',
         bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1)),
       ),
       body: switch (trip) {
         AsyncData(value: final t?) => _Details(trip: t),
         AsyncData() => EmptyState(
-            illustration: const RidoIllustration(IllustrationKind.emptyTrips, width: 160, height: 160),
+            illustration: const TtIllustration(IllustrationKind.emptyTrips, width: 160, height: 160),
             title: 'Trip not found',
             message: "We couldn't find this trip. It may have been removed.",
             actionLabel: 'Back to Activity',
             onAction: () => context.go(Routes.activity),
           ),
         AsyncError() => EmptyState(
-            illustration: const RidoIllustration(IllustrationKind.offline, width: 160, height: 160),
+            illustration: const TtIllustration(IllustrationKind.offline, width: 160, height: 160),
             title: "Couldn't load this trip",
             message: 'Check your connection and try again',
             actionLabel: 'Retry',
@@ -78,7 +78,7 @@ class _Details extends StatelessWidget {
 
   /// Plain-text receipt for the share sheet (email, WhatsApp, save to files…).
   String _receipt(FareQuote q) => [
-        'Rido receipt · ${trip.isParcel ? 'Parcel' : trip.vehicle.label}',
+        'Tamil Taxi receipt · ${trip.isParcel ? 'Parcel' : trip.vehicle.label}',
         '${formatRelativeDay(trip.startedAt, withTime: true)} · Trip ${trip.id}',
         'From: ${trip.pickup.name}',
         'To: ${trip.drop.name}',
@@ -107,15 +107,15 @@ class _Details extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
         ClipRRect(
-          borderRadius: RidoRadii.cardRadius,
+          borderRadius: TtRadii.cardRadius,
           child: Container(
             height: 140,
             foregroundDecoration: BoxDecoration(
-              borderRadius: RidoRadii.cardRadius,
-              border: Border.all(color: RidoColors.divider),
+              borderRadius: TtRadii.cardRadius,
+              border: Border.all(color: TtColors.divider),
             ),
             child: IgnorePointer(
-              child: RidoMap(
+              child: TtMap(
                 interactive: false,
                 pickup: trip.pickup.location,
                 drop: trip.drop.location,
@@ -133,14 +133,14 @@ class _Details extends StatelessWidget {
             Expanded(
               child: Text(
                 '${formatRelativeDay(trip.startedAt, withTime: true)} · ${trip.isParcel ? 'Parcel' : trip.vehicle.label}',
-                style: RidoTextStyles.tabular(t.h2),
+                style: TtTextStyles.tabular(t.h2),
               ),
             ),
             StatusPill(kind, label: label),
           ],
         ),
         const SizedBox(height: 12),
-        RidoCard(
+        TtCard(
           child: Column(
             children: [
               _StopRow(marker: const PickupDot(size: 10), name: trip.pickup.name, time: formatTime(trip.startedAt)),
@@ -155,7 +155,7 @@ class _Details extends StatelessWidget {
         ),
         if (driver != null) ...[
           const SizedBox(height: 12),
-          RidoCard(
+          TtCard(
             child: Row(
               children: [
                 DriverAvatar(driver: driver, size: 44, tone: AvatarTone.navy),
@@ -167,7 +167,7 @@ class _Details extends StatelessWidget {
                       Text('${driver.name} · ${driver.rating.toStringAsFixed(1)}★', style: t.bodySemibold),
                       Text(
                         '${driver.vehicleModel} · ${driver.plate}',
-                        style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                        style: t.bodySmall.copyWith(color: TtColors.navy500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -176,8 +176,8 @@ class _Details extends StatelessWidget {
                 ),
                 if (trip.rating != null) ...[
                   const SizedBox(width: 8),
-                  Text('You rated ', style: t.bodySmall.copyWith(color: RidoColors.navy700)),
-                  const Icon(Symbols.star_rounded, fill: 1, size: 18, color: RidoColors.warning),
+                  Text('You rated ', style: t.bodySmall.copyWith(color: TtColors.navy700)),
+                  const Icon(Symbols.star_rounded, fill: 1, size: 18, color: TtColors.warning),
                   Text(' ${trip.rating}', style: t.bodySmallMedium),
                 ],
               ],
@@ -185,18 +185,18 @@ class _Details extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 12),
-        RidoCard(
+        TtCard(
           child: cancelled
               ? Row(
                   children: [
-                    const Icon(Symbols.money_off_rounded, color: RidoColors.navy700),
+                    const Icon(Symbols.money_off_rounded, color: TtColors.navy700),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text.rich(TextSpan(children: [
                         TextSpan(text: 'No charge. ', style: t.bodySemibold),
                         TextSpan(
                           text: 'This trip was cancelled before pickup. Estimated fare was ${formatInr(trip.fare)}.',
-                          style: t.bodySmall.copyWith(color: RidoColors.navy700),
+                          style: t.bodySmall.copyWith(color: TtColors.navy700),
                         ),
                       ])),
                     ),
@@ -215,33 +215,33 @@ class _Details extends StatelessWidget {
             Expanded(
               child: Text.rich(
                 TextSpan(children: [
-                  TextSpan(text: 'Trip ID · ', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
-                  TextSpan(text: trip.id, style: RidoTextStyles.tabular(t.bodySmallMedium.copyWith(letterSpacing: 0.5))),
+                  TextSpan(text: 'Trip ID · ', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+                  TextSpan(text: trip.id, style: TtTextStyles.tabular(t.bodySmallMedium.copyWith(letterSpacing: 0.5))),
                 ]),
               ),
             ),
             IconButton(
               tooltip: 'Copy trip ID',
-              icon: const Icon(Symbols.content_copy_rounded, color: RidoColors.navy500, size: 20),
+              icon: const Icon(Symbols.content_copy_rounded, color: TtColors.navy500, size: 20),
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: trip.id));
-                showRidoSnack(context, 'Trip ID copied');
+                showTtSnack(context, 'Trip ID copied');
               },
             ),
           ],
         ),
         const SizedBox(height: 4),
-        RidoListGroup(
+        TtListGroup(
           children: [
-            RidoListTile(
+            TtListTile(
               icon: Symbols.support_agent_rounded,
               title: 'Get help with this trip',
               onTap: () => context.push(Routes.help(tripId: trip.id)),
             ),
-            RidoListTile(
+            TtListTile(
               icon: Symbols.receipt_long_rounded,
               title: 'Share receipt',
-              onTap: () => shareText(context, _receipt(quote), subject: 'Rido receipt ${trip.id}'),
+              onTap: () => shareText(context, _receipt(quote), subject: 'Tamil Taxi receipt ${trip.id}'),
             ),
           ],
         ),
@@ -265,7 +265,7 @@ class _StopRow extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(child: Text(name, style: t.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
         const SizedBox(width: 8),
-        Text(time, style: RidoTextStyles.tabular(t.caption)),
+        Text(time, style: TtTextStyles.tabular(t.caption)),
       ],
     );
   }
@@ -291,7 +291,7 @@ class _FareTable extends StatelessWidget {
                 child: Row(children: [
                   Flexible(
                     child: Text(label,
-                        style: bold ? t.bodySemibold : t.body.copyWith(color: RidoColors.navy700),
+                        style: bold ? t.bodySemibold : t.body.copyWith(color: TtColors.navy700),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                   ),
@@ -300,14 +300,14 @@ class _FareTable extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(amount,
-                  style: RidoTextStyles.tabular(
-                      (bold ? t.bodySemibold : t.bodyMedium).copyWith(color: amountColor ?? RidoColors.navy900))),
+                  style: TtTextStyles.tabular(
+                      (bold ? t.bodySemibold : t.bodyMedium).copyWith(color: amountColor ?? TtColors.navy900))),
             ],
           ),
         );
     Widget pill(String text, Color bg, Color fg) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(color: bg, borderRadius: RidoRadii.pillRadius),
+          decoration: BoxDecoration(color: bg, borderRadius: TtRadii.pillRadius),
           child: Text(text, style: t.caption.copyWith(color: fg, fontWeight: FontWeight.w600)),
         );
     return Column(
@@ -321,19 +321,19 @@ class _FareTable extends StatelessWidget {
         row('Subtotal', formatInr(quote.subtotal), bold: true),
         if (quote.hasPeak)
           row('Peak time', formatInrSigned(quote.peakCharge),
-              tag: pill('${quote.multiplier.toStringAsFixed(1)}x', RidoColors.warningTint, RidoColors.warningText))
+              tag: pill('${quote.multiplier.toStringAsFixed(1)}x', TtColors.warningTint, TtColors.warningText))
         else if (quote.peakCharge != 0)
           row('Adjustment', formatInrSigned(quote.peakCharge)),
         if (quote.hasWaiting)
           row('Waiting charge · after ${quote.freeWaitMin} free min', formatInrSigned(quote.waitingCharge)),
         if (quote.hasCancellationFee) row('Previous cancellation fee', formatInrSigned(quote.previousCancellationFee)),
-        row('Rido commission', formatInr(0),
-            tag: pill('0%', RidoColors.coral50, RidoColors.coral600), amountColor: RidoColors.success),
+        row('Tamil Taxi commission', formatInr(0),
+            tag: pill('0%', TtColors.coral50, TtColors.coral600), amountColor: TtColors.success),
         const Divider(height: 20),
         Row(
           children: [
             Expanded(child: Text(totalLabel, style: t.bodySemibold)),
-            Text(formatInr(quote.total), style: RidoTextStyles.tabular(t.h1)),
+            Text(formatInr(quote.total), style: TtTextStyles.tabular(t.h1)),
           ],
         ),
       ],
@@ -347,7 +347,7 @@ class _DashPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
-      ..color = RidoColors.navy300
+      ..color = TtColors.navy300
       ..strokeWidth = 1;
     for (double x = 0; x < size.width; x += 7) {
       canvas.drawLine(Offset(x, 0), Offset((x + 4).clamp(0, size.width), 0), p);

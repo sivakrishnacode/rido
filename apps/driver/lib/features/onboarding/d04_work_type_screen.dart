@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -31,22 +31,22 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
   Widget build(BuildContext context) {
     final t = context.type;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       appBar: SignupAppBar(title: 'Choose work type', step: 1, onBack: backOr(context, Routes.welcome)),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.xl, RidoSpacing.l, RidoSpacing.l),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.xl, TtSpacing.l, TtSpacing.l),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('What will you do on Rido?', style: t.h1),
-                  const SizedBox(height: RidoSpacing.xs),
+                  Text('What will you do on Tamil Taxi?', style: t.h1),
+                  const SizedBox(height: TtSpacing.xs),
                   Text('You can do one type of work. Contact support to switch later.',
-                      style: t.body.copyWith(color: RidoColors.navy700)),
-                  const SizedBox(height: RidoSpacing.l),
+                      style: t.body.copyWith(color: TtColors.navy700)),
+                  const SizedBox(height: TtSpacing.l),
                   _WorkCard(
                     title: 'Rides: carry passengers',
                     subtitle: 'Bike taxi, auto or cab',
@@ -54,7 +54,7 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
                     selected: _selected == WorkType.rides,
                     onTap: () => setState(() => _selected = WorkType.rides),
                   ),
-                  const SizedBox(height: RidoSpacing.l),
+                  const SizedBox(height: TtSpacing.l),
                   _WorkCard(
                     title: 'Deliveries: carry goods',
                     subtitle: 'Parcels, shop stock, house moves',
@@ -66,7 +66,7 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
               ),
             ),
           ),
-          BottomActions(children: [RidoButton(label: 'Continue', onPressed: _continue)]),
+          BottomActions(children: [TtButton(label: 'Continue', onPressed: _continue)]),
         ],
       ),
     );
@@ -95,16 +95,16 @@ class _WorkCard extends StatelessWidget {
       selected: selected,
       button: true,
       child: Material(
-        color: selected ? RidoColors.coral50 : RidoColors.surface,
+        color: selected ? TtColors.coral50 : TtColors.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: RidoRadii.cardRadius,
-          side: BorderSide(color: selected ? RidoColors.coral100 : RidoColors.divider, width: 1.5),
+          borderRadius: TtRadii.cardRadius,
+          side: BorderSide(color: selected ? TtColors.coral100 : TtColors.divider, width: 1.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(RidoSpacing.l),
+            padding: const EdgeInsets.all(TtSpacing.l),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -117,33 +117,33 @@ class _WorkCard extends StatelessWidget {
                         children: [
                           Text(title, style: t.h2),
                           const SizedBox(height: 2),
-                          Text(subtitle, style: t.body.copyWith(color: RidoColors.navy700)),
+                          Text(subtitle, style: t.body.copyWith(color: TtColors.navy700)),
                         ],
                       ),
                     ),
                     Icon(
                       selected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
-                      color: selected ? RidoColors.coral600 : RidoColors.navy500,
+                      color: selected ? TtColors.coral600 : TtColors.navy500,
                       size: 28,
                     ),
                   ],
                 ),
-                const SizedBox(height: RidoSpacing.l),
+                const SizedBox(height: TtSpacing.l),
                 Row(
                   children: [
                     for (var i = 0; i < vehicles.length; i++) ...[
-                      if (i > 0) const SizedBox(width: RidoSpacing.s),
+                      if (i > 0) const SizedBox(width: TtSpacing.s),
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: RidoSpacing.m),
+                          padding: const EdgeInsets.symmetric(vertical: TtSpacing.m),
                           decoration: BoxDecoration(
-                            color: selected ? RidoColors.surface : RidoColors.background,
-                            borderRadius: RidoRadii.cardRadius,
+                            color: selected ? TtColors.surface : TtColors.background,
+                            borderRadius: TtRadii.cardRadius,
                           ),
                           child: Column(
                             children: [
                               VehicleArt(vehicles[i], size: 40),
-                              const SizedBox(height: RidoSpacing.xs),
+                              const SizedBox(height: TtSpacing.xs),
                               Text(vehicles[i] == VehicleKind.truck ? 'Truck' : vehicles[i].label,
                                   style: t.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                             ],

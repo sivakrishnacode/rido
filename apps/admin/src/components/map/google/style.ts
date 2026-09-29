@@ -1,5 +1,5 @@
-/** Light, low-clutter roadmap (Rido map colours): POIs and transit off, locality names kept. */
-export const RIDO_MAP_STYLES: google.maps.MapTypeStyle[] = [
+/** Light, low-clutter roadmap (Tamil Taxi map colours): POIs and transit off, locality names kept. */
+export const TT_MAP_STYLES: google.maps.MapTypeStyle[] = [
   { elementType: "geometry", stylers: [{ color: "#EEF0F3" }] },
   { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#EEF0F3" }] },
   { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#FFFFFF" }] },
@@ -19,8 +19,8 @@ export const RIDO_MAP_STYLES: google.maps.MapTypeStyle[] = [
 ];
 
 /** Below zoom 14 neighbourhood names are hidden too (they collide with localities and zone labels). */
-export const RIDO_MAP_STYLES_ZOOMED_OUT: google.maps.MapTypeStyle[] = [
-  ...RIDO_MAP_STYLES,
+export const TT_MAP_STYLES_ZOOMED_OUT: google.maps.MapTypeStyle[] = [
+  ...TT_MAP_STYLES,
   { featureType: "administrative.neighborhood", elementType: "labels", stylers: [{ visibility: "off" }] },
 ];
 

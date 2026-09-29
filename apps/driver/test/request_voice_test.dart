@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/jobs/widgets/request_layout.dart';
-import 'package:rido_driver/state/request_voice.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/jobs/widgets/request_layout.dart';
+import 'package:tamiltaxi_driver/state/request_voice.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeSpeaker implements RequestSpeaker {
@@ -54,7 +54,7 @@ void main() {
     final speaker = _FakeSpeaker();
     await tester.pumpWidget(ProviderScope(
       overrides: [requestSpeakerProvider.overrideWithValue(speaker)],
-      child: MaterialApp(theme: RidoTheme.light(), home: const Scaffold(body: Center(child: RequestVoiceToggle()))),
+      child: MaterialApp(theme: TtTheme.light(), home: const Scaffold(body: Center(child: RequestVoiceToggle()))),
     ));
     await tester.pump();
     expect(find.byIcon(Symbols.volume_up_rounded), findsOneWidget);

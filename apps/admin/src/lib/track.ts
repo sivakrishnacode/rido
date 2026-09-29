@@ -87,7 +87,7 @@ export function trackModel(view: ShareView, now: number): TrackModel {
   const loc = view.location ? { lat: view.location.lat, lng: view.location.lng } : null;
   const target = view.etaTo === "pickup" ? view.pickup : view.drop;
   return {
-    title: `${view.kind === "PARCEL" ? "Rido parcel" : "Rido ride"} to ${view.drop.name}`,
+    title: `${view.kind === "PARCEL" ? "Tamil Taxi parcel" : "Tamil Taxi ride"} to ${view.drop.name}`,
     status: STATUS_LINE[view.status] ?? view.status,
     isLive: view.isLive,
     driverLine,

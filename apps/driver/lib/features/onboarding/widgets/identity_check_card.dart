@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'signup_widgets.dart';
@@ -30,11 +30,11 @@ class _IdentityCheckCardState extends ConsumerState<IdentityCheckCard> {
     setState(() => _busy = false);
     final check = ref.read(identityProvider).value;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
     } else if (check?.status == IdentityStatus.approved) {
-      showRidoSnack(context, 'Identity verified');
+      showTtSnack(context, 'Identity verified');
     } else if (check?.status == IdentityStatus.inReview) {
-      showRidoSnack(context, "Thanks! We're checking your details");
+      showTtSnack(context, "Thanks! We're checking your details");
     }
   }
 
@@ -47,10 +47,10 @@ class _IdentityCheckCardState extends ConsumerState<IdentityCheckCard> {
     if (check == null || !check.isEnabled) return const SizedBox.shrink();
     final status = check.status;
     final (Color tileBg, Color tileFg) = switch (status) {
-      IdentityStatus.approved => (RidoColors.successTint, RidoColors.successText),
-      IdentityStatus.inReview => (RidoColors.warningTint, RidoColors.warningText),
-      IdentityStatus.declined => (RidoColors.errorTint, RidoColors.error),
-      _ => (RidoColors.inputBg, RidoColors.navy700),
+      IdentityStatus.approved => (TtColors.successTint, TtColors.successText),
+      IdentityStatus.inReview => (TtColors.warningTint, TtColors.warningText),
+      IdentityStatus.declined => (TtColors.errorTint, TtColors.error),
+      _ => (TtColors.inputBg, TtColors.navy700),
     };
     final subtitle = switch (status) {
       IdentityStatus.approved => [
@@ -65,9 +65,9 @@ class _IdentityCheckCardState extends ConsumerState<IdentityCheckCard> {
     };
     final Widget trailing = switch (status) {
       IdentityStatus.approved => const IconPill(
-          label: 'Verified', icon: Symbols.check_circle_rounded, bg: RidoColors.successTint, fg: RidoColors.successText),
+          label: 'Verified', icon: Symbols.check_circle_rounded, bg: TtColors.successTint, fg: TtColors.successText),
       IdentityStatus.inReview => const IconPill(
-          label: 'In review', icon: Symbols.schedule_rounded, bg: RidoColors.warningTint, fg: RidoColors.warningText),
+          label: 'In review', icon: Symbols.schedule_rounded, bg: TtColors.warningTint, fg: TtColors.warningText),
       _ => _ActionButton(
           label: switch (status) {
             IdentityStatus.declined => 'Try again',
@@ -83,20 +83,20 @@ class _IdentityCheckCardState extends ConsumerState<IdentityCheckCard> {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: RidoColors.surface,
-            borderRadius: RidoRadii.cardRadius,
-            border: Border.all(color: status == IdentityStatus.declined ? RidoColors.error : RidoColors.divider),
+            color: TtColors.surface,
+            borderRadius: TtRadii.cardRadius,
+            border: Border.all(color: status == IdentityStatus.declined ? TtColors.error : TtColors.divider),
           ),
-          padding: const EdgeInsets.all(RidoSpacing.l),
+          padding: const EdgeInsets.all(TtSpacing.l),
           child: Row(
             children: [
               Container(
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(color: tileBg, borderRadius: RidoRadii.cardRadius),
+                decoration: BoxDecoration(color: tileBg, borderRadius: TtRadii.cardRadius),
                 child: Icon(Symbols.face_rounded, color: tileFg, size: 22),
               ),
-              const SizedBox(width: RidoSpacing.m),
+              const SizedBox(width: TtSpacing.m),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,14 +104,14 @@ class _IdentityCheckCardState extends ConsumerState<IdentityCheckCard> {
                     Text('Licence, Aadhaar + selfie', style: t.bodySemibold),
                     Text(
                       subtitle,
-                      style: t.bodySmall.copyWith(color: status == IdentityStatus.declined ? RidoColors.error : RidoColors.navy500),
+                      style: t.bodySmall.copyWith(color: status == IdentityStatus.declined ? TtColors.error : TtColors.navy500),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: RidoSpacing.s),
+              const SizedBox(width: TtSpacing.s),
               trailing,
             ],
           ),
@@ -119,24 +119,24 @@ class _IdentityCheckCardState extends ConsumerState<IdentityCheckCard> {
         // Every reason in full (never cut off), so the driver knows what to fix.
         if (status == IdentityStatus.declined && check.reasons.isNotEmpty)
           Container(
-            margin: const EdgeInsets.only(top: RidoSpacing.s),
-            padding: const EdgeInsets.all(RidoSpacing.l),
-            decoration: const BoxDecoration(color: RidoColors.errorTint, borderRadius: RidoRadii.cardRadius),
+            margin: const EdgeInsets.only(top: TtSpacing.s),
+            padding: const EdgeInsets.all(TtSpacing.l),
+            decoration: const BoxDecoration(color: TtColors.errorTint, borderRadius: TtRadii.cardRadius),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 for (final r in check.reasons)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: RidoSpacing.xs),
+                    padding: const EdgeInsets.symmetric(vertical: TtSpacing.xs),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Padding(
                           padding: EdgeInsets.only(top: 2),
-                          child: Icon(Symbols.error_rounded, color: RidoColors.error, size: 18, fill: 1),
+                          child: Icon(Symbols.error_rounded, color: TtColors.error, size: 18, fill: 1),
                         ),
-                        const SizedBox(width: RidoSpacing.s),
-                        Expanded(child: Text(identityReasonSentence(r), style: t.bodySmall.copyWith(color: RidoColors.navy900))),
+                        const SizedBox(width: TtSpacing.s),
+                        Expanded(child: Text(identityReasonSentence(r), style: t.bodySmall.copyWith(color: TtColors.navy900))),
                       ],
                     ),
                   ),
@@ -144,7 +144,7 @@ class _IdentityCheckCardState extends ConsumerState<IdentityCheckCard> {
             ),
           ),
         if (check.canStart) ...[
-          const SizedBox(height: RidoSpacing.s),
+          const SizedBox(height: TtSpacing.s),
           const IdentityConsentNote(),
         ],
       ],
@@ -164,15 +164,15 @@ class IdentityConsentNote extends StatelessWidget {
       child: InkWell(
         onTap: () => launchUrl(Uri.parse(_diditPrivacy), mode: LaunchMode.inAppBrowserView),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: RidoSpacing.xs),
+          padding: const EdgeInsets.symmetric(vertical: TtSpacing.xs),
           child: Text.rich(
             TextSpan(
-              style: t.bodySmall.copyWith(color: RidoColors.navy500),
+              style: t.bodySmall.copyWith(color: TtColors.navy500),
               children: [
                 const TextSpan(
-                    text: 'Rido uses Didit to check your ID and selfie inside the app. By continuing you agree to share them '
+                    text: 'Tamil Taxi uses Didit to check your ID and selfie inside the app. By continuing you agree to share them '
                         'with Didit for this check. '),
-                TextSpan(text: "Didit's privacy notice", style: t.bodySmallMedium.copyWith(color: RidoColors.coral600)),
+                TextSpan(text: "Didit's privacy notice", style: t.bodySmallMedium.copyWith(color: TtColors.coral600)),
               ],
             ),
           ),
@@ -190,7 +190,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: RidoColors.coral600,
+        color: TtColors.coral600,
         shape: const StadiumBorder(),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

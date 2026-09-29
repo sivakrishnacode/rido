@@ -3,7 +3,7 @@
 import { useMap } from "@vis.gl/react-google-maps";
 import { useEffect, useMemo } from "react";
 
-import { RidoMap } from "@/components/map/google/rido-map";
+import { TtMap } from "@/components/map/google/tamiltaxi-map";
 import { decodePolyline } from "@/lib/polyline";
 
 type Point = { lat: number; lng: number };
@@ -56,8 +56,8 @@ export function TripPathMap({ polyline, route, pickup, drop }: { polyline: strin
   const path = useMemo(() => (polyline ? decodePolyline(polyline) : []), [polyline]);
   const quoted = useMemo(() => (route ? decodePolyline(route) : []), [route]);
   return (
-    <RidoMap center={pickup} zoom={13} className="h-72">
+    <TtMap center={pickup} zoom={13} className="h-72">
       <PathLayer path={path} route={quoted} ends={[pickup.lat, pickup.lng, drop.lat, drop.lng]} />
-    </RidoMap>
+    </TtMap>
   );
 }

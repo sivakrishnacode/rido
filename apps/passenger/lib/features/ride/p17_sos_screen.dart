@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' show Distance;
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../common/phone.dart';
@@ -94,7 +94,7 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
   }
 
   Future<void> _call112() async {
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Call 112?',
       message: 'This connects you to the national emergency number.',
@@ -141,12 +141,12 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
     final live = !widget.showcase && ref.watch(isLiveApiProvider);
 
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            color: RidoColors.sos,
+            color: TtColors.sos,
             child: SafeArea(
               bottom: false,
               child: Padding(
@@ -184,10 +184,10 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
                   label: 'Call 112',
                   excludeSemantics: true,
                   child: Material(
-                    color: RidoColors.sos,
+                    color: TtColors.sos,
                     shape: const StadiumBorder(),
                     elevation: 3,
-                    shadowColor: RidoColors.sos.withValues(alpha: 0.4),
+                    shadowColor: TtColors.sos.withValues(alpha: 0.4),
                     child: InkWell(
                       key: const ValueKey('call-112'),
                       customBorder: const StadiumBorder(),
@@ -208,13 +208,13 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
                 ),
                 const SectionLabel('Alert my emergency contacts'),
                 if (contacts.isEmpty)
-                  RidoCard(
+                  TtCard(
                     onTap: () => context.push(Routes.emergencyContacts),
                     child: Row(children: [
-                      const Icon(Symbols.person_add_rounded, color: RidoColors.coral600),
+                      const Icon(Symbols.person_add_rounded, color: TtColors.coral600),
                       const SizedBox(width: 12),
                       Expanded(child: Text('Add an emergency contact', style: t.bodyMedium)),
-                      const Icon(Symbols.chevron_right_rounded, color: RidoColors.navy500),
+                      const Icon(Symbols.chevron_right_rounded, color: TtColors.navy500),
                     ]),
                   )
                 else ...[
@@ -224,7 +224,7 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
                   ],
                   if (live) ...[
                     const SizedBox(height: 8),
-                    RidoButton.secondary(
+                    TtButton.secondary(
                       label: 'Text my location to ${contacts.length == 1 ? contacts.first.name.split(' ').first : 'all'}',
                       icon: Symbols.sms_rounded,
                       onPressed: () => _textContacts(contacts, ride),
@@ -237,33 +237,33 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
                   const SizedBox(height: 12),
                 ],
                 if (live)
-                  RidoCard(
+                  TtCard(
                     onTap: () => context.push(Routes.newTicket(topic: 'Safety concern', tripId: ride.isActive ? ride.tripId : null)),
                     child: Row(children: [
-                      const Icon(Symbols.support_agent_rounded, color: RidoColors.coral600),
+                      const Icon(Symbols.support_agent_rounded, color: TtColors.coral600),
                       const SizedBox(width: 12),
-                      Expanded(child: Text('Report this to the Rido safety team', style: t.bodyMedium)),
-                      const Icon(Symbols.chevron_right_rounded, color: RidoColors.navy500),
+                      Expanded(child: Text('Report this to the Tamil Taxi safety team', style: t.bodyMedium)),
+                      const Icon(Symbols.chevron_right_rounded, color: TtColors.navy500),
                     ]),
                   )
                 else
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: RidoColors.successTint,
-                    borderRadius: RidoRadii.cardRadius,
-                    border: Border.all(color: RidoColors.success),
+                    color: TtColors.successTint,
+                    borderRadius: TtRadii.cardRadius,
+                    border: Border.all(color: TtColors.success),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Symbols.verified_user_rounded, fill: 1, color: RidoColors.successText, size: 28),
+                      const Icon(Symbols.verified_user_rounded, fill: 1, color: TtColors.successText, size: 28),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Rido safety team has been notified', style: t.bodySemibold),
-                            Text("They'll call you within 2 minutes.", style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+                            Text('Tamil Taxi safety team has been notified', style: t.bodySemibold),
+                            Text("They'll call you within 2 minutes.", style: t.bodySmall.copyWith(color: TtColors.navy700)),
                           ],
                         ),
                       ),
@@ -271,7 +271,7 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                RidoCard(
+                TtCard(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -292,7 +292,7 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: RidoButton.secondary(label: "I'm safe", onPressed: _close),
+              child: TtButton.secondary(label: "I'm safe", onPressed: _close),
             ),
           ),
         ],
@@ -316,7 +316,7 @@ class _ContactRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          RidoAvatar(initials: contact.name.substring(0, 1).toUpperCase(), size: 40),
+          TtAvatar(initials: contact.name.substring(0, 1).toUpperCase(), size: 40),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -324,7 +324,7 @@ class _ContactRow extends StatelessWidget {
               children: [
                 Text(contact.name, style: t.bodySemibold.copyWith(fontSize: 17)),
                 if (manual)
-                  Text('${contact.relation} · ${displayPhone(contact.phone)}', style: t.bodySmall.copyWith(color: RidoColors.navy500))
+                  Text('${contact.relation} · ${displayPhone(contact.phone)}', style: t.bodySmall.copyWith(color: TtColors.navy500))
                 else
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
@@ -332,11 +332,11 @@ class _ContactRow extends StatelessWidget {
                       ? Row(
                           key: const ValueKey('sent'),
                           children: [
-                            const Icon(Symbols.check_circle_rounded, fill: 1, size: 16, color: RidoColors.successText),
+                            const Icon(Symbols.check_circle_rounded, fill: 1, size: 16, color: TtColors.successText),
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text('Live location sent',
-                                  style: t.bodySmallMedium.copyWith(color: RidoColors.successText)),
+                                  style: t.bodySmallMedium.copyWith(color: TtColors.successText)),
                             ),
                           ],
                         )
@@ -351,7 +351,7 @@ class _ContactRow extends StatelessWidget {
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text('Sending live location…',
-                                  style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                                  style: t.bodySmall.copyWith(color: TtColors.navy500)),
                             ),
                           ],
                         ),
@@ -362,7 +362,7 @@ class _ContactRow extends StatelessWidget {
           Tooltip(
             message: 'Call ${contact.name}',
             child: Material(
-              color: RidoColors.inputBg,
+              color: TtColors.inputBg,
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),
@@ -370,7 +370,7 @@ class _ContactRow extends StatelessWidget {
                 child: const SizedBox(
                   width: 48,
                   height: 48,
-                  child: Icon(Symbols.call_rounded, color: RidoColors.navy900, size: 22),
+                  child: Icon(Symbols.call_rounded, color: TtColors.navy900, size: 22),
                 ),
               ),
             ),
@@ -394,7 +394,7 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: t.body.copyWith(color: RidoColors.navy700)),
+          Text(label, style: t.body.copyWith(color: TtColors.navy700)),
           const SizedBox(width: 16),
           Expanded(
             child: Text(value, style: t.bodySemibold, textAlign: TextAlign.end),
@@ -420,7 +420,7 @@ String sosSmsBody({required String me, required RideFlowState ride, required Lat
   return 'SOS from $me. I need help.\n$trip';
 }
 
-/// Live API: whether the Rido safety team got the SOS (sending / alerted / failed with Try again).
+/// Live API: whether the Tamil Taxi safety team got the SOS (sending / alerted / failed with Try again).
 class _SafetyTeamBanner extends StatelessWidget {
   const _SafetyTeamBanner({required this.alerting, required this.alerted, required this.failed, required this.onRetry});
   final bool alerting;
@@ -432,18 +432,18 @@ class _SafetyTeamBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     final (Color bg, Color fg, IconData icon, String title, String body) = alerted
-        ? (RidoColors.successTint, RidoColors.successText, Symbols.verified_user_rounded, 'Rido safety team has been alerted',
+        ? (TtColors.successTint, TtColors.successText, Symbols.verified_user_rounded, 'Tamil Taxi safety team has been alerted',
             'They can see your trip and location. Call 112 if you are in danger.')
         : failed
-            ? (RidoColors.sos.withValues(alpha: 0.08), RidoColors.sos, Symbols.wifi_off_rounded, "Couldn't reach Rido",
+            ? (TtColors.sos.withValues(alpha: 0.08), TtColors.sos, Symbols.wifi_off_rounded, "Couldn't reach Tamil Taxi",
                 'Call 112 and text your contacts below.')
-            : (RidoColors.inputBg, RidoColors.navy700, Symbols.shield_rounded, 'Alerting Rido safety team…', 'Sending your trip and location.');
+            : (TtColors.inputBg, TtColors.navy700, Symbols.shield_rounded, 'Alerting Tamil Taxi safety team…', 'Sending your trip and location.');
     return Semantics(
       liveRegion: true,
       child: Container(
         key: ValueKey(alerted ? 'sos-alerted' : failed ? 'sos-failed' : 'sos-alerting'),
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: bg, borderRadius: RidoRadii.cardRadius, border: Border.all(color: fg.withValues(alpha: 0.5))),
+        decoration: BoxDecoration(color: bg, borderRadius: TtRadii.cardRadius, border: Border.all(color: fg.withValues(alpha: 0.5))),
         child: Row(children: [
           if (alerting && !alerted)
             const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
@@ -453,7 +453,7 @@ class _SafetyTeamBanner extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: t.bodySemibold),
-              Text(body, style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+              Text(body, style: t.bodySmall.copyWith(color: TtColors.navy700)),
             ]),
           ),
           if (failed && !alerting) TextButton(onPressed: onRetry, child: const Text('Try again')),

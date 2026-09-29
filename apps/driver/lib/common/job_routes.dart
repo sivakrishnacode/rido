@@ -1,4 +1,4 @@
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import '../router/routes.dart';
 import '../state/driver_session.dart';

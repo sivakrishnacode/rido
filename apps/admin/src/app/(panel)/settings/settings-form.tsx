@@ -136,7 +136,7 @@ const GROUPS: readonly Group[] = [
   },
   {
     group: "Driver plans",
-    description: "Off = Rido is free: drivers see no plans and can always go online. Trial and grace apply to new subscriptions when plans are on.",
+    description: "Off = Tamil Taxi is free: drivers see no plans and can always go online. Trial and grace apply to new subscriptions when plans are on.",
     fields: [
       { key: "driverPlansEnabled", label: "Paid driver plans", hint: "Off = free app, no subscription" },
       { key: "trialDays", label: "Free trial", hint: "Days for new drivers", step: "1", suffix: "days" },

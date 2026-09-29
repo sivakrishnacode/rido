@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
@@ -48,7 +48,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
       Navigator.of(context).maybePop();
       return;
     }
-    final leave = await showRidoConfirm(
+    final leave = await showTtConfirm(
       context,
       title: 'Leave this screen?',
       message: 'Your trip continues.',
@@ -76,7 +76,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
         : ride.phase == RidePhase.inProgress
             ? ride.etaMin
             : ride.estimate.tripMin;
-    final arrival = widget.showcase ? DateTime(2026, 9, 24, 15, 42) : RidoClock.now().add(Duration(minutes: eta));
+    final arrival = widget.showcase ? DateTime(2026, 9, 24, 15, 42) : TtClock.now().add(Duration(minutes: eta));
     final vehicle = ref.read(rideFlowProvider.notifier).vehicle;
 
     return PopScope(
@@ -116,7 +116,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('On the way to', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                    Text('On the way to', style: t.bodySmall.copyWith(color: TtColors.navy500)),
                     Text(ride.drop.name, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
@@ -144,7 +144,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
             final pos = fix?.position ?? pointAlong(route, progress);
             final ahead = pointAlong(route, (progress + 0.02).clamp(0.0, 1.0));
             final insets = sheetMapInsets(EdgeInsets.fromLTRB(40, 88, 40, h * 0.34), h * 0.34);
-            return RidoMap(
+            return TtMap(
               drop: ride.drop.location,
               route: remainingPath(route, pos, progress),
               vehicles: [
@@ -172,9 +172,9 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: const BoxDecoration(
-                  color: RidoColors.navy900,
-                  borderRadius: RidoRadii.pillRadius,
-                  boxShadow: RidoShadows.soft,
+                  color: TtColors.navy900,
+                  borderRadius: TtRadii.pillRadius,
+                  boxShadow: TtShadows.soft,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -186,7 +186,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
                         'Arriving at ${formatTime(arrival)} · $eta min',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: RidoTextStyles.tabular(t.bodySemibold.copyWith(color: Colors.white)),
+                        style: TtTextStyles.tabular(t.bodySemibold.copyWith(color: Colors.white)),
                       ),
                     ),
                   ],
@@ -204,14 +204,14 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
               trailing: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(formatInr(ride.quote.total), style: RidoTextStyles.tabular(t.h1)),
-                  Text('Cash / UPI', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                  Text(formatInr(ride.quote.total), style: TtTextStyles.tabular(t.h1)),
+                  Text('Cash / UPI', style: t.bodySmall.copyWith(color: TtColors.navy500)),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            RidoCard(
-              color: RidoColors.inputBg,
+            TtCard(
+              color: TtColors.inputBg,
               borderColor: null,
               padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
               onTap: () => setState(() => _expanded = !_expanded),
@@ -228,7 +228,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
                           children: [
                             Text(ride.drop.name, style: t.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
                             Text(ride.drop.address,
-                                style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                                style: t.bodySmall.copyWith(color: TtColors.navy500),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                           ],
@@ -236,7 +236,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
                       ),
                       Icon(
                         _expanded ? Symbols.keyboard_arrow_down_rounded : Symbols.keyboard_arrow_up_rounded,
-                        color: RidoColors.navy700,
+                        color: TtColors.navy700,
                         semanticLabel: _expanded ? 'Hide trip details' : 'Show trip details',
                       ),
                     ],
@@ -271,7 +271,7 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 80, child: Text(label, style: t.bodySmall.copyWith(color: RidoColors.navy500))),
+          SizedBox(width: 80, child: Text(label, style: t.bodySmall.copyWith(color: TtColors.navy500))),
           Expanded(child: Text(value, style: t.bodySmallMedium)),
         ],
       ),

@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'offer_alerts.dart';
@@ -16,18 +16,18 @@ Future<void> explainBackgroundPermissions(BuildContext context) async {
   } catch (_) {
     return;
   }
-  const overlayKey = 'rido.driver.askedOverlay';
-  const fullScreenKey = 'rido.driver.askedFullScreenIntent';
+  const overlayKey = 'tamiltaxi.driver.askedOverlay';
+  const fullScreenKey = 'tamiltaxi.driver.askedFullScreenIntent';
 
   if (!(prefs.getBool(overlayKey) ?? false) && !await _overlayGranted()) {
     await prefs.setBool(overlayKey, true);
     if (!context.mounted) return;
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Get requests over other apps',
-      message: 'While you are online, Rido shows a small bubble over other apps (maps, music, WhatsApp) and '
+      message: 'While you are online, Tamil Taxi shows a small bubble over other apps (maps, music, WhatsApp) and '
           'pops up new ride requests full screen so you can accept in time.\n\n'
-          'On the next screen, find Rido Driver and turn on "Display over other apps".',
+          'On the next screen, find Tamil Taxi Driver and turn on "Display over other apps".',
       confirmLabel: 'Allow',
       cancelLabel: 'Not now',
       icon: Symbols.picture_in_picture_alt_rounded,
@@ -42,11 +42,11 @@ Future<void> explainBackgroundPermissions(BuildContext context) async {
   if (!(prefs.getBool(fullScreenKey) ?? false) && !await OfferAlerts.canUseFullScreenIntent()) {
     await prefs.setBool(fullScreenKey, true);
     if (!context.mounted) return;
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Show requests on the lock screen',
       message: 'Allow full-screen notifications so a new request lights up the screen even when the phone is '
-          'locked or Rido is closed.',
+          'locked or Tamil Taxi is closed.',
       confirmLabel: 'Open settings',
       cancelLabel: 'Not now',
       icon: Symbols.notifications_active_rounded,

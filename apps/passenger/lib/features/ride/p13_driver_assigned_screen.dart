@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../common/map_insets.dart';
@@ -37,10 +37,10 @@ class P13DriverAssignedScreen extends ConsumerWidget {
     final error = await ref.read(rideFlowProvider.notifier).cancelRide(code: reason);
     if (!context.mounted) return;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
       return;
     }
-    showRidoSnack(context, 'Ride cancelled');
+    showTtSnack(context, 'Ride cancelled');
     context.go(Routes.ride);
   }
 
@@ -77,7 +77,7 @@ class P13DriverAssignedScreen extends ConsumerWidget {
             final pos = fix?.position ?? approach.first;
             final insets = sheetMapInsets(EdgeInsets.fromLTRB(56, 96, 56, h * 0.66), h * 0.66);
             if (waitingForGps) {
-              return RidoMap(
+              return TtMap(
                 pickup: ride.pickup.location,
                 pulseAt: ride.pickup.location,
                 fitPoints: [offsetPoint(ride.pickup.location, 600, 0), offsetPoint(ride.pickup.location, 600, 180)],
@@ -86,7 +86,7 @@ class P13DriverAssignedScreen extends ConsumerWidget {
                 attributionAlignment: Alignment.topCenter,
               );
             }
-            return RidoMap(
+            return TtMap(
               pickup: ride.pickup.location,
               route: remainingPath(approach, pos, fix?.progress ?? 0),
               vehicles: [
@@ -122,7 +122,7 @@ class P13DriverAssignedScreen extends ConsumerWidget {
             Text('${driver.firstName} is on the way', style: t.h1),
             Text(
               'Arriving in $eta min',
-              style: RidoTextStyles.tabular(t.bodyMedium.copyWith(color: RidoColors.success)),
+              style: TtTextStyles.tabular(t.bodyMedium.copyWith(color: TtColors.success)),
             ),
             const SizedBox(height: 16),
             TripDriverRow(driver: driver),
@@ -139,7 +139,7 @@ class P13DriverAssignedScreen extends ConsumerWidget {
                   child: TripActionButton(
                     icon: Symbols.call_rounded,
                     label: 'Call',
-                    background: RidoColors.coral600,
+                    background: TtColors.coral600,
                     foreground: Colors.white,
                     onPressed: () => callNumber(context, driver.phone, name: driver.firstName),
                   ),
@@ -155,8 +155,8 @@ class P13DriverAssignedScreen extends ConsumerWidget {
                   child: TripActionButton(
                     icon: Symbols.share_location_rounded,
                     label: 'Share trip',
-                    background: RidoColors.inputBg,
-                    foreground: RidoColors.navy900,
+                    background: TtColors.inputBg,
+                    foreground: TtColors.navy900,
                     onPressed: () => P18ShareTripSheet.show(context),
                   ),
                 ),
@@ -164,9 +164,9 @@ class P13DriverAssignedScreen extends ConsumerWidget {
                   child: TripActionButton(
                     icon: Symbols.close_rounded,
                     label: 'Cancel',
-                    background: RidoColors.errorTint,
-                    foreground: RidoColors.error,
-                    labelColor: RidoColors.error,
+                    background: TtColors.errorTint,
+                    foreground: TtColors.error,
+                    labelColor: TtColors.error,
                     onPressed: () => _cancel(context, ref),
                   ),
                 ),

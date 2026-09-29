@@ -3,12 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../state/driver_session.dart';
 
-/// [RidoMap] showing the driver's own vehicle. The marker follows the session's live
+/// [TtMap] showing the driver's own vehicle. The marker follows the session's live
 /// position unless [fixedPosition] is given (gallery showcase).
 class LiveVehicleMap extends ConsumerWidget {
   const LiveVehicleMap({
@@ -73,7 +73,7 @@ class LiveVehicleMap extends ConsumerWidget {
     );
   }
 
-  Widget _map(LatLng pos, double heading, {bool showVehicle = true}) => RidoMap(
+  Widget _map(LatLng pos, double heading, {bool showVehicle = true}) => TtMap(
         center: centerOnVehicle ? pos : null,
         zoom: zoom,
         pickup: pickup,
@@ -83,7 +83,7 @@ class LiveVehicleMap extends ConsumerWidget {
         fitPadding: fitPadding,
         mapPadding: mapPadding,
         pulseAt: pulse && !gpsLost && showVehicle ? pos : null,
-        pulseColor: RidoColors.success,
+        pulseColor: TtColors.success,
         zones: zones,
         vehicles: gpsLost || !showVehicle
             ? const []
@@ -109,8 +109,8 @@ class _GpsLostMarker extends StatelessWidget {
             child: Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(color: RidoColors.surface, shape: BoxShape.circle, boxShadow: RidoShadows.soft),
-              child: const Icon(Symbols.location_disabled_rounded, color: RidoColors.error, size: 24),
+              decoration: const BoxDecoration(color: TtColors.surface, shape: BoxShape.circle, boxShadow: TtShadows.soft),
+              child: const Icon(Symbols.location_disabled_rounded, color: TtColors.error, size: 24),
             ),
           ),
         ),
@@ -122,9 +122,9 @@ class _DashedCirclePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     final r = size.width / 2 - 2;
-    canvas.drawCircle(c, r, Paint()..color = RidoColors.error.withValues(alpha: 0.08));
+    canvas.drawCircle(c, r, Paint()..color = TtColors.error.withValues(alpha: 0.08));
     final stroke = Paint()
-      ..color = RidoColors.error
+      ..color = TtColors.error
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;

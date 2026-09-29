@@ -24,6 +24,6 @@ export async function GET(request: NextRequest) {
       { headers: { "cache-control": "no-store" } },
     );
   } catch {
-    return NextResponse.json({ message: "Cannot reach the Rido API" }, { status: 503 });
+    return NextResponse.json({ message: "Cannot reach the Tamil Taxi API" }, { status: 503 });
   }
 }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/jobs/widgets/request_stack_view.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/jobs/widgets/request_stack_view.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/harness.dart';
@@ -17,7 +17,7 @@ void main() {
     usePhone(tester);
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp(
-        theme: RidoTheme.light(),
+        theme: TtTheme.light(),
         home: RequestStackView(
           entries: entries,
           acceptingId: acceptingId,
@@ -76,14 +76,14 @@ void main() {
 
   testWidgets('each card shows the seconds left and counts down, red at the end', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      theme: RidoTheme.light(),
+      theme: TtTheme.light(),
       home: const Scaffold(body: Center(child: SecondsLeft(left: Duration(seconds: 7)))),
     ));
     expect(find.text('7s'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
     final label = find.text('4s');
     expect(label, findsOneWidget);
-    expect(tester.widget<Text>(label).style?.color, RidoColors.error);
+    expect(tester.widget<Text>(label).style?.color, TtColors.error);
     await tester.pumpWidget(const SizedBox());
   });
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/flags.dart';
 import '../../router/routes.dart';
@@ -22,7 +22,7 @@ class D26AccountScreen extends ConsumerWidget {
   final bool showcase;
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Log out?',
       message: "You'll go offline. Log in again with your phone number and OTP.",
@@ -59,13 +59,13 @@ class D26AccountScreen extends ConsumerWidget {
             : '$verified of ${kyc.length} verified';
 
     return Scaffold(
-      backgroundColor: RidoColors.background,
+      backgroundColor: TtColors.background,
       body: Column(children: [
         NavyHeader(
-          padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, RidoSpacing.xl),
+          padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.xl),
           child: Row(children: [
-            DriverAvatar(driver: profile, size: 76, tone: AvatarTone.dark, ringColor: RidoColors.coral500),
-            const SizedBox(width: RidoSpacing.l),
+            DriverAvatar(driver: profile, size: 76, tone: AvatarTone.dark, ringColor: TtColors.coral500),
+            const SizedBox(width: TtSpacing.l),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
@@ -73,11 +73,11 @@ class D26AccountScreen extends ConsumerWidget {
                     child: Text(profile.name,
                         style: t.display.copyWith(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
-                  const SizedBox(width: RidoSpacing.s),
-                  const Icon(Symbols.star_rounded, fill: 1, color: RidoColors.warning, size: 20),
+                  const SizedBox(width: TtSpacing.s),
+                  const Icon(Symbols.star_rounded, fill: 1, color: TtColors.warning, size: 20),
                   Text(profile.rating.toStringAsFixed(1), style: t.bodySemibold.copyWith(color: Colors.white)),
                 ]),
-                const SizedBox(height: RidoSpacing.xs),
+                const SizedBox(height: TtSpacing.xs),
                 Row(children: [
                   Text('${profile.vehicleKind.label} · ', style: t.body.copyWith(color: Colors.white70)),
                   Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: NumberPlate(plate: profile.plate))),
@@ -88,56 +88,56 @@ class D26AccountScreen extends ConsumerWidget {
         ),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, RidoSpacing.xl),
+            padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.xl),
             children: [
-              RidoCard(
-                color: RidoColors.coral50,
-                borderColor: RidoColors.coral100,
+              TtCard(
+                color: TtColors.coral50,
+                borderColor: TtColors.coral100,
                 onTap: () => ReferDriverSheet.show(context),
                 child: Row(children: [
                   Container(
                     width: 48,
                     height: 48,
-                    decoration: const BoxDecoration(color: RidoColors.coral600, shape: BoxShape.circle),
+                    decoration: const BoxDecoration(color: TtColors.coral600, shape: BoxShape.circle),
                     child: const Icon(Symbols.group_add_rounded, color: Colors.white, fill: 1),
                   ),
-                  const SizedBox(width: RidoSpacing.l),
+                  const SizedBox(width: TtSpacing.l),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('Refer a driver', style: t.h2),
                       Text('Invite drivers you know · Code ${Seed.referralCode}', style: t.bodySmall),
                     ]),
                   ),
-                  const Icon(Symbols.chevron_right_rounded, color: RidoColors.coral600),
+                  const Icon(Symbols.chevron_right_rounded, color: TtColors.coral600),
                 ]),
               ),
-              const SizedBox(height: RidoSpacing.m),
-              RidoListGroup(children: [
-                RidoListTile(
+              const SizedBox(height: TtSpacing.m),
+              TtListGroup(children: [
+                TtListTile(
                   icon: Symbols.folder_shared_rounded,
                   title: 'Documents',
                   subtitle: docsSub,
                   onTap: () => context.push(Routes.accountDocuments),
                 ),
-                RidoListTile(
+                TtListTile(
                   icon: profile.vehicleKind.icon,
                   title: 'Vehicle details',
                   subtitle: profile.vehicleLabel,
                   onTap: () => context.push(Routes.vehicleDetails),
                 ),
-                RidoListTile(
+                TtListTile(
                   icon: Symbols.tune_rounded,
                   title: 'Booking preferences',
                   subtitle: prefsSub,
                   onTap: () => context.push(Routes.bookingPreferences),
                 ),
-                RidoListTile(
+                TtListTile(
                   icon: Symbols.account_balance_rounded,
                   title: 'UPI ID',
                   subtitle: profile.upiId,
                   onTap: () => context.push(Routes.upiId),
                 ),
-                RidoListTile(
+                TtListTile(
                   icon: Symbols.contact_emergency_rounded,
                   title: 'Emergency contact',
                   subtitle: contact == null
@@ -149,35 +149,35 @@ class D26AccountScreen extends ConsumerWidget {
                               : '${contact.name.split(' ').first} (${contact.relation})',
                   onTap: () => context.push(Routes.emergencyContact),
                 ),
-                RidoListTile(
+                TtListTile(
                   icon: Symbols.volunteer_activism_rounded,
                   title: 'Contribute',
-                  subtitle: 'Rido is free. Help keep it running',
+                  subtitle: 'Tamil Taxi is free. Help keep it running',
                   onTap: () => context.push(Routes.contribute),
                 ),
-                RidoListTile(
+                TtListTile(
                   icon: Symbols.support_agent_rounded,
                   title: 'Help & support',
                   subtitle: 'Chat, call, tickets',
                   onTap: () => context.push(Routes.help),
                 ),
-                RidoListTile(
+                TtListTile(
                   icon: Symbols.policy_rounded,
                   title: 'Terms',
                   subtitle: 'Driver terms & privacy',
                   onTap: () => context.push(Routes.legal('terms')),
                 ),
                 if (kShowDesignGallery)
-                  RidoListTile(
+                  TtListTile(
                     icon: Symbols.palette_rounded,
                     title: 'Design gallery',
                     subtitle: 'Every screen and demo controls',
                     onTap: () => context.push(Routes.gallery),
                   ),
               ]),
-              const SizedBox(height: RidoSpacing.m),
-              RidoListGroup(children: [
-                RidoListTile(
+              const SizedBox(height: TtSpacing.m),
+              TtListGroup(children: [
+                TtListTile(
                   icon: Symbols.logout_rounded,
                   title: 'Log out',
                   destructive: true,

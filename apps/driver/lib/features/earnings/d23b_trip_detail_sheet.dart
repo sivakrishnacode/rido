@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -18,7 +18,7 @@ class D23bTripDetailSheet extends ConsumerWidget {
   final bool showcase;
 
   static Future<void> show(BuildContext context, EarningsTrip? trip) =>
-      showRidoSheet<void>(context, builder: (_) => D23bTripDetailSheet(trip: trip));
+      showTtSheet<void>(context, builder: (_) => D23bTripDetailSheet(trip: trip));
 
   static String _fullName(String short) {
     for (final p in Seed.places) {
@@ -52,10 +52,10 @@ class D23bTripDetailSheet extends ConsumerWidget {
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('$kindLabel · ${formatInr(trip.fare)}', style: RidoTextStyles.tabular(t.h1)),
+            Text('$kindLabel · ${formatInr(trip.fare)}', style: TtTextStyles.tabular(t.h1)),
             Text(
               '${formatRelativeDay(trip.time)}, ${formatTime(start).replaceAll(' PM', '').replaceAll(' AM', '')} – ${formatTime(trip.time)} · ${tripCode(trip)}',
-              style: RidoTextStyles.tabular(t.caption),
+              style: TtTextStyles.tabular(t.caption),
             ),
           ]),
         ),
@@ -65,31 +65,31 @@ class D23bTripDetailSheet extends ConsumerWidget {
           icon: const Icon(Symbols.close_rounded),
         ),
       ]),
-      const SizedBox(height: RidoSpacing.l),
-      RidoCard(
+      const SizedBox(height: TtSpacing.l),
+      TtCard(
         child: Column(children: [
           Row(children: [
             const PickupDot(size: 12),
-            const SizedBox(width: RidoSpacing.m),
+            const SizedBox(width: TtSpacing.m),
             Expanded(child: Text(_fullName(trip.from), style: t.body, overflow: TextOverflow.ellipsis)),
           ]),
-          const SizedBox(height: RidoSpacing.m),
+          const SizedBox(height: TtSpacing.m),
           Row(children: [
             const SizedBox(width: 20, child: Center(child: DropPin())),
-            const SizedBox(width: RidoSpacing.m),
+            const SizedBox(width: TtSpacing.m),
             Expanded(child: Text(_fullName(trip.to), style: t.body, overflow: TextOverflow.ellipsis)),
           ]),
         ]),
       ),
-      const SizedBox(height: RidoSpacing.m),
-      RidoCard(
+      const SizedBox(height: TtSpacing.m),
+      TtCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (useQuote) ...[
             _line(context, 'Base fare', formatInr(quote.base)),
             _line(context, 'Distance · ${formatKm(trip.distanceKm)} × ₹${quote.vehicle.fareRule.perKm.toStringAsFixed(0)}',
                 formatInr(quote.distanceCharge)),
             _line(context, 'Time charge · ${trip.durationMin} min', formatInr(quote.timeCharge)),
-            const Divider(height: RidoSpacing.l),
+            const Divider(height: TtSpacing.l),
             _line(context, 'Subtotal', formatInr(quote.subtotal), bold: true),
             if (quote.hasPeak)
               _line(context, 'Peak time', formatInrSigned(quote.peakCharge), tag: '${quote.multiplier.toStringAsFixed(1)}x'),
@@ -100,34 +100,34 @@ class D23bTripDetailSheet extends ConsumerWidget {
           // Collected for the driver the passenger kept waiting on an earlier, cancelled trip.
           if (trip.previousCancellationFee > 0)
             _line(context, 'Previous cancellation fee', formatInrSigned(trip.previousCancellationFee)),
-          const Divider(height: RidoSpacing.l),
+          const Divider(height: TtSpacing.l),
           Row(children: [
             Expanded(child: Text('Fare · $paid', style: t.bodySemibold)),
-            Text(formatInr(trip.fare), style: RidoTextStyles.tabular(t.h1)),
+            Text(formatInr(trip.fare), style: TtTextStyles.tabular(t.h1)),
           ]),
         ]),
       ),
-      const SizedBox(height: RidoSpacing.m),
+      const SizedBox(height: TtSpacing.m),
       Container(
-        padding: const EdgeInsets.all(RidoSpacing.l),
-        decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.cardRadius),
+        padding: const EdgeInsets.all(TtSpacing.l),
+        decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
         child: Row(children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.s, vertical: 2),
-            decoration: const BoxDecoration(color: RidoColors.surface, borderRadius: RidoRadii.pillRadius),
-            child: Text('0%', style: t.caption.copyWith(color: RidoColors.coral600, fontWeight: FontWeight.w700)),
+            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s, vertical: 2),
+            decoration: const BoxDecoration(color: TtColors.surface, borderRadius: TtRadii.pillRadius),
+            child: Text('0%', style: t.caption.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w700)),
           ),
-          const SizedBox(width: RidoSpacing.m),
+          const SizedBox(width: TtSpacing.m),
           Expanded(
             child: Text('You kept ${formatInr(trip.fare)} · commission ₹0',
-                style: RidoTextStyles.tabular(t.bodySemibold)),
+                style: TtTextStyles.tabular(t.bodySemibold)),
           ),
         ]),
       ),
-      const SizedBox(height: RidoSpacing.m),
+      const SizedBox(height: TtSpacing.m),
       Row(children: [
-        RidoAvatar(initials: trip.passengerName.isEmpty ? '?' : trip.passengerName.substring(0, 1), size: 44),
-        const SizedBox(width: RidoSpacing.m),
+        TtAvatar(initials: trip.passengerName.isEmpty ? '?' : trip.passengerName.substring(0, 1), size: 44),
+        const SizedBox(width: TtSpacing.m),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${trip.passengerName.isEmpty ? 'Passenger' : trip.passengerName} · 4.9★', style: t.bodySemibold),
@@ -156,18 +156,18 @@ class D23bTripDetailSheet extends ConsumerWidget {
           child: Text(label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: (bold ? t.bodySemibold : t.body).copyWith(color: bold ? RidoColors.navy900 : RidoColors.navy700)),
+              style: (bold ? t.bodySemibold : t.body).copyWith(color: bold ? TtColors.navy900 : TtColors.navy700)),
         ),
         if (tag != null) ...[
-          const SizedBox(width: RidoSpacing.s),
+          const SizedBox(width: TtSpacing.s),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.s, vertical: 1),
-            decoration: const BoxDecoration(color: RidoColors.warningTint, borderRadius: RidoRadii.pillRadius),
-            child: Text(tag, style: t.caption.copyWith(color: RidoColors.warningText, fontWeight: FontWeight.w600)),
+            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s, vertical: 1),
+            decoration: const BoxDecoration(color: TtColors.warningTint, borderRadius: TtRadii.pillRadius),
+            child: Text(tag, style: t.caption.copyWith(color: TtColors.warningText, fontWeight: FontWeight.w600)),
           ),
         ],
-        const SizedBox(width: RidoSpacing.s),
-        Text(value, style: RidoTextStyles.tabular(bold ? t.bodySemibold : t.bodyMedium)),
+        const SizedBox(width: TtSpacing.s),
+        Text(value, style: TtTextStyles.tabular(bold ? t.bodySemibold : t.bodyMedium)),
       ]),
     );
   }

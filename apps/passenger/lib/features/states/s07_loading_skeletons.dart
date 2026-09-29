@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/passenger_shell.dart';
 import '../../router/routes.dart';
@@ -19,17 +19,17 @@ class S07aHomeSkeletonScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: LayoutBuilder(
         builder: (context, c) {
           final sheetTop = c.maxHeight * 0.4;
           return Stack(
             children: [
               Positioned.fill(
-                bottom: c.maxHeight - sheetTop - RidoSpacing.xl,
+                bottom: c.maxHeight - sheetTop - TtSpacing.xl,
                 child: Stack(
                   children: [
-                    RidoMap(
+                    TtMap(
                       center: offsetPoint(Seed.gandhipuram.location, 250, 180),
                       zoom: 15,
                       interactive: false,
@@ -41,16 +41,16 @@ class S07aHomeSkeletonScreen extends StatelessWidget {
                           height: 24,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: RidoColors.navy300,
+                              color: TtColors.navy300,
                               shape: BoxShape.circle,
-                              border: Border.all(color: RidoColors.surface, width: 4),
+                              border: Border.all(color: TtColors.surface, width: 4),
                             ),
                           ),
                         ),
                       ],
                     ),
                     // Wash the map out while loading.
-                    Positioned.fill(child: ColoredBox(color: RidoColors.surface.withValues(alpha: 0.45))),
+                    Positioned.fill(child: ColoredBox(color: TtColors.surface.withValues(alpha: 0.45))),
                   ],
                 ),
               ),
@@ -60,26 +60,26 @@ class S07aHomeSkeletonScreen extends StatelessWidget {
                 top: 0,
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, RidoSpacing.l, 0),
+                    padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, 0),
                     child: SkeletonShimmer(
                       child: Container(
                         height: 56,
                         padding: const EdgeInsets.symmetric(horizontal: 6),
                         decoration: const BoxDecoration(
-                          color: RidoColors.surface,
-                          borderRadius: RidoRadii.pillRadius,
-                          boxShadow: RidoShadows.soft,
+                          color: TtColors.surface,
+                          borderRadius: TtRadii.pillRadius,
+                          boxShadow: TtShadows.soft,
                         ),
                         child: const Row(
                           children: [
                             SkeletonBox(width: 44, height: 44, circle: true),
-                            SizedBox(width: RidoSpacing.m),
+                            SizedBox(width: TtSpacing.m),
                             Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 SkeletonBox(width: 90, height: 10),
-                                SizedBox(height: RidoSpacing.s),
+                                SizedBox(height: TtSpacing.s),
                                 SkeletonBox(width: 60, height: 10),
                               ],
                             ),
@@ -97,13 +97,13 @@ class S07aHomeSkeletonScreen extends StatelessWidget {
                 bottom: 0,
                 child: const DecoratedBox(
                   decoration: BoxDecoration(
-                    color: RidoColors.surface,
-                    borderRadius: RidoRadii.sheetTop,
-                    boxShadow: RidoShadows.raised,
+                    color: TtColors.surface,
+                    borderRadius: TtRadii.sheetTop,
+                    boxShadow: TtShadows.raised,
                   ),
                   child: SingleChildScrollView(
                     physics: NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(RidoSpacing.l, 0, RidoSpacing.l, RidoSpacing.l),
+                    padding: EdgeInsets.fromLTRB(TtSpacing.l, 0, TtSpacing.l, TtSpacing.l),
                     child: Column(children: [SheetHandle(), S07aHomeSheetSkeleton()]),
                   ),
                 ),
@@ -112,7 +112,7 @@ class S07aHomeSkeletonScreen extends StatelessWidget {
           );
         },
       ),
-      bottomNavigationBar: RidoBottomNav(
+      bottomNavigationBar: TtBottomNav(
         items: PassengerShell.items,
         currentIndex: 0,
         onTap: (i) => context.go(_tabs[i]),
@@ -129,17 +129,17 @@ class S07aHomeSheetSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget row() => const Padding(
-      padding: EdgeInsets.symmetric(vertical: RidoSpacing.m),
+      padding: EdgeInsets.symmetric(vertical: TtSpacing.m),
       child: Row(
         children: [
           SkeletonBox(width: 40, height: 40, circle: true),
-          SizedBox(width: RidoSpacing.m),
+          SizedBox(width: TtSpacing.m),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 FractionallySizedBox(widthFactor: 0.6, child: SkeletonBox(height: 12)),
-                SizedBox(height: RidoSpacing.s),
+                SizedBox(height: TtSpacing.s),
                 FractionallySizedBox(widthFactor: 0.4, child: SkeletonBox(height: 10)),
               ],
             ),
@@ -151,22 +151,22 @@ class S07aHomeSheetSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SkeletonBox(height: 56, radius: RidoRadii.card),
-          const SizedBox(height: RidoSpacing.l),
+          const SkeletonBox(height: 56, radius: TtRadii.card),
+          const SizedBox(height: TtSpacing.l),
           const Row(
             children: [
-              Expanded(flex: 2, child: SkeletonBox(height: 56, radius: RidoRadii.card)),
-              SizedBox(width: RidoSpacing.s),
-              Expanded(flex: 2, child: SkeletonBox(height: 56, radius: RidoRadii.card)),
-              SizedBox(width: RidoSpacing.s),
-              Expanded(child: SkeletonBox(height: 56, radius: RidoRadii.card)),
+              Expanded(flex: 2, child: SkeletonBox(height: 56, radius: TtRadii.card)),
+              SizedBox(width: TtSpacing.s),
+              Expanded(flex: 2, child: SkeletonBox(height: 56, radius: TtRadii.card)),
+              SizedBox(width: TtSpacing.s),
+              Expanded(child: SkeletonBox(height: 56, radius: TtRadii.card)),
             ],
           ),
-          const SizedBox(height: RidoSpacing.s),
+          const SizedBox(height: TtSpacing.s),
           row(),
           row(),
-          const SizedBox(height: RidoSpacing.s),
-          const SkeletonBox(height: 72, radius: RidoRadii.card),
+          const SizedBox(height: TtSpacing.s),
+          const SkeletonBox(height: 72, radius: TtRadii.card),
         ],
       ),
     );

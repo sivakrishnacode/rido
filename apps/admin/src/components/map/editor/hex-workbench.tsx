@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { HeatOverlay } from "@/components/map/google/heat-overlay";
 import { HexLayer, type HexLayerDef } from "@/components/map/google/hex-layer";
 import { PlaceSearch, type FoundPlace } from "@/components/map/google/place-search";
-import { RidoMap, type MapType } from "@/components/map/google/rido-map";
+import { TtMap, type MapType } from "@/components/map/google/tamiltaxi-map";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -411,7 +411,7 @@ export function HexWorkbench({
           <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">{status}</div>
         </div>
       )}
-      <RidoMap
+      <TtMap
         center={center}
         mapType={mapType}
         className={cn("rounded-none", isFullscreen ? "flex-1" : "h-[calc(100vh-22rem)] min-h-[600px]")}
@@ -455,7 +455,7 @@ export function HexWorkbench({
           showGrid={visible.grid}
           onZoom={setZoom}
         />
-      </RidoMap>
+      </TtMap>
       {editor && tool !== "pan" && (
         <p className="border-t px-3 py-1.5 text-xs text-muted-foreground">
           <CheckIcon className="mr-1 inline size-3" />

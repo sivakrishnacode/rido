@@ -30,7 +30,7 @@ export function RouteError({
       </span>
       <h2 className="font-heading text-lg font-semibold text-navy-900">{title}</h2>
       <p className="text-sm text-muted-foreground">
-        We couldn&apos;t load this page from the Rido API. Check that the API is running, then try again.
+        We couldn&apos;t load this page from the Tamil Taxi API. Check that the API is running, then try again.
       </p>
       {detail && <p className="rounded-md bg-muted px-3 py-2 font-mono text-xs text-navy-700">{detail}</p>}
       {error.digest && <p className="text-xs text-muted-foreground">Reference: {error.digest}</p>}

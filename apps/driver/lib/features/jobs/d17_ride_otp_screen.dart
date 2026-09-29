@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
@@ -69,7 +69,7 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
       } on Exception catch (e) {
         if (!mounted) return;
         setState(() => _busy = false);
-        showRidoSnack(context, userMessage(e));
+        showTtSnack(context, userMessage(e));
         return;
       }
       if (mounted) context.pushReplacement(Routes.trip);
@@ -90,15 +90,15 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
   Future<void> _cancelNotWoman() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => RidoDialog(
+      builder: (context) => TtDialog(
         title: 'Cancel this Butterfly ride?',
         message: "This ride is for women only. If the rider isn't a woman you can cancel. It won't count against you.",
         icon: Symbols.cancel_rounded,
         destructive: true,
         actions: [
-          RidoButton.danger(label: 'Cancel ride', onPressed: () => Navigator.of(context).pop(true)),
-          const SizedBox(height: RidoSpacing.xs),
-          RidoButton.text(label: 'Keep ride', expand: true, onPressed: () => Navigator.of(context).pop(false)),
+          TtButton.danger(label: 'Cancel ride', onPressed: () => Navigator.of(context).pop(true)),
+          const SizedBox(height: TtSpacing.xs),
+          TtButton.text(label: 'Keep ride', expand: true, onPressed: () => Navigator.of(context).pop(false)),
         ],
       ),
     );
@@ -109,16 +109,16 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      showRidoSnack(context, userMessage(e));
+      showTtSnack(context, userMessage(e));
       return;
     }
     if (!mounted) return;
-    showRidoSnack(context, 'Ride cancelled · ${kRiderNotWoman.label}');
+    showTtSnack(context, 'Ride cancelled · ${kRiderNotWoman.label}');
     context.go(Routes.home);
   }
 
   Future<void> _cancelNoShow() async {
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: "Passenger didn't come?",
       message: "Cancel this ride as a no-show. It won't count against you.",
@@ -133,11 +133,11 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      showRidoSnack(context, userMessage(e));
+      showTtSnack(context, userMessage(e));
       return;
     }
     if (!mounted) return;
-    showRidoSnack(context, 'Ride cancelled · ${CancelCode.passengerNoShow.label}');
+    showTtSnack(context, 'Ride cancelled · ${CancelCode.passengerNoShow.label}');
     context.go(Routes.home);
   }
 
@@ -148,8 +148,8 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
       appBarTitle: 'Start ride',
       title: 'Ask ${_job.customerName} for the 4-digit OTP',
       subtitle: _job.bookedBy != null
-          ? '${_job.bookedBy} booked this ride and has the OTP in their Rido app.'
-          : 'It is in their Rido app.',
+          ? '${_job.bookedBy} booked this ride and has the OTP in their Tamil Taxi app.'
+          : 'It is in their Tamil Taxi app.',
       otp: OtpInput(
         length: 4,
         boxSize: 80,
@@ -165,29 +165,29 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
       error: _errorText,
       extra: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Container(
-        padding: const EdgeInsets.all(RidoSpacing.l),
-        decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.cardRadius),
+        padding: const EdgeInsets.all(TtSpacing.l),
+        decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.cardRadius),
         child: Row(children: [
-          RidoAvatar(initials: initialsOf(_job.customerName), size: 40),
-          const SizedBox(width: RidoSpacing.m),
+          TtAvatar(initials: initialsOf(_job.customerName), size: 40),
+          const SizedBox(width: TtSpacing.m),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('${_job.customerName} → ${_job.drop.name}',
                   style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
               Text('${formatKm(_job.tripKm)} · ${formatInr(_job.fare)}',
-                  style: RidoTextStyles.tabular(t.caption.copyWith(fontWeight: FontWeight.w500))),
+                  style: TtTextStyles.tabular(t.caption.copyWith(fontWeight: FontWeight.w500))),
             ]),
           ),
         ]),
         ),
         // Free waiting minutes, then the waiting charge the server adds when the ride starts.
         if (_waiting case final w?) ...[
-          const SizedBox(height: RidoSpacing.s),
+          const SizedBox(height: TtSpacing.s),
           WaitingTimerChip(terms: w, clock: widget.showcase ? () => _showcaseAt : null, isTicking: !widget.showcase),
         ],
         // After the no-show wait: cancel without it counting against the driver.
         if (!widget.showcase) ...[
-          const SizedBox(height: RidoSpacing.s),
+          const SizedBox(height: TtSpacing.s),
           NoShowButton(
             noShowAt: ref.watch(driverSessionProvider.select((s) => s.noShowAt)),
             enabled: !_busy,
@@ -196,8 +196,8 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
         ],
         // Butterfly (women only): the driver may cancel, with no penalty, if the rider is not a woman.
         if (_job.isWomenOnly && !widget.showcase) ...[
-          const SizedBox(height: RidoSpacing.s),
-          RidoButton.text(label: "Rider isn't a woman? Cancel ride", onPressed: _busy ? null : _cancelNotWoman),
+          const SizedBox(height: TtSpacing.s),
+          TtButton.text(label: "Rider isn't a woman? Cancel ride", onPressed: _busy ? null : _cancelNotWoman),
         ],
       ]),
       buttonLabel: 'Start ride',

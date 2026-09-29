@@ -348,7 +348,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
       // Booked for someone else: the driver sees and calls the rider; the account holder is "booked by".
       passenger: booked.riderName
         ? { name: booked.riderName, phone: booked.riderPhone ?? '', isVerified: false, bookedBy: passenger?.name ?? undefined }
-        : { name: passenger?.name ?? 'Rido customer', phone: passenger?.phone ?? '', isVerified: passenger?.identityStatus === 'APPROVED' },
+        : { name: passenger?.name ?? 'Tamil Taxi customer', phone: passenger?.phone ?? '', isVerified: passenger?.identityStatus === 'APPROVED' },
       pickupKm: at ? Math.round(roadKm(at, pickup) * 10) / 10 : null,
       pickupEtaMin: at ? await this.eta.minutes({ from: at, to: pickup, vehicleKind: trip.vehicleKind, useRoad }) : null,
     };

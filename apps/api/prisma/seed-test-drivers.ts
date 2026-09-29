@@ -1,8 +1,8 @@
 // Approved test drivers you can sign into on a phone (dev OTP: any 6 digits except 000000). Ids start with "test_drv_".
 // Idempotent: re-running brings each one back to approved, verified and offline.
-//   npm run seed:test-drivers -w @rido/api                        # add / refresh
-//   npm run seed:test-drivers -w @rido/api -- --photo <file name> # also set their profile photo (a stored file)
-//   npm run seed:test-drivers -w @rido/api -- --clear             # remove them
+//   npm run seed:test-drivers -w @tamiltaxi/api                        # add / refresh
+//   npm run seed:test-drivers -w @tamiltaxi/api -- --photo <file name> # also set their profile photo (a stored file)
+//   npm run seed:test-drivers -w @tamiltaxi/api -- --clear             # remove them
 // With Didit on, going online needs a profile photo: upload one placeholder to storage and pass its name.
 // Each gets a 90-day TRIAL on its vehicle's monthly plan, so they can go online even with paid plans switched on.
 import 'dotenv/config';

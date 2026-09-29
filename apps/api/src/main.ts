@@ -4,7 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { loadEnv } from './core/config/env.js';
 
-/** Starts the Rido API on /v1 (REST) and /rt (Socket.IO). */
+/** Starts the Tamil Taxi API on /v1 (REST) and /rt (Socket.IO). */
 async function bootstrap(): Promise<void> {
   const env = loadEnv();
   const app = await NestFactory.create(AppModule, { rawBody: true }); // raw body: Didit webhook signatures
@@ -17,7 +17,7 @@ async function bootstrap(): Promise<void> {
   const server = app.getHttpServer() as import('node:http').Server;
   server.keepAliveTimeout = 65_000;
   server.headersTimeout = 66_000;
-  Logger.log(`Rido API listening on :${env.port} (${env.nodeEnv})`, 'Bootstrap');
+  Logger.log(`Tamil Taxi API listening on :${env.port} (${env.nodeEnv})`, 'Bootstrap');
 }
 
 // Safety net: a stray fire-and-forget promise (e.g. `void someAsync()`) that rejects is logged, not fatal. Node would

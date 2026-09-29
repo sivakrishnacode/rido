@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/phone.dart';
 import '../../common/flags.dart';
@@ -21,7 +21,7 @@ class P23AccountScreen extends ConsumerWidget {
   static const version = '0.1.0';
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Log out?',
       message: 'You can log in again with your phone number.',
@@ -50,14 +50,14 @@ class P23AccountScreen extends ConsumerWidget {
         padding: EdgeInsets.zero,
         children: [
           Material(
-            color: RidoColors.surface,
+            color: TtColors.surface,
             child: SafeArea(
               bottom: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 8, 20),
                 child: Row(
                   children: [
-                    RidoAvatar(initials: p.initials, size: 64),
+                    TtAvatar(initials: p.initials, size: 64),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -69,11 +69,11 @@ class P23AccountScreen extends ConsumerWidget {
                               const SizedBox(width: 6),
                               Semantics(
                                 label: 'Verified',
-                                child: const Icon(Symbols.verified_rounded, fill: 1, color: RidoColors.success, size: 22),
+                                child: const Icon(Symbols.verified_rounded, fill: 1, color: TtColors.success, size: 22),
                               ),
                             ],
                           ]),
-                          Text(displayPhone(p.phone), style: RidoTextStyles.tabular(t.body.copyWith(color: RidoColors.navy700))),
+                          Text(displayPhone(p.phone), style: TtTextStyles.tabular(t.body.copyWith(color: TtColors.navy700))),
                         ],
                       ),
                     ),
@@ -89,21 +89,21 @@ class P23AccountScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                RidoListGroup(children: [
-                  RidoListTile(
+                TtListGroup(children: [
+                  TtListTile(
                     icon: Symbols.bookmark_rounded,
                     title: 'Saved places',
                     subtitle: places.isEmpty ? 'Add Home or Work' : places,
                     onTap: () => context.push(Routes.savedPlaces),
                   ),
-                  RidoListTile(
+                  TtListTile(
                     icon: Symbols.contact_emergency_rounded,
                     title: 'Emergency contacts',
                     subtitle: contacts.isEmpty ? 'Add up to 3 people' : contacts,
                     onTap: () => context.push(Routes.emergencyContacts),
                   ),
                   if (identity?.isEnabled ?? false)
-                    RidoListTile(
+                    TtListTile(
                       icon: Symbols.verified_user_rounded,
                       title: 'Verify identity',
                       subtitle: switch (identity!.status) {
@@ -114,7 +114,7 @@ class P23AccountScreen extends ConsumerWidget {
                       },
                       onTap: () => context.push(Routes.verifyIdentity),
                     ),
-                  RidoListTile(
+                  TtListTile(
                     icon: Symbols.shield_person_rounded,
                     title: 'Safety preferences',
                     subtitle: 'Women driver: ${onOff(p.preferWomenDriver)} · Auto-share trips: ${onOff(p.autoShareTrips)}',
@@ -122,33 +122,33 @@ class P23AccountScreen extends ConsumerWidget {
                   ),
                 ]),
                 const SizedBox(height: 16),
-                RidoListGroup(children: [
-                  RidoListTile(
+                TtListGroup(children: [
+                  TtListTile(
                     icon: Symbols.volunteer_activism_rounded,
                     title: 'Contribute',
-                    subtitle: 'Rido is free. Help keep it running',
+                    subtitle: 'Tamil Taxi is free. Help keep it running',
                     onTap: () => context.push(Routes.contribute),
                   ),
                 ]),
                 const SizedBox(height: 16),
-                RidoListGroup(children: [
-                  RidoListTile(
+                TtListGroup(children: [
+                  TtListTile(
                     icon: Symbols.support_agent_rounded,
                     title: 'Help & support',
                     onTap: () => context.push(Routes.help()),
                   ),
-                  RidoListTile(
+                  TtListTile(
                     icon: Symbols.policy_rounded,
                     title: 'Terms & privacy',
                     onTap: () => context.push(Routes.legal('terms')),
                   ),
-                  RidoListTile(
+                  TtListTile(
                     icon: Symbols.info_rounded,
-                    title: 'About Rido',
+                    title: 'About Tamil Taxi',
                     onTap: () => context.push(Routes.about),
                   ),
                   if (kShowDesignGallery)
-                    RidoListTile(
+                    TtListTile(
                       icon: Symbols.palette_rounded,
                       title: 'Design gallery',
                       subtitle: 'Every screen and the demo controls',
@@ -156,8 +156,8 @@ class P23AccountScreen extends ConsumerWidget {
                     ),
                 ]),
                 const SizedBox(height: 16),
-                RidoListGroup(children: [
-                  RidoListTile(
+                TtListGroup(children: [
+                  TtListTile(
                     icon: Symbols.logout_rounded,
                     title: 'Log out',
                     destructive: true,
@@ -166,8 +166,8 @@ class P23AccountScreen extends ConsumerWidget {
                 ]),
                 const SizedBox(height: 16),
                 Text(
-                  'Rido $version · Made in Coimbatore',
-                  style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                  'Tamil Taxi $version · Made in Coimbatore',
+                  style: t.bodySmall.copyWith(color: TtColors.navy500),
                   textAlign: TextAlign.center,
                 ),
               ],

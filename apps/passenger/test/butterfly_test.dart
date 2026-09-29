@@ -1,10 +1,10 @@
 // P-10 Butterfly (women riders): Any driver / Preferred / Women only, each explained in one line.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/features/ride/p10_choose_vehicle_screen.dart';
-import 'package:rido_passenger/features/ride/p10b_who_is_riding_sheet.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/ride/p10_choose_vehicle_screen.dart';
+import 'package:tamiltaxi_passenger/features/ride/p10b_who_is_riding_sheet.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 
@@ -17,7 +17,7 @@ void main() {
     usePhone(tester, height: 400);
     var value = WomenDriverPref.none;
     await tester.pumpWidget(MaterialApp(
-      theme: RidoTheme.light(),
+      theme: TtTheme.light(),
       home: Scaffold(
         body: RepaintBoundary(
           key: shotKey,
@@ -56,7 +56,7 @@ void main() {
     await tester.pumpWidget(RepaintBoundary(
       key: shotKey,
       child: MaterialApp(
-      theme: RidoTheme.light(),
+      theme: TtTheme.light(),
       home: Scaffold(
         body: RepaintBoundary(
           child: Builder(

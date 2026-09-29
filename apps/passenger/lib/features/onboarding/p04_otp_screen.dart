@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/live_trip.dart';
@@ -64,11 +64,11 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
     try {
       await ref.read(authRepositoryProvider).sendOtp(_phoneDigits);
     } catch (e) {
-      if (mounted) showRidoSnack(context, apiErrorMessage(e));
+      if (mounted) showTtSnack(context, apiErrorMessage(e));
       return;
     }
     if (!mounted) return;
-    showRidoSnack(context, 'OTP resent', success: true);
+    showTtSnack(context, 'OTP resent', success: true);
   }
 
   void _edit() {
@@ -88,7 +88,7 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _verifying = false);
-      showRidoSnack(context, apiErrorMessage(e));
+      showTtSnack(context, apiErrorMessage(e));
       return;
     }
     if (!mounted) return;
@@ -117,37 +117,37 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
   Widget build(BuildContext context) {
     final t = context.type;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
-      appBar: RidoAppBar(onBack: _edit),
+      backgroundColor: TtColors.surface,
+      appBar: TtAppBar(onBack: _edit),
       body: SafeArea(
         top: false,
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.l, RidoSpacing.l, RidoSpacing.l),
+                padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.l, TtSpacing.l, TtSpacing.l),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Verify OTP', style: t.display),
-                    const SizedBox(height: RidoSpacing.xs),
+                    const SizedBox(height: TtSpacing.xs),
                     Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Text('Sent to ', style: t.body.copyWith(color: RidoColors.navy700)),
-                        Text('+91 ${widget.phone}', style: RidoTextStyles.tabular(t.bodySemibold)),
+                        Text('Sent to ', style: t.body.copyWith(color: TtColors.navy700)),
+                        Text('+91 ${widget.phone}', style: TtTextStyles.tabular(t.bodySemibold)),
                         TextButton(
                           onPressed: _edit,
                           style: TextButton.styleFrom(
-                            foregroundColor: RidoColors.coral600,
+                            foregroundColor: TtColors.coral600,
                             minimumSize: const Size(48, 48),
-                            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.s),
+                            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s),
                           ),
-                          child: Text('Edit', style: t.bodySemibold.copyWith(color: RidoColors.coral600)),
+                          child: Text('Edit', style: t.bodySemibold.copyWith(color: TtColors.coral600)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: RidoSpacing.l),
+                    const SizedBox(height: TtSpacing.l),
                     OtpInput(
                       initialValue: _otp,
                       autofocus: !widget.showcase,
@@ -160,30 +160,30 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
                       onCompleted: (_) => _verify(),
                     ),
                     if (_error) ...[
-                      const SizedBox(height: RidoSpacing.s),
+                      const SizedBox(height: TtSpacing.s),
                       Row(
                         children: [
-                          const Icon(Symbols.error_rounded, size: 18, color: RidoColors.error, fill: 1),
+                          const Icon(Symbols.error_rounded, size: 18, color: TtColors.error, fill: 1),
                           const SizedBox(width: 6),
                           Text(
                             'Incorrect OTP. Please try again.',
-                            style: t.bodySmallMedium.copyWith(color: RidoColors.error),
+                            style: t.bodySmallMedium.copyWith(color: TtColors.error),
                           ),
                         ],
                       ),
                     ],
-                    const SizedBox(height: RidoSpacing.l),
+                    const SizedBox(height: TtSpacing.l),
                     _secondsLeft > 0
                         ? SizedBox(
                             height: 48,
                             child: Row(
                               children: [
-                                const Icon(Symbols.schedule_rounded, size: 20, color: RidoColors.navy500),
-                                const SizedBox(width: RidoSpacing.s),
-                                Text('Resend OTP in ', style: t.body.copyWith(color: RidoColors.navy500)),
+                                const Icon(Symbols.schedule_rounded, size: 20, color: TtColors.navy500),
+                                const SizedBox(width: TtSpacing.s),
+                                Text('Resend OTP in ', style: t.body.copyWith(color: TtColors.navy500)),
                                 Text(
                                   formatCountdown(Duration(seconds: _secondsLeft)),
-                                  style: RidoTextStyles.tabular(t.bodySemibold),
+                                  style: TtTextStyles.tabular(t.bodySemibold),
                                 ),
                               ],
                             ),
@@ -191,20 +191,20 @@ class _P04OtpScreenState extends ConsumerState<P04OtpScreen> {
                         : TextButton.icon(
                             onPressed: _resend,
                             style: TextButton.styleFrom(
-                              foregroundColor: RidoColors.coral600,
+                              foregroundColor: TtColors.coral600,
                               minimumSize: const Size(48, 48),
                               padding: EdgeInsets.zero,
                             ),
                             icon: const Icon(Symbols.refresh_rounded, size: 20),
-                            label: Text('Resend OTP', style: t.bodySemibold.copyWith(color: RidoColors.coral600)),
+                            label: Text('Resend OTP', style: t.bodySemibold.copyWith(color: TtColors.coral600)),
                           ),
                   ],
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.l),
-              child: RidoButton(label: 'Verify', loading: _verifying, onPressed: _otp.length == 6 ? _verify : null),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.l, TtSpacing.l),
+              child: TtButton(label: 'Verify', loading: _verifying, onPressed: _otp.length == 6 ? _verify : null),
             ),
           ],
         ),

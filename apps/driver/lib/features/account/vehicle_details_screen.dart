@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
@@ -51,11 +51,11 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      showRidoSnack(context, userMessage(e));
+      showTtSnack(context, userMessage(e));
       return;
     }
     if (!mounted) return;
-    showRidoSnack(context, 'Vehicle details saved', success: true);
+    showTtSnack(context, 'Vehicle details saved', success: true);
     context.pop();
   }
 
@@ -67,33 +67,33 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
       saving: _saving,
       onSave: _save,
       children: [
-        Text('Vehicle type', style: t.bodyMedium.copyWith(color: RidoColors.navy700)),
-        const SizedBox(height: RidoSpacing.s),
-        RidoCard(
+        Text('Vehicle type', style: t.bodyMedium.copyWith(color: TtColors.navy700)),
+        const SizedBox(height: TtSpacing.s),
+        TtCard(
           child: Row(children: [
-            Icon(_p.vehicleKind.icon, color: RidoColors.coral600),
-            const SizedBox(width: RidoSpacing.m),
+            Icon(_p.vehicleKind.icon, color: TtColors.coral600),
+            const SizedBox(width: TtSpacing.m),
             Expanded(child: Text(_p.vehicleKind.label, style: t.bodySemibold)),
             Text('Set at sign-up', style: t.caption),
           ]),
         ),
-        const SizedBox(height: RidoSpacing.l),
-        RidoTextField(
+        const SizedBox(height: TtSpacing.l),
+        TtTextField(
           label: 'Model',
           controller: _model,
           textCapitalization: TextCapitalization.words,
           errorText: _tried && _model.text.trim().isEmpty ? 'Enter the vehicle model' : null,
         ),
-        const SizedBox(height: RidoSpacing.l),
-        RidoTextField(label: 'Colour', controller: _color, textCapitalization: TextCapitalization.words),
-        const SizedBox(height: RidoSpacing.l),
-        RidoTextField(
+        const SizedBox(height: TtSpacing.l),
+        TtTextField(label: 'Colour', controller: _color, textCapitalization: TextCapitalization.words),
+        const SizedBox(height: TtSpacing.l),
+        TtTextField(
           label: 'Number plate',
           controller: _plate,
           textCapitalization: TextCapitalization.characters,
           errorText: _tried && !_plateOk ? 'Use the format TN 37 AB 4521' : null,
         ),
-        const SizedBox(height: RidoSpacing.m),
+        const SizedBox(height: TtSpacing.m),
         Text('A change of vehicle may need a new RC check.', style: t.caption),
       ],
     );

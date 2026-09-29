@@ -21,7 +21,7 @@ describe("trackModel", () => {
   it("maps a running ride to the page's lines and map points", () => {
     const m = trackModel(view, NOW);
     expect(m).toMatchObject({
-      title: "Rido ride to Brookefields Mall",
+      title: "Tamil Taxi ride to Brookefields Mall",
       status: "On the way",
       isLive: true,
       driverLine: "Selvam · Blue TVS Jupiter (Bike)",
@@ -49,7 +49,7 @@ describe("trackModel", () => {
       { ...view, kind: "PARCEL", status: "DRIVER_ASSIGNED", etaTo: "pickup", etaMin: 4, driver: { ...view.driver!, vehicleModel: "", vehicleColor: "" } },
       NOW,
     );
-    expect(m.title).toBe("Rido parcel to Brookefields Mall");
+    expect(m.title).toBe("Tamil Taxi parcel to Brookefields Mall");
     expect(m.driverLine).toBe("Selvam · Bike");
     expect(m.etaLine).toMatch(/^Reaching the pickup in about 4 min/);
     expect(m.fit[1]).toEqual({ lat: view.pickup.lat, lng: view.pickup.lng });

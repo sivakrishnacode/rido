@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import 'widgets/signup_widgets.dart';
@@ -23,12 +23,12 @@ class D02WelcomeScreen extends StatelessWidget {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              color: RidoColors.navy900,
+              color: TtColors.navy900,
               child: SafeArea(
                 bottom: false,
                 child: SizedBox(
@@ -37,11 +37,11 @@ class D02WelcomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Padding(
-                        padding: EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, RidoSpacing.l, 0),
+                        padding: EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, 0),
                         child: Row(
                           children: [
                             DriverWordmark(size: 28),
-                            SizedBox(width: RidoSpacing.s),
+                            SizedBox(width: TtSpacing.s),
                             DriverTag(),
                           ],
                         ),
@@ -58,12 +58,12 @@ class D02WelcomeScreen extends StatelessWidget {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.xl, RidoSpacing.l, RidoSpacing.l),
+                padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.xl, TtSpacing.l, TtSpacing.l),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Keep 100% of what you earn', style: t.display),
-                    const SizedBox(height: RidoSpacing.l),
+                    const SizedBox(height: TtSpacing.l),
                     const _Benefit(icon: Symbols.percent_rounded, text: '0% commission on every ride'),
                     const _Benefit(icon: Symbols.money_off_rounded, text: 'No subscription or monthly fee'),
                     const _Benefit(icon: Symbols.redeem_rounded, text: 'Free to use, always'),
@@ -73,14 +73,14 @@ class D02WelcomeScreen extends StatelessWidget {
             ),
             BottomActions(
               children: [
-                RidoButton(label: 'Join as a driver', onPressed: () => context.push(Routes.phone(signup: true))),
-                const SizedBox(height: RidoSpacing.xs),
+                TtButton(label: 'Join as a driver', onPressed: () => context.push(Routes.phone(signup: true))),
+                const SizedBox(height: TtSpacing.xs),
                 Semantics(
                   button: true,
                   label: 'Already registered? Log in',
                   excludeSemantics: true,
                   child: InkWell(
-                    borderRadius: RidoRadii.pillRadius,
+                    borderRadius: TtRadii.pillRadius,
                     onTap: () => context.push(Routes.phone(signup: false)),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 48),
@@ -88,11 +88,11 @@ class D02WelcomeScreen extends StatelessWidget {
                         child: Text.rich(
                           TextSpan(
                             text: 'Already registered? ',
-                            style: t.body.copyWith(color: RidoColors.navy700),
+                            style: t.body.copyWith(color: TtColors.navy700),
                             children: [
                               TextSpan(
                                 text: 'Log in',
-                                style: t.body.copyWith(color: RidoColors.coral600, fontWeight: FontWeight.w700),
+                                style: t.body.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w700),
                               ),
                             ],
                           ),
@@ -117,16 +117,16 @@ class _Benefit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: RidoSpacing.s),
+        padding: const EdgeInsets.symmetric(vertical: TtSpacing.s),
         child: Row(
           children: [
             Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(color: RidoColors.coral50, shape: BoxShape.circle),
-              child: Icon(icon, size: 20, color: RidoColors.coral600),
+              decoration: const BoxDecoration(color: TtColors.coral50, shape: BoxShape.circle),
+              child: Icon(icon, size: 20, color: TtColors.coral600),
             ),
-            const SizedBox(width: RidoSpacing.l),
+            const SizedBox(width: TtSpacing.l),
             Expanded(child: Text(text, style: context.type.body)),
           ],
         ),
@@ -153,13 +153,13 @@ class _HappyDriver extends StatelessWidget {
           children: [
             DriverOrb(
               size: size,
-              color: RidoColors.coral500,
+              color: TtColors.coral500,
               innerFactor: 0.73,
               child: Container(
                 width: size * 0.45,
                 height: size * 0.45,
                 decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: Icon(Symbols.sentiment_very_satisfied_rounded, size: size * 0.36, color: RidoColors.coral500),
+                child: Icon(Symbols.sentiment_very_satisfied_rounded, size: size * 0.36, color: TtColors.coral500),
               ),
             ),
             Positioned(
@@ -167,13 +167,13 @@ class _HappyDriver extends StatelessWidget {
               right: 0,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: const BoxDecoration(color: Colors.white, borderRadius: RidoRadii.pillRadius),
+                decoration: const BoxDecoration(color: Colors.white, borderRadius: TtRadii.pillRadius),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Symbols.payments_rounded, color: RidoColors.success, size: 22),
+                    const Icon(Symbols.payments_rounded, color: TtColors.success, size: 22),
                     const SizedBox(width: 6),
-                    Text('100%', style: t.h2.copyWith(color: RidoColors.success)),
+                    Text('100%', style: t.h2.copyWith(color: TtColors.success)),
                   ],
                 ),
               ),

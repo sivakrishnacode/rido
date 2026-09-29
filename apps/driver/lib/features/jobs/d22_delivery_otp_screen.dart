@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
@@ -57,7 +57,7 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen>
       } on Exception catch (e) {
         if (!mounted) return;
         setState(() => _busy = false);
-        showRidoSnack(context, userMessage(e));
+        showTtSnack(context, userMessage(e));
         return;
       }
       if (!mounted) return;
@@ -88,7 +88,7 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen>
     return OtpStepScaffold(
       appBarTitle: 'Complete delivery',
       title: 'Ask ${receiver.split(' ').first} for the delivery OTP',
-      subtitle: _api ? 'The sender sees it in their Rido app and shares it with them.' : 'It was sent to $phone by SMS.',
+      subtitle: _api ? 'The sender sees it in their Tamil Taxi app and shares it with them.' : 'It was sent to $phone by SMS.',
       otp: OtpInput(
         length: 4,
         boxSize: 80,
@@ -103,32 +103,32 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen>
       ),
       error: _errorText,
       extra: Material(
-        color: _photo ? RidoColors.successTint : RidoColors.background,
+        color: _photo ? TtColors.successTint : TtColors.background,
         shape: RoundedRectangleBorder(
-          borderRadius: RidoRadii.cardRadius,
-          side: BorderSide(color: _photo ? RidoColors.success : RidoColors.navy300),
+          borderRadius: TtRadii.cardRadius,
+          side: BorderSide(color: _photo ? TtColors.success : TtColors.navy300),
         ),
         child: InkWell(
-          borderRadius: RidoRadii.cardRadius,
+          borderRadius: TtRadii.cardRadius,
           onTap: () {
             setState(() => _photo = !_photo);
-            showRidoSnack(context, _photo ? 'Photo of delivered parcel added' : 'Photo removed');
+            showTtSnack(context, _photo ? 'Photo of delivered parcel added' : 'Photo removed');
           },
           child: Padding(
-            padding: const EdgeInsets.all(RidoSpacing.l),
+            padding: const EdgeInsets.all(TtSpacing.l),
             child: Row(children: [
               Container(
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: RidoColors.surface,
-                  borderRadius: RidoRadii.cardRadius,
-                  border: Border.all(color: RidoColors.divider),
+                  color: TtColors.surface,
+                  borderRadius: TtRadii.cardRadius,
+                  border: Border.all(color: TtColors.divider),
                 ),
                 child: Icon(_photo ? Symbols.check_circle_rounded : Symbols.add_a_photo_rounded,
-                    color: _photo ? RidoColors.success : RidoColors.coral600, fill: _photo ? 1 : 0),
+                    color: _photo ? TtColors.success : TtColors.coral600, fill: _photo ? 1 : 0),
               ),
-              const SizedBox(width: RidoSpacing.l),
+              const SizedBox(width: TtSpacing.l),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(_photo ? 'Photo added' : 'Take photo of delivered parcel', style: t.bodySemibold),

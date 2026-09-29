@@ -4,15 +4,15 @@
 // earnings and rides up by the fare.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/jobs/d15_ride_request_screen.dart';
-import 'package:rido_driver/features/jobs/d16_navigate_pickup_screen.dart';
-import 'package:rido_driver/features/jobs/d17_ride_otp_screen.dart';
-import 'package:rido_driver/features/jobs/d18_ride_in_progress_screen.dart';
-import 'package:rido_driver/features/jobs/d19_collect_payment_screen.dart';
-import 'package:rido_driver/router/routes.dart';
-import 'package:rido_driver/state/driver_session.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/jobs/d15_ride_request_screen.dart';
+import 'package:tamiltaxi_driver/features/jobs/d16_navigate_pickup_screen.dart';
+import 'package:tamiltaxi_driver/features/jobs/d17_ride_otp_screen.dart';
+import 'package:tamiltaxi_driver/features/jobs/d18_ride_in_progress_screen.dart';
+import 'package:tamiltaxi_driver/features/jobs/d19_collect_payment_screen.dart';
+import 'package:tamiltaxi_driver/router/routes.dart';
+import 'package:tamiltaxi_driver/state/driver_session.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 
@@ -73,14 +73,14 @@ void main() {
     // Wrong OTP first: stays on D-17.
     await tester.enterText(find.byKey(const ValueKey('otp-field')), '1111');
     await advance(tester, const Duration(milliseconds: 300));
-    await tester.tap(find.descendant(of: find.byType(RidoButton), matching: find.text('Start ride')).hitTestable().first);
+    await tester.tap(find.descendant(of: find.byType(TtButton), matching: find.text('Start ride')).hitTestable().first);
     await advance(tester, const Duration(milliseconds: 600));
     expect(find.byType(D17RideOtpScreen), findsOneWidget);
     expect(find.text('Wrong OTP, please try again'), findsOneWidget);
 
     await tester.enterText(find.byKey(const ValueKey('otp-field')), Seed.rideOtp);
     await advance(tester, const Duration(milliseconds: 300));
-    await tester.tap(find.descendant(of: find.byType(RidoButton), matching: find.text('Start ride')).hitTestable().first);
+    await tester.tap(find.descendant(of: find.byType(TtButton), matching: find.text('Start ride')).hitTestable().first);
     await waitFor(tester, find.byType(D18RideInProgressScreen));
     expect(container.read(driverSessionProvider).phase, JobPhase.toDrop);
 

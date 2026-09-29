@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/device_location.dart';
 import '../../router/routes.dart';
@@ -16,7 +16,7 @@ class S05LocationDeniedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Scaffold(
-    backgroundColor: RidoColors.surface,
+    backgroundColor: TtColors.surface,
     body: SafeArea(child: S05LocationDeniedView()),
   );
 }
@@ -37,22 +37,22 @@ class S05LocationDeniedView extends ConsumerWidget {
           constraints: BoxConstraints(minHeight: c.maxHeight.isFinite ? c.maxHeight : 0),
           child: IntrinsicHeight(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.xl, RidoSpacing.l, RidoSpacing.l),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.xl, TtSpacing.l, TtSpacing.l),
               child: Column(
                 children: [
                   const Spacer(),
                   const _LocationOffArt(size: 200),
-                  const SizedBox(height: RidoSpacing.xxl),
+                  const SizedBox(height: TtSpacing.xxl),
                   Text('Location is off', style: t.display, textAlign: TextAlign.center),
-                  const SizedBox(height: RidoSpacing.s),
+                  const SizedBox(height: TtSpacing.s),
                   Text(
-                    'Rido needs your location to find nearby drivers',
-                    style: t.body.copyWith(color: RidoColors.navy700),
+                    'Tamil Taxi needs your location to find nearby drivers',
+                    style: t.body.copyWith(color: TtColors.navy700),
                     textAlign: TextAlign.center,
                   ),
                   const Spacer(),
-                  const SizedBox(height: RidoSpacing.xxl),
-                  RidoButton(
+                  const SizedBox(height: TtSpacing.xxl),
+                  TtButton(
                     label: 'Open settings',
                     onPressed: () {
                       // Live: ask again while Android still shows the prompt, else open the right settings page.
@@ -61,13 +61,13 @@ class S05LocationDeniedView extends ConsumerWidget {
                       } else {
                         ref.read(deviceLocationProvider.notifier).openSettings();
                       }
-                      showRidoSnack(context, 'Opening location settings');
+                      showTtSnack(context, 'Opening location settings');
                       ref.read(demoSettingsProvider.notifier).update((s) => s.copyWith(locationDenied: false));
                       context.go(Routes.ride);
                     },
                   ),
-                  const SizedBox(height: RidoSpacing.s),
-                  RidoButton.text(
+                  const SizedBox(height: TtSpacing.s),
+                  TtButton.text(
                     label: 'Enter location manually',
                     expand: true,
                     onPressed: () => context.push(Routes.search),
@@ -97,14 +97,14 @@ class _LocationOffArt extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Container(
-            decoration: const BoxDecoration(color: RidoColors.inputBg, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: TtColors.inputBg, shape: BoxShape.circle),
           ),
           Container(
             width: size * 0.7,
             height: size * 0.7,
-            decoration: const BoxDecoration(color: RidoColors.divider, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: TtColors.divider, shape: BoxShape.circle),
           ),
-          Icon(Symbols.location_off_rounded, fill: 1, size: size * 0.4, color: RidoColors.navy500),
+          Icon(Symbols.location_off_rounded, fill: 1, size: size * 0.4, color: TtColors.navy500),
           Positioned(
             right: size * 0.2,
             bottom: size * 0.2,
@@ -112,11 +112,11 @@ class _LocationOffArt extends StatelessWidget {
               width: size * 0.22,
               height: size * 0.22,
               decoration: BoxDecoration(
-                color: RidoColors.coral500,
+                color: TtColors.coral500,
                 shape: BoxShape.circle,
-                border: Border.all(color: RidoColors.surface, width: 4),
+                border: Border.all(color: TtColors.surface, width: 4),
               ),
-              child: Icon(Symbols.settings_rounded, size: size * 0.11, color: RidoColors.surface),
+              child: Icon(Symbols.settings_rounded, size: size * 0.11, color: TtColors.surface),
             ),
           ),
         ],

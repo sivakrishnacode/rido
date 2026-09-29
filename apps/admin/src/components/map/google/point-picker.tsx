@@ -3,7 +3,7 @@
 import { useMap } from "@vis.gl/react-google-maps";
 import { useEffect, useRef } from "react";
 
-import { RidoMap } from "./rido-map";
+import { TtMap } from "./tamiltaxi-map";
 
 function Picker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (lat: number, lng: number) => void }) {
   const map = useMap();
@@ -38,8 +38,8 @@ function Picker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (lat: 
 export function PointPicker({ lat, lng, onPick, className }: { lat: number; lng: number; onPick: (lat: number, lng: number) => void; className?: string }) {
   const isSet = Number.isFinite(lat) && Number.isFinite(lng);
   return (
-    <RidoMap center={isSet ? { lat, lng } : { lat: 11.0168, lng: 76.9658 }} zoom={isSet ? 11 : 7} className={className ?? "h-full"}>
+    <TtMap center={isSet ? { lat, lng } : { lat: 11.0168, lng: 76.9658 }} zoom={isSet ? 11 : 7} className={className ?? "h-full"}>
       <Picker lat={lat} lng={lng} onPick={onPick} />
-    </RidoMap>
+    </TtMap>
   );
 }

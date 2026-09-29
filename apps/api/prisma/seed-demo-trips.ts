@@ -1,6 +1,6 @@
 // Demo trips for heatmaps and dashboards (opt-in). Ids start with "demo_" so they can be removed.
-//   npm run seed:demo-trips -w @rido/api            # add ~2,000 trips over the last 30 days
-//   npm run seed:demo-trips -w @rido/api -- --clear # remove them
+//   npm run seed:demo-trips -w @tamiltaxi/api            # add ~2,000 trips over the last 30 days
+//   npm run seed:demo-trips -w @tamiltaxi/api -- --clear # remove them
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 

@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 import '../states/s04_no_internet_screen.dart';
 
-/// Id prefix of live-API search suggestions (`kApiPlacePrefix` in rido_data, not exported).
+/// Id prefix of live-API search suggestions (`kApiPlacePrefix` in tamiltaxi_data, not exported).
 const _suggestionPrefix = 'api:';
 
 /// P-08 Search pickup and drop: connected pickup ("Current location, Gandhipuram") and
@@ -101,7 +101,7 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
         _results = const [];
         _loading = false;
       });
-      showRidoSnack(context, e.message);
+      showTtSnack(context, e.message);
     }
   }
 
@@ -116,10 +116,10 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
     try {
       p = await ref.read(placesRepositoryProvider).resolve(picked);
     } on OfflineException {
-      if (mounted) showRidoSnack(context, "Couldn't load that place. Check your connection and try again.");
+      if (mounted) showTtSnack(context, "Couldn't load that place. Check your connection and try again.");
       return;
     } on ApiException catch (e) {
-      if (mounted) showRidoSnack(context, e.message);
+      if (mounted) showTtSnack(context, e.message);
       return;
     }
     if (!mounted) return;
@@ -139,7 +139,7 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
     ref.read(rideFlowProvider.notifier).setPickup(here);
     _pickupFocus.unfocus();
     _dropFocus.requestFocus();
-    showRidoSnack(context, 'Pickup set to your current location');
+    showTtSnack(context, 'Pickup set to your current location');
   }
 
   IconData? _iconFor(Place p) => switch (p.id) {
@@ -161,14 +161,14 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
             ? '${pickup.name} · ${pickup.landmark}'
             : pickup.name;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
-      appBar: const RidoAppBar(title: 'Plan your ride'),
+      backgroundColor: TtColors.surface,
+      appBar: const TtAppBar(title: 'Plan your ride'),
       body: SafeArea(
         top: false,
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.xs, RidoSpacing.l, 0),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.xs, TtSpacing.l, 0),
               child: _ConnectedFields(
                 pickup: _PickupField(
                   label: pickupLabel,
@@ -190,7 +190,7 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
                   style: t.body,
                   decoration: InputDecoration(
                     hintText: 'Where to?',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.l),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.l),
                     suffixIcon: ValueListenableBuilder(
                       valueListenable: _drop,
                       builder: (context, v, _) => v.text.isEmpty
@@ -198,7 +198,7 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
                           : IconButton(
                               tooltip: 'Clear',
                               onPressed: _clear,
-                              icon: const Icon(Symbols.cancel_rounded, color: RidoColors.navy500),
+                              icon: const Icon(Symbols.cancel_rounded, color: TtColors.navy500),
                             ),
                     ),
                   ),
@@ -206,7 +206,7 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.l, RidoSpacing.l, RidoSpacing.m),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.l, TtSpacing.l, TtSpacing.m),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -216,7 +216,7 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
                       label: _editingPickup ? 'Set pickup on map' : 'Set on map',
                       onTap: () => context.push(_editingPickup ? Routes.pinPickupOnMap : Routes.pinOnMap),
                     ),
-                    const SizedBox(width: RidoSpacing.s),
+                    const SizedBox(width: TtSpacing.s),
                     Tooltip(
                       message: 'Coming soon',
                       triggerMode: TooltipTriggerMode.tap,
@@ -226,13 +226,13 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
                         child: const _PillButton(icon: Symbols.add_rounded, label: 'Add stop'),
                       ),
                     ),
-                    const SizedBox(width: RidoSpacing.s),
+                    const SizedBox(width: TtSpacing.s),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: 6),
-                      decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.pillRadius),
+                      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: 6),
+                      decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.pillRadius),
                       child: Text(
                         'Coming soon',
-                        style: t.caption.copyWith(color: RidoColors.navy700, fontWeight: FontWeight.w600),
+                        style: t.caption.copyWith(color: TtColors.navy700, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -243,15 +243,15 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
             Expanded(child: _resultsView()),
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, RidoSpacing.l, RidoSpacing.m),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, TtSpacing.m),
               child: Row(
                 children: [
-                  const Icon(Symbols.info_rounded, size: 18, color: RidoColors.navy500),
-                  const SizedBox(width: RidoSpacing.s),
+                  const Icon(Symbols.info_rounded, size: 18, color: TtColors.navy500),
+                  const SizedBox(width: TtSpacing.s),
                   Expanded(
                     child: Text(
                       'Can\'t find it? Use "Set on map" to drop a pin.',
-                      style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                      style: t.bodySmall.copyWith(color: TtColors.navy500),
                     ),
                   ),
                 ],
@@ -269,21 +269,21 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
     if (_loading) {
       return SkeletonShimmer(
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.s),
+          padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.s),
           children: [
             for (var i = 0; i < 3; i++)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: RidoSpacing.m),
+                padding: EdgeInsets.symmetric(vertical: TtSpacing.m),
                 child: Row(
                   children: [
                     SkeletonBox(width: 40, height: 40, circle: true),
-                    SizedBox(width: RidoSpacing.m),
+                    SizedBox(width: TtSpacing.m),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           FractionallySizedBox(widthFactor: 0.6, child: SkeletonBox(height: 12)),
-                          SizedBox(height: RidoSpacing.s),
+                          SizedBox(height: TtSpacing.s),
                           FractionallySizedBox(widthFactor: 0.4, child: SkeletonBox(height: 10)),
                         ],
                       ),
@@ -297,10 +297,10 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
     }
     if (_results.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(RidoSpacing.xl),
+        padding: const EdgeInsets.all(TtSpacing.xl),
         child: Text(
           'No places found for "${_drop.text.trim()}"',
-          style: t.body.copyWith(color: RidoColors.navy500),
+          style: t.body.copyWith(color: TtColors.navy500),
           textAlign: TextAlign.center,
         ),
       );
@@ -314,7 +314,7 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
         final p = _results[i];
         final icon = _iconFor(p);
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l),
+          padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l),
           child: LocationRow(
             kind: icon == Symbols.storefront_rounded ? LocationRowKind.landmark : LocationRowKind.search,
             icon: icon,
@@ -347,19 +347,19 @@ class _ConnectedFields extends StatelessWidget {
         child: Column(
           children: [
             PickupDot(size: 12),
-            SizedBox(height: RidoSpacing.xs),
+            SizedBox(height: TtSpacing.xs),
             _Dots(),
-            SizedBox(height: RidoSpacing.m),
+            SizedBox(height: TtSpacing.m),
             DropPin(size: 22),
           ],
         ),
       ),
-      const SizedBox(width: RidoSpacing.s),
+      const SizedBox(width: TtSpacing.s),
       Expanded(
         child: Column(
           children: [
             pickup,
-            const SizedBox(height: RidoSpacing.m),
+            const SizedBox(height: TtSpacing.m),
             drop,
           ],
         ),
@@ -375,7 +375,7 @@ class _Dots extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     children: [
       for (var i = 0; i < 6; i++)
-        Container(width: 2, height: 3, margin: const EdgeInsets.symmetric(vertical: 1.5), color: RidoColors.navy500),
+        Container(width: 2, height: 3, margin: const EdgeInsets.symmetric(vertical: 1.5), color: TtColors.navy500),
     ],
   );
 }
@@ -408,12 +408,12 @@ class _PickupField extends StatelessWidget {
     decoration: InputDecoration(
       // When not editing, the current pickup shows as the hint (reads like a value).
       hintText: editing ? 'Search pickup location' : label,
-      hintStyle: context.type.body.copyWith(color: editing ? RidoColors.navy500 : RidoColors.navy900),
-      contentPadding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.l),
+      hintStyle: context.type.body.copyWith(color: editing ? TtColors.navy500 : TtColors.navy900),
+      contentPadding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.l),
       suffixIcon: IconButton(
         tooltip: 'Use current location',
         onPressed: onLocate,
-        icon: const Icon(Symbols.my_location_rounded, color: RidoColors.navy500),
+        icon: const Icon(Symbols.my_location_rounded, color: TtColors.navy500),
       ),
     ),
   );
@@ -429,21 +429,21 @@ class _PillButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    final fg = enabled ? RidoColors.navy900 : RidoColors.navy300;
+    final fg = enabled ? TtColors.navy900 : TtColors.navy300;
     return Material(
-      color: RidoColors.surface,
-      shape: StadiumBorder(side: BorderSide(color: enabled ? RidoColors.divider : RidoColors.inputBg)),
+      color: TtColors.surface,
+      shape: StadiumBorder(side: BorderSide(color: enabled ? TtColors.divider : TtColors.inputBg)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
           height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l),
+          padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 20, color: enabled ? RidoColors.coral600 : RidoColors.navy300),
-              const SizedBox(width: RidoSpacing.s),
+              Icon(icon, size: 20, color: enabled ? TtColors.coral600 : TtColors.navy300),
+              const SizedBox(width: TtSpacing.s),
               Text(label, style: context.type.bodySemibold.copyWith(color: fg)),
             ],
           ),

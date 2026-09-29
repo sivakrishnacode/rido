@@ -258,7 +258,7 @@ export class NotifierService {
   }
 
   /**
-   * SOS (or "Get help" / "not reached safely") → every admin's phone (the Rido apps an admin number is signed in to;
+   * SOS (or "Get help" / "not reached safely") → every admin's phone (the Tamil Taxi apps an admin number is signed in to;
    * the admin web panel has no push and polls its SOS page). Urgent, on the `safety` channel.
    */
   sosAlert(params: { sosId: string; tripId: string; who: 'PASSENGER' | 'DRIVER'; name: string | null; source: string; lat: number | null; lng: number | null }): Promise<void> {

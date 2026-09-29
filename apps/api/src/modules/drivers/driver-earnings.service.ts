@@ -9,7 +9,7 @@ export type EarningsPeriod = (typeof EARNINGS_PERIODS)[number];
 
 const DAY_MS = 86_400_000;
 const IST_MS = 5.5 * 3600_000;
-/** Commission apps take about 30% of fares; Rido takes none (drivers pay a flat plan). */
+/** Commission apps take about 30% of fares; Tamil Taxi takes none (drivers pay a flat plan). */
 const COMMISSION_RATE = 0.3;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const HOUR_BUCKETS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
@@ -126,7 +126,7 @@ export class DriverEarningsService {
         paymentMode: t.paymentMode,
         distanceKm: t.distanceKm,
         durationMin: t.startedAt && t.endedAt ? Math.max(1, Math.round((t.endedAt.getTime() - t.startedAt.getTime()) / 60_000)) : t.durationMin,
-        passengerName: t.passenger.name ?? 'Rido customer',
+        passengerName: t.passenger.name ?? 'Tamil Taxi customer',
         isDelivery: t.kind === 'PARCEL',
       })),
     };

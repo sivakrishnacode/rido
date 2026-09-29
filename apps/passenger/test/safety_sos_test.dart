@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/features/ride/p17_sos_screen.dart';
-import 'package:rido_passenger/state/ride_flow.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/ride/p17_sos_screen.dart';
+import 'package:tamiltaxi_passenger/state/ride_flow.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/fake_safety.dart';
 import 'support/harness.dart';
@@ -29,7 +29,7 @@ Future<void> _pump(WidgetTester tester, FakeSafety safety, {RideFlowState? ride}
       liveSafetyProvider.overrideWithValue(safety),
       rideFlowProvider.overrideWith(() => _FixedRide(ride ?? _ride)),
     ],
-    child: MaterialApp(theme: RidoTheme.light(), home: const P17SosScreen()),
+    child: MaterialApp(theme: TtTheme.light(), home: const P17SosScreen()),
   ));
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
@@ -37,18 +37,18 @@ Future<void> _pump(WidgetTester tester, FakeSafety safety, {RideFlowState? ride}
 }
 
 void main() {
-  testWidgets('opening SOS during a trip alerts the Rido safety team through the API', (tester) async {
+  testWidgets('opening SOS during a trip alerts the Tamil Taxi safety team through the API', (tester) async {
     final safety = FakeSafety();
     await _pump(tester, safety);
     expect(safety.sosCalls.map((c) => c.tripId), ['trip1']);
-    expect(find.text('Rido safety team has been alerted'), findsOneWidget);
+    expect(find.text('Tamil Taxi safety team has been alerted'), findsOneWidget);
     expect(find.text('Call 112'), findsOneWidget);
   });
 
   testWidgets('offline: says so, keeps Call 112 and texting, and Try again sends it', (tester) async {
     final safety = FakeSafety(failSos: true);
     await _pump(tester, safety);
-    expect(find.text("Couldn't reach Rido"), findsOneWidget);
+    expect(find.text("Couldn't reach Tamil Taxi"), findsOneWidget);
     expect(find.text('Call 112'), findsOneWidget);
 
     safety.failSos = false;
@@ -56,7 +56,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(safety.sosCalls, hasLength(2));
-    expect(find.text('Rido safety team has been alerted'), findsOneWidget);
+    expect(find.text('Tamil Taxi safety team has been alerted'), findsOneWidget);
   });
 
   testWidgets('no active trip: nothing to raise it on, the phone options stay', (tester) async {
@@ -69,9 +69,9 @@ void main() {
   group('sosSmsBody', () {
     const at = LatLng(11.01834, 76.97251);
     test('carries the live tracking link during a trip', () {
-      final body = sosSmsBody(me: 'Priya', ride: _ride, at: at, liveUrl: 'https://admin.rido.test/track/t1');
+      final body = sosSmsBody(me: 'Priya', ride: _ride, at: at, liveUrl: 'https://admin.tamiltaxi.test/track/t1');
       expect(body, startsWith('SOS from Priya. I need help.'));
-      expect(body, contains('Track live: https://admin.rido.test/track/t1'));
+      expect(body, contains('Track live: https://admin.tamiltaxi.test/track/t1'));
       expect(body, isNot(contains('maps.google.com')));
     });
 

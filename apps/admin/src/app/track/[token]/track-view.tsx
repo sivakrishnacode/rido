@@ -5,7 +5,7 @@ import { ClockIcon, MapPinOffIcon, NavigationIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { PlateBadge } from "@/components/common/status";
-import { RidoMap } from "@/components/map/google/rido-map";
+import { TtMap } from "@/components/map/google/tamiltaxi-map";
 import { Card, CardContent } from "@/components/ui/card";
 import { TRACK_POLL_MS, trackModel, type ShareResult, type TrackModel } from "@/lib/track";
 import { cn } from "@/lib/utils";
@@ -119,9 +119,9 @@ export function TrackView({ token, initial }: { token: string; initial: ShareRes
 
   return (
     <>
-      <RidoMap center={model.vehicle ?? model.pickup} zoom={14} className="h-[55dvh] min-h-72">
+      <TtMap center={model.vehicle ?? model.pickup} zoom={14} className="h-[55dvh] min-h-72">
         <TripLayer model={model} />
-      </RidoMap>
+      </TtMap>
       <Card>
         <CardContent className="space-y-3 py-4">
           <div className="flex items-start justify-between gap-3">

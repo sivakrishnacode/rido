@@ -4,10 +4,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/jobs/widgets/request_stack_view.dart';
-import 'package:rido_driver/overlay/overlay_protocol.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/jobs/widgets/request_stack_view.dart';
+import 'package:tamiltaxi_driver/overlay/overlay_protocol.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 void main() {
   group('backgroundSurfaceFor', () {
@@ -84,7 +84,7 @@ void main() {
     final r = Seed.rideRequest;
     final soon = DateTime.now().add(const Duration(seconds: 10));
     await tester.pumpWidget(MaterialApp(
-      theme: RidoTheme.light(),
+      theme: TtTheme.light(),
       home: RequestStackView(
         entries: [(request: r, expiresAt: soon)],
         showVoiceToggle: false,

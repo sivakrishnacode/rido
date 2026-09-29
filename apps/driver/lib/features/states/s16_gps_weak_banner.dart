@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// S-16 GPS weak / location off while online: red full-width strip under the header,
 /// "GPS signal lost. Riders can't see you" with "Fix now" ([onFix]: the live app restarts GPS, or opens location settings when it's off).
@@ -16,23 +16,23 @@ class S16GpsWeakBanner extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       child: Material(
-        color: RidoColors.error,
+        color: TtColors.error,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.m, RidoSpacing.m, RidoSpacing.m),
+          padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.m, TtSpacing.m, TtSpacing.m),
           child: Row(
             children: [
               const Icon(Symbols.location_disabled_rounded, color: Colors.white, size: 28),
-              const SizedBox(width: RidoSpacing.m),
+              const SizedBox(width: TtSpacing.m),
               Expanded(
                 child: Text("GPS signal lost. Riders can't see you",
                     style: t.bodySemibold.copyWith(color: Colors.white)),
               ),
-              const SizedBox(width: RidoSpacing.s),
+              const SizedBox(width: TtSpacing.s),
               FilledButton(
-                onPressed: onFix ?? () => showRidoSnack(context, 'Opening location settings'),
+                onPressed: onFix ?? () => showTtSnack(context, 'Opening location settings'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: RidoColors.surface,
-                  foregroundColor: RidoColors.error,
+                  backgroundColor: TtColors.surface,
+                  foregroundColor: TtColors.error,
                   minimumSize: const Size(48, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   textStyle: t.bodySemibold,

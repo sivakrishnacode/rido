@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/phone.dart';
 import '../../state/passenger_session.dart';
@@ -21,12 +21,12 @@ class P24EmergencyContactsScreen extends ConsumerWidget {
     final profile = ref.read(passengerProfileProvider.notifier);
     final removed = await profile.removeContact(c.id);
     if (!context.mounted || !removed) return;
-    showRidoSnack(context, '${c.name} removed', actionLabel: 'Undo', onAction: () => profile.addContact(c));
+    showTtSnack(context, '${c.name} removed', actionLabel: 'Undo', onAction: () => profile.addContact(c));
   }
 
   Future<void> _add(BuildContext context) async {
     final added = await P24bAddContactSheet.show(context);
-    if (added != null && context.mounted) showRidoSnack(context, '${added.name} added', success: true);
+    if (added != null && context.mounted) showTtSnack(context, '${added.name} added', success: true);
   }
 
   @override
@@ -37,7 +37,7 @@ class P24EmergencyContactsScreen extends ConsumerWidget {
     final left = maxContacts - contacts.length;
 
     return Scaffold(
-      appBar: const RidoAppBar(
+      appBar: const TtAppBar(
         title: 'Emergency contacts',
         bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1)),
       ),
@@ -45,38 +45,38 @@ class P24EmergencyContactsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           Text("We'll send them your live location if you press SOS. Add up to 3 people.",
-              style: t.body.copyWith(color: RidoColors.navy700)),
+              style: t.body.copyWith(color: TtColors.navy700)),
           const SizedBox(height: 16),
           if (contacts.isEmpty)
-            RidoCard(
+            TtCard(
               child: Row(children: [
-                const Icon(Symbols.group_add_rounded, color: RidoColors.navy500),
+                const Icon(Symbols.group_add_rounded, color: TtColors.navy500),
                 const SizedBox(width: 12),
                 Expanded(child: Text('No contacts yet. Add someone you trust.', style: t.bodySmall)),
               ]),
             )
           else
-            RidoListGroup(children: [
+            TtListGroup(children: [
               for (final c in contacts)
                 Dismissible(
                   key: ValueKey(c.id),
                   direction: DismissDirection.endToStart,
                   background: Container(
-                    color: RidoColors.errorTint,
+                    color: TtColors.errorTint,
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 20),
-                    child: const Icon(Symbols.delete_rounded, color: RidoColors.error),
+                    child: const Icon(Symbols.delete_rounded, color: TtColors.error),
                   ),
                   onDismissed: (_) => _remove(context, ref, c),
                   child: _ContactTile(
                     contact: c,
-                    onCall: () => showRidoSnack(context, 'Calling ${c.name}'),
+                    onCall: () => showTtSnack(context, 'Calling ${c.name}'),
                     onRemove: () => _remove(context, ref, c),
                   ),
                 ),
             ]),
           const SizedBox(height: 16),
-          RidoButton.secondary(
+          TtButton.secondary(
             label: 'Add contact',
             icon: Symbols.person_add_rounded,
             onPressed: left > 0 ? () => _add(context) : null,
@@ -86,12 +86,12 @@ class P24EmergencyContactsScreen extends ConsumerWidget {
             left > 0
                 ? 'You can add $left more'
                 : "You've added 3 contacts. Remove one to add someone else.",
-            style: t.bodySmall.copyWith(color: RidoColors.navy500),
+            style: t.bodySmall.copyWith(color: TtColors.navy500),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
           MergeSemantics(
-            child: RidoCard(
+            child: TtCard(
               onTap: () => ref.read(passengerProfileProvider.notifier).setAutoShare(!p.autoShareTrips),
               child: Row(
                 children: [
@@ -102,7 +102,7 @@ class P24EmergencyContactsScreen extends ConsumerWidget {
                         Text('Auto-share every trip with these contacts', style: t.bodySemibold.copyWith(fontSize: 17)),
                         const SizedBox(height: 2),
                         Text('They get a live link when each ride starts.',
-                            style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                            style: t.bodySmall.copyWith(color: TtColors.navy500)),
                       ],
                     ),
                   ),
@@ -134,7 +134,7 @@ class _ContactTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
       child: Row(
         children: [
-          RidoAvatar(initials: contact.name.substring(0, 1).toUpperCase(), size: 44),
+          TtAvatar(initials: contact.name.substring(0, 1).toUpperCase(), size: 44),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -148,19 +148,19 @@ class _ContactTile extends StatelessWidget {
                     Text(contact.name, style: t.bodySemibold.copyWith(fontSize: 17)),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.pillRadius),
-                      child: Text(contact.relation, style: t.caption.copyWith(color: RidoColors.navy700)),
+                      decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.pillRadius),
+                      child: Text(contact.relation, style: t.caption.copyWith(color: TtColors.navy700)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(displayPhone(contact.phone), style: RidoTextStyles.tabular(t.body.copyWith(color: RidoColors.navy500))),
+                Text(displayPhone(contact.phone), style: TtTextStyles.tabular(t.body.copyWith(color: TtColors.navy500))),
               ],
             ),
           ),
           PopupMenuButton<String>(
             tooltip: 'Options for ${contact.name}',
-            icon: const Icon(Symbols.more_vert_rounded, color: RidoColors.navy500),
+            icon: const Icon(Symbols.more_vert_rounded, color: TtColors.navy500),
             onSelected: (v) => v == 'call' ? onCall() : onRemove(),
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'call', child: Text('Call')),

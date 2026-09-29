@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../router/routes.dart';
@@ -46,7 +46,7 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
       try {
         await action();
       } on Exception catch (e) {
-        if (mounted) showRidoSnack(context, userMessage(e));
+        if (mounted) showTtSnack(context, userMessage(e));
       }
       if (mounted) setState(() => _busy = false);
     }
@@ -115,11 +115,11 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
         if (!didPop) confirmLeaveJob(context, delivery: true);
       },
       child: Scaffold(
-        backgroundColor: RidoColors.background,
+        backgroundColor: TtColors.background,
         body: Column(
           children: [
             NavyHeader(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.s, RidoSpacing.gutter, RidoSpacing.m),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.gutter, TtSpacing.m),
               child: Row(children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -131,15 +131,15 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
                       phase == JobPhase.atPickup ? place.name : '${place.name} · $eta min',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: RidoTextStyles.tabular(t.h2.copyWith(color: Colors.white)),
+                      style: TtTextStyles.tabular(t.h2.copyWith(color: Colors.white)),
                     ),
                   ]),
                 ),
-                const SizedBox(width: RidoSpacing.s),
+                const SizedBox(width: TtSpacing.s),
                 NavigatePill(
                   onDark: true,
                   onPressed: () =>
-                      _api ? openNavigation(context, place.location) : showRidoSnack(context, 'Opening Google Maps'),
+                      _api ? openNavigation(context, place.location) : showTtSnack(context, 'Opening Google Maps'),
                 ),
               ]),
             ),
@@ -160,47 +160,47 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
               handle: true,
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
                 StepperTimeline(steps: _steps, currentIndex: stepIndex),
-                const Divider(height: RidoSpacing.xl),
+                const Divider(height: TtSpacing.xl),
                 Row(children: [
-                  RidoAvatar(initials: initialsOf(contactName), size: 52),
-                  const SizedBox(width: RidoSpacing.m),
+                  TtAvatar(initials: initialsOf(contactName), size: 52),
+                  const SizedBox(width: TtSpacing.m),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(contactName, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                       Text(contactNote, style: t.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                     ]),
                   ),
-                  const SizedBox(width: RidoSpacing.s),
-                  RidoButton(
+                  const SizedBox(width: TtSpacing.s),
+                  TtButton(
                     label: 'Call',
                     icon: Symbols.call_rounded,
                     expand: false,
                     semanticLabel: 'Call $contactName',
                     onPressed: () => _api
                         ? dialNumber(context, contactPhone, name: contactName)
-                        : showRidoSnack(context, 'Calling ${contactName.split(' ').first} (number hidden)'),
+                        : showTtSnack(context, 'Calling ${contactName.split(' ').first} (number hidden)'),
                   ),
                 ]),
-                const SizedBox(height: RidoSpacing.m),
-                Wrap(spacing: RidoSpacing.s, runSpacing: RidoSpacing.s, children: [
+                const SizedBox(height: TtSpacing.m),
+                Wrap(spacing: TtSpacing.s, runSpacing: TtSpacing.s, children: [
                   if (parcel != null)
                     _Chip(
                       icon: Symbols.checkroom_rounded,
                       text: '${parcel.category.label} · ${parcel.weight.label}',
-                      bg: RidoColors.inputBg,
-                      fg: RidoColors.navy700,
+                      bg: TtColors.inputBg,
+                      fg: TtColors.navy700,
                     ),
                   _Chip(
                     text: byReceiver ? 'Collect ${formatInr(_job.fare)} from receiver' : 'Collect ${formatInr(_job.fare)} from sender',
-                    bg: RidoColors.warningTint,
-                    fg: RidoColors.warningText,
+                    bg: TtColors.warningTint,
+                    fg: TtColors.warningText,
                   ),
                 ]),
                 if (phase == JobPhase.atPickup && waiting != null) ...[
-                  const SizedBox(height: RidoSpacing.m),
+                  const SizedBox(height: TtSpacing.m),
                   WaitingTimerChip(terms: waiting, isTicking: live),
                 ],
-                const SizedBox(height: RidoSpacing.l),
+                const SizedBox(height: TtSpacing.l),
                 SwipeToConfirm(
                   key: ValueKey('swipe-$phase'),
                   label: swipeLabel,
@@ -225,8 +225,8 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: 6),
-        decoration: BoxDecoration(color: bg, borderRadius: RidoRadii.pillRadius),
+        padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: 6),
+        decoration: BoxDecoration(color: bg, borderRadius: TtRadii.pillRadius),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[Icon(icon, size: 18, color: fg), const SizedBox(width: 6)],
           Flexible(child: Text(text, style: context.type.bodySmallMedium.copyWith(color: fg, fontWeight: FontWeight.w600))),

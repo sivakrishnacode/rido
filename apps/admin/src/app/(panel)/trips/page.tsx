@@ -45,7 +45,7 @@ export default async function TripsPage({ searchParams }: PageProps<"/trips">) {
           <EmptyState
             icon={RouteIcon}
             title={isFiltered ? "No trips match" : "No trips yet"}
-            description={isFiltered ? "Try a different search or filter." : "Bookings from the Rido app appear here."}
+            description={isFiltered ? "Try a different search or filter." : "Bookings from the Tamil Taxi app appear here."}
           />
         ) : (
           <Table>

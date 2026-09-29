@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -24,11 +24,11 @@ class D24PlanScreen extends ConsumerWidget {
   Future<void> _run(BuildContext context, Future<void> Function() action, String done) async {
     try {
       await action();
-      if (context.mounted) showRidoSnack(context, done, success: true);
+      if (context.mounted) showTtSnack(context, done, success: true);
     } on OfflineException {
-      if (context.mounted) showRidoSnack(context, "You're offline. Try again.");
+      if (context.mounted) showTtSnack(context, "You're offline. Try again.");
     } on ApiException catch (e) {
-      if (context.mounted) showRidoSnack(context, e.message);
+      if (context.mounted) showTtSnack(context, e.message);
     }
   }
 
@@ -44,19 +44,19 @@ class D24PlanScreen extends ConsumerWidget {
 
     if (plan == null) {
       return Scaffold(
-        backgroundColor: RidoColors.background,
+        backgroundColor: TtColors.background,
         body: Column(children: [
           _header(t),
           const Expanded(
             child: SkeletonShimmer(
               child: Padding(
-                padding: EdgeInsets.all(RidoSpacing.gutter),
+                padding: EdgeInsets.all(TtSpacing.gutter),
                 child: Column(children: [
-                  SkeletonBox(height: 200, radius: RidoRadii.card),
-                  SizedBox(height: RidoSpacing.m),
-                  SkeletonBox(height: 80, radius: RidoRadii.card),
-                  SizedBox(height: RidoSpacing.m),
-                  SkeletonBox(height: 140, radius: RidoRadii.card),
+                  SkeletonBox(height: 200, radius: TtRadii.card),
+                  SizedBox(height: TtSpacing.m),
+                  SkeletonBox(height: 80, radius: TtRadii.card),
+                  SizedBox(height: TtSpacing.m),
+                  SkeletonBox(height: 140, radius: TtRadii.card),
                 ]),
               ),
             ),
@@ -72,7 +72,7 @@ class D24PlanScreen extends ConsumerWidget {
     void pay() => context.push(Routes.autopay(purpose: 'pay'));
 
     Future<void> pause() async {
-      final ok = await showRidoConfirm(
+      final ok = await showTtConfirm(
         context,
         title: 'Pause your plan?',
         message: "You can't go online while paused. No auto-debits until you resume.",
@@ -84,7 +84,7 @@ class D24PlanScreen extends ConsumerWidget {
     }
 
     Future<void> cancel() async {
-      final ok = await showRidoConfirm(
+      final ok = await showTtConfirm(
         context,
         title: 'Cancel your plan?',
         message: 'Your plan stays active till $end. No more auto-debits after that.',
@@ -107,11 +107,11 @@ class D24PlanScreen extends ConsumerWidget {
     final (String caption, String headline) = switch (status) {
       PlanStatus.trial || PlanStatus.active => ('Next auto-debit', '$priceText on $end'),
       PlanStatus.grace => ('Payment failed · ${plan.graceDaysLeft} days left', 'Pay $priceText by ${formatDate(plan.nextDebit.add(Duration(days: plan.graceDaysLeft)))}'),
-      PlanStatus.expired => ('Plan expired on ${formatDate(RidoClock.today)}', 'Renew to go online'),
-      PlanStatus.paused => ('Paused on ${formatDate(RidoClock.today)}', '30 trial days saved for later'),
+      PlanStatus.expired => ('Plan expired on ${formatDate(TtClock.today)}', 'Renew to go online'),
+      PlanStatus.paused => ('Paused on ${formatDate(TtClock.today)}', '30 trial days saved for later'),
       PlanStatus.cancelled => ('Cancelled, active till', end),
     };
-    final statusCard = RidoCard(
+    final statusCard = TtCard(
       shadow: true,
       borderColor: null,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -120,72 +120,72 @@ class D24PlanScreen extends ConsumerWidget {
           if (status == PlanStatus.trial) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.pillRadius),
-              child: Text('Free trial', style: t.caption.copyWith(color: RidoColors.coral600, fontWeight: FontWeight.w600)),
+              decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.pillRadius),
+              child: Text('Free trial', style: t.caption.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w600)),
             ),
-            const SizedBox(width: RidoSpacing.s),
+            const SizedBox(width: TtSpacing.s),
           ],
           StatusPill(pillKind, label: pillLabel, large: true),
         ]),
-        const SizedBox(height: RidoSpacing.l),
-        Text(caption, style: t.body.copyWith(color: RidoColors.navy500)),
-        Text(headline, style: RidoTextStyles.tabular(t.h1)),
-        const SizedBox(height: RidoSpacing.l),
+        const SizedBox(height: TtSpacing.l),
+        Text(caption, style: t.body.copyWith(color: TtColors.navy500)),
+        Text(headline, style: TtTextStyles.tabular(t.h1)),
+        const SizedBox(height: TtSpacing.l),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.m),
-          decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.cardRadius),
+          padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.m),
+          decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.cardRadius),
           child: Row(children: [
             if (status == PlanStatus.cancelled)
-              const Icon(Symbols.event_busy_rounded, color: RidoColors.navy700)
+              const Icon(Symbols.event_busy_rounded, color: TtColors.navy700)
             else
               Container(
                 width: 30,
                 height: 30,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: RidoColors.surface,
+                  color: TtColors.surface,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: RidoColors.divider),
+                  border: Border.all(color: TtColors.divider),
                 ),
-                child: Text(plan.upiApp.substring(0, 1), style: t.caption.copyWith(fontWeight: FontWeight.w700, color: RidoColors.navy900)),
+                child: Text(plan.upiApp.substring(0, 1), style: t.caption.copyWith(fontWeight: FontWeight.w700, color: TtColors.navy900)),
               ),
-            const SizedBox(width: RidoSpacing.m),
+            const SizedBox(width: TtSpacing.m),
             Expanded(
               child: Text(status == PlanStatus.cancelled ? 'No more auto-debits' : 'UPI Autopay: ${plan.upiApp}',
                   style: t.body),
             ),
             if (status == PlanStatus.paused)
-              Text('Paused', style: t.bodySmallMedium.copyWith(color: RidoColors.navy500))
+              Text('Paused', style: t.bodySmallMedium.copyWith(color: TtColors.navy500))
             else
-              const Icon(Symbols.check_circle_rounded, color: RidoColors.success, fill: 1),
+              const Icon(Symbols.check_circle_rounded, color: TtColors.success, fill: 1),
           ]),
         ),
       ]),
     );
 
     final savings = Container(
-      padding: const EdgeInsets.all(RidoSpacing.l),
-      decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.cardRadius),
+      padding: const EdgeInsets.all(TtSpacing.l),
+      decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
       child: Row(children: [
-        const Icon(Symbols.savings_rounded, color: RidoColors.coral600, fill: 1, size: 32),
-        const SizedBox(width: RidoSpacing.m),
+        const Icon(Symbols.savings_rounded, color: TtColors.coral600, fill: 1, size: 32),
+        const SizedBox(width: TtSpacing.m),
         Expanded(
           child: Text(
               live
                   ? 'This month you saved ~${formatInr(monthSaved ?? 0)} in commission'
                   : 'Since joining, you saved ~${formatInr(Seed.lifetimeCommissionSaved)} in commission',
-              style: RidoTextStyles.tabular(t.bodySemibold)),
+              style: TtTextStyles.tabular(t.bodySemibold)),
         ),
       ]),
     );
 
     final history = [
       const SectionLabel('Payment history'),
-      RidoCard(
+      TtCard(
         padding: EdgeInsets.zero,
         child: payments == null
             ? const Padding(
-                padding: EdgeInsets.all(RidoSpacing.l),
+                padding: EdgeInsets.all(TtSpacing.l),
                 child: SkeletonShimmer(child: SkeletonBox(height: 48)),
               )
             : Column(children: [
@@ -202,91 +202,91 @@ class D24PlanScreen extends ConsumerWidget {
     switch (status) {
       case PlanStatus.paused:
         content = [
-          const RidoBanner(
-            type: RidoBannerType.info,
+          const TtBanner(
+            type: TtBannerType.info,
             title: "You can't go online while paused",
             message: 'No auto-debits until you resume.',
           ),
         ];
         actions = [
-          RidoButton(
+          TtButton(
             label: 'Resume plan',
             icon: Symbols.play_circle_rounded,
             onPressed: () => _run(context, notifier.resume, 'Plan resumed. You can go online.'),
           ),
-          const SizedBox(height: RidoSpacing.s),
-          Center(child: RidoButton(label: 'Cancel plan', variant: RidoButtonVariant.dangerText, expand: false, onPressed: cancel)),
+          const SizedBox(height: TtSpacing.s),
+          Center(child: TtButton(label: 'Cancel plan', variant: TtButtonVariant.dangerText, expand: false, onPressed: cancel)),
         ];
       case PlanStatus.cancelled:
         content = [
-          RidoBanner(
-            type: RidoBannerType.success,
+          TtBanner(
+            type: TtBannerType.success,
             title: 'You can still go online until $end',
             message: 'Keep 100% of every fare till then.',
           ),
-          const SizedBox(height: RidoSpacing.m),
+          const SizedBox(height: TtSpacing.m),
           savings,
         ];
         actions = [
-          RidoButton(
+          TtButton(
             label: 'Restart plan · $priceText/month',
             onPressed: () => _run(context, notifier.resume, 'Plan restarted. Auto-debit resumes on $end.'),
           ),
         ];
       case PlanStatus.grace || PlanStatus.expired:
         content = [
-          RidoBanner(
-            type: status == PlanStatus.grace ? RidoBannerType.warning : RidoBannerType.error,
+          TtBanner(
+            type: status == PlanStatus.grace ? TtBannerType.warning : TtBannerType.error,
             title: status == PlanStatus.grace
                 ? 'Payment failed. ${plan.graceDaysLeft} days left to renew.'
                 : 'Plan expired. Renew to go online again',
             message: status == PlanStatus.grace ? 'You can still go online.' : 'Your ratings and documents are saved.',
           ),
-          const SizedBox(height: RidoSpacing.m),
+          const SizedBox(height: TtSpacing.m),
           savings,
           ...history,
         ];
         actions = [
-          RidoButton(label: status == PlanStatus.grace ? 'Pay $priceText now' : 'Renew $priceText', onPressed: pay),
-          const SizedBox(height: RidoSpacing.s),
-          RidoButton.secondary(label: 'Change UPI app', onPressed: () => context.push(Routes.autopay(purpose: 'change'))),
+          TtButton(label: status == PlanStatus.grace ? 'Pay $priceText now' : 'Renew $priceText', onPressed: pay),
+          const SizedBox(height: TtSpacing.s),
+          TtButton.secondary(label: 'Change UPI app', onPressed: () => context.push(Routes.autopay(purpose: 'change'))),
         ];
       case PlanStatus.trial || PlanStatus.active:
         content = [savings, ...history];
         actions = [
           Row(children: [
             Expanded(
-              child: RidoButton.secondary(
+              child: TtButton.secondary(
                 label: 'Change UPI app',
                 onPressed: () => context.push(Routes.autopay(purpose: 'change')),
               ),
             ),
-            const SizedBox(width: RidoSpacing.m),
-            Expanded(child: RidoButton.secondary(label: 'Pause plan', onPressed: pause)),
+            const SizedBox(width: TtSpacing.m),
+            Expanded(child: TtButton.secondary(label: 'Pause plan', onPressed: pause)),
           ]),
-          const SizedBox(height: RidoSpacing.s),
-          Center(child: RidoButton(label: 'Cancel plan', variant: RidoButtonVariant.dangerText, expand: false, onPressed: cancel)),
+          const SizedBox(height: TtSpacing.s),
+          Center(child: TtButton(label: 'Cancel plan', variant: TtButtonVariant.dangerText, expand: false, onPressed: cancel)),
         ];
     }
 
     return Scaffold(
-      backgroundColor: RidoColors.background,
+      backgroundColor: TtColors.background,
       body: Column(children: [
         _header(t),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.only(bottom: RidoSpacing.l),
+            padding: const EdgeInsets.only(bottom: TtSpacing.l),
             children: [
               // The status card overlaps the bottom of the navy header.
               Stack(children: [
-                Container(height: 112, color: RidoColors.navy900),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.gutter), child: statusCard),
+                Container(height: 112, color: TtColors.navy900),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: TtSpacing.gutter), child: statusCard),
               ]),
               Padding(
-                padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, 0),
+                padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, 0),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   ...content,
-                  const SizedBox(height: RidoSpacing.xl),
+                  const SizedBox(height: TtSpacing.xl),
                   ...actions,
                 ]),
               ),
@@ -297,8 +297,8 @@ class D24PlanScreen extends ConsumerWidget {
     );
   }
 
-  Widget _header(RidoTextStyles t) => NavyHeader(
-        padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, RidoSpacing.l),
+  Widget _header(TtTextStyles t) => NavyHeader(
+        padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.l),
         child: Row(children: [
           Expanded(child: Text('Plan', style: t.display.copyWith(color: Colors.white))),
           const CommissionBadge(large: true),
@@ -317,32 +317,32 @@ class _PaymentRow extends StatelessWidget {
     final (String sub, Widget trailing) = switch (record.status) {
       PaymentRecordStatus.freeTrial => (
           'Free trial',
-          Text(formatInr(0), style: RidoTextStyles.tabular(t.bodySemibold.copyWith(color: RidoColors.successText))),
+          Text(formatInr(0), style: TtTextStyles.tabular(t.bodySemibold.copyWith(color: TtColors.successText))),
         ),
       PaymentRecordStatus.paid => (
           '$upiApp Autopay · ${formatShortDate(record.date).split(' ').reversed.join(' ')}',
           Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(formatInr(record.amount), style: RidoTextStyles.tabular(t.bodySemibold)),
-            const SizedBox(width: RidoSpacing.m),
+            Text(formatInr(record.amount), style: TtTextStyles.tabular(t.bodySemibold)),
+            const SizedBox(width: TtSpacing.m),
             const StatusPill(StatusKind.paid),
           ]),
         ),
       PaymentRecordStatus.failed => (
           'Payment failed',
           Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(formatInr(record.amount), style: RidoTextStyles.tabular(t.bodySemibold)),
-            const SizedBox(width: RidoSpacing.m),
+            Text(formatInr(record.amount), style: TtTextStyles.tabular(t.bodySemibold)),
+            const SizedBox(width: TtSpacing.m),
             const StatusPill(StatusKind.rejected, label: 'Failed'),
           ]),
         ),
     };
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.m),
+      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.m),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(record.label, style: t.h2),
-            Text(sub, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+            Text(sub, style: t.bodySmall.copyWith(color: TtColors.navy500)),
           ]),
         ),
         trailing,

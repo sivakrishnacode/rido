@@ -21,6 +21,6 @@ export async function GET(request: NextRequest) {
     if (!res.ok) return NextResponse.json({ message: (body as { message?: unknown })?.message ?? `Heatmap failed (${res.status})` }, { status: res.status });
     return NextResponse.json(body, { headers: { "cache-control": "no-store" } });
   } catch {
-    return NextResponse.json({ message: "Cannot reach the Rido API" }, { status: 503 });
+    return NextResponse.json({ message: "Cannot reach the Tamil Taxi API" }, { status: 503 });
   }
 }

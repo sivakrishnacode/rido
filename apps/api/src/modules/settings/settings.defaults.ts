@@ -113,9 +113,9 @@ export const SETTING_DEFAULTS = {
   /** UPI ID that receives contributions (empty = the contribute page shows no pay button). */
   contributeUpiId: '',
   /** Name shown in the UPI app for [contributeUpiId]. */
-  contributePayeeName: 'Rido',
+  contributePayeeName: 'Tamil Taxi',
   /** Message at the top of the contribute page. */
-  contributeNote: 'Rido is free for drivers and riders: 0% commission and no subscription. Contributions pay for the servers, maps and SMS that keep it running.',
+  contributeNote: 'Tamil Taxi is free for drivers and riders: 0% commission and no subscription. Contributions pay for the servers, maps and SMS that keep it running.',
   /** Monthly running cost in rupees, shown on the contribute page as a total with this breakdown (all 0 = hidden). */
   costServersInr: 0,
   costMapsInr: 0,

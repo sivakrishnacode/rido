@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds one release APK per app into ./dist: dist/rido-passenger.apk and dist/rido-driver.apk (same result as
+# Builds one release APK per app into ./dist: dist/tamiltaxi-passenger.apk and dist/tamiltaxi-driver.apk (same result as
 # `npm run build:apk`, no Node needed). Each APK runs on every Android phone (arm64 + 32-bit arm; the x86_64
 # emulator build is left out to keep it smaller). Older APKs of that app in dist/ are deleted first.
 #
@@ -32,8 +32,8 @@ for app in "${APPS[@]}"; do
   cd "$ROOT/apps/$app"
   sh "$FL" pub get >/dev/null
   sh "$FL" build apk --release --target-platform android-arm,android-arm64
-  rm -f "$ROOT"/dist/rido-"$app"*.apk
-  out="$ROOT/dist/rido-$app.apk"
+  rm -f "$ROOT"/dist/tamiltaxi-"$app"*.apk
+  out="$ROOT/dist/tamiltaxi-$app.apk"
   cp build/app/outputs/flutter-apk/app-release.apk "$out"
   # Check the map SDK key made it into the manifest.
   if [ -n "$AAPT" ]; then

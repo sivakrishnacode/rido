@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../state/request_voice.dart';
 
@@ -17,9 +17,9 @@ class RequestVoiceToggle extends ConsumerWidget {
     return IconButton(
       tooltip: on ? 'Voice on. Tap to mute' : 'Voice off. Tap to read requests aloud',
       onPressed: () => ref.read(requestVoiceProvider.notifier).setEnabled(!on),
-      style: IconButton.styleFrom(backgroundColor: dark ? RidoColors.coral700 : RidoColors.inputBg),
+      style: IconButton.styleFrom(backgroundColor: dark ? TtColors.coral700 : TtColors.inputBg),
       icon: Icon(on ? Symbols.volume_up_rounded : Symbols.volume_off_rounded,
-          color: dark ? Colors.white : RidoColors.navy900, fill: 1),
+          color: dark ? Colors.white : TtColors.navy900, fill: 1),
     );
   }
 }

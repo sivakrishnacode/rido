@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../router/routes.dart';
 
@@ -22,7 +22,7 @@ void popOrHome(BuildContext context) {
 /// Back during an active job: "Leave this screen? Your trip continues." → Home, where the
 /// D-14b banner reopens the job.
 Future<void> confirmLeaveJob(BuildContext context, {bool delivery = false}) async {
-  final leave = await showRidoConfirm(
+  final leave = await showTtConfirm(
     context,
     title: 'Leave this screen?',
     message: delivery ? 'Your delivery continues. Reopen it from Home.' : 'Your trip continues. Reopen it from Home.',
@@ -48,8 +48,8 @@ class RoundIconButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
-    this.background = RidoColors.coral50,
-    this.foreground = RidoColors.coral600,
+    this.background = TtColors.coral50,
+    this.foreground = TtColors.coral600,
     this.size = 56,
   });
 
@@ -86,10 +86,10 @@ class NavigatePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: onDark ? RidoColors.navy700 : RidoColors.navy900,
+        color: onDark ? TtColors.navy700 : TtColors.navy900,
         shape: const StadiumBorder(),
         elevation: onDark ? 0 : 4,
-        shadowColor: RidoColors.shadow,
+        shadowColor: TtColors.shadow,
         child: InkWell(
           customBorder: const StadiumBorder(),
           onTap: onPressed,
@@ -99,7 +99,7 @@ class NavigatePill extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Symbols.near_me_rounded, color: Colors.white, fill: 1, size: 22),
-                const SizedBox(width: RidoSpacing.s),
+                const SizedBox(width: TtSpacing.s),
                 Text('Navigate', style: context.type.bodySemibold.copyWith(color: Colors.white)),
               ]),
             ),

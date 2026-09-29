@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -27,7 +27,7 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
     final pay = purpose == 'pay';
     final plan = showcase ? Seed.plan() : (ref.watch(planProvider).value ?? Seed.plan());
     final upi = showcase ? Seed.karthik.upiId : (ref.watch(driverProfileProvider).value?.upiId ?? Seed.karthik.upiId);
-    final daysLeft = plan.nextDebit.difference(RidoClock.today).inDays;
+    final daysLeft = plan.nextDebit.difference(TtClock.today).inDays;
     final price = plan.monthlyPrice == null ? '₹—' : formatInr(plan.monthlyPrice!);
     final vehicle = plan.vehicle == VehicleKind.truck ? 'Truck' : plan.vehicle.label;
     final date = formatDate(plan.nextDebit);
@@ -43,7 +43,7 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
       }
       if (!context.mounted) return;
       context.go(Routes.home);
-      if (error != null) showRidoSnack(context, error);
+      if (error != null) showTtSnack(context, error);
     }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -54,16 +54,16 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
           if (!didPop) context.go(Routes.home);
         },
         child: Scaffold(
-          backgroundColor: RidoColors.surface,
+          backgroundColor: TtColors.surface,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                color: RidoColors.navy900,
+                color: TtColors.navy900,
                 child: SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.xxl, RidoSpacing.l, RidoSpacing.xl),
+                    padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.xxl, TtSpacing.l, TtSpacing.xl),
                     child: Column(
                       children: [
                         Semantics(
@@ -71,19 +71,19 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
                           label: 'Success',
                           child: const DriverOrb(
                             size: 160,
-                            color: RidoColors.success,
+                            color: TtColors.success,
                             dots: true,
                             child: Icon(Symbols.check_rounded, color: Colors.white, size: 72, weight: 600),
                           ),
                         ),
-                        const SizedBox(height: RidoSpacing.xl),
+                        const SizedBox(height: TtSpacing.xl),
                         Text("You're all set!", textAlign: TextAlign.center, style: t.display.copyWith(color: Colors.white)),
-                        const SizedBox(height: RidoSpacing.m),
+                        const SizedBox(height: TtSpacing.m),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: pay ? RidoColors.successTint : RidoColors.coral50,
-                            borderRadius: RidoRadii.pillRadius,
+                            color: pay ? TtColors.successTint : TtColors.coral50,
+                            borderRadius: TtRadii.pillRadius,
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -91,13 +91,13 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
                               Icon(pay ? Symbols.check_circle_rounded : Symbols.redeem_rounded,
                                   size: 20,
                                   fill: pay ? 1 : 0,
-                                  color: pay ? RidoColors.successText : RidoColors.coral600),
+                                  color: pay ? TtColors.successText : TtColors.coral600),
                               const SizedBox(width: 8),
                               Flexible(
                                 child: Text(
                                   pay ? 'Payment received. Plan active till $date' : 'Free trial active: $daysLeft days left',
                                   textAlign: TextAlign.center,
-                                  style: t.bodySemibold.copyWith(color: pay ? RidoColors.successText : RidoColors.coral600),
+                                  style: t.bodySemibold.copyWith(color: pay ? TtColors.successText : TtColors.coral600),
                                 ),
                               ),
                             ],
@@ -110,16 +110,16 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(RidoSpacing.l),
+                  padding: const EdgeInsets.all(TtSpacing.l),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(RidoSpacing.l),
+                        padding: const EdgeInsets.all(TtSpacing.l),
                         decoration: BoxDecoration(
-                          color: RidoColors.surface,
-                          borderRadius: RidoRadii.cardRadius,
-                          border: Border.all(color: RidoColors.divider),
+                          color: TtColors.surface,
+                          borderRadius: TtRadii.cardRadius,
+                          border: Border.all(color: TtColors.divider),
                         ),
                         child: Column(
                           children: [
@@ -130,16 +130,16 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(height: RidoSpacing.l),
+                      const SizedBox(height: TtSpacing.l),
                       Text('Riders will pay you directly by cash or UPI to $upi.',
-                          style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+                          style: t.bodySmall.copyWith(color: TtColors.navy700)),
                     ],
                   ),
                 ),
               ),
               BottomActions(
                 children: [
-                  RidoButton(
+                  TtButton(
                     label: 'Go online',
                     icon: Symbols.power_settings_new_rounded,
                     loading: ref.watch(driverSessionProvider.select((s) => s.goingOnline)),
@@ -154,14 +154,14 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
     );
   }
 
-  TextStyle _v(RidoTextStyles t) => RidoTextStyles.tabular(t.bodyMedium.copyWith(fontWeight: FontWeight.w600));
+  TextStyle _v(TtTextStyles t) => TtTextStyles.tabular(t.bodyMedium.copyWith(fontWeight: FontWeight.w600));
 
-  Widget _row(RidoTextStyles t, String k, Widget v) => Padding(
+  Widget _row(TtTextStyles t, String k, Widget v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            Text(k, style: t.body.copyWith(color: RidoColors.navy700)),
-            const SizedBox(width: RidoSpacing.m),
+            Text(k, style: t.body.copyWith(color: TtColors.navy700)),
+            const SizedBox(width: TtSpacing.m),
             Expanded(child: v),
           ],
         ),

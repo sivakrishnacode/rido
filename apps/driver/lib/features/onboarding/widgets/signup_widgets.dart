@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// Navy sign-up app bar: back arrow, title, "Step n of 6" and a coral progress line.
 class SignupAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -27,7 +27,7 @@ class SignupAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Material(
-        color: RidoColors.navy900,
+        color: TtColors.navy900,
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -44,16 +44,16 @@ class SignupAppBar extends StatelessWidget implements PreferredSizeWidget {
                         onPressed: onBack ?? () => Navigator.of(context).maybePop(),
                       )
                     else
-                      const SizedBox(width: RidoSpacing.l),
+                      const SizedBox(width: TtSpacing.l),
                     Expanded(
                       child: Text(title,
                           style: t.h1.copyWith(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
                     if (step != null)
                       Padding(
-                        padding: const EdgeInsets.only(right: RidoSpacing.l, left: RidoSpacing.s),
+                        padding: const EdgeInsets.only(right: TtSpacing.l, left: TtSpacing.s),
                         child: Text('Step $step of $total',
-                            style: t.bodySmallMedium.copyWith(color: RidoColors.navy300)),
+                            style: t.bodySmallMedium.copyWith(color: TtColors.navy300)),
                       ),
                   ],
                 ),
@@ -63,12 +63,12 @@ class SignupAppBar extends StatelessWidget implements PreferredSizeWidget {
                   height: 4,
                   child: Stack(
                     children: [
-                      const Positioned.fill(child: ColoredBox(color: RidoColors.navy700)),
+                      const Positioned.fill(child: ColoredBox(color: TtColors.navy700)),
                       FractionallySizedBox(
                         alignment: AlignmentDirectional.centerStart,
                         widthFactor: step! / total,
                         heightFactor: 1,
-                        child: const ColoredBox(color: RidoColors.coral500),
+                        child: const ColoredBox(color: TtColors.coral500),
                       ),
                     ],
                   ),
@@ -119,7 +119,7 @@ class DriverOrb extends StatelessWidget {
             Container(
                 width: size,
                 height: size,
-                decoration: const BoxDecoration(color: RidoColors.navy700, shape: BoxShape.circle)),
+                decoration: const BoxDecoration(color: TtColors.navy700, shape: BoxShape.circle)),
             Container(
               width: size * innerFactor,
               height: size * innerFactor,
@@ -127,8 +127,8 @@ class DriverOrb extends StatelessWidget {
             ),
             child,
             if (dots) ...[
-              Positioned(top: size * 0.14, left: size * 0.08, child: _dot(size * 0.09, RidoColors.coral500)),
-              Positioned(bottom: size * 0.12, right: size * 0.1, child: _dot(size * 0.06, RidoColors.coral100)),
+              Positioned(top: size * 0.14, left: size * 0.08, child: _dot(size * 0.09, TtColors.coral500)),
+              Positioned(bottom: size * 0.12, right: size * 0.1, child: _dot(size * 0.06, TtColors.coral100)),
             ],
           ],
         ),
@@ -140,7 +140,7 @@ class DriverOrb extends StatelessWidget {
 
 /// A flat vehicle picture: the coral vehicle symbol over a soft ground shadow.
 class VehicleArt extends StatelessWidget {
-  const VehicleArt(this.kind, {super.key, this.size = 56, this.color = RidoColors.coral500});
+  const VehicleArt(this.kind, {super.key, this.size = 56, this.color = TtColors.coral500});
 
   final VehicleKind kind;
   final double size;
@@ -160,7 +160,7 @@ class VehicleArt extends StatelessWidget {
                   width: size * 1.4,
                   height: size * 0.1,
                   decoration: BoxDecoration(
-                    color: RidoColors.divider,
+                    color: TtColors.divider,
                     borderRadius: BorderRadius.all(Radius.elliptical(size, size * 0.1)),
                   ),
                 ),
@@ -178,7 +178,7 @@ class DashedRing extends StatelessWidget {
     super.key,
     required this.size,
     required this.child,
-    this.color = RidoColors.coral500,
+    this.color = TtColors.coral500,
     this.strokeWidth = 3,
     this.dash = 10,
     this.gap = 6,
@@ -247,7 +247,7 @@ class IconPill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(color: bg, borderRadius: RidoRadii.pillRadius),
+        decoration: BoxDecoration(color: bg, borderRadius: TtRadii.pillRadius),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -268,7 +268,7 @@ class DocsHeader extends StatelessWidget {
     required this.summary,
     required this.segments,
     this.trailing,
-    this.trailingColor = RidoColors.navy300,
+    this.trailingColor = TtColors.navy300,
     this.step,
     this.onBack,
     this.onHelp,
@@ -294,7 +294,7 @@ class DocsHeader extends StatelessWidget {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Material(
-        color: RidoColors.navy900,
+        color: TtColors.navy900,
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -315,17 +315,17 @@ class DocsHeader extends StatelessWidget {
                     ),
                     if (step != null)
                       Padding(
-                        padding: EdgeInsets.only(right: onHelp == null ? RidoSpacing.l : RidoSpacing.s),
-                        child: Text('Step $step of 6', style: t.bodySmallMedium.copyWith(color: RidoColors.navy300)),
+                        padding: EdgeInsets.only(right: onHelp == null ? TtSpacing.l : TtSpacing.s),
+                        child: Text('Step $step of 6', style: t.bodySmallMedium.copyWith(color: TtColors.navy300)),
                       ),
                     if (onHelp != null)
                       Padding(
-                        padding: const EdgeInsets.only(right: RidoSpacing.s),
+                        padding: const EdgeInsets.only(right: TtSpacing.s),
                         child: TextButton.icon(
                           onPressed: onHelp,
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.white,
-                            backgroundColor: RidoColors.navy700,
+                            backgroundColor: TtColors.navy700,
                             shape: const StadiumBorder(),
                             minimumSize: const Size(48, 40),
                           ),
@@ -337,7 +337,7 @@ class DocsHeader extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.xs, RidoSpacing.l, RidoSpacing.l),
+                padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.xs, TtSpacing.l, TtSpacing.l),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -349,9 +349,9 @@ class DocsHeader extends StatelessWidget {
                           Text(trailing!, style: t.bodySmall.copyWith(color: trailingColor)),
                       ],
                     ),
-                    const SizedBox(height: RidoSpacing.m),
+                    const SizedBox(height: TtSpacing.m),
                     ClipRRect(
-                      borderRadius: RidoRadii.pillRadius,
+                      borderRadius: TtRadii.pillRadius,
                       child: SizedBox(
                         height: 8,
                         child: Row(
@@ -362,7 +362,7 @@ class DocsHeader extends StatelessWidget {
                             if (filled < 1)
                               Expanded(
                                 flex: ((1 - filled) * 1000).round(),
-                                child: const ColoredBox(color: RidoColors.navy700),
+                                child: const ColoredBox(color: TtColors.navy700),
                               ),
                           ],
                         ),
@@ -392,7 +392,7 @@ class BottomActions extends StatelessWidget {
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, RidoSpacing.l, RidoSpacing.m),
+            padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, TtSpacing.m),
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
           ),
         ),
@@ -407,7 +407,7 @@ class DriverTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: EdgeInsets.symmetric(horizontal: large ? 14 : 8, vertical: large ? 4 : 2),
-        decoration: const BoxDecoration(color: RidoColors.coral600, borderRadius: RidoRadii.pillRadius),
+        decoration: const BoxDecoration(color: TtColors.coral600, borderRadius: TtRadii.pillRadius),
         child: Text(
           'DRIVER',
           style: (large ? context.type.bodySemibold : context.type.caption).copyWith(
@@ -430,11 +430,11 @@ class AuthHeader extends StatelessWidget {
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.light,
         child: Material(
-          color: RidoColors.navy900,
+          color: TtColors.navy900,
           child: SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.xs, RidoSpacing.s, RidoSpacing.l, RidoSpacing.xl),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.xs, TtSpacing.s, TtSpacing.l, TtSpacing.xl),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -443,14 +443,14 @@ class AuthHeader extends StatelessWidget {
                     icon: const Icon(Symbols.arrow_back_rounded, color: Colors.white),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                  const SizedBox(height: RidoSpacing.m),
+                  const SizedBox(height: TtSpacing.m),
                   Padding(
-                    padding: const EdgeInsets.only(left: RidoSpacing.m),
+                    padding: const EdgeInsets.only(left: TtSpacing.m),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(title, style: context.type.display.copyWith(color: Colors.white)),
-                        const SizedBox(height: RidoSpacing.s),
+                        const SizedBox(height: TtSpacing.s),
                         subtitle,
                       ],
                     ),
@@ -463,7 +463,7 @@ class AuthHeader extends StatelessWidget {
       );
 }
 
-/// [RidoWordmark] measures its letters when it builds; on the very first screen the bundled
+/// [TtWordmark] measures its letters when it builds; on the very first screen the bundled
 /// fonts may still be loading, so this rebuilds it once they are ready.
 class DriverWordmark extends StatefulWidget {
   const DriverWordmark({super.key, this.size = 48, this.color = Colors.white});
@@ -495,5 +495,5 @@ class _DriverWordmarkState extends State<DriverWordmark> {
 
   @override
   Widget build(BuildContext context) =>
-      RidoWordmark(key: ValueKey(_generation), size: widget.size, color: widget.color);
+      TtWordmark(key: ValueKey(_generation), size: widget.size, color: widget.color);
 }

@@ -1,22 +1,22 @@
-# @rido/api
+# @tamiltaxi/api
 
-The Rido backend: NestJS 12 (ESM), Prisma 7 on Postgres 17, Redis 7, and Socket.IO (namespace `/rt`).
+The Tamil Taxi backend: NestJS 12 (ESM), Prisma 7 on Postgres 17, Redis 7, and Socket.IO (namespace `/rt`).
 
 ```bash
 docker compose up -d postgres redis              # from the repo root
 cp apps/api/.env.example apps/api/.env
-npm run prisma:deploy -w @rido/api && npm run prisma:seed -w @rido/api
-npm run start:dev -w @rido/api                   # http://localhost:3000, REST under /v1
+npm run prisma:deploy -w @tamiltaxi/api && npm run prisma:seed -w @tamiltaxi/api
+npm run start:dev -w @tamiltaxi/api                   # http://localhost:3000, REST under /v1
 ```
 
 | Command | What |
 |---|---|
-| `npm run analyze -w @rido/api` | `tsc --noEmit` + oxlint |
-| `npm test -w @rido/api` | Unit tests (Vitest) |
-| `npm run test:e2e -w @rido/api` | Full flows against an isolated `rido_test` DB and Redis DB 1 |
-| `npm run prisma:migrate -w @rido/api` | New migration (dev) |
-| `npm run seed:test-drivers -w @rido/api` | 11 approved test drivers |
-| `npm run seed:demo-trips -w @rido/api` | ~2,000 demo trips for heatmaps (then `seed:demo-people`) |
+| `npm run analyze -w @tamiltaxi/api` | `tsc --noEmit` + oxlint |
+| `npm test -w @tamiltaxi/api` | Unit tests (Vitest) |
+| `npm run test:e2e -w @tamiltaxi/api` | Full flows against an isolated `tamiltaxi_test` DB and Redis DB 1 |
+| `npm run prisma:migrate -w @tamiltaxi/api` | New migration (dev) |
+| `npm run seed:test-drivers -w @tamiltaxi/api` | 11 approved test drivers |
+| `npm run seed:demo-trips -w @tamiltaxi/api` | ~2,000 demo trips for heatmaps (then `seed:demo-people`) |
 
 Layout:
 

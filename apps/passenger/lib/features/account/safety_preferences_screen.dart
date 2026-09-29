@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
@@ -24,14 +24,14 @@ class SafetyPreferencesScreen extends ConsumerWidget {
     final contacts = p.emergencyContacts.map((c) => c.name).join(', ');
 
     return Scaffold(
-      appBar: const RidoAppBar(
+      appBar: const TtAppBar(
         title: 'Safety preferences',
         bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          RidoListGroup(children: [
+          TtListGroup(children: [
             _SwitchTile(
               icon: Symbols.woman_rounded,
               title: 'Prefer women driver',
@@ -51,8 +51,8 @@ class SafetyPreferencesScreen extends ConsumerWidget {
             ),
           ]),
           const SizedBox(height: 16),
-          RidoListGroup(children: [
-            RidoListTile(
+          TtListGroup(children: [
+            TtListTile(
               icon: Symbols.contact_emergency_rounded,
               title: 'Emergency contacts',
               subtitle: contacts.isEmpty ? 'Add up to 3 people' : contacts,
@@ -62,16 +62,16 @@ class SafetyPreferencesScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(14),
-            decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.cardRadius),
+            decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.cardRadius),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Symbols.e911_emergency_rounded, color: RidoColors.sos, fill: 1),
+                const Icon(Symbols.e911_emergency_rounded, color: TtColors.sos, fill: 1),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'SOS is always one tap away during a ride. It calls 112 and alerts your contacts.',
-                    style: t.bodySmall.copyWith(color: RidoColors.navy700),
+                    style: t.bodySmall.copyWith(color: TtColors.navy700),
                   ),
                 ),
               ],
@@ -100,7 +100,7 @@ class _SwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MergeSemantics(
-        child: RidoListTile(
+        child: TtListTile(
           icon: icon,
           title: title,
           subtitle: subtitle,

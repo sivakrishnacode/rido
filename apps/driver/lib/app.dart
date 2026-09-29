@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'common/job_routes.dart';
 import 'overlay/background_offers.dart';
@@ -19,15 +19,15 @@ import 'state/driver_session.dart';
 /// session's notices (e.g. "Priya cancelled the ride") and closes the job screens when a job ends from
 /// the other side, and tells the session when the app comes back to the foreground. In the background it
 /// runs [BackgroundOffers]: the floating bubble while online and the full-screen request card.
-class RidoDriverApp extends ConsumerStatefulWidget {
-  const RidoDriverApp({super.key, this.router});
+class TtDriverApp extends ConsumerStatefulWidget {
+  const TtDriverApp({super.key, this.router});
   final GoRouter? router;
 
   @override
-  ConsumerState<RidoDriverApp> createState() => _RidoDriverAppState();
+  ConsumerState<TtDriverApp> createState() => _TtDriverAppState();
 }
 
-class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindingObserver {
+class _TtDriverAppState extends ConsumerState<TtDriverApp> with WidgetsBindingObserver {
   late final GoRouter _router = widget.router ?? createDriverRouter();
   StreamSubscription<void>? _unauthorized;
   StreamSubscription<PushData>? _pushTaps;
@@ -100,7 +100,7 @@ class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindi
     if (_authPaths.contains(_path)) return;
     _router.go(Routes.welcome);
     final context = rootNavigatorKey.currentContext;
-    if (context != null) showRidoSnack(context, 'Your session ended. Please log in again.');
+    if (context != null) showTtSnack(context, 'Your session ended. Please log in again.');
   }
 
   void _onNotice(SessionNotice notice) {
@@ -109,7 +109,7 @@ class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindi
     // Let the navigation settle so the snack shows on the new screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = rootNavigatorKey.currentContext;
-      if (context != null) showRidoSnack(context, notice.message);
+      if (context != null) showTtSnack(context, notice.message);
     });
   }
 
@@ -132,9 +132,9 @@ class _RidoDriverAppState extends ConsumerState<RidoDriverApp> with WidgetsBindi
       });
     }
     return MaterialApp.router(
-      title: 'Rido Driver',
+      title: 'Tamil Taxi Driver',
       debugShowCheckedModeBanner: false,
-      theme: RidoTheme.light(),
+      theme: TtTheme.light(),
       themeMode: ThemeMode.light,
       routerConfig: _router,
     );

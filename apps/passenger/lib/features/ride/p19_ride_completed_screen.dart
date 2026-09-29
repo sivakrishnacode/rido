@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
@@ -24,7 +24,7 @@ class P19RideCompletedScreen extends ConsumerStatefulWidget {
 
 class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen> {
   /// Arrival time, fixed when the screen opens.
-  late final DateTime _arrivedAt = widget.showcase ? DateTime(2026, 9, 24, 15, 42) : RidoClock.now();
+  late final DateTime _arrivedAt = widget.showcase ? DateTime(2026, 9, 24, 15, 42) : TtClock.now();
 
   void _done() => context.push(Routes.rateDriver);
 
@@ -41,7 +41,7 @@ class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen>
         if (!didPop) _done();
       },
       child: Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: SafeArea(
           child: Column(
             children: [
@@ -55,7 +55,7 @@ class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen>
                         inner: true,
                         accentDots: true,
                         label: 'You have arrived',
-                        child: Icon(Symbols.where_to_vote_rounded, fill: 1, size: 64, color: RidoColors.coral500),
+                        child: Icon(Symbols.where_to_vote_rounded, fill: 1, size: 64, color: TtColors.coral500),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -63,7 +63,7 @@ class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen>
                     const SizedBox(height: 4),
                     Text(
                       '${ride.drop.name} · ${formatTime(_arrivedAt)}',
-                      style: RidoTextStyles.tabular(t.body.copyWith(color: RidoColors.navy500)),
+                      style: TtTextStyles.tabular(t.body.copyWith(color: TtColors.navy500)),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
@@ -71,31 +71,31 @@ class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen>
                     const SizedBox(height: 8),
                     Text(
                       'Pay $driver directly: Cash or UPI',
-                      style: t.bodyMedium.copyWith(color: RidoColors.navy700, fontSize: 17),
+                      style: t.bodyMedium.copyWith(color: TtColors.navy700, fontSize: 17),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.cardRadius),
+                      decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.cardRadius),
                       child: Row(
                         children: [
                           Container(
                             width: 48,
                             height: 48,
-                            decoration: BoxDecoration(color: RidoColors.surface, borderRadius: RidoRadii.cardRadius),
-                            child: const Icon(Symbols.qr_code_scanner_rounded, color: RidoColors.navy900),
+                            decoration: BoxDecoration(color: TtColors.surface, borderRadius: TtRadii.cardRadius),
+                            child: const Icon(Symbols.qr_code_scanner_rounded, color: TtColors.navy900),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Text("Scan $driver's UPI QR on his phone, or pay cash",
-                                style: t.body.copyWith(color: RidoColors.navy900)),
+                                style: t.body.copyWith(color: TtColors.navy900)),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 12),
-                    RidoCard(
+                    TtCard(
                       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
                       child: Row(
                         children: [
@@ -111,7 +111,7 @@ class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen>
                                 ),
                                 Text(
                                   '${quote.distanceKm.toStringAsFixed(1)} km · ${quote.durationMin} min · ${ride.vehicle.label}',
-                                  style: RidoTextStyles.tabular(t.bodySmall.copyWith(color: RidoColors.navy500)),
+                                  style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500)),
                                 ),
                               ],
                             ),
@@ -128,15 +128,15 @@ class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen>
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.pillRadius),
+                          decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.pillRadius),
                           child: Text('0%',
-                              style: t.caption.copyWith(color: RidoColors.coral600, fontWeight: FontWeight.w700)),
+                              style: t.caption.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w700)),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            '$driver keeps the full ${formatInr(quote.total)}. Rido takes 0%.',
-                            style: t.body.copyWith(color: RidoColors.navy700),
+                            '$driver keeps the full ${formatInr(quote.total)}. Tamil Taxi takes 0%.',
+                            style: t.body.copyWith(color: TtColors.navy700),
                           ),
                         ),
                       ],
@@ -146,7 +146,7 @@ class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen>
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: RidoButton(label: 'Done, rate your ride', onPressed: _done),
+                child: TtButton(label: 'Done, rate your ride', onPressed: _done),
               ),
             ],
           ),

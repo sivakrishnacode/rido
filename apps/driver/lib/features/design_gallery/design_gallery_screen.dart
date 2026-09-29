@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/driver_account.dart';
 import '../../state/driver_session.dart';
@@ -19,15 +19,15 @@ class DesignGalleryScreen extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: RidoColors.background,
-        appBar: RidoAppBar.driver(
+        backgroundColor: TtColors.background,
+        appBar: TtAppBar.driver(
           title: 'Design gallery',
           showBack: true,
           bottom: TabBar(
             labelColor: Colors.white,
-            unselectedLabelColor: RidoColors.navy300,
-            indicatorColor: RidoColors.coral500,
-            dividerColor: RidoColors.navy700,
+            unselectedLabelColor: TtColors.navy300,
+            indicatorColor: TtColors.coral500,
+            dividerColor: TtColors.navy700,
             labelStyle: context.type.bodySmallMedium.copyWith(fontWeight: FontWeight.w600),
             unselectedLabelStyle: context.type.bodySmallMedium,
             tabs: const [Tab(text: 'Screens'), Tab(text: 'Demo controls')],
@@ -49,14 +49,14 @@ class _DemoControlsTab extends ConsumerWidget {
     void set(DemoSettings Function(DemoSettings s) change) => ref.read(demoSettingsProvider.notifier).update(change);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.xxl),
+      padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, 0, TtSpacing.gutter, TtSpacing.xxl),
       children: [
         DemoGroup(title: 'Plan and account', children: [
           DemoChoiceTile(
             icon: Symbols.workspace_premium_rounded,
             title: 'Plan status',
             explanation: 'Home and Plan show this subscription state (D-24, D-25).',
-            child: RidoSegmented<PlanStatus>(
+            child: TtSegmented<PlanStatus>(
               options: const [PlanStatus.trial, PlanStatus.active, PlanStatus.grace, PlanStatus.expired],
               labelOf: (p) => p == PlanStatus.trial ? 'Trial' : p.label,
               selected: s.planStatus,
@@ -90,7 +90,7 @@ class _DemoControlsTab extends ConsumerWidget {
             icon: Symbols.work_rounded,
             title: 'Work type',
             explanation: 'Online requests are rides (D-15) or deliveries (D-20).',
-            child: RidoSegmented<WorkType>(
+            child: TtSegmented<WorkType>(
               options: WorkType.values,
               labelOf: (w) => w == WorkType.rides ? 'Rides' : 'Deliveries',
               selected: s.workType,
@@ -120,7 +120,7 @@ class _DemoControlsTab extends ConsumerWidget {
             value: s.fastMode,
             onChanged: (v) => set((s) => s.copyWith(fastMode: v)),
           ),
-          RidoListTile(
+          TtListTile(
             icon: Symbols.restart_alt_rounded,
             title: 'Reset all seed data',
             subtitle: 'Restores earnings, plan, KYC, profile and every switch',
@@ -134,7 +134,7 @@ class _DemoControlsTab extends ConsumerWidget {
   }
 
   Future<void> _reset(BuildContext context, WidgetRef ref) async {
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Reset all seed data?',
       message: 'Earnings, plan, KYC, profile and every demo switch go back to the seed values.',
@@ -152,7 +152,7 @@ class _DemoControlsTab extends ConsumerWidget {
       ..invalidate(driverProfileProvider)
       ..invalidate(signupProvider)
       ..invalidate(earningsProvider);
-    showRidoSnack(context, 'Seed data reset', success: true);
+    showTtSnack(context, 'Seed data reset', success: true);
   }
 }
 
@@ -168,10 +168,10 @@ class _LiveApiInfo extends ConsumerWidget {
     final realtime = ref.watch(realtimeProvider);
     final session = ref.watch(driverSessionProvider);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.xxl),
+      padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, 0, TtSpacing.gutter, TtSpacing.xxl),
       children: [
         DemoGroup(title: 'Live API', children: [
-          RidoListTile(
+          TtListTile(
             icon: Symbols.dns_rounded,
             title: 'API base URL',
             subtitle: api.baseUrl,
@@ -180,20 +180,20 @@ class _LiveApiInfo extends ConsumerWidget {
           StreamBuilder<bool>(
             stream: realtime.connection,
             initialData: realtime.isConnected,
-            builder: (context, snap) => RidoListTile(
+            builder: (context, snap) => TtListTile(
               icon: snap.data == true ? Symbols.wifi_rounded : Symbols.wifi_off_rounded,
               title: 'Realtime (Socket.IO)',
               subtitle: snap.data == true ? 'Connected to ${api.origin}/rt' : 'Not connected (connects when you go online)',
               showChevron: false,
             ),
           ),
-          RidoListTile(
+          TtListTile(
             icon: Symbols.badge_rounded,
             title: 'Driver ID',
             subtitle: api.session.driverId ?? 'Not signed up yet',
             showChevron: false,
           ),
-          RidoListTile(
+          TtListTile(
             icon: Symbols.power_settings_new_rounded,
             title: 'Session',
             subtitle: session.onJob
@@ -204,11 +204,11 @@ class _LiveApiInfo extends ConsumerWidget {
             showChevron: false,
           ),
         ]),
-        const SizedBox(height: RidoSpacing.m),
+        const SizedBox(height: TtSpacing.m),
         Text(
           'Demo switches (plan status, reject KYC, fail payment, GPS lost…) only work in the seed-data build: '
-          'run with --dart-define=RIDO_LIVE_API=false. Here, approvals and plans are changed in the admin panel.',
-          style: t.bodySmall.copyWith(color: RidoColors.navy500),
+          'run with --dart-define=TT_LIVE_API=false. Here, approvals and plans are changed in the admin panel.',
+          style: t.bodySmall.copyWith(color: TtColors.navy500),
         ),
       ],
     );

@@ -1,11 +1,11 @@
 // Pure helpers of the live (API) driver session: status → job phase, GPS upload throttle, ETA along the
 // stored route, start route after log-in, API job → request card, phone / plate / UPI rules.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/common/start_route.dart';
-import 'package:rido_driver/router/routes.dart';
-import 'package:rido_driver/state/driver_session.dart';
-import 'package:rido_driver/state/live_helpers.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/common/start_route.dart';
+import 'package:tamiltaxi_driver/router/routes.dart';
+import 'package:tamiltaxi_driver/state/driver_session.dart';
+import 'package:tamiltaxi_driver/state/live_helpers.dart';
 
 List<KycDocument> docs(Map<KycDocType, KycStatus> overrides) => [
       for (final t in driverUploadDocs) KycDocument(type: t, status: overrides[t] ?? KycStatus.verified),

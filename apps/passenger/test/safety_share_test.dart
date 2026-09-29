@@ -5,17 +5,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/features/ride/p16_ride_in_progress_screen.dart';
-import 'package:rido_passenger/features/ride/p18_share_trip_sheet.dart';
-import 'package:rido_passenger/state/ride_flow.dart';
-import 'package:rido_passenger/state/trip_safety.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/ride/p16_ride_in_progress_screen.dart';
+import 'package:tamiltaxi_passenger/features/ride/p18_share_trip_sheet.dart';
+import 'package:tamiltaxi_passenger/state/ride_flow.dart';
+import 'package:tamiltaxi_passenger/state/trip_safety.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/fake_safety.dart';
 import 'support/harness.dart';
 
-const _url = 'https://admin.rido.test/track/trip1.abc.SIGNATURE';
+const _url = 'https://admin.tamiltaxi.test/track/trip1.abc.SIGNATURE';
 
 /// A ride in progress (no simulator, no network).
 class FixedRide extends RideFlowController {
@@ -38,7 +38,7 @@ Future<void> _pump(WidgetTester tester, Widget home, List<Override> overrides) a
   usePhone(tester);
   await tester.pumpWidget(ProviderScope(
     overrides: overrides,
-    child: MaterialApp(theme: RidoTheme.light(), home: home),
+    child: MaterialApp(theme: TtTheme.light(), home: home),
   ));
   await tester.pump();
   // Mock profile latency and the share-link future.
@@ -60,7 +60,7 @@ void main() {
     final safety = FakeSafety();
     await _pump(tester, const Scaffold(body: SingleChildScrollView(child: P18ShareTripSheet())), _live(safety));
     expect(safety.shareCalls, 1);
-    expect(find.text('admin.rido.test/track/trip1.abc.SIGNATURE'), findsOneWidget);
+    expect(find.text('admin.tamiltaxi.test/track/trip1.abc.SIGNATURE'), findsOneWidget);
 
     await tester.tap(find.text('Copy link'));
     await tester.pump();

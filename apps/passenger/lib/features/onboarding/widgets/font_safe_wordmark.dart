@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
-/// [RidoWordmark] measures its letters during build, so it is rebuilt here whenever
+/// [TtWordmark] measures its letters during build, so it is rebuilt here whenever
 /// fonts finish loading (otherwise the first frame's fallback metrics stick and the
 /// wordmark sits off-centre with a misplaced dot).
 class FontSafeWordmark extends StatefulWidget {
   const FontSafeWordmark({
     super.key,
     this.size = 48,
-    this.color = RidoColors.navy900,
-    this.dotColor = RidoColors.coral500,
+    this.color = TtColors.navy900,
+    this.dotColor = TtColors.coral500,
   });
 
   final double size;
@@ -41,5 +41,5 @@ class _FontSafeWordmarkState extends State<FontSafeWordmark> {
 
   @override
   Widget build(BuildContext context) =>
-      RidoWordmark(key: ValueKey(_generation), size: widget.size, color: widget.color, dotColor: widget.dotColor);
+      TtWordmark(key: ValueKey(_generation), size: widget.size, color: widget.color, dotColor: widget.dotColor);
 }

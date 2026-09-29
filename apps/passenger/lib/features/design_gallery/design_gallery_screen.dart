@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/parcel_flow.dart';
 import '../../state/passenger_session.dart';
@@ -21,13 +21,13 @@ class DesignGalleryScreen extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: RidoColors.background,
-        appBar: RidoAppBar(
+        backgroundColor: TtColors.background,
+        appBar: TtAppBar(
           title: 'Design gallery',
           bottom: TabBar(
-            labelColor: RidoColors.coral600,
-            unselectedLabelColor: RidoColors.navy500,
-            indicatorColor: RidoColors.coral600,
+            labelColor: TtColors.coral600,
+            unselectedLabelColor: TtColors.navy500,
+            indicatorColor: TtColors.coral600,
             labelStyle: context.type.bodySmallMedium.copyWith(fontWeight: FontWeight.w600),
             unselectedLabelStyle: context.type.bodySmallMedium,
             tabs: const [Tab(text: 'Screens'), Tab(text: 'Demo controls')],
@@ -50,29 +50,29 @@ class _DemoControlsTab extends ConsumerWidget {
     final live = ref.watch(isLiveApiProvider);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.xxl),
+      padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, 0, TtSpacing.gutter, TtSpacing.xxl),
       children: [
         if (live) ...[
           DemoGroup(title: 'Live backend', children: [
-            RidoListTile(
+            TtListTile(
               icon: Symbols.dns_rounded,
               title: 'API',
               subtitle: kApiBaseUrl,
               showChevron: false,
               onTap: () {
                 Clipboard.setData(const ClipboardData(text: kApiBaseUrl));
-                showRidoSnack(context, 'API address copied');
+                showTtSnack(context, 'API address copied');
               },
             ),
             const _RealtimeTile(),
           ]),
           Padding(
-            padding: const EdgeInsets.only(top: RidoSpacing.s),
+            padding: const EdgeInsets.only(top: TtSpacing.s),
             child: Text(
               'Trips, drivers, fares and data come from the server. Seed-data switches (no drivers, driver cancels, '
               'offline, empty activity, slow loading, fast mode, reset) only work in a mock build '
-              '(--dart-define=RIDO_LIVE_API=false).',
-              style: context.type.bodySmall.copyWith(color: RidoColors.navy500),
+              '(--dart-define=TT_LIVE_API=false).',
+              style: context.type.bodySmall.copyWith(color: TtColors.navy500),
             ),
           ),
         ],
@@ -88,7 +88,7 @@ class _DemoControlsTab extends ConsumerWidget {
           DemoSwitchTile(
             icon: Symbols.cancel_rounded,
             title: 'Driver cancels',
-            explanation: 'The assigned driver cancels (S-02), then Rido re-searches.',
+            explanation: 'The assigned driver cancels (S-02), then Tamil Taxi re-searches.',
             value: s.driverCancels,
             onChanged: (v) => set((s) => s.copyWith(driverCancels: v)),
           ),
@@ -142,7 +142,7 @@ class _DemoControlsTab extends ConsumerWidget {
             value: s.fastMode,
             onChanged: (v) => set((s) => s.copyWith(fastMode: v)),
           ),
-          RidoListTile(
+          TtListTile(
             icon: Symbols.restart_alt_rounded,
             title: 'Reset all seed data',
             subtitle: 'Restores trips, profile, places and every switch',
@@ -156,7 +156,7 @@ class _DemoControlsTab extends ConsumerWidget {
   }
 
   Future<void> _reset(BuildContext context, WidgetRef ref) async {
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Reset all seed data?',
       message: 'Trips, profile, saved places and every demo switch go back to the seed values.',
@@ -172,7 +172,7 @@ class _DemoControlsTab extends ConsumerWidget {
       ..invalidate(parcelFlowProvider)
       ..invalidate(passengerProfileProvider)
       ..invalidate(tripHistoryProvider);
-    showRidoSnack(context, 'Seed data reset', success: true);
+    showTtSnack(context, 'Seed data reset', success: true);
   }
 }
 
@@ -188,14 +188,14 @@ class _RealtimeTile extends ConsumerWidget {
       initialData: realtime.isConnected,
       builder: (context, snap) {
         final up = snap.data ?? false;
-        return RidoListTile(
+        return TtListTile(
           icon: up ? Symbols.cloud_done_rounded : Symbols.cloud_off_rounded,
           title: 'Live updates',
           subtitle: up ? 'Connected' : 'Not connected (connects when a trip starts; the app polls meanwhile)',
           showChevron: false,
           onTap: () {
             realtime.connect();
-            showRidoSnack(context, 'Connecting…');
+            showTtSnack(context, 'Connecting…');
           },
         );
       },

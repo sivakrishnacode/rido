@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
@@ -64,7 +64,7 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
   }
 
   Future<void> _pickContact() async {
-    final picked = await showRidoSheet<({String name, String phone})>(
+    final picked = await showTtSheet<({String name, String phone})>(
       context,
       builder: (ctx) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -79,14 +79,14 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 child: Row(
                   children: [
-                    RidoAvatar(initials: _initials(c.name), size: 44),
+                    TtAvatar(initials: _initials(c.name), size: 44),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(c.name, style: ctx.type.bodyMedium),
-                          Text(c.phone, style: RidoTextStyles.tabular(ctx.type.bodySmall.copyWith(color: RidoColors.navy500))),
+                          Text(c.phone, style: TtTextStyles.tabular(ctx.type.bodySmall.copyWith(color: TtColors.navy500))),
                         ],
                       ),
                     ),
@@ -131,7 +131,7 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
     final t = context.type;
     final firstName = _name.text.trim().isEmpty ? 'The receiver' : _name.text.trim().split(' ').first;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       appBar: const ParcelStepAppBar(title: 'Drop details', step: 2),
       body: Column(
         children: [
@@ -143,7 +143,7 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
                 children: [
                   ParcelLocationCard(place: _drop, isPickup: false, onChange: _changePlace),
                   const SizedBox(height: 20),
-                  RidoTextField(
+                  TtTextField(
                     label: 'Receiver name',
                     controller: _name,
                     errorText: _nameError,
@@ -165,22 +165,22 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
                         : IconButton(
                             tooltip: 'Choose from contacts',
                             onPressed: _pickContact,
-                            icon: const Icon(Symbols.contact_page_rounded, color: RidoColors.coral600),
+                            icon: const Icon(Symbols.contact_page_rounded, color: TtColors.coral600),
                           ),
                   ),
                   const SizedBox(height: 6),
                   Text('$firstName gets the delivery OTP and a tracking link by SMS',
-                      style: t.caption.copyWith(color: RidoColors.navy500)),
+                      style: t.caption.copyWith(color: TtColors.navy500)),
                   const SizedBox(height: 16),
                   Text.rich(
                     TextSpan(children: [
                       const TextSpan(text: 'Landmark '),
-                      TextSpan(text: '(optional)', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                      TextSpan(text: '(optional)', style: t.bodySmall.copyWith(color: TtColors.navy500)),
                     ]),
-                    style: t.bodySmallMedium.copyWith(color: RidoColors.navy700),
+                    style: t.bodySmallMedium.copyWith(color: TtColors.navy700),
                   ),
                   const SizedBox(height: 6),
-                  RidoTextField(
+                  TtTextField(
                     hint: 'House number, nearby landmark',
                     controller: _note,
                     textCapitalization: TextCapitalization.sentences,
@@ -193,7 +193,7 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: RidoButton(label: 'Confirm drop', onPressed: _confirm),
+              child: TtButton(label: 'Confirm drop', onPressed: _confirm),
             ),
           ),
         ],

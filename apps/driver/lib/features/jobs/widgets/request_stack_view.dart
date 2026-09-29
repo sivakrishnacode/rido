@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'request_layout.dart';
 
@@ -33,7 +33,7 @@ class RequestStackView extends StatefulWidget {
   /// False in the background overlay (its own isolate, no app state).
   final bool showVoiceToggle;
 
-  /// Replaces the voice toggle (the overlay's "close and open Rido").
+  /// Replaces the voice toggle (the overlay's "close and open Tamil Taxi").
   final Widget? topRight;
 
   final List<StackEntry> entries;
@@ -74,14 +74,14 @@ class _RequestStackViewState extends State<RequestStackView> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-        backgroundColor: RidoColors.background,
+        backgroundColor: TtColors.background,
         body: SafeArea(
           child: Column(children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.s, RidoSpacing.s, RidoSpacing.s),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.s, TtSpacing.s),
               child: Row(children: [
-                const Icon(Symbols.notifications_active_rounded, color: RidoColors.coral600, fill: 1, size: 26),
-                const SizedBox(width: RidoSpacing.s),
+                const Icon(Symbols.notifications_active_rounded, color: TtColors.coral600, fill: 1, size: 26),
+                const SizedBox(width: TtSpacing.s),
                 Expanded(
                   child: Text(
                       entries.length == 1
@@ -100,7 +100,7 @@ class _RequestStackViewState extends State<RequestStackView> {
                   SizedBox(
                   width: 76,
                   child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: RidoSpacing.s),
+                    padding: const EdgeInsets.symmetric(vertical: TtSpacing.s),
                     children: [
                       for (final e in entries)
                         _RailItem(
@@ -116,12 +116,12 @@ class _RequestStackViewState extends State<RequestStackView> {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(
-                        entries.length > 1 ? 0 : RidoSpacing.gutter, RidoSpacing.s, RidoSpacing.gutter, RidoSpacing.xl),
+                        entries.length > 1 ? 0 : TtSpacing.gutter, TtSpacing.s, TtSpacing.gutter, TtSpacing.xl),
                     child: Column(children: [
                       for (final e in entries)
                         Padding(
                           key: _keyFor(e.request.id),
-                          padding: const EdgeInsets.only(bottom: RidoSpacing.m),
+                          padding: const EdgeInsets.only(bottom: TtSpacing.m),
                           child: _RequestCard(
                             key: ValueKey('card-${e.request.id}'),
                             request: e.request,
@@ -162,25 +162,25 @@ class _RailItem extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: RidoRadii.cardRadius,
+        borderRadius: TtRadii.cardRadius,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: RidoSpacing.s),
+          padding: const EdgeInsets.symmetric(vertical: TtSpacing.s),
           child: Column(children: [
             DecoratedBox(
-              decoration: const BoxDecoration(color: RidoColors.surface, shape: BoxShape.circle, boxShadow: RidoShadows.soft),
+              decoration: const BoxDecoration(color: TtColors.surface, shape: BoxShape.circle, boxShadow: TtShadows.soft),
               child: CountdownRing(
                 duration: left,
                 size: 52,
                 strokeWidth: 4,
                 showBadge: false,
                 running: running,
-                color: RidoColors.coral600,
-                trackColor: RidoColors.coral50,
-                child: Icon(request.vehicle.icon, color: RidoColors.coral600, size: 22, fill: 1),
+                color: TtColors.coral600,
+                trackColor: TtColors.coral50,
+                child: Icon(request.vehicle.icon, color: TtColors.coral600, size: 22, fill: 1),
               ),
             ),
             const SizedBox(height: 4),
-            Text(formatInr(request.fare), style: RidoTextStyles.tabular(t.bodySemibold)),
+            Text(formatInr(request.fare), style: TtTextStyles.tabular(t.bodySemibold)),
           ]),
         ),
       ),
@@ -219,30 +219,30 @@ class _RequestCard extends StatelessWidget {
     final perKm = r.tripKm > 0 ? (r.fare / r.tripKm).round() : null;
     final parcel = r.parcel;
     return Container(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, RidoSpacing.s, RidoSpacing.l),
+      padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.s, TtSpacing.l),
       decoration: BoxDecoration(
-        color: RidoColors.surface,
-        borderRadius: const BorderRadius.all(Radius.circular(RidoRadii.sheet)),
-        border: Border.all(color: RidoColors.divider),
-        boxShadow: RidoShadows.soft,
+        color: TtColors.surface,
+        borderRadius: const BorderRadius.all(Radius.circular(TtRadii.sheet)),
+        border: Border.all(color: TtColors.divider),
+        boxShadow: TtShadows.soft,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             child: Wrap(spacing: 6, runSpacing: 6, children: [
-              _Tag(icon: Symbols.star_rounded, label: r.customerRating.toStringAsFixed(1), bg: RidoColors.warningTint, fg: RidoColors.warningText),
-              _Tag(icon: r.vehicle.icon, label: r.vehicle.label, bg: RidoColors.infoTint, fg: RidoColors.navy900),
+              _Tag(icon: Symbols.star_rounded, label: r.customerRating.toStringAsFixed(1), bg: TtColors.warningTint, fg: TtColors.warningText),
+              _Tag(icon: r.vehicle.icon, label: r.vehicle.label, bg: TtColors.infoTint, fg: TtColors.navy900),
               if (r.isCustomerVerified)
-                const _Tag(icon: Symbols.verified_rounded, label: 'Verified', bg: RidoColors.successTint, fg: RidoColors.successText),
+                const _Tag(icon: Symbols.verified_rounded, label: 'Verified', bg: TtColors.successTint, fg: TtColors.successText),
               if (r.isWomenOnly)
-                const _Tag(icon: Symbols.female_rounded, label: 'Butterfly', bg: RidoColors.butterfly50, fg: RidoColors.butterfly600),
+                const _Tag(icon: Symbols.female_rounded, label: 'Butterfly', bg: TtColors.butterfly50, fg: TtColors.butterfly600),
               if (parcel != null) ...[
-                _Tag(icon: Symbols.package_2_rounded, label: '${parcel.category.label} · ${parcel.weight.label}', bg: RidoColors.coral50, fg: RidoColors.coral700),
+                _Tag(icon: Symbols.package_2_rounded, label: '${parcel.category.label} · ${parcel.weight.label}', bg: TtColors.coral50, fg: TtColors.coral700),
                 _Tag(
                   icon: Symbols.person_pin_circle_rounded,
                   label: 'Paid by ${parcel.payer == ParcelPayer.receiver ? 'receiver' : 'sender'}',
-                  bg: RidoColors.inputBg,
-                  fg: RidoColors.navy900,
+                  bg: TtColors.inputBg,
+                  fg: TtColors.navy900,
                 ),
               ],
             ]),
@@ -263,26 +263,26 @@ class _RequestCard extends StatelessWidget {
                 showBadge: false,
                 running: running && !locked,
                 onFinished: onExpired,
-                color: RidoColors.coral600,
-                trackColor: RidoColors.divider,
-                child: const Icon(Symbols.close_rounded, color: RidoColors.navy700, size: 22),
+                color: TtColors.coral600,
+                trackColor: TtColors.divider,
+                child: const Icon(Symbols.close_rounded, color: TtColors.navy700, size: 22),
               ),
             ),
           ),
           SecondsLeft(left: left, running: running && !locked),
           ]),
         ]),
-        const SizedBox(height: RidoSpacing.s),
+        const SizedBox(height: TtSpacing.s),
         Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-          Text(formatInr(r.fare), style: RidoTextStyles.tabular(t.display)),
+          Text(formatInr(r.fare), style: TtTextStyles.tabular(t.display)),
           if (perKm != null) ...[
-            const SizedBox(width: RidoSpacing.s),
-            Text('₹$perKm/km', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+            const SizedBox(width: TtSpacing.s),
+            Text('₹$perKm/km', style: t.bodySmall.copyWith(color: TtColors.navy500)),
           ],
         ]),
-        const SizedBox(height: RidoSpacing.m),
+        const SizedBox(height: TtSpacing.m),
         _Stop(
-          dot: RidoColors.success,
+          dot: TtColors.success,
           headline: [
             '${formatKm(r.pickupDistanceKm)} away · ${r.pickupEtaMin} min',
             ?r.pickup.landmark,
@@ -292,29 +292,29 @@ class _RequestCard extends StatelessWidget {
           line: true,
         ),
         _Stop(
-          dot: RidoColors.coral600,
+          dot: TtColors.coral600,
           headline: '${formatKm(r.tripKm)} trip · ~${r.tripMin} min',
           name: r.drop.name,
           address: r.drop.address,
         ),
-        const SizedBox(height: RidoSpacing.s),
+        const SizedBox(height: TtSpacing.s),
         Text(
           [r.customerName, if (r.bookedBy != null) 'booked by ${r.bookedBy}', 'Cash / UPI to you'].join(' · '),
-          style: t.caption.copyWith(color: RidoColors.navy500),
+          style: t.caption.copyWith(color: TtColors.navy500),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: RidoSpacing.m),
+        const SizedBox(height: TtSpacing.m),
         Padding(
-          padding: const EdgeInsets.only(right: RidoSpacing.s),
+          padding: const EdgeInsets.only(right: TtSpacing.s),
           child: accepting
-              ? const RidoButton(label: 'Accepting', height: 52, loading: true, onPressed: null)
+              ? const TtButton(label: 'Accepting', height: 52, loading: true, onPressed: null)
               : SwipeToConfirm(
                   label: 'Swipe to accept',
                   height: 52,
                   enabled: !locked,
-                  color: RidoColors.success,
-                  knobColor: RidoColors.successText,
+                  color: TtColors.success,
+                  knobColor: TtColors.successText,
                   onConfirmed: onAccept,
                 ),
         ),
@@ -361,20 +361,20 @@ class _Stop extends StatelessWidget {
           child: Column(children: [
             const SizedBox(height: 5),
             Container(width: 10, height: 10, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
-            if (line) Expanded(child: Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 4), color: RidoColors.divider)),
+            if (line) Expanded(child: Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 4), color: TtColors.divider)),
           ]),
         ),
-        const SizedBox(width: RidoSpacing.s),
+        const SizedBox(width: TtSpacing.s),
         Expanded(
           child: Padding(
-            padding: EdgeInsets.only(bottom: line ? RidoSpacing.m : 0),
+            padding: EdgeInsets.only(bottom: line ? TtSpacing.m : 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(headline, style: t.bodySemibold),
               Text.rich(
                 TextSpan(children: [
-                  TextSpan(text: name, style: t.bodySmall.copyWith(color: RidoColors.navy900, fontWeight: FontWeight.w600)),
+                  TextSpan(text: name, style: t.bodySmall.copyWith(color: TtColors.navy900, fontWeight: FontWeight.w600)),
                   if (address.isNotEmpty && address != name)
-                    TextSpan(text: ', $address', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                    TextSpan(text: ', $address', style: t.bodySmall.copyWith(color: TtColors.navy500)),
                 ]),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -432,8 +432,8 @@ class _SecondsLeftState extends State<SecondsLeft> {
     return ExcludeSemantics(
       child: Text(
         '${secs}s',
-        style: RidoTextStyles.tabular(context.type.bodySmallMedium)
-            .copyWith(color: secs <= 5 ? RidoColors.error : RidoColors.navy700),
+        style: TtTextStyles.tabular(context.type.bodySmallMedium)
+            .copyWith(color: secs <= 5 ? TtColors.error : TtColors.navy700),
       ),
     );
   }

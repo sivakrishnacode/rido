@@ -98,7 +98,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         mResources = getApplicationContext().getResources();
-        // Rido patch: a restart by the system (app process was killed) has no intent and no app to talk to:
+        // Tamil Taxi patch: a restart by the system (app process was killed) has no intent and no app to talk to:
         // stop instead of leaving an orphan bubble (or crashing on the null intent).
         if (intent == null) {
             stopSelf();
@@ -117,7 +117,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
             isRunning = false;
             return START_NOT_STICKY;
         }
-        // Rido patch: showing again replaces the window. stopSelf() here destroyed the service right after the new
+        // Tamil Taxi patch: showing again replaces the window. stopSelf() here destroyed the service right after the new
         // window was added, so the bubble vanished.
         if (windowManager != null) {
             windowManager.removeView(flutterView);
@@ -148,7 +148,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
                 boolean enableDrag = call.argument("enableDrag");
                 resizeOverlay(width, height, enableDrag, result);
             } else if (call.method.equals("openApp")) {
-                // Rido patch: open the app from the overlay without going through the app's own engine
+                // Tamil Taxi patch: open the app from the overlay without going through the app's own engine
                 // (which Android may have destroyed while the app was in the background).
                 result.success(openApp());
             } else {
@@ -257,7 +257,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
         if (windowManager != null) {
             WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
             params.width = (width == -1999 || width == -1) ? -1 : dpToPx(width);
-            // Rido patch: -1 / -1999 mean "match parent" (the original condition was always true, so a full-height
+            // Tamil Taxi patch: -1 / -1999 mean "match parent" (the original condition was always true, so a full-height
             // request card got -1 dp → WRAP_CONTENT, or a guessed screen height that left a gap).
             params.height = (height == -1999 || height == -1) ? WindowManager.LayoutParams.MATCH_PARENT : dpToPx(height);
             WindowSetup.enableDrag = enableDrag;
@@ -387,7 +387,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
     }
 
     /**
-     * Rido patch: whatever position / size the app asks for, a bubble-sized window stays fully on screen (a wrong
+     * Tamil Taxi patch: whatever position / size the app asks for, a bubble-sized window stays fully on screen (a wrong
      * screen size from the app once parked the bubble at x = -186 px, invisible but "displaying over other apps").
      * Full-width / full-height windows (-1) are left alone.
      */
@@ -417,7 +417,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
 
     /** Brings the app's task to the front (launcher intent). Allowed from the background while the overlay is visible. */
     private boolean openApp() {
-        // Rido patch: move the app's existing task to the front first (never start a second copy of the app).
+        // Tamil Taxi patch: move the app's existing task to the front first (never start a second copy of the app).
         try {
             android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
             java.util.List<android.app.ActivityManager.AppTask> tasks = am != null ? am.getAppTasks() : null;
@@ -442,7 +442,7 @@ public class OverlayService extends Service implements View.OnTouchListener {
 
     @Override
     public boolean onTouch(View view, MotionEvent event) {
-        // Rido patch: in drag (bubble) mode the service owns the touches: a tap opens the app natively, a drag moves
+        // Tamil Taxi patch: in drag (bubble) mode the service owns the touches: a tap opens the app natively, a drag moves
         // the bubble. Flutter never sees them (it used to see a drag as a tap, or miss taps).
         if (windowManager != null && WindowSetup.enableDrag) {
             handleBubbleTouch(event);

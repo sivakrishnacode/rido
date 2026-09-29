@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -53,7 +53,7 @@ class D07DocumentsScreen extends ConsumerWidget {
     final work = (profile != null ? !profile.vehicleKind.isGoods : signup.workType == WorkType.rides) ? 'Rides' : 'Deliveries';
 
     return Scaffold(
-      backgroundColor: RidoColors.background,
+      backgroundColor: TtColors.background,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -62,22 +62,22 @@ class D07DocumentsScreen extends ConsumerWidget {
             step: readOnly ? null : 4,
             summary: readOnly ? '$stepsVerified of $steps verified' : '$stepsDone of $steps done',
             trailing: readOnly ? null : '$vehicle · $work',
-            segments: [((readOnly ? stepsVerified : stepsDone) / steps, readOnly ? RidoColors.success : RidoColors.coral500)],
+            segments: [((readOnly ? stepsVerified : stepsDone) / steps, readOnly ? TtColors.success : TtColors.coral500)],
             onBack: readOnly ? null : backOr(context, Routes.personalDetails),
             onHelp: showcase ? null : () => context.push(Routes.help),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(RidoSpacing.l),
+              padding: const EdgeInsets.all(TtSpacing.l),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (hasIdentity) ...[
                     IdentityCheckCard(showcase: showcase),
-                    const SizedBox(height: RidoSpacing.l),
+                    const SizedBox(height: TtSpacing.l),
                     if (!showcase) ...[
                       const ProfilePhotoCard(),
-                      const SizedBox(height: RidoSpacing.l),
+                      const SizedBox(height: TtSpacing.l),
                     ],
                   ],
                   // One card per document, outlined by its status (green once done), like Namma Yatri's checklist.
@@ -89,9 +89,9 @@ class D07DocumentsScreen extends ConsumerWidget {
                       live: live,
                       onUpload: () => context.push(Routes.uploadDocument(doc.type.name)),
                     ),
-                    const SizedBox(height: RidoSpacing.m),
+                    const SizedBox(height: TtSpacing.m),
                   ],
-                  const SizedBox(height: RidoSpacing.l),
+                  const SizedBox(height: TtSpacing.l),
                   if (readOnly)
                     Text(
                         // Counts the identity check too: a declined check is never "all verified".
@@ -100,15 +100,15 @@ class D07DocumentsScreen extends ConsumerWidget {
                             : stepsVerified == steps
                                 ? 'All your documents are verified. Contact support if something changes, like a new RC.'
                                 : 'An admin checks each document, usually within 24 hours. Contact support if you need help.',
-                        style: t.bodySmall.copyWith(color: RidoColors.navy500))
+                        style: t.bodySmall.copyWith(color: TtColors.navy500))
                   else
                     Container(
-                      padding: const EdgeInsets.all(RidoSpacing.l),
-                      decoration: const BoxDecoration(color: RidoColors.navy900, borderRadius: RidoRadii.cardRadius),
+                      padding: const EdgeInsets.all(TtSpacing.l),
+                      decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.cardRadius),
                       child: Row(
                         children: [
                           const Icon(Symbols.lightbulb_rounded, color: Colors.white),
-                          const SizedBox(width: RidoSpacing.m),
+                          const SizedBox(width: TtSpacing.m),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +116,7 @@ class D07DocumentsScreen extends ConsumerWidget {
                                 Text('Clear photos get approved faster',
                                     style: t.bodySemibold.copyWith(color: Colors.white)),
                                 Text('Good light, all 4 corners visible, no glare.',
-                                    style: t.bodySmall.copyWith(color: RidoColors.navy300)),
+                                    style: t.bodySmall.copyWith(color: TtColors.navy300)),
                               ],
                             ),
                           ),
@@ -130,15 +130,15 @@ class D07DocumentsScreen extends ConsumerWidget {
           if (!readOnly)
             BottomActions(
               children: [
-                RidoButton(label: 'Continue', onPressed: allDone ? () => context.go(Routes.underReview) : null),
+                TtButton(label: 'Continue', onPressed: allDone ? () => context.go(Routes.underReview) : null),
                 if (!allDone) ...[
-                  const SizedBox(height: RidoSpacing.s),
+                  const SizedBox(height: TtSpacing.s),
                   Text(!isIdentityDone
                       ? 'Verify your licence and Aadhaar, and upload both documents to continue'
                       : !isPhotoDone
                           ? 'Take your profile photo to continue'
                           : 'Upload both documents to continue',
-                      textAlign: TextAlign.center, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                      textAlign: TextAlign.center, style: t.bodySmall.copyWith(color: TtColors.navy500)),
                 ],
               ],
             ),
@@ -172,13 +172,13 @@ class _DocRow extends StatelessWidget {
     final t = context.type;
     final (icon, hint, verifiedLine) = _docInfo(doc.type);
     final (Color tileBg, Color tileFg) = switch (doc.status) {
-      KycStatus.verified => (RidoColors.successTint, RidoColors.successText),
-      KycStatus.underReview => (RidoColors.warningTint, RidoColors.warningText),
-      KycStatus.rejected => (RidoColors.errorTint, RidoColors.error),
-      KycStatus.notUploaded => (RidoColors.inputBg, RidoColors.navy700),
+      KycStatus.verified => (TtColors.successTint, TtColors.successText),
+      KycStatus.underReview => (TtColors.warningTint, TtColors.warningText),
+      KycStatus.rejected => (TtColors.errorTint, TtColors.error),
+      KycStatus.notUploaded => (TtColors.inputBg, TtColors.navy700),
     };
     final subtitle = switch (doc.status) {
-      KycStatus.verified => live ? 'Verified by Rido' : verifiedLine,
+      KycStatus.verified => live ? 'Verified by Tamil Taxi' : verifiedLine,
       KycStatus.underReview when live => 'Uploaded · an admin is checking it',
       KycStatus.underReview => doc.type == KycDocType.vehicleRc ? 'Uploaded 10:08 AM' : 'Uploaded just now',
       KycStatus.rejected => doc.rejectReason ?? Seed.kycRejectReason,
@@ -188,33 +188,33 @@ class _DocRow extends StatelessWidget {
       KycStatus.verified => const IconPill(
           label: 'Verified',
           icon: Symbols.check_circle_rounded,
-          bg: RidoColors.successTint,
-          fg: RidoColors.successText),
+          bg: TtColors.successTint,
+          fg: TtColors.successText),
       KycStatus.underReview => const IconPill(
           label: 'Under review',
           icon: Symbols.schedule_rounded,
-          bg: RidoColors.warningTint,
-          fg: RidoColors.warningText),
+          bg: TtColors.warningTint,
+          fg: TtColors.warningText),
       KycStatus.rejected => _UploadButton(label: 'Re-upload', onTap: onUpload),
       KycStatus.notUploaded => _UploadButton(label: 'Upload', onTap: onUpload),
     };
     final shownVerified = readOnly && !live;
     final outline = shownVerified
-        ? RidoColors.success
+        ? TtColors.success
         : switch (doc.status) {
-            KycStatus.verified => RidoColors.success,
-            KycStatus.underReview => RidoColors.warning,
-            KycStatus.rejected => RidoColors.error,
-            KycStatus.notUploaded => RidoColors.divider,
+            KycStatus.verified => TtColors.success,
+            KycStatus.underReview => TtColors.warning,
+            KycStatus.rejected => TtColors.error,
+            KycStatus.notUploaded => TtColors.divider,
           };
     return Container(
-      padding: const EdgeInsets.all(RidoSpacing.l),
+      padding: const EdgeInsets.all(TtSpacing.l),
       decoration: BoxDecoration(
-        color: RidoColors.surface,
-        borderRadius: RidoRadii.cardRadius,
+        color: TtColors.surface,
+        borderRadius: TtRadii.cardRadius,
         border: Border.all(
-          color: outline.withValues(alpha: outline == RidoColors.divider ? 1 : 0.55),
-          width: outline == RidoColors.divider ? 1 : 1.5,
+          color: outline.withValues(alpha: outline == TtColors.divider ? 1 : 0.55),
+          width: outline == TtColors.divider ? 1 : 1.5,
         ),
       ),
       child: Row(
@@ -222,10 +222,10 @@ class _DocRow extends StatelessWidget {
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: tileBg, borderRadius: RidoRadii.cardRadius),
+            decoration: BoxDecoration(color: tileBg, borderRadius: TtRadii.cardRadius),
             child: Icon(icon, color: tileFg, size: 22),
           ),
-          const SizedBox(width: RidoSpacing.m),
+          const SizedBox(width: TtSpacing.m),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,17 +234,17 @@ class _DocRow extends StatelessWidget {
                 Text(
                   subtitle,
                   style: t.bodySmall.copyWith(
-                      color: doc.status == KycStatus.rejected ? RidoColors.error : RidoColors.navy500),
+                      color: doc.status == KycStatus.rejected ? TtColors.error : TtColors.navy500),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: RidoSpacing.s),
+          const SizedBox(width: TtSpacing.s),
           if (shownVerified)
             const IconPill(
-                label: 'Verified', icon: Symbols.check_circle_rounded, bg: RidoColors.successTint, fg: RidoColors.successText)
+                label: 'Verified', icon: Symbols.check_circle_rounded, bg: TtColors.successTint, fg: TtColors.successText)
           else
             trailing,
         ],
@@ -260,7 +260,7 @@ class _UploadButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: RidoColors.coral600,
+        color: TtColors.coral600,
         shape: const StadiumBorder(),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

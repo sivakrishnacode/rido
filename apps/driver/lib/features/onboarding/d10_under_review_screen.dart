@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/start_route.dart';
 import '../../router/routes.dart';
@@ -69,7 +69,7 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
       if (!mounted) return;
       setState(() => _checking = false);
       if (!silent) {
-        showRidoSnack(
+        showTtSnack(
             context, e is OfflineException ? "You're offline. We'll check again when you're back." : userMessage(e));
       }
       return;
@@ -77,7 +77,7 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
     if (!mounted) return;
     setState(() => _checking = false);
     if (widget.showcase) {
-      showRidoSnack(context, ok == true ? 'Approved! Your documents are verified.' : 'Vehicle RC needs a clearer photo.');
+      showTtSnack(context, ok == true ? 'Approved! Your documents are verified.' : 'Vehicle RC needs a clearer photo.');
       return;
     }
     if (!_live) {
@@ -98,7 +98,7 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
     );
     if (route == Routes.underReview) {
       if (!silent) {
-        showRidoSnack(context, "Still under review. We'll let you know as soon as an admin approves your documents.");
+        showTtSnack(context, "Still under review. We'll let you know as soon as an admin approves your documents.");
       }
       return;
     }
@@ -126,16 +126,16 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              color: RidoColors.navy900,
+              color: TtColors.navy900,
               child: SafeArea(
                 bottom: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.xl, RidoSpacing.l, RidoSpacing.xl),
+                  padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.xl, TtSpacing.l, TtSpacing.xl),
                   child: Column(
                     children: [
                       Semantics(
@@ -143,7 +143,7 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
                         label: 'A clock and a document: under review',
                         child: DriverOrb(
                           size: 150,
-                          color: RidoColors.coral500,
+                          color: TtColors.coral500,
                           child: Stack(
                             clipBehavior: Clip.none,
                             alignment: Alignment.center,
@@ -159,7 +159,7 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
                                     height: 56,
                                     decoration: const BoxDecoration(
                                         color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(8))),
-                                    child: const Icon(Symbols.description_rounded, color: RidoColors.navy900, size: 28),
+                                    child: const Icon(Symbols.description_rounded, color: TtColors.navy900, size: 28),
                                   ),
                                 ),
                               ),
@@ -167,11 +167,11 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: RidoSpacing.l),
+                      const SizedBox(height: TtSpacing.l),
                       Text("We're verifying your documents",
                           textAlign: TextAlign.center, style: t.display.copyWith(color: Colors.white)),
-                      const SizedBox(height: RidoSpacing.xs),
-                      Text('Usually within 24 hours', style: t.body.copyWith(color: RidoColors.navy300)),
+                      const SizedBox(height: TtSpacing.xs),
+                      Text('Usually within 24 hours', style: t.body.copyWith(color: TtColors.navy300)),
                     ],
                   ),
                 ),
@@ -179,16 +179,16 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(RidoSpacing.l),
+                padding: const EdgeInsets.all(TtSpacing.l),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l),
+                      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l),
                       decoration: BoxDecoration(
-                        color: RidoColors.surface,
-                        borderRadius: RidoRadii.cardRadius,
-                        border: Border.all(color: RidoColors.divider),
+                        color: TtColors.surface,
+                        borderRadius: TtRadii.cardRadius,
+                        border: Border.all(color: TtColors.divider),
                       ),
                       child: Column(
                         children: [
@@ -203,24 +203,24 @@ class _D10UnderReviewScreenState extends ConsumerState<D10UnderReviewScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: RidoSpacing.l),
+                    const SizedBox(height: TtSpacing.l),
                     Text("We'll send an SMS to +91 $phone when you're approved. You can close the app.",
-                        style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+                        style: t.bodySmall.copyWith(color: TtColors.navy700)),
                   ],
                 ),
               ),
             ),
             BottomActions(
               children: [
-                RidoButton(
+                TtButton(
                   label: _checking ? 'Checking…' : 'Check status',
                   icon: Symbols.refresh_rounded,
                   loading: _checking,
                   onPressed: _check,
                 ),
-                const SizedBox(height: RidoSpacing.xs),
+                const SizedBox(height: TtSpacing.xs),
                 Center(
-                  child: RidoButton.text(
+                  child: TtButton.text(
                     label: 'Contact support',
                     icon: Symbols.support_agent_rounded,
                     onPressed: () => context.push(Routes.help),
@@ -249,17 +249,17 @@ class _CheckRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     final (IconData icon, Color c, Color fg, String text) = switch (status) {
-      KycStatus.verified => (Symbols.check_circle_rounded, RidoColors.success, RidoColors.successText, 'Verified'),
-      KycStatus.underReview => (Symbols.schedule_rounded, RidoColors.warning, RidoColors.warningText, 'Under review'),
-      KycStatus.rejected => (Symbols.cancel_rounded, RidoColors.error, RidoColors.error, 'Rejected'),
-      KycStatus.notUploaded => (Symbols.radio_button_unchecked_rounded, RidoColors.navy500, RidoColors.navy500, 'Not uploaded'),
+      KycStatus.verified => (Symbols.check_circle_rounded, TtColors.success, TtColors.successText, 'Verified'),
+      KycStatus.underReview => (Symbols.schedule_rounded, TtColors.warning, TtColors.warningText, 'Under review'),
+      KycStatus.rejected => (Symbols.cancel_rounded, TtColors.error, TtColors.error, 'Rejected'),
+      KycStatus.notUploaded => (Symbols.radio_button_unchecked_rounded, TtColors.navy500, TtColors.navy500, 'Not uploaded'),
     };
     return SizedBox(
       height: 52,
       child: Row(
         children: [
           Icon(icon, color: c, fill: 1, size: 22),
-          const SizedBox(width: RidoSpacing.m),
+          const SizedBox(width: TtSpacing.m),
           Expanded(child: Text(label, style: t.body, maxLines: 1, overflow: TextOverflow.ellipsis)),
           Text(text, style: t.bodySmallMedium.copyWith(color: fg)),
         ],

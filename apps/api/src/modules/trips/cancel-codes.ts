@@ -23,7 +23,7 @@ export const CANCEL_CODES_FOR: Readonly<Record<CancelledBy, readonly CancelCode[
   ADMIN: Object.values(CancelCode),
 };
 
-/** Short labels (pushes, admin). The apps have their own copies in rido_data `CancelCode`. */
+/** Short labels (pushes, admin). The apps have their own copies in tamiltaxi_data `CancelCode`. */
 export const CANCEL_CODE_LABEL: Readonly<Record<CancelCode, string>> = {
   CHANGED_MIND: 'Changed my plan',
   DRIVER_TOO_FAR: 'Driver too far',

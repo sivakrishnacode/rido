@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -22,8 +22,8 @@ class DriverHelpScreen extends ConsumerWidget {
     final trips = ref.watch(earningsProvider(EarningsPeriod.today)).value?.trips;
     final latest = (trips == null || trips.isEmpty) ? null : trips.first;
     return Scaffold(
-      backgroundColor: RidoColors.background,
-      appBar: const RidoAppBar(title: 'Help & support'),
+      backgroundColor: TtColors.background,
+      appBar: const TtAppBar(title: 'Help & support'),
       body: SupportHomeView(
         topics: ref.read(supportRepositoryProvider).topics(driver: true),
         tickets: tickets.hasError ? const [] : tickets.value,
@@ -38,7 +38,7 @@ class DriverHelpScreen extends ConsumerWidget {
         onRecentTrip: latest == null ? null : () => context.push(Routes.newTicket(topic: 'Payment issue')),
         onTopic: (topic) => context.push(Routes.newTicket(topic: topic)),
         onRaiseTicket: () => context.push(Routes.newTicket()),
-        onWhatsApp: () => showRidoSnack(context, 'Opening WhatsApp'),
+        onWhatsApp: () => showTtSnack(context, 'Opening WhatsApp'),
       ),
     );
   }

@@ -1,0 +1,348 @@
+{
+  "_comment": "Shared fare-engine cases, read by apps/api/src/modules/fares/fare-engine.spec.ts and packages/tamiltaxi_data/test/fare_engine_test.dart. Both engines must produce exactly these lines; edit both engines and this file together. waitingCases: the waiting charge (first freeWaitMin free, then waitPerMin per started minute, capped at waitMaxCharge; never surged). waitPerMin comes from the vehicle's built-in rule; with a route the total is the quote's total plus the waiting charge.",
+  "cases": [
+    {
+      "name": "Bike, Gandhipuram → Brookefields, no peak",
+      "input": {
+        "vehicleKind": "BIKE",
+        "distanceKm": 4.2,
+        "durationMin": 14,
+        "multiplier": 1.0
+      },
+      "expected": {
+        "base": 12,
+        "distanceCharge": 21,
+        "timeCharge": 2,
+        "minFareTopUp": 0,
+        "subtotal": 35,
+        "multiplier": 1,
+        "peakCharge": 0,
+        "total": 35
+      }
+    },
+    {
+      "name": "Auto, same route, no peak",
+      "input": {
+        "vehicleKind": "AUTO",
+        "distanceKm": 4.2,
+        "durationMin": 14,
+        "multiplier": 1.0
+      },
+      "expected": {
+        "base": 25,
+        "distanceCharge": 37,
+        "timeCharge": 4,
+        "minFareTopUp": 0,
+        "subtotal": 66,
+        "multiplier": 1,
+        "peakCharge": 0,
+        "total": 66
+      }
+    },
+    {
+      "name": "Cab, same route, design peak 1.1x",
+      "input": {
+        "vehicleKind": "CAB",
+        "distanceKm": 4.2,
+        "durationMin": 14,
+        "multiplier": 1.1
+      },
+      "expected": {
+        "base": 48,
+        "distanceCharge": 63,
+        "timeCharge": 21,
+        "minFareTopUp": 0,
+        "subtotal": 132,
+        "multiplier": 1.1,
+        "peakCharge": 13,
+        "total": 145
+      }
+    },
+    {
+      "name": "Bike short hop: below the minimum fare, no peak",
+      "input": {
+        "vehicleKind": "BIKE",
+        "distanceKm": 0.5,
+        "durationMin": 1,
+        "multiplier": 1.0
+      },
+      "expected": {
+        "base": 12,
+        "distanceCharge": 2,
+        "timeCharge": 0,
+        "minFareTopUp": 11,
+        "subtotal": 25,
+        "multiplier": 1,
+        "peakCharge": 0,
+        "total": 25
+      }
+    },
+    {
+      "name": "Bike short hop at 1.5x: surge first, then the top-up (not minFare × 1.5)",
+      "input": {
+        "vehicleKind": "BIKE",
+        "distanceKm": 0.5,
+        "durationMin": 1,
+        "multiplier": 1.5
+      },
+      "expected": {
+        "base": 12,
+        "distanceCharge": 2,
+        "timeCharge": 0,
+        "minFareTopUp": 4,
+        "subtotal": 18,
+        "multiplier": 1.5,
+        "peakCharge": 7,
+        "total": 25
+      }
+    },
+    {
+      "name": "Cab short hop at 1.3x: surged ride still just under the minimum",
+      "input": {
+        "vehicleKind": "CAB",
+        "distanceKm": 1.0,
+        "durationMin": 3,
+        "multiplier": 1.3
+      },
+      "expected": {
+        "base": 48,
+        "distanceCharge": 15,
+        "timeCharge": 4,
+        "minFareTopUp": 3,
+        "subtotal": 70,
+        "multiplier": 1.3,
+        "peakCharge": 20,
+        "total": 90
+      }
+    },
+    {
+      "name": "Goods bike, Peelamedu → Race Course, design peak 1.1x",
+      "input": {
+        "vehicleKind": "GOODS_BIKE",
+        "distanceKm": 6.8,
+        "durationMin": 23,
+        "multiplier": 1.1
+      },
+      "expected": {
+        "base": 10,
+        "distanceCharge": 34,
+        "timeCharge": 1,
+        "minFareTopUp": 0,
+        "subtotal": 45,
+        "multiplier": 1.1,
+        "peakCharge": 4,
+        "total": 49
+      }
+    },
+    {
+      "name": "Three-wheeler at 1.25x",
+      "input": {
+        "vehicleKind": "THREE_WHEELER",
+        "distanceKm": 6.8,
+        "durationMin": 23,
+        "multiplier": 1.25
+      },
+      "expected": {
+        "base": 50,
+        "distanceCharge": 102,
+        "timeCharge": 12,
+        "minFareTopUp": 0,
+        "subtotal": 164,
+        "multiplier": 1.25,
+        "peakCharge": 41,
+        "total": 205
+      }
+    },
+    {
+      "name": "Mini truck at 1.5x capped by maxMultiplier 1.2",
+      "input": {
+        "vehicleKind": "MINI_TRUCK",
+        "distanceKm": 12.4,
+        "durationMin": 41,
+        "multiplier": 1.5,
+        "maxMultiplier": 1.2
+      },
+      "expected": {
+        "base": 140,
+        "distanceCharge": 434,
+        "timeCharge": 8,
+        "minFareTopUp": 0,
+        "subtotal": 582,
+        "multiplier": 1.2,
+        "peakCharge": 116,
+        "total": 698
+      }
+    },
+    {
+      "name": "Pickup at 2x capped at the default 1.5",
+      "input": {
+        "vehicleKind": "PICKUP",
+        "distanceKm": 3.6,
+        "durationMin": 12,
+        "multiplier": 2.0
+      },
+      "expected": {
+        "base": 250,
+        "distanceCharge": 162,
+        "timeCharge": 12,
+        "minFareTopUp": 0,
+        "subtotal": 424,
+        "multiplier": 1.5,
+        "peakCharge": 212,
+        "total": 636
+      }
+    },
+    {
+      "name": "Truck with a multiplier below 1 (clamped to 1)",
+      "input": {
+        "vehicleKind": "TRUCK",
+        "distanceKm": 1.4,
+        "durationMin": 5,
+        "multiplier": 0.8
+      },
+      "expected": {
+        "base": 500,
+        "distanceCharge": 98,
+        "timeCharge": 7,
+        "minFareTopUp": 395,
+        "subtotal": 1000,
+        "multiplier": 1,
+        "peakCharge": 0,
+        "total": 1000
+      }
+    }
+  ],
+  "waitingCases": [
+    {
+      "name": "Bike, driver just arrived",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 0
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 0
+      }
+    },
+    {
+      "name": "Bike, exactly the 3 free minutes",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 180
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 0
+      }
+    },
+    {
+      "name": "Bike, one second past the free minutes starts a minute",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 181
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 1
+      }
+    },
+    {
+      "name": "Auto, 5:30 waited = 3 started minutes",
+      "input": {
+        "vehicleKind": "AUTO",
+        "waitedSec": 330
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 3
+      }
+    },
+    {
+      "name": "Cab, 10 min waited = 7 min x ₹2",
+      "input": {
+        "vehicleKind": "CAB",
+        "waitedSec": 600
+      },
+      "expected": {
+        "waitPerMin": 2,
+        "waitingCharge": 14
+      }
+    },
+    {
+      "name": "Bike, an hour waited is capped at ₹30",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 3600
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 30
+      }
+    },
+    {
+      "name": "Cab, cap from the settings (₹20)",
+      "input": {
+        "vehicleKind": "CAB",
+        "waitedSec": 1200,
+        "waitMaxCharge": 20
+      },
+      "expected": {
+        "waitPerMin": 2,
+        "waitingCharge": 20
+      }
+    },
+    {
+      "name": "No free minutes: the first second is a started minute",
+      "input": {
+        "vehicleKind": "THREE_WHEELER",
+        "waitedSec": 1,
+        "freeWaitMin": 0
+      },
+      "expected": {
+        "waitPerMin": 2,
+        "waitingCharge": 2
+      }
+    },
+    {
+      "name": "Start before arrival (clock skew) is free",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": -30
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 0
+      }
+    },
+    {
+      "name": "Cab at 1.1x peak: waiting is added after the surge, not multiplied",
+      "input": {
+        "vehicleKind": "CAB",
+        "waitedSec": 480,
+        "distanceKm": 4.2,
+        "durationMin": 14,
+        "multiplier": 1.1
+      },
+      "expected": {
+        "waitPerMin": 2,
+        "waitingCharge": 10,
+        "total": 155
+      }
+    },
+    {
+      "name": "Bike short hop at the minimum fare plus waiting",
+      "input": {
+        "vehicleKind": "BIKE",
+        "waitedSec": 300,
+        "distanceKm": 0.5,
+        "durationMin": 1,
+        "multiplier": 1.0
+      },
+      "expected": {
+        "waitPerMin": 1,
+        "waitingCharge": 2,
+        "total": 27
+      }
+    }
+  ]
+}

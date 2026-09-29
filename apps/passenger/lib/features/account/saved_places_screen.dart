@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
@@ -26,7 +26,7 @@ class SavedPlacesScreen extends ConsumerWidget {
     final t = context.type;
     final places = ref.watch(currentProfileProvider).savedPlaces;
     return Scaffold(
-      appBar: const RidoAppBar(
+      appBar: const TtAppBar(
         title: 'Saved places',
         bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1)),
       ),
@@ -34,16 +34,16 @@ class SavedPlacesScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           Text('Book faster: tap a saved place on Home to set it as your drop.',
-              style: t.body.copyWith(color: RidoColors.navy700)),
+              style: t.body.copyWith(color: TtColors.navy700)),
           const SizedBox(height: 16),
           if (places.isEmpty)
-            RidoCard(
+            TtCard(
               child: Text('No saved places yet. Add Home or Work to book in one tap.', style: t.bodySmall),
             )
           else
-            RidoListGroup(children: [
+            TtListGroup(children: [
               for (final p in places)
-                RidoListTile(
+                TtListTile(
                   icon: savedPlaceIcon(p.kind),
                   title: p.label,
                   subtitle: p.place.fullAddress,
@@ -51,7 +51,7 @@ class SavedPlacesScreen extends ConsumerWidget {
                 ),
             ]),
           const SizedBox(height: 16),
-          RidoButton.secondary(
+          TtButton.secondary(
             label: 'Add a place',
             icon: Symbols.add_location_alt_rounded,
             onPressed: () => context.push(Routes.savedPlaceEditor()),

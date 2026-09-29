@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../common/map_insets.dart';
@@ -65,7 +65,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
         maxSheetFraction: 0.72,
         map: (context, h) {
           final insets = sheetMapInsets(EdgeInsets.fromLTRB(48, 96, 48, h * 0.62), h * 0.62);
-          return RidoMap(
+          return TtMap(
             center: pickup,
             pickup: pickup,
             zoom: 16,
@@ -82,8 +82,8 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
         sheet: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            RidoBanner(
-              type: RidoBannerType.success,
+            TtBanner(
+              type: TtBannerType.success,
               title: '${driver.firstName} has arrived at your pickup',
             ),
             const SizedBox(height: 14),
@@ -95,14 +95,14 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
                 decoration: BoxDecoration(
-                  color: RidoColors.coral50,
-                  borderRadius: RidoRadii.cardRadius,
-                  border: Border.all(color: RidoColors.coral600, width: 2),
+                  color: TtColors.coral50,
+                  borderRadius: TtRadii.cardRadius,
+                  border: Border.all(color: TtColors.coral600, width: 2),
                 ),
                 child: Column(
                   children: [
                     Text('Tell ${driver.firstName} this OTP'.toUpperCase(),
-                        style: t.overline.copyWith(color: RidoColors.coral600), textAlign: TextAlign.center),
+                        style: t.overline.copyWith(color: TtColors.coral600), textAlign: TextAlign.center),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -114,7 +114,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
                               constraints: const BoxConstraints(maxWidth: 60),
                               height: 72,
                               alignment: Alignment.center,
-                              decoration: BoxDecoration(color: RidoColors.surface, borderRadius: RidoRadii.cardRadius),
+                              decoration: BoxDecoration(color: TtColors.surface, borderRadius: TtRadii.cardRadius),
                               child: Text(d, style: t.hero.copyWith(fontSize: 44, height: 1)),
                             ),
                           ),
@@ -122,7 +122,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
                     ),
                     const SizedBox(height: 12),
                     Text('Your ride starts once he enters it',
-                        style: t.body.copyWith(color: RidoColors.navy700), textAlign: TextAlign.center),
+                        style: t.body.copyWith(color: TtColors.navy700), textAlign: TextAlign.center),
                   ],
                 ),
               ),
@@ -142,7 +142,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
                   RoundIconAction(
                     icon: Symbols.call_rounded,
                     tooltip: 'Call ${driver.firstName}',
-                    background: RidoColors.coral600,
+                    background: TtColors.coral600,
                     foreground: Colors.white,
                     onPressed: () => callNumber(context, driver.phone, name: driver.firstName),
                   ),
@@ -152,7 +152,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
             const SizedBox(height: 12),
             Text(
               'Pickup · ${ride.pickup.name}',
-              style: t.bodySmall.copyWith(color: RidoColors.navy500),
+              style: t.bodySmall.copyWith(color: TtColors.navy500),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),

@@ -1,11 +1,29 @@
-# Rido: Technology & DevOps
+# Tamil Taxi: Technology & DevOps
 
-Single technical reference for the Rido monorepo. Keep it current: update this file whenever the stack, services,
+Single technical reference for the Tamil Taxi monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 29 Sep 2026 (open-source repo: AGPL-3.0, contributor docs, CI, COST_AND_SCALING.md; DEV_OTP_CODE for dev-mode sign-in; bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 29 Sep 2026 (renamed Rido → Tamil Taxi: packages, app IDs `com.tamiltaxi.*`, `Tt*` widgets, `TT_*` defines, database `tamiltaxi`; new logo in `TtWordmark`; open-source repo: AGPL-3.0, contributor docs, CI, COST_AND_SCALING.md; DEV_OTP_CODE for dev-mode sign-in; bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
+
+### Renamed from Rido (29 Sep 2026)
+
+The project was called **Rido** until 29 Sep 2026. In code the prefix is now `Tt` (`TtColors`, `TtButton`), packages are
+`@tamiltaxi/*` and `tamiltaxi_ui` / `tamiltaxi_data`, dart-defines are `TT_*` (was `RIDO_*`), Android app IDs are
+`com.tamiltaxi.passenger` / `com.tamiltaxi.driver`, and Postgres uses database, user and password `tamiltaxi`.
+Existing external resources keep their old names because they can't be renamed: the SSH key `rido-key.pem`, the
+security group `rido-sg`, the EC2 tag `rido-server`, the Google Cloud project `rido-prod` and its API keys
+(`rido-android-maps`, `rido-server`, `rido-app-services`).
+
+After the rename, outside the repo:
+- **Firebase:** add Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver` to the Firebase project and put
+  the new `google-services.json` in `apps/*/android/app/`. Until then, Android builds fail at the Google Services step
+  (the old file only lists `com.rido.*`).
+- **Maps key `rido-android-maps`:** add the two new package names and their SHA-1 to its Android restriction, or the
+  map stays blank in new builds.
+- **Local Docker:** the compose project is now `tamiltaxi`, so `docker compose up -d` starts fresh `tamiltaxi_*`
+  volumes (run `prisma:migrate` and the seeds). The old `rido_*` volumes can be deleted.
 
 ## Owner recommendations
 
@@ -25,14 +43,14 @@ Notes from the owner. Each item gets a status and a plan once reviewed.
 | Monorepo | Turborepo + npm workspaces | turbo 2.11, npm 11, Node 24 | root `package.json`, `turbo.json` |
 | Mobile apps | Flutter (Material 3), Android only | Flutter 3.47 / Dart 3.13 | `apps/passenger`, `apps/driver` |
 | App state / routing | Riverpod 3, go_router 17 (pinned: 18 needs `material_ui`) | | `lib/state`, `lib/router` |
-| Shared Flutter code | `rido_ui` (theme, widgets), `rido_data` (models, seed, fare engine, repositories, simulator) | | `packages/` |
+| Shared Flutter code | `tamiltaxi_ui` (theme, widgets), `tamiltaxi_data` (models, seed, fare engine, repositories, simulator) | | `packages/` |
 | Backend | NestJS 12 (ESM), TypeScript 5.9 | | `apps/api` |
 | ORM / DB | Prisma 7 (driver adapter `@prisma/adapter-pg`) + PostgreSQL 17 | | `apps/api/prisma` |
 | Cache / realtime state | Redis 7 (ioredis 6) | | docker `redis` |
 | Realtime | Socket.IO (`@nestjs/platform-socket.io`), namespace `/rt` | | `apps/api/src/modules/realtime` |
 | Auth | Phone OTP (Redis) → JWT (`@nestjs/jwt`) | | `apps/api/src/modules/auth` |
-| Maps (apps) | Google Maps SDK for Android when a key is set, else flutter_map + CARTO light tiles | | `packages/rido_ui` RidoMap |
-| Maps (APIs) | Google Places API (New), Geocoding API, Routes API; fallback OSRM public router + seed data | | `apps/api/src/modules/maps`, `rido_data` |
+| Maps (apps) | Google Maps SDK for Android when a key is set, else flutter_map + CARTO light tiles | | `packages/tamiltaxi_ui` TtMap |
+| Maps (APIs) | Google Places API (New), Geocoding API, Routes API; fallback OSRM public router + seed data | | `apps/api/src/modules/maps`, `tamiltaxi_data` |
 | Location | geolocator (Android fine/coarse location) | 14.x | passenger app |
 | Text-to-speech | flutter_tts (phone's own TTS voice, English / Tamil) | 4.x | driver app: new requests read aloud |
 | Admin panel | Next.js (App Router, Turbopack, `output: 'standalone'`), React, TypeScript | Next 16.3, React 19.3, TS 5.9 | `apps/admin` |
@@ -48,13 +66,13 @@ Notes from the owner. Each item gets a status and a plan once reviewed.
 
 ```
 apps/
-  api/                @rido/api        NestJS backend (Prisma, Redis, Socket.IO)
-  admin/              @rido/admin      Next.js admin panel (shadcn/ui, Google Maps + H3 editor, heatmap), port 3001
-  passenger/          @rido/passenger  Flutter passenger app (com.rido.passenger)
-  driver/             @rido/driver     Flutter driver app (com.rido.driver)
+  api/                @tamiltaxi/api        NestJS backend (Prisma, Redis, Socket.IO)
+  admin/              @tamiltaxi/admin      Next.js admin panel (shadcn/ui, Google Maps + H3 editor, heatmap), port 3001
+  passenger/          @tamiltaxi/passenger  Flutter passenger app (com.tamiltaxi.passenger)
+  driver/             @tamiltaxi/driver     Flutter driver app (com.tamiltaxi.driver)
 packages/
-  rido_ui/            @rido/ui         theme, widgets, illustrations, bundled fonts
-  rido_data/          @rido/data       models, seed, fare engine, repositories, simulator, road router
+  tamiltaxi_ui/            @tamiltaxi/ui         theme, widgets, illustrations, bundled fonts
+  tamiltaxi_data/          @tamiltaxi/data       models, seed, fare engine, repositories, simulator, road router
   flutter_overlay_window/  vendored plugin (MIT) for the driver's floating bubble
 docs/
   tech-docs/using.tech.md  this file
@@ -80,20 +98,20 @@ turbo.json            task pipeline
 | `npm run analyze` | `flutter analyze` / `tsc --noEmit` + oxlint (API) / `next typegen` + `tsc --noEmit` + ESLint (admin) |
 | `npm test` | Flutter tests, API unit tests, admin unit tests (Vitest) |
 | `npm run check` | analyze + test (cached by Turborepo) |
-| `npm run build:apk` | Release APKs → `dist/rido-passenger.apk`, `dist/rido-driver.apk` |
-| `./scripts/build_apks.sh [passenger\|driver]` | Same without Node; one app or both; always **one APK per app** (`dist/rido-passenger.apk`, `dist/rido-driver.apk`, arm + arm64, old ones deleted); checks the map key is in the APK |
+| `npm run build:apk` | Release APKs → `dist/tamiltaxi-passenger.apk`, `dist/tamiltaxi-driver.apk` |
+| `./scripts/build_apks.sh [passenger\|driver]` | Same without Node; one app or both; always **one APK per app** (`dist/tamiltaxi-passenger.apk`, `dist/tamiltaxi-driver.apk`, arm + arm64, old ones deleted); checks the map key is in the APK |
 | `npm run passenger` / `npm run driver` | `flutter run` for that app |
-| `npm run start:dev -w @rido/api` | API with watch mode (needs Postgres + Redis) |
-| `npm run test:e2e -w @rido/api` | API end-to-end tests on an isolated `rido_test` database + Redis DB 1 (migrated and seeded each run; dev data untouched) |
-| `npm run seed:demo-trips -w @rido/api [-- --clear]` | Add (or remove) ~2,000 demo trips for heatmaps and dashboards |
-| `npm run seed:demo-people -w @rido/api [-- --clear]` | Add (or remove) 40 passengers, 32 drivers (KYC, subscriptions, payments) and 12 tickets; run after demo trips, which it spreads across them |
-| `npm run seed:test-drivers -w @rido/api [-- --photo <file>] [-- --clear]` | 11 approved, verified test drivers you can sign into (dev OTP): cab 9100000101/102 (102 is a woman, for Butterfly), goods bike 9100000201/202, truck 9100000301/302, mini truck 9100000401, pickup 9100000501, bike taxi 9100000601/602 (602 a woman), auto 9100000701. Each gets a 90-day trial so they can go online with paid plans on. `--photo` sets a stored profile photo (needed with Didit on). Idempotent; ids `test_drv_*` |
-| `npm run prisma:migrate -w @rido/api` | Create/apply a migration in development |
-| `npm run prisma:deploy -w @rido/api` | Apply migrations (CI / production) |
-| `npm run prisma:seed -w @rido/api` | Seed places and plan prices (idempotent) |
-| `npm run dev -w @rido/admin` | Admin panel on http://localhost:3001 (needs the API; `API_URL` defaults to `http://localhost:3000/v1`) |
-| `npm run build -w @rido/admin` / `npm run start -w @rido/admin` | Production build / serve on :3001 |
-| `npm run test -w @rido/admin` | Admin unit tests (formatters, paging URLs, API helpers, JWT check, fare preview, H3 helpers, settings validation) |
+| `npm run start:dev -w @tamiltaxi/api` | API with watch mode (needs Postgres + Redis) |
+| `npm run test:e2e -w @tamiltaxi/api` | API end-to-end tests on an isolated `tamiltaxi_test` database + Redis DB 1 (migrated and seeded each run; dev data untouched) |
+| `npm run seed:demo-trips -w @tamiltaxi/api [-- --clear]` | Add (or remove) ~2,000 demo trips for heatmaps and dashboards |
+| `npm run seed:demo-people -w @tamiltaxi/api [-- --clear]` | Add (or remove) 40 passengers, 32 drivers (KYC, subscriptions, payments) and 12 tickets; run after demo trips, which it spreads across them |
+| `npm run seed:test-drivers -w @tamiltaxi/api [-- --photo <file>] [-- --clear]` | 11 approved, verified test drivers you can sign into (dev OTP): cab 9100000101/102 (102 is a woman, for Butterfly), goods bike 9100000201/202, truck 9100000301/302, mini truck 9100000401, pickup 9100000501, bike taxi 9100000601/602 (602 a woman), auto 9100000701. Each gets a 90-day trial so they can go online with paid plans on. `--photo` sets a stored profile photo (needed with Didit on). Idempotent; ids `test_drv_*` |
+| `npm run prisma:migrate -w @tamiltaxi/api` | Create/apply a migration in development |
+| `npm run prisma:deploy -w @tamiltaxi/api` | Apply migrations (CI / production) |
+| `npm run prisma:seed -w @tamiltaxi/api` | Seed places and plan prices (idempotent) |
+| `npm run dev -w @tamiltaxi/admin` | Admin panel on http://localhost:3001 (needs the API; `API_URL` defaults to `http://localhost:3000/v1`) |
+| `npm run build -w @tamiltaxi/admin` / `npm run start -w @tamiltaxi/admin` | Production build / serve on :3001 |
+| `npm run test -w @tamiltaxi/admin` | Admin unit tests (formatters, paging URLs, API helpers, JWT check, fare preview, H3 helpers, settings validation) |
 | `docker compose up -d` | Postgres + Redis + API + admin panel |
 | `docker compose up -d --build admin` | Rebuild and restart only the admin panel |
 | `docker compose --profile tools up -d` | Also Adminer and Redis Insight |
@@ -109,12 +127,12 @@ Flutter is found via `$FLUTTER`, `PATH`, or `~/development/flutter` (`scripts/fl
 | postgres | postgres:17-alpine | 5432 | volume `postgres-data`, healthcheck `pg_isready` |
 | redis | redis:7-alpine | 6379 (this machine uses **6380**, set in `.env`) | AOF on, volume `redis-data` |
 | api | built from `apps/api/Dockerfile` | 3000 | runs `prisma migrate deploy` + seed, then `node dist/main.js`; healthcheck `/health` |
-| admin | built from `apps/admin/Dockerfile` (`rido-admin:local`) | 3001 (`ADMIN_PORT`) | Next standalone `node apps/admin/server.js`; talks to `http://api:3000/v1`; starts after api is healthy; healthcheck `/login` |
+| admin | built from `apps/admin/Dockerfile` (`tamiltaxi-admin:local`) | 3001 (`ADMIN_PORT`) | Next standalone `node apps/admin/server.js`; talks to `http://api:3000/v1`; starts after api is healthy; healthcheck `/login` |
 | adminer | adminer:5 (profile `tools`) | 8080 | DB browser |
 | redis-insight | redis/redisinsight (profile `tools`) | 5540 | Redis browser |
 
 API and admin images: multi-stage Node 24 alpine builds from the repo root (every workspace `package.json` is copied
-so `npm ci` matches the lockfile), run as non-root `rido`, `tini` as PID 1. The admin image is ~300 MB.
+so `npm ci` matches the lockfile), run as non-root `tamiltaxi`, `tini` as PID 1. The admin image is ~300 MB.
 
 ---
 
@@ -130,7 +148,7 @@ Never commit real `.env` files.
 
 | Variable | Used by | Default | Notes |
 |---|---|---|---|
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | compose | rido / rido / rido | |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | compose | tamiltaxi / tamiltaxi / tamiltaxi | |
 | `POSTGRES_PORT`, `REDIS_PORT`, `API_PORT` | compose | 5432, 6379, 3000 | host ports |
 | `DATABASE_URL` | API, Prisma | set by compose | `postgresql://…?schema=public` |
 | `REDIS_URL` | API | set by compose | |
@@ -152,10 +170,10 @@ Never commit real `.env` files.
 | `ADMIN_COOKIE_SECURE` → `COOKIE_SECURE` | admin container | false | `true` once served over HTTPS (session cookie gets `Secure`); outside compose, `NODE_ENV=production` sets Secure unless `COOKIE_SECURE=false` |
 | `DIDIT_API_KEY` | API | empty | Didit console › API & Webhooks › API Key. **Empty = identity checks off** (dev): drivers are approved on RC + insurance alone |
 | `DIDIT_WEBHOOK_SECRET` | API | empty | the webhook destination's signing secret; empty = every webhook is refused (the apps' `/kyc/sync` still works) |
-| `DIDIT_DRIVER_WORKFLOW_ID` / `DIDIT_RIDER_WORKFLOW_ID` | API | empty | published workflows "Rido Driver KYC" (India, driving licence + Aadhaar) and "Rido Rider KYC" (India, any ID) |
+| `DIDIT_DRIVER_WORKFLOW_ID` / `DIDIT_RIDER_WORKFLOW_ID` | API | empty | published workflows "Tamil Taxi Driver KYC" (India, driving licence + Aadhaar) and "Tamil Taxi Rider KYC" (India, any ID) |
 | `DIDIT_BASE_URL` | API | `https://verification.didit.me` | only for tests |
 | `SHARE_BASE_URL` | API | `http://localhost:3001` | public origin of the admin app, where live trip links point (`<SHARE_BASE_URL>/track/<token>`); staging: `https://admin.65-0-233-253.sslip.io` |
-| `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | admin (build time, client bundle) | empty | browser key for the **Maps JavaScript API** (must be enabled on the key). Local dev: `apps/admin/.env.local` (git-ignored, template `apps/admin/.env.example`). Docker: root `.env` `GOOGLE_MAPS_BROWSER_KEY` → build arg. Currently the `rido-app-services` key; restrict to HTTP referrers later (`rido-admin-web`) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | admin (build time, client bundle) | empty | browser key for the **Maps JavaScript API** (must be enabled on the key). Local dev: `apps/admin/.env.local` (git-ignored, template `apps/admin/.env.example`). Docker: root `.env` `GOOGLE_MAPS_BROWSER_KEY` → build arg. Currently the `rido-app-services` key; restrict to HTTP referrers later (`tamiltaxi-admin-web`) |
 
 ---
 
@@ -190,7 +208,7 @@ Never commit real `.env` files.
   charge twice. Rides **and parcels** (same `/start` path; the passenger parcel app has no arrived screen, so only the
   driver sees the timer there). Old fares without terms use today's settings and rate. Shared cases in
   `fare_cases.json` → `waitingCases` (TS + Dart). Apps: P-15 and D-17 / D-21 (at the pickup) show `WaitingTimerChip`
-  (rido_ui: "Free waiting · 2:45 left", then "Waiting charge ₹3"); the fare breakdowns (P-11 / P-19 sheet, P-22 and its
+  (tamiltaxi_ui: "Free waiting · 2:45 left", then "Waiting charge ₹3"); the fare breakdowns (P-11 / P-19 sheet, P-22 and its
   receipt, D-23b) show "Waiting charge" only when it is above 0; driver earnings trips carry `waitingCharge`; the
   driver's job fare is refreshed from the start response (D-19 collects the right amount). Admin: trip Fare card line,
   "Waiting ₹/min" column in Cities › Fares, Settings › Waiting charge. Migration `20260928180000_waiting_charge`.
@@ -209,7 +227,7 @@ Never commit real `.env` files.
   settings, audit log, CSV exports (trips, drivers, payments), SOS queue (`/admin/sos`, 6d). Every admin POST/PUT/PATCH/DELETE is written to `AuditLog`.
 - **Heatmaps:** trips store `pickupCell` / `dropCell` (H3 res 8, indexed). `GET /v1/admin/heatmap?metric=pickups|drops|unmet|fares
   &from&to&kind&vehicleKind&hourFrom&hourTo&resolution` aggregates per cell in SQL (hour filter in IST; resolution < 8
-  rolls up to parent hexes). Demo data: `npm run seed:demo-trips -w @rido/api` (~2,000 trips, ids `demo_…`;
+  rolls up to parent hexes). Demo data: `npm run seed:demo-trips -w @tamiltaxi/api` (~2,000 trips, ids `demo_…`;
   `-- --clear` removes them).
 - **Public geo:** `GET /v1/cities`, `GET /v1/cities/:id/service-area` (cells + zones for the apps), `GET /v1/geo/check`,
   `GET /v1/announcements?audience=&cityId=`.
@@ -239,7 +257,7 @@ Never commit real `.env` files.
   - `GET` / `PUT /drivers/me/booking-preferences` (`{maxPickupKm 0.5–10, minTripKm 1–50, maxTripKm 1–100, goTo {lat,
     lng, name}}`, null clears one; stored in `Driver.bookingPrefs` JSON, see §7c8).
   - `POST /drivers/me/documents/:type` is **multipart** (`file`: JPG/PNG/WebP/PDF ≤ 8 MB) → **S3**
-    `s3://rido-uploads-786020471552/kyc/<uuid>.<ext>` when `S3_BUCKET` is set (production), else local disk
+    `s3://tamiltaxi-uploads-786020471552/kyc/<uuid>.<ext>` when `S3_BUCKET` is set (production), else local disk
     (`UPLOAD_DIR`, Docker volume `uploads`, dev) → `KycDocument.fileUrl` = file name. Admins read it via
     `GET /v1/admin/files/:name` (streams from S3; files saved on disk before the switch are still found), proxied by
     the admin panel at `/files/:name` (never public). `FileStorageService` in `core/storage`.
@@ -281,7 +299,7 @@ Never commit real `.env` files.
     before it, a driver's cancel except `PASSENGER_NO_SHOW` / `BUTTERFLY_MISMATCH`, or the system's
     `DRIVER_NOT_MOVING`). Migration `20260928140000_structured_cancellations`
     backfills `cancelledBy` / `cancelCode` / `cancelledAt` from the old reason texts and history rows for old cancels.
-    `Trip.arrivedAt` is set on "Arrived". Apps: S-03 / D-16 / D-17 send codes (`CancelCode` in rido_data, with the
+    `Trip.arrivedAt` is set on "Arrived". Apps: S-03 / D-16 / D-17 send codes (`CancelCode` in tamiltaxi_data, with the
     sheet labels and per-side lists); admin trip page shows who / why / when, the note, every cancellation and the
     arrival time; the trips CSV has the new columns. The Butterfly-for-others report count uses the code.
   - **Cancellation fault verdict (28 Sep 2026, like Namma Yatri's `CancellationFault` / `CancellationSignals`):**
@@ -462,7 +480,7 @@ Never commit real `.env` files.
      women riders only: the passenger's `gender` must be `FEMALE`, rides only). `ONLY` keeps women drivers
      (driver `user.gender = FEMALE`) and never falls back; `PREFERRED` ranks men as if 8 min further
      (`PREFERRED_HEAD_START_MIN`, `drivers/women-drivers.ts`), so men still get it when no woman is near.
-     Apps: P-10 Butterfly card (`ButterflyMark` in rido_ui, pink `RidoColors.butterfly*`) with Any driver /
+     Apps: P-10 Butterfly card (`ButterflyMark` in tamiltaxi_ui, pink `TtColors.butterfly*`) with Any driver /
      Preferred / Women only, shown only when the profile gender is female; Safety preferences "Prefer women
      driver" is its default. "Women only" re-quotes with `womenOnly`. The driver request card shows the
      butterfly on ONLY trips (`RideRequest.isWomenOnly`).
@@ -470,7 +488,7 @@ Never commit real `.env` files.
      `Trip.riderName / riderPhone / riderIsWoman`; Butterfly needs a woman *rider* (the account holder with gender
      FEMALE, or `rider.isWoman`). The driver's offer shows the rider's name and phone (`passenger.bookedBy` = the
      account holder). Abuse guard: a driver can cancel with the code `BUTTERFLY_MISMATCH` ("Rider is not a woman",
-     no penalty: Rido has no driver cancel penalties); after 2 such cancels on trips booked for someone else the
+     no penalty: Tamil Taxi has no driver cancel penalties); after 2 such cancels on trips booked for someone else the
      account gets 403 for Butterfly-for-others (own Butterfly rides and normal rides still work). No SMS to the
      rider yet: the account holder shares the ride OTP. Apps: P-10 "Riding: Me ▾" chip → P-10b sheet (name, mobile,
      "She's a woman"); it resets to Me after a finished ride. Driver: request card shows the rider with "Booked by …",
@@ -529,7 +547,7 @@ Never commit real `.env` files.
   driver in the index, and only when it is newer than the stored `driver:alive` time (so a late flush never
   overwrites a live position). Live fixes are stamped with the server time; batch fixes with their own `ts`.
   Offline or blocked drivers' uploads are ignored (checked from the `driver:state` cache, not Postgres). The driver app keeps fixes (same 5 s / 20 m rule) in a `FixBuffer`
-  (rido_data, 500, oldest dropped) while the socket is down, uploads them over HTTP every 30 s instead of the plain
+  (tamiltaxi_data, 500, oldest dropped) while the socket is down, uploads them over HTTP every 30 s instead of the plain
   heartbeat (plain heartbeat when the buffer is empty), and over the socket on reconnect; a failed upload puts them
   back. The buffer is cleared on going offline without a job.
 - **Fares:** same engine as the apps. Distance: measured demo routes, then Google Routes distance (the shortest of the
@@ -549,7 +567,7 @@ Never commit real `.env` files.
 
 ## 6a. Free app and contributions
 
-Rido is free for drivers and riders: **0% commission and no subscription** (owner decision, 26 Sep 2026). The owner
+Tamil Taxi is free for drivers and riders: **0% commission and no subscription** (owner decision, 26 Sep 2026). The owner
 pays the running costs; drivers and riders can contribute by UPI.
 
 - **Plans are off, not deleted.** `driverPlansEnabled` (setting, default `false`):
@@ -561,9 +579,9 @@ pays the running costs; drivers and riders can contribute by UPI.
 - **Public config:** `GET /v1/app-config` (no auth) →
   `{ driverPlansEnabled, supportPhone, contribute: { upiId, payeeName, note, monthlyCost: { totalInr, items: [{label, amountInr}] } | null } }`.
   `items` are the non-zero parts in a fixed order (Servers & database, Maps, SMS (OTP), Other); `monthlyCost` is null
-  while all four are 0. Apps: `appConfigProvider` / `driverPlansEnabledProvider` in `rido_data` (`src/api/app_config.dart`;
+  while all four are 0. Apps: `appConfigProvider` / `driverPlansEnabledProvider` in `tamiltaxi_data` (`src/api/app_config.dart`;
   mock mode uses `AppConfig.demo`, an unreachable API falls back to `AppConfig.fallback`, plans off).
-- **Contribute page:** Account › Contribute in both apps (`/account/contribute`), body `ContributeView` in `rido_ui`:
+- **Contribute page:** Account › Contribute in both apps (`/account/contribute`), body `ContributeView` in `tamiltaxi_ui`:
   message, "App running & infrastructure" monthly total with its breakdown, amount chips (₹20 / 50 / 100 / 200 /
   Other), "Contribute ₹X with UPI" (opens `upi://pay?pa=…&pn=…&am=…&cu=INR&tn=…` in the phone's UPI app), and a QR code
   without an amount. No UPI ID set → "Contributions open soon". Nothing is tracked: payments go straight to the UPI ID.
@@ -627,7 +645,7 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
   Try again, the decline reasons, and a consent line linking Didit's privacy notice), then RC and insurance uploads,
   each on its own card outlined by status (green verified, amber under review, red rejected). A **Help** button in
   the header opens `/help` (no approval needed), for drivers stuck on a rejected document. Continue → D-10 (the simulated D-09 selfie is no longer part of sign-up). The start route sends a driver whose check
-  isn't done or was declined back to D-07. Shared code in `rido_data` (`identity/identity.dart`: `IdentityCheck`,
+  isn't done or was declined back to D-07. Shared code in `tamiltaxi_data` (`identity/identity.dart`: `IdentityCheck`,
   `IdentityRepository` API + mock, `identityProvider.verify()`, `identitySdkProvider`); mock mode approves at once
   (declines with Demo control "Reject KYC").
 - **Passenger app:** Account › Verify identity (`/account/verify-identity`, shown only when the server has Didit set
@@ -640,15 +658,15 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
 - **Admin panel:** driver page has an "Identity check (Didit)" card (status, name and date of birth on the ID, each
   document with its last 4 digits, the Didit session id and status, warnings); KYC progress counts RC + insurance +
   identity ("x of 3"); the KYC queue shows each driver's identity status; the user page shows "Identity (Didit)".
-  Decide "In review" sessions in the Didit console; the webhook updates Rido.
+  Decide "In review" sessions in the Didit console; the webhook updates Tamil Taxi.
 - **Didit console setup:** see "Didit console checklist" below.
 
 **Live setup (27 Sep 2026, created through the Workflows / Webhooks API with the application key):**
 
 | Item | Value |
 |---|---|
-| Rido Driver KYC | `ab3accee-c90c-45ed-9672-999fa5a131c5`: ID step 1 India `DL` (all 43 state subtypes, strict expiry) → ID step 2 India `ID` subtype `ID_CARD_GENERIC` (Aadhaar) → passive liveness → face match → device & IP; $0.48 max (two ID scans), camera only (no uploads) |
-| Rido Rider KYC | `c9896ca8-93eb-44c4-9565-9c256d36b71a`: India `ID` (generic ID card, voter card, e-Shram, certificate of identity) + `DL` + `P` → passive liveness → face match → device & IP; $0.33 max |
+| Tamil Taxi Driver KYC | `ab3accee-c90c-45ed-9672-999fa5a131c5`: ID step 1 India `DL` (all 43 state subtypes, strict expiry) → ID step 2 India `ID` subtype `ID_CARD_GENERIC` (Aadhaar) → passive liveness → face match → device & IP; $0.48 max (two ID scans), camera only (no uploads) |
+| Tamil Taxi Rider KYC | `c9896ca8-93eb-44c4-9565-9c256d36b71a`: India `ID` (generic ID card, voter card, e-Shram, certificate of identity) + `DL` + `P` → passive liveness → face match → device & IP; $0.33 max |
 | Both | min age 18 in India (decline), missing expiry date → no action (Aadhaar / PAN have none), duplicate user / possible duplicate face → review, 3 retries per 7 days |
 | Webhook destination | `4b257c85-f81c-45b8-978f-70c01505df01` → `https://api.65-0-233-253.sslip.io/v1/kyc/didit/webhook`, v3, `status.updated` + `data.updated` |
 
@@ -657,11 +675,11 @@ accepts unknown subtype names without error, so use only catalog names (read the
 `documents_allowed.IND`).
 
 **Didit console checklist** (business.didit.me):
-1. Workflows › Create › **Advanced** (graph) from the KYC template → "Rido Driver KYC": ID Verification #1 (India,
+1. Workflows › Create › **Advanced** (graph) from the KYC template → "Tamil Taxi Driver KYC": ID Verification #1 (India,
    Driving Licence only, decline expired) → ID Verification #2 (India, Aadhaar only) → Passive Liveness → Face Match →
    Device & IP Analysis → Approved; everything else off (AML, NFC, active liveness, phone, email, proof of address,
    database validation cost extra). Publish → `DIDIT_DRIVER_WORKFLOW_ID`.
-2. Same for "Rido Rider KYC" with India: Aadhaar, PAN, Voter ID, Driving Licence, Passport → `DIDIT_RIDER_WORKFLOW_ID`.
+2. Same for "Tamil Taxi Rider KYC" with India: Aadhaar, PAN, Voter ID, Driving Licence, Passport → `DIDIT_RIDER_WORKFLOW_ID`.
 3. API & Webhooks: API key → `DIDIT_API_KEY`; add destination `https://<api host>/v1/kyc/didit/webhook`, events
    `status.updated` + `data.updated`, version v3; secret → `DIDIT_WEBHOOK_SECRET`. Test with "Try Webhook".
 4. App Settings › Data: retention 24 months.
@@ -762,7 +780,7 @@ loaded, or if it can't be made, it falls back to a Google Maps link to the vehic
   and Inter (body) via `next/font`. Light theme only.
 - **Auth:** `/login` → phone (+91) → `POST /auth/otp` → 6-digit OTP (InputOTP) → `POST /auth/verify`; accepted only when
   `user.role === 'ADMIN'` (else "This number is not an admin"). The JWT is stored by a Server Action in the httpOnly,
-  `SameSite=lax` cookie `rido_admin_token` (cookie life = JWT expiry) and is never readable from client JS.
+  `SameSite=lax` cookie `tt_admin_token` (cookie life = JWT expiry) and is never readable from client JS.
   `src/proxy.ts` (Next 16 proxy, formerly middleware) redirects to `/login` when there is no unexpired ADMIN token;
   any API 401 clears the cookies (`/auth/signout`) and returns to `/login?expired=1`. Logout is in the user menu.
   Dev login: **9000000001**, any OTP except 000000.
@@ -793,7 +811,7 @@ loaded, or if it can't be made, it falls back to a Google Maps link to the vehic
   support phone),
   Announcements. Finance: Payments, Cancellation fees (report of fees owed and collected, 6). System: Audit log (expandable JSON). Every page has `loading.tsx` skeletons,
   `error.tsx` (retry) and empty states.
-- **Maps (Google Maps JavaScript API):** `src/components/map/google/rido-map.tsx` wraps `APIProvider` (`language=en`,
+- **Maps (Google Maps JavaScript API):** `src/components/map/google/tamiltaxi-map.tsx` wraps `APIProvider` (`language=en`,
   `region=IN`) + `Map` with a light JSON style (land `#EEF0F3`, white roads, water `#D5E5F1`, parks `#DDEBD8`, POIs,
   transit and local-road labels off, navy-500 labels with a white halo; neighbourhood names only at zoom ≥ 14) and a
   Map / Satellite (hybrid) toggle. No Map ID (JSON styles can't be combined with one), so markers are `Data` points /
@@ -867,7 +885,7 @@ loaded, or if it can't be made, it falls back to a Google Maps link to the vehic
 
 **Google billing (India list, per 1,000; free monthly calls in brackets):** Routes Essentials $1.50 (70k), Routes Pro
 $3 (35k); Route Matrix bills **per element** at the same tiers. Pro is triggered by `vehicleStopover` / `sideOfRoad` /
-`heading` and by `TRAFFIC_AWARE`; Enterprise by `TWO_WHEELER`, tolls or traffic on polylines (none used). What Rido sends:
+`heading` and by `TRAFFIC_AWARE`; Enterprise by `TWO_WHEELER`, tolls or traffic on polylines (none used). What Tamil Taxi sends:
 
 | Call | Fields / options | SKU |
 |---|---|---|
@@ -892,10 +910,10 @@ server (IP-restricted), key 3 app web services (API-restricted only; the apps' `
 signature headers, so remove key 3 once the apps call the backend). Debug SHA-1 on the dev machine:
 `B5:C9:F1:A3:D4:2E:20:F7:24:2A:F7:94:54:CC:26:36:3B:4D:52:99`.
 
-App-side implementation: `packages/rido_data/lib/src/maps/` (config, HTTP helper, Places client, polyline codec),
-`RoadRouter` (Google → OSRM → curved line), `packages/rido_ui/lib/src/widgets/rido_map_google.dart` (GoogleMap engine,
-markers rendered to bitmaps, light style in `rido_map_style.dart`). `RidoMap` takes a `RidoMapController` and reports
-`RidoCamera`. Place Details asks for Essentials fields only (`id,formattedAddress,location`); the app keeps the
+App-side implementation: `packages/tamiltaxi_data/lib/src/maps/` (config, HTTP helper, Places client, polyline codec),
+`RoadRouter` (Google → OSRM → curved line), `packages/tamiltaxi_ui/lib/src/widgets/tt_map_google.dart` (GoogleMap engine,
+markers rendered to bitmaps, light style in `tt_map_style.dart`). `TtMap` takes a `TtMapController` and reports
+`TtCamera`. Place Details asks for Essentials fields only (`id,formattedAddress,location`); the app keeps the
 suggestion's name.
 
 ---
@@ -916,17 +934,17 @@ suggestion's name.
   **nearest busy area** (`nearestHotspot()`: nearest `high`, else nearest `busy`; `NearestDemandChip`): "HIGH DEMAND
   · 1.2x", the area name, and a directions button with the distance that opens Google Maps ("You're here" within
   1.2 km of its centre).
-- **rido_ui:** `RidoMap.polygons` (`MapPolygon` with fill, stroke, zIndex and a zoom range) on both engines.
+- **tamiltaxi_ui:** `TtMap.polygons` (`MapPolygon` with fill, stroke, zIndex and a zoom range) on both engines.
 
 ## 7a. Device location in the apps
 
-- **Maps follow position changes:** the Google engine now animates to a new `RidoMap.center` (it only read the
+- **Maps follow position changes:** the Google engine now animates to a new `TtMap.center` (it only read the
   initial camera, so the driver map stayed on the first position); following pauses 15 s after the user pans or
   zooms (only camera moves while a finger is on the map count). Driver offline: last known fix (fused, then
   LocationManager) + a medium-accuracy preview stream (no service, nothing uploaded). Going online uses a position
   under 2 min old instead of waiting for a fresh precise fix (indoors that timed out).
 - **Always the real position (live):** both apps read the last known fix at once, then a fresh one. Passenger: the
-  pickup and map are the phone's location even outside the service area (banner "Rido isn't in your area yet"; the API
+  pickup and map are the phone's location even outside the service area (banner "Tamil Taxi isn't in your area yet"; the API
   refuses bookings there). Driver: the car marker follows the phone while offline too (nothing uploaded); with no fix
   yet the map shows the city without a made-up car. The Gandhipuram / seed home points are for mock mode only.
 - **Permission asked on every visit until given:** on opening Home and whenever the user comes back to the app
@@ -947,10 +965,10 @@ suggestion's name.
   every resume. The first missing one shows as a banner (online too) until allowed; "Allow" shows the system prompt
   or the matching settings page. None of these block going online (location does). Camera is asked only for KYC (document photos and the Didit check).
 
-## 7b. Apps ↔ API (packages/rido_data/lib/src/api)
+## 7b. Apps ↔ API (packages/tamiltaxi_data/lib/src/api)
 
-- **Base URL:** `kApiBaseUrl` = `--dart-define=RIDO_API_URL` (default `http://65.0.233.253:3000/v1`, the AWS staging
-  server). `--dart-define=RIDO_LIVE_API=false` runs the apps on seed data + the trip simulator (widget tests and the
+- **Base URL:** `kApiBaseUrl` = `--dart-define=TT_API_URL` (default `http://65.0.233.253:3000/v1`, the AWS staging
+  server). `--dart-define=TT_LIVE_API=false` runs the apps on seed data + the trip simulator (widget tests and the
   design gallery always do: they don't apply the overrides).
 - **Wiring:** each app's `main()` loads `ApiSession` (token + driver id in SharedPreferences), creates `ApiClient` and runs
   `ProviderScope(overrides: liveApiOverrides(api))`, which swaps every repository provider for its `Api*Repository` and
@@ -972,8 +990,8 @@ suggestion's name.
 
 ## 7c. Push notifications (FCM)
 
-- **Firebase project `rido-93cd3`** (Spark, free). Android apps `com.rido.passenger` and `com.rido.driver`; their
-  `android/app/google-services.json` is per machine and git-ignored (originals in `~/rido-secrets/`). Without the file
+- **Firebase project `tamiltaxi-93cd3`** (Spark, free). Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver`; their
+  `android/app/google-services.json` is per machine and git-ignored (originals in `~/tamiltaxi-secrets/`). Without the file
   the apps build and run without push (the Google Services Gradle plugin is only applied when it exists).
 - **API:** `NotificationsModule` (global). `PushService` = firebase-admin (HTTP v1) with the service account from
   `FIREBASE_SERVICE_ACCOUNT_B64` (base64 JSON in the server's `.env`, mode 600; empty = push off, logged). Device
@@ -997,7 +1015,7 @@ suggestion's name.
 | "Your driver changed route. Is everything OK?" (night, more than 1 km off the quoted route) and "Share your trip with a friend?" (night ride start, auto-share off) | Passenger (rides only) | `safety` |
 | "Did you reach safely?" 5 min after a night ride is completed (job `safety.arrival-check`) | Passenger | `safety` |
 
-- **Apps (`RidoPush` in rido_data):** Firebase init in `main()` (live mode), Android channels with the same ids,
+- **Apps (`TtPush` in tamiltaxi_data):** Firebase init in `main()` (live mode), Android channels with the same ids,
   notification permission (Android 13+) after sign-in, token registered whenever the session token changes (incl.
   driver sign-up) or FCM rotates it, topics subscribed; sign-out unsubscribes and deletes the token. In the
   background Android shows the notification itself; in the foreground it's shown locally unless the app already shows
@@ -1053,22 +1071,22 @@ suggestion's name.
 
 ## 7d. Driver app in the background (apps/driver/lib/overlay)
 
-- **Floating bubble:** while online and the app is in the background, a draggable Rido bubble is drawn over other
+- **Floating bubble:** while online and the app is in the background, a draggable Tamil Taxi bubble is drawn over other
   apps (`flutter_overlay_window`, SYSTEM_ALERT_WINDOW, asked once with an explanation when going online; the app
-  works without it). Tap → back to Rido. Hidden in the foreground, offline or after sign-out.
+  works without it). Tap → back to Tamil Taxi. Hidden in the foreground, offline or after sign-out.
   The bubble is a foreground service, so Android requires a notification: `MainActivity` pre-creates the plugin's
   channel (`"Overlay Channel"`) at IMPORTANCE_MIN so it stays silent and collapsed (a channel keeps its first
   importance; phones that already had the plugin's default channel need a reinstall). `drawable/notification_icon`
-  overrides the plugin's icon with the Rido mark.
+  overrides the plugin's icon with the Tamil Taxi mark.
 - **Patched plugin:** `packages/flutter_overlay_window` is a vendored copy of 0.5.0 (`dependency_overrides` in the driver
-  pubspec) with fixes listed in its `RIDO_PATCHES.md`: no sticky restarts (orphan bubbles), no self-stop after
+  pubspec) with fixes listed in its `TT_PATCHES.md`: no sticky restarts (orphan bubbles), no self-stop after
   re-showing, native tap-to-open with a drag slop (drags opened the app; taps went through the app's engine),
   `closeOverlay` always stops and always answers (a missing answer froze the bubble queue), broadcast listener.
   `BackgroundOffers` asks the plugin whether the window is really up, shows the bubble 0.6 s after going to the
   background, re-checks 0.8 s / 2.5 s after coming back, and bounds every platform call (tests:
   `test/background_offers_test.dart` with an async fake of the native side).
 - **Engine outlives the screen:** `MainActivity.provideFlutterEngine` returns one engine cached for the process
-  (`FlutterEngineCache`, id `rido_main`) and `shouldDestroyEngineWithHost` is false. Android may destroy a background
+  (`FlutterEngineCache`, id `tt_main`) and `shouldDestroyEngineWithHost` is false. Android may destroy a background
   app's Activity while the process lives on (the online GPS service keeps it); the default FlutterActivity destroyed
   its engine too, so the bubble / reopening started the app from scratch and the "start offline" rule took the
   driver offline. `AppLifecycleState.detached` counts as background for the bubble.
@@ -1083,8 +1101,8 @@ suggestion's name.
   1×1 screen (overlay measures itself, plugin clamps on screen); the FCM background engine took over the overlay's
   message channel so Accept went nowhere (plugin: only the Activity engine owns it); the card height used a guessed
   844 dp (now MATCH_PARENT); FLAG_INSISTENT rang non-stop (now one ring per request, `onlyAlertOnce`).
-- **Request card safety:** Decline / timeout close the card at once; Accept gives up after 12 s ("Rido didn't
-  respond", opens the app); an error closes the card after 2.5 s; a ✕ always returns to the bubble and opens Rido.
+- **Request card safety:** Decline / timeout close the card at once; Accept gives up after 12 s ("Tamil Taxi didn't
+  respond", opens the app); an error closes the card after 2.5 s; a ✕ always returns to the bubble and opens Tamil Taxi.
 - **Never online by itself:** the app always starts offline; if the API still has the driver online (app killed while
   online) it is set offline. Only an unfinished job restores the online state. A trip that timed out on the phone
   can be offered again by dispatch (only accepted / declined trips are ignored afterwards).
@@ -1106,8 +1124,8 @@ suggestion's name.
 
 | Package | Checks |
 |---|---|
-| rido_data | fare engine unit tests (₹35/66/132 with no peak; design ₹38/72/145, ₹49/180/420 at 1.1x; lines add up) + shared cases `test/fixtures/fare_cases.json` (also run by the API spec, so the engines can't drift) |
-| rido_ui | formatter tests |
+| tamiltaxi_data | fare engine unit tests (₹35/66/132 with no peak; design ₹38/72/145, ₹49/180/420 at 1.1x; lines add up) + shared cases `test/fixtures/fare_cases.json` (also run by the API spec, so the engines can't drift) |
+| tamiltaxi_ui | formatter tests |
 | passenger / driver | every Design gallery frame at 360 and 430 px, main-path flow tests (fast mode, fake time) |
 | api | unit (fare engine incl. the shared `fare_cases.json`, transitions, subscriptions, maps service, polyline) + e2e (full ride lifecycle, fallbacks) |
 | admin | Vitest unit: ₹ Indian formatting, IST dates, paging/URL builder, API URL + error helpers, safe post-login redirect, JWT role/expiry check, fare preview = API engine (₹38 demo trip at 1.1x), H3 circle fill/undo, settings validation |
@@ -1132,25 +1150,25 @@ Everything (Postgres, Redis, API, admin) runs with Docker Compose on one EC2 ins
 Caddy on sslip.io names** (27 Sep 2026): `https://api.65-0-233-253.sslip.io` and `https://admin.65-0-233-253.sslip.io`
 (sslip.io resolves a name to the IP inside it; Caddy gets free Let's Encrypt certificates and renews them). The apps
 default to the HTTPS API. At launch: point the real domain's A records at the Elastic IP, set `API_HOST` /
-`ADMIN_HOST` in `/opt/rido/.env`, rebuild the apps with `RIDO_API_URL=https://<api domain>/v1`, and update the Didit
+`ADMIN_HOST` in `/opt/tamiltaxi/.env`, rebuild the apps with `TT_API_URL=https://<api domain>/v1`, and update the Didit
 webhook URL. Plain `http://65.0.233.253:3000` / `:3001` still work until those ports are closed.
 
 | Item | Value |
 |---|---|
-| Account / region | `786020471552` / ap-south-1 (Mumbai), AWS CLI profile `rido` (IAM user `rido-deployer`, `AmazonEC2FullAccess` only) |
+| Account / region | `786020471552` / ap-south-1 (Mumbai), AWS CLI profile `tamiltaxi` (IAM user `tamiltaxi-deployer`, `AmazonEC2FullAccess` only) |
 | Instance | `i-0f90806819ce574cd` (`rido-server`), t3.small (free-tier eligible), Ubuntu 24.04, 20 GB gp3, 2 GB swap |
 | Public IP | Elastic IP **65.0.233.253**: API `http://65.0.233.253:3000/v1`, admin `http://65.0.233.253:3001` |
 | Security group | `sg-0f4edf3e881efde00` (`rido-sg`): 22 from the owner's IP only, 80 + 443 public (Caddy), 3000–3001 public (old plain-HTTP URLs; close once every app build uses HTTPS); Postgres/Redis not published |
 | SSH | `ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253` |
-| On server | `/opt/rido`: `docker-compose.yml`, `docker-compose.prod.yml` (removes DB/Redis host ports), `.env` (generated JWT secret + DB password, `S3_BUCKET`, mode 600) |
-| Uploads (S3) | Bucket `rido-uploads-786020471552` (ap-south-1): all public access blocked, SSE-S3 default encryption, ACLs off. The instance role `rido-ec2-uploads` may only Put/Get `kyc/*` and List with prefix `kyc/` (no keys on the server). IMDSv2 required, hop limit 2 (so the API container can reach instance credentials) |
+| On server | `/opt/tamiltaxi`: `docker-compose.yml`, `docker-compose.prod.yml` (removes DB/Redis host ports), `.env` (generated JWT secret + DB password, `S3_BUCKET`, mode 600) |
+| Uploads (S3) | Bucket `tamiltaxi-uploads-786020471552` (ap-south-1): all public access blocked, SSE-S3 default encryption, ACLs off. The instance role `tamiltaxi-ec2-uploads` may only Put/Get `kyc/*` and List with prefix `kyc/` (no keys on the server). IMDSv2 required, hop limit 2 (so the API container can reach instance credentials) |
 
 **Seed prod** (the image has no TS sources, so seeders run locally through an SSH tunnel; ids `demo_…`, removable with `--clear`):
 
 ```bash
-PGIP=$(ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' rido-postgres-1")
+PGIP=$(ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tamiltaxi-postgres-1")
 ssh -i ~/.ssh/rido-key.pem -f -N -L 15432:$PGIP:5432 ubuntu@65.0.233.253
-DATABASE_URL="postgresql://rido:<POSTGRES_PASSWORD from /opt/rido/.env>@127.0.0.1:15432/rido" npm run seed:demo-people -w @rido/api
+DATABASE_URL="postgresql://tamiltaxi:<POSTGRES_PASSWORD from /opt/tamiltaxi/.env>@127.0.0.1:15432/tamiltaxi" npm run seed:demo-people -w @tamiltaxi/api
 ```
 
 **Test drivers on staging** (28 Sep 2026): the image has the Prisma sources and `tsx`, so the seeder runs inside the
@@ -1158,7 +1176,7 @@ API container with its own `DATABASE_URL`. Their shared placeholder photo is `ky
 
 ```bash
 scp -i ~/.ssh/rido-key.pem apps/api/prisma/seed-test-drivers.ts ubuntu@65.0.233.253:/tmp/
-ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'docker cp /tmp/seed-test-drivers.ts rido-api-1:/repo/apps/api/prisma/ && docker exec -w /repo/apps/api rido-api-1 npx tsx prisma/seed-test-drivers.ts --photo test-driver-avatar.png'
+ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'docker cp /tmp/seed-test-drivers.ts tamiltaxi-api-1:/repo/apps/api/prisma/ && docker exec -w /repo/apps/api tamiltaxi-api-1 npx tsx prisma/seed-test-drivers.ts --photo test-driver-avatar.png'
 ```
 
 Seeded 26 Sep 2026: 2,000 demo trips + demo people.
@@ -1166,7 +1184,7 @@ Seeded 26 Sep 2026: 2,000 demo trips + demo people.
 **Deployed 27 Sep 2026:** Didit identity checks (migrations `identity_verification`, `identity_documents`), Caddy on
 the sslip.io names (Let's Encrypt certificates issued on first start), `ADMIN_COOKIE_SECURE=true` (sign in to the admin
 at `https://admin.65-0-233-253.sslip.io`; the old `:3001` URL can no longer keep a session). Server backups of the
-previous files: `/opt/rido/.env.bak-202609271304`, `docker-compose.yml.bak-*`.
+previous files: `/opt/tamiltaxi/.env.bak-202609271304`, `docker-compose.yml.bak-*`.
 
 **Deployed 28 Sep 2026:** Butterfly + pickup ETA (migration `butterfly`), "Who's riding?" (`trip_rider`), driver
 cancel fix, driver gender at sign-up. All people and trips were cleared first (dev data; admins and config kept).
@@ -1176,7 +1194,7 @@ offer and one trip per driver, OTP tries, rating sums, server-trusted GPS, peak 
 cancel codes and reassign, timeout jobs, GPS breadcrumbs and review flags, waiting charge, fault verdict,
 cancellation fee (off), driver pauses, dispatch ranking, share link, server SOS and safety checks. 11 migrations
 applied on start. No `currentMultiplier` row was stored, so the new 1.0 default applies. **Pending:** add
-`SHARE_BASE_URL=https://admin.65-0-233-253.sslip.io` to `/opt/rido/.env` and restart the API (share links point at
+`SHARE_BASE_URL=https://admin.65-0-233-253.sslip.io` to `/opt/tamiltaxi/.env` and restart the API (share links point at
 localhost until then). Install the new APKs: older driver builds send no trip GPS, so their trips land in Needs review.
 
 **Deployed 29 Sep 2026:** driver Home demand chip with area names, D-07 cards + Help, swipe to accept + voice,
@@ -1185,7 +1203,7 @@ default, no row stored) (`fdb7f15..619b77e`). Checked live: `/health` 200, hotsp
 `GET/PUT /drivers/me/booking-preferences` and `GET /trips/offers` work for a test driver (prefs cleared after).
 `SHARE_BASE_URL` is set on the server. Drivers need the new APK for voice, swipe, preferences and stacked cards.
 
-**Deployed 29 Sep 2026:** `DEV_OTP_CODE` (secret 6 digits in `/opt/rido/.env`, value in the git-ignored
+**Deployed 29 Sep 2026:** `DEV_OTP_CODE` (secret 6 digits in `/opt/tamiltaxi/.env`, value in the git-ignored
 `credentials.local.md`): staging no longer accepts any OTP. Checked live: a wrong code gets 401, the secret code 200.
 
 **Capacity (measured 26 Sep 2026, t3.small):** cached fare quotes at 50 concurrent connections: ~890 req/s average
@@ -1203,17 +1221,17 @@ HTTP keep-alive is 65 s (`main.ts`); with Node's 5 s default the apps sometimes 
 
 ```bash
 set -a; . ./.env; set +a
-docker build -f apps/api/Dockerfile -t rido-api:local .
-docker build -f apps/admin/Dockerfile --build-arg NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY="$GOOGLE_MAPS_BROWSER_KEY" -t rido-admin:local .
-docker save rido-api:local rido-admin:local | gzip -1 | ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'gunzip | docker load'
-scp -i ~/.ssh/rido-key.pem docker-compose.yml ubuntu@65.0.233.253:/opt/rido/ && scp -i ~/.ssh/rido-key.pem -r caddy ubuntu@65.0.233.253:/opt/rido/
-ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'cd /opt/rido && docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile https up -d --no-build'
+docker build -f apps/api/Dockerfile -t tamiltaxi-api:local .
+docker build -f apps/admin/Dockerfile --build-arg NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY="$GOOGLE_MAPS_BROWSER_KEY" -t tamiltaxi-admin:local .
+docker save tamiltaxi-api:local tamiltaxi-admin:local | gzip -1 | ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'gunzip | docker load'
+scp -i ~/.ssh/rido-key.pem docker-compose.yml ubuntu@65.0.233.253:/opt/tamiltaxi/ && scp -i ~/.ssh/rido-key.pem -r caddy ubuntu@65.0.233.253:/opt/tamiltaxi/
+ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'cd /opt/tamiltaxi && docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile https up -d --no-build'
 ```
 
 **HTTPS one-time setup:** open 80 and 443 in `rido-sg`
-(`aws ec2 authorize-security-group-ingress --profile rido --group-id sg-0f4edf3e881efde00 --ip-permissions
+(`aws ec2 authorize-security-group-ingress --profile tamiltaxi --group-id sg-0f4edf3e881efde00 --ip-permissions
 'IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]' 'IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]'`),
-add `DIDIT_*` and `ADMIN_COOKIE_SECURE=true` (admin login then needs the HTTPS URL) to `/opt/rido/.env`, and run the
+add `DIDIT_*` and `ADMIN_COOKIE_SECURE=true` (admin login then needs the HTTPS URL) to `/opt/tamiltaxi/.env`, and run the
 redeploy with `--profile https`. Caddy's certificates live in the `caddy_data` volume.
 
 If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new IP. An Elastic IP costs money while it isn't attached to a running instance, so release it if the server is terminated.
@@ -1224,7 +1242,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 
 | Item | Notes |
 |---|---|
-| Apps → API | **Done (26 Sep 2026)**: both apps run on the API by default (see 7b); mock mode via `--dart-define=RIDO_LIVE_API=false`. Needs a real-phone pass (two phones: passenger + approved online driver) |
+| Apps → API | **Done (26 Sep 2026)**: both apps run on the API by default (see 7b); mock mode via `--dart-define=TT_LIVE_API=false`. Needs a real-phone pass (two phones: passenger + approved online driver) |
 | Push (FCM) | **Done (26 Sep 2026)**, see 7c. Verify on phones; rotate the service-account key that was pasted in chat (`e73622ac…`) and update `FIREBASE_SERVICE_ACCOUNT_B64` on the server |
 | Driver re-search | **Done (28 Sep 2026)**: a driver cancel before pickup sends the trip back to searching (≤ `maxReassigns`), see 6 "Reassign on driver cancel" |
 | GPS path follow-ups | Breadcrumbs, actual distance and fare flags **Done (28 Sep 2026)**. Later: admin settings for the thresholds (50 m, 120 km/h, 2 km gap, max(1.2 km, 25 %)), snap-to-road for a nicer path, a per-driver mock-GPS count across trips |
@@ -1245,7 +1263,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | SMS | MSG91 / Twilio for OTP |
 | Admin panel | **Done (25 Sep 2026)**: `apps/admin`, all modules above. KYC files open via `/files/:name` (S3). Follow-up: no 2FA/IP allow-list for admins yet |
 | Google Maps on device | Verify the Google engine on a real phone with keys (never run with a key yet) |
-| Google logo padding | **Done**: `RidoMap.mapPadding` (→ `GoogleMap.padding`) on map screens with sheets; the shared camera-fit still ignores it (passenger works around it with `sheetMapInsets`) |
+| Google logo padding | **Done**: `TtMap.mapPadding` (→ `GoogleMap.padding`) on map screens with sheets; the shared camera-fit still ignores it (passenger works around it with `sheetMapInsets`) |
 | Two-wheeler routing | **Changed (28 Sep 2026)**: the backend routes every vehicle as DRIVE. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3× Essentials, 7k free); bike fares are priced on the car route so the booked fare matches P-10. Google Routes billing: `vehicleStopover` (fare routes) bills at Pro; ETAs stay Essentials |
 | Google search in pickers | **Done**: saved-place editor and parcel picker search through the API |
 | Google Maps improvements | **Done (28 Sep 2026)**: shortest-route fares (`computeAlternativeRoutes`), traffic-aware travel time for display (`travelMin`, fare unchanged), "Near X" pickup landmarks (address descriptors → `Trip.pickupLandmark`), service-area-restricted search with distances, and one Route Matrix call for driver ETAs. Billing table in 7. Later: a phone check of P-09 / D-16 with real landmarks. Plus-code addresses not typed `plus_code` ("X2JR+9H, ELGI Nagar") are skipped or trimmed: **Done (28 Sep 2026)** |

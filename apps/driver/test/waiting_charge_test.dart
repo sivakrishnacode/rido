@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/router/routes.dart';
-import 'package:rido_driver/state/live_helpers.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/router/routes.dart';
+import 'package:tamiltaxi_driver/state/live_helpers.dart';
 
 import 'support/harness.dart';
 

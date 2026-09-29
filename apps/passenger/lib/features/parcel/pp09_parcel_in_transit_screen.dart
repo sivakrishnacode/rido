@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../router/routes.dart';
@@ -28,7 +28,7 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
     final ctrl = ref.read(parcelFlowProvider.notifier);
     final driver = s.driver;
     final route = s.routeOrDefault;
-    final now = RidoClock.now();
+    final now = TtClock.now();
     final eta = s.phase == ParcelPhase.inTransit && !showcase ? s.etaMin : 15;
     final arriving = now.add(Duration(minutes: eta));
     final pickedUpAt = now.subtract(Duration(minutes: (s.estimate.tripMin - eta).clamp(1, 120)));
@@ -41,22 +41,22 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
         if (!didPop) context.go(Routes.parcel);
       },
       child: Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         appBar: AppBar(
-          backgroundColor: RidoColors.surface,
+          backgroundColor: TtColors.surface,
           automaticallyImplyLeading: false,
           toolbarHeight: 64,
           titleSpacing: 0,
           leading: IconButton(
             tooltip: 'Back to Parcel',
-            icon: const Icon(Symbols.arrow_back_rounded, color: RidoColors.navy900),
+            icon: const Icon(Symbols.arrow_back_rounded, color: TtColors.navy900),
             onPressed: () => context.go(Routes.parcel),
           ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Parcel to', style: t.caption.copyWith(color: RidoColors.navy500)),
+              Text('Parcel to', style: t.caption.copyWith(color: TtColors.navy500)),
               Text('${s.details.receiverName} · ${s.drop.name}',
                   style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
             ],
@@ -64,7 +64,7 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
           actions: [
             IconButton(
               tooltip: 'Help',
-              icon: const Icon(Symbols.help_rounded, color: RidoColors.navy900),
+              icon: const Icon(Symbols.help_rounded, color: TtColors.navy900),
               onPressed: () => context.push(Routes.help(tripId: s.tripId)),
             ),
             const SizedBox(width: 4),
@@ -84,7 +84,7 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
                         final pos = live && fix != null ? fix.position : pointAlong(route, progress);
                         final i = (progress * (route.length - 1)).floor().clamp(0, route.length - 2);
                         final heading = live && fix != null ? fix.heading : headingBetween(route[i], route[i + 1]);
-                        return RidoMap(
+                        return TtMap(
                           drop: s.drop.location,
                           route: [pos, ...route.skip(i + 1)],
                           fitPoints: route,
@@ -102,14 +102,14 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
                       liveRegion: true,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: const BoxDecoration(color: RidoColors.navy900, borderRadius: RidoRadii.pillRadius),
+                        decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.pillRadius),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Symbols.schedule_rounded, color: RidoColors.surface, size: 20),
+                            const Icon(Symbols.schedule_rounded, color: TtColors.surface, size: 20),
                             const SizedBox(width: 8),
                             Text('Arriving ${formatTime(arriving)}',
-                                style: RidoTextStyles.tabular(t.bodySemibold.copyWith(color: RidoColors.surface))),
+                                style: TtTextStyles.tabular(t.bodySemibold.copyWith(color: TtColors.surface))),
                           ],
                         ),
                       ),
@@ -141,7 +141,7 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
                                   style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
                               Text(
                                 'Picked up ${formatTime(pickedUpAt)} · ${s.details.category.label}',
-                                style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                                style: t.bodySmall.copyWith(color: TtColors.navy500),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -150,18 +150,18 @@ class PP09ParcelInTransitScreen extends ConsumerWidget {
                         ),
                         const SizedBox(width: 8),
                         Material(
-                          color: RidoColors.coral600,
+                          color: TtColors.coral600,
                           shape: const CircleBorder(),
                           child: IconButton(
                             tooltip: 'Call ${driver.firstName}',
                             onPressed: () => callNumber(context, driver.phone, name: driver.firstName),
-                            icon: const Icon(Symbols.call_rounded, fill: 1, color: RidoColors.surface),
+                            icon: const Icon(Symbols.call_rounded, fill: 1, color: TtColors.surface),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    RidoButton.secondary(
+                    TtButton.secondary(
                       label: 'Share tracking with receiver',
                       icon: Symbols.share_location_rounded,
                       onPressed: () => shareParcelWithReceiver(context, s, ctrl.vehicle.value?.position),

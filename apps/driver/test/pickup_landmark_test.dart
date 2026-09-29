@@ -1,9 +1,9 @@
 // The rider's pickup landmark ("Near KG Hospital", from Google's address descriptors) on the request card and D-16.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/jobs/widgets/request_stack_view.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/jobs/widgets/request_stack_view.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 
@@ -36,7 +36,7 @@ Future<void> _pumpRoute(WidgetTester tester, RideRequest r) async {
   await loadTestFonts();
   usePhone(tester);
   await tester.pumpWidget(MaterialApp(
-    theme: RidoTheme.light(),
+    theme: TtTheme.light(),
     home: RequestStackView(
       entries: [(request: r, expiresAt: DateTime.now().add(const Duration(seconds: 10)))],
       showVoiceToggle: false,

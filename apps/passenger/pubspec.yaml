@@ -1,5 +1,5 @@
-name: rido_passenger
-description: Rido — book rides and send parcels in Coimbatore.
+name: tamiltaxi_passenger
+description: Tamil Taxi — book rides and send parcels in Coimbatore.
 publish_to: none
 version: 0.1.0+1
 
@@ -10,10 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  rido_ui:
-    path: ../../packages/rido_ui
-  rido_data:
-    path: ../../packages/rido_data
+  tamiltaxi_ui:
+    path: ../../packages/tamiltaxi_ui
+  tamiltaxi_data:
+    path: ../../packages/tamiltaxi_data
   go_router: ^17.5.0
   flutter_riverpod: ^3.4.3
   flutter_map: ^8.3.2

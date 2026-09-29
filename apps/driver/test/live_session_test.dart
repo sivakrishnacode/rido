@@ -10,12 +10,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/app.dart';
-import 'package:rido_driver/features/jobs/d15_ride_request_screen.dart';
-import 'package:rido_driver/state/request_voice.dart';
-import 'package:rido_driver/state/driver_location.dart';
-import 'package:rido_driver/state/driver_session.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/app.dart';
+import 'package:tamiltaxi_driver/features/jobs/d15_ride_request_screen.dart';
+import 'package:tamiltaxi_driver/state/request_voice.dart';
+import 'package:tamiltaxi_driver/state/driver_location.dart';
+import 'package:tamiltaxi_driver/state/driver_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _here = LatLng(11.0168, 76.9558);
@@ -581,7 +581,7 @@ void main() {
     ]);
     LiveOffer offer(String id, int fare) =>
         LiveOffer(Seed.rideRequest.copyWith(id: id, fare: fare, customerName: 'Rider $id', otp: ''), 30);
-    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: RidoDriverApp(router: router)));
+    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: TtDriverApp(router: router)));
     await tester.runAsync(() async {
       await session().goOnline();
       jobs.offersCtl.add(offer('t1', 232));
@@ -630,7 +630,7 @@ void main() {
       GoRoute(path: '/home', builder: (_, _) => const Text('Home screen')),
       GoRoute(path: '/driver/pickup', builder: (_, _) => const Text('Pickup screen')),
     ]);
-    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: RidoDriverApp(router: router)));
+    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: TtDriverApp(router: router)));
     await tester.runAsync(() async {
       await session().goOnline();
       jobs.offersCtl.add(_offer('t1'));
@@ -727,7 +727,7 @@ void main() {
   });
 
   test('opening the app never goes online by itself: a stale online state on the API is turned off', () async {
-    SharedPreferences.setMockInitialValues({'rido.accessToken': 'token', 'rido.driverId': 'd1'});
+    SharedPreferences.setMockInitialValues({'tamiltaxi.accessToken': 'token', 'tamiltaxi.driverId': 'd1'});
     final api = ApiClient(
       baseUrl: 'http://api.test/v1',
       session: ApiSession(await SharedPreferences.getInstance()),

@@ -150,10 +150,10 @@ const FIXES: Record<string, string> = {
   DOCUMENT_NUMBER_NOT_DETECTED: "the number wasn't readable. Hold the card flat in good light, with no glare",
   EXPIRATION_DATE_NOT_DETECTED: "the expiry date wasn't readable. Keep all four corners in the frame",
   MIN_AGE_NOT_REACHED: 'you must be 18 or older',
-  DUPLICATED_DOCUMENT: 'this document is already used by another Rido account. Contact support',
+  DUPLICATED_DOCUMENT: 'this document is already used by another Tamil Taxi account. Contact support',
   LOW_LIVENESS_SCORE: 'the selfie check failed. Face the camera in good light, without a mask or sunglasses',
   LOW_FACE_MATCH_SIMILARITY: "your selfie doesn't match the photo on the ID. Retake it in good light",
-  DUPLICATED_FACE: 'this face is already used by another Rido account. Contact support',
+  DUPLICATED_FACE: 'this face is already used by another Tamil Taxi account. Contact support',
 };
 
 function reasonsFor(label: string, feature: DiditFeatureResult): string[] {

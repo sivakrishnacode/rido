@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../activity/widgets/activity_header.dart';
 
@@ -44,9 +44,9 @@ class S07bActivitySkeleton extends StatelessWidget {
       itemBuilder: (context, i) => Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: RidoColors.surface,
-          borderRadius: RidoRadii.cardRadius,
-          border: Border.all(color: RidoColors.divider),
+          color: TtColors.surface,
+          borderRadius: TtRadii.cardRadius,
+          border: Border.all(color: TtColors.divider),
         ),
         child: Column(
           children: [

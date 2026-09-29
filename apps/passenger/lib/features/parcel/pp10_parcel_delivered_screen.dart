@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
@@ -26,7 +26,7 @@ class _PP10ParcelDeliveredScreenState extends ConsumerState<PP10ParcelDeliveredS
     setState(() => _saving = true);
     await ref.read(parcelFlowProvider.notifier).finish(rating: _rating == 0 ? null : _rating);
     if (!mounted) return;
-    showRidoSnack(context, 'Parcel added to Activity', success: true);
+    showTtSnack(context, 'Parcel added to Activity', success: true);
     context.go(Routes.parcel);
   }
 
@@ -36,7 +36,7 @@ class _PP10ParcelDeliveredScreenState extends ConsumerState<PP10ParcelDeliveredS
     final s = ref.watch(parcelFlowProvider);
     final driver = s.driver;
     final fare = formatInr(s.quote.total);
-    final deliveredAt = s.deliveredAt ?? DateTime(RidoClock.today.year, RidoClock.today.month, RidoClock.today.day, 16, 8);
+    final deliveredAt = s.deliveredAt ?? DateTime(TtClock.today.year, TtClock.today.month, TtClock.today.day, 16, 8);
     final bySender = s.details.payer == ParcelPayer.sender;
     final receiverFirst = s.details.receiverName.split(' ').first;
 
@@ -46,7 +46,7 @@ class _PP10ParcelDeliveredScreenState extends ConsumerState<PP10ParcelDeliveredS
         if (!didPop) context.go(Routes.parcel);
       },
       child: Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: SafeArea(
           child: Column(
             children: [
@@ -56,7 +56,7 @@ class _PP10ParcelDeliveredScreenState extends ConsumerState<PP10ParcelDeliveredS
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const RidoIllustration(IllustrationKind.parcelDelivered, width: 200, height: 160),
+                      const TtIllustration(IllustrationKind.parcelDelivered, width: 200, height: 160),
                       const SizedBox(height: 16),
                       Text(
                         'Delivered to ${s.details.receiverName} at ${formatTime(deliveredAt)}',
@@ -67,20 +67,20 @@ class _PP10ParcelDeliveredScreenState extends ConsumerState<PP10ParcelDeliveredS
                       Center(
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: const BoxDecoration(color: RidoColors.successTint, borderRadius: RidoRadii.pillRadius),
+                          decoration: const BoxDecoration(color: TtColors.successTint, borderRadius: TtRadii.pillRadius),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Symbols.verified_rounded, fill: 1, size: 20, color: RidoColors.success),
+                              const Icon(Symbols.verified_rounded, fill: 1, size: 20, color: TtColors.success),
                               const SizedBox(width: 6),
                               Text('Verified with OTP ✓',
-                                  style: t.bodySmallMedium.copyWith(color: RidoColors.successText, fontWeight: FontWeight.w600)),
+                                  style: t.bodySmallMedium.copyWith(color: TtColors.successText, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
                       ),
                       const SizedBox(height: 24),
-                      RidoCard(
+                      TtCard(
                         padding: const EdgeInsets.all(16),
                         child: Row(
                           children: [
@@ -92,20 +92,20 @@ class _PP10ParcelDeliveredScreenState extends ConsumerState<PP10ParcelDeliveredS
                                     bySender
                                         ? 'Pay $fare to ${driver.firstName}: Cash or UPI'
                                         : 'Receiver will pay $fare',
-                                    style: RidoTextStyles.tabular(t.bodySemibold.copyWith(fontSize: 17)),
+                                    style: TtTextStyles.tabular(t.bodySemibold.copyWith(fontSize: 17)),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     bySender
                                         ? 'Scan ${driver.firstName}\'s UPI QR or pay cash at pickup.'
                                         : '$receiverFirst pays ${driver.firstName} by cash or UPI at drop-off.',
-                                    style: t.bodySmall.copyWith(color: RidoColors.navy700),
+                                    style: t.bodySmall.copyWith(color: TtColors.navy700),
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Text(fare, style: RidoTextStyles.tabular(t.display)),
+                            Text(fare, style: TtTextStyles.tabular(t.display)),
                           ],
                         ),
                       ),
@@ -114,14 +114,14 @@ class _PP10ParcelDeliveredScreenState extends ConsumerState<PP10ParcelDeliveredS
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                            decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.pillRadius),
+                            decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.pillRadius),
                             child: Text('0%',
-                                style: t.caption.copyWith(color: RidoColors.coral600, fontWeight: FontWeight.w700)),
+                                style: t.caption.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w700)),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text('${driver.firstName} keeps the full $fare.',
-                                style: RidoTextStyles.tabular(t.bodySmall.copyWith(color: RidoColors.navy700))),
+                                style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy700))),
                           ),
                         ],
                       ),
@@ -138,14 +138,14 @@ class _PP10ParcelDeliveredScreenState extends ConsumerState<PP10ParcelDeliveredS
                       ),
                       if (_rating > 0)
                         Text(RatingStars.labels[_rating - 1],
-                            textAlign: TextAlign.center, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                            textAlign: TextAlign.center, style: t.bodySmall.copyWith(color: TtColors.navy500)),
                     ],
                   ),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: RidoButton(label: 'Done', loading: _saving, onPressed: _done),
+                child: TtButton(label: 'Done', loading: _saving, onPressed: _done),
               ),
             ],
           ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import '../common/driver_shell.dart';
 import '../features/account/booking_preferences_screen.dart';

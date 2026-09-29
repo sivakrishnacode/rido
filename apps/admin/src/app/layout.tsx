@@ -10,8 +10,8 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const poppins = Poppins({ variable: "--font-poppins", subsets: ["latin", "latin-ext"], weight: ["500", "600", "700"] });
 
 export const metadata: Metadata = {
-  title: { default: "Rido Admin", template: "%s · Rido Admin" },
-  description: "Rido admin panel: drivers, KYC, trips, plans and support.",
+  title: { default: "Tamil Taxi Admin", template: "%s · Tamil Taxi Admin" },
+  description: "Tamil Taxi admin panel: drivers, KYC, trips, plans and support.",
   robots: { index: false, follow: false },
 };
 

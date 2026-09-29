@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/features/activity/p22_trip_details_screen.dart';
-import 'package:rido_passenger/router/routes.dart';
-import 'package:rido_passenger/state/ride_flow.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/activity/p22_trip_details_screen.dart';
+import 'package:tamiltaxi_passenger/router/routes.dart';
+import 'package:tamiltaxi_passenger/state/ride_flow.dart';
 
 import 'support/harness.dart';
 
@@ -31,7 +31,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Subtotal'), findsOneWidget);
     expect(find.text('Base fare'), findsOneWidget);
-    expect(find.text('Rido commission'), findsOneWidget);
+    expect(find.text('Tamil Taxi commission'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

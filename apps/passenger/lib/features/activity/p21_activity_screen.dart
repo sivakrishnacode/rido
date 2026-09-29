@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/async_view.dart';
 import '../../router/routes.dart';
@@ -126,7 +126,7 @@ class TripHistoryCard extends StatelessWidget {
       button: true,
       label: '${trip.fromLabel} to ${trip.toLabel}, ${formatInr(trip.fare)}, $label. Open trip details',
       excludeSemantics: true,
-      child: RidoCard(
+      child: TtCard(
         onTap: () => context.push(Routes.tripDetails(trip.id)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,7 +136,7 @@ class TripHistoryCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     formatRelativeDay(trip.startedAt, withTime: true),
-                    style: RidoTextStyles.tabular(t.bodySmall.copyWith(color: RidoColors.navy500)),
+                    style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500)),
                   ),
                 ),
                 StatusPill(kind, label: label),
@@ -148,8 +148,8 @@ class TripHistoryCard extends StatelessWidget {
                 Container(
                   width: 44,
                   height: 44,
-                  decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.cardRadius),
-                  child: Icon(iconOf(trip), color: RidoColors.coral500, fill: 1),
+                  decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
+                  child: Icon(iconOf(trip), color: TtColors.coral500, fill: 1),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -158,7 +158,7 @@ class TripHistoryCard extends StatelessWidget {
                     children: [
                       Text('${trip.fromLabel} → ${trip.toLabel}', style: t.bodySemibold, maxLines: 2),
                       Text(subtitle,
-                          style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                          style: t.bodySmall.copyWith(color: TtColors.navy500),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                     ],
@@ -167,8 +167,8 @@ class TripHistoryCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   formatInr(trip.fare),
-                  style: RidoTextStyles.tabular(
-                    t.h2.copyWith(color: cancelled ? RidoColors.navy500 : RidoColors.navy900),
+                  style: TtTextStyles.tabular(
+                    t.h2.copyWith(color: cancelled ? TtColors.navy500 : TtColors.navy900),
                   ),
                 ),
               ],

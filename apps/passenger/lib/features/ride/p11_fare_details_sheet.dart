@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/ride_flow.dart';
 
@@ -13,7 +13,7 @@ class P11FareDetailsSheet extends ConsumerWidget {
 
   /// Opens the sheet over the current screen.
   static Future<void> show(BuildContext context) =>
-      showRidoSheet<void>(context, builder: (_) => const P11FareDetailsSheet());
+      showTtSheet<void>(context, builder: (_) => const P11FareDetailsSheet());
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,10 +30,10 @@ class P11FareDetailsSheet extends ConsumerWidget {
             Container(
               width: 48,
               height: 48,
-              decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.cardRadius),
-              child: Icon(q.vehicle.kind.icon, color: RidoColors.coral500, fill: 1, size: 28),
+              decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
+              child: Icon(q.vehicle.kind.icon, color: TtColors.coral500, fill: 1, size: 28),
             ),
-            const SizedBox(width: RidoSpacing.m),
+            const SizedBox(width: TtSpacing.m),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,7 +41,7 @@ class P11FareDetailsSheet extends ConsumerWidget {
                   Text('${q.vehicle.name} fare', style: t.h2),
                   Text(
                     '${short(state.pickup.name)} → ${short(state.drop.name)}',
-                    style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                    style: t.bodySmall.copyWith(color: TtColors.navy500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -51,39 +51,39 @@ class P11FareDetailsSheet extends ConsumerWidget {
             IconButton(
               tooltip: 'Close',
               onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Symbols.close_rounded, color: RidoColors.navy900),
+              icon: const Icon(Symbols.close_rounded, color: TtColors.navy900),
             ),
           ],
         ),
-        const SizedBox(height: RidoSpacing.l),
-        RidoCard(child: FareBreakdown.fromQuote(q)),
-        const SizedBox(height: RidoSpacing.l),
+        const SizedBox(height: TtSpacing.l),
+        TtCard(child: FareBreakdown.fromQuote(q)),
+        const SizedBox(height: TtSpacing.l),
         Row(
           children: [
-            const Icon(Symbols.info_rounded, color: RidoColors.coral600, size: 22),
-            const SizedBox(width: RidoSpacing.s),
+            const Icon(Symbols.info_rounded, color: TtColors.coral600, size: 22),
+            const SizedBox(width: TtSpacing.s),
             Text('Things to know', style: t.bodySemibold.copyWith(fontSize: 17)),
           ],
         ),
-        const SizedBox(height: RidoSpacing.m),
+        const SizedBox(height: TtSpacing.m),
         for (final (icon, color, text) in _thingsToKnow) ...[
           _Note(icon: icon, color: color, text: text),
-          const SizedBox(height: RidoSpacing.m),
+          const SizedBox(height: TtSpacing.m),
         ],
-        const SizedBox(height: RidoSpacing.s),
-        RidoButton.secondary(label: 'Got it', onPressed: () => Navigator.of(context).maybePop()),
+        const SizedBox(height: TtSpacing.s),
+        TtButton.secondary(label: 'Got it', onPressed: () => Navigator.of(context).maybePop()),
       ],
     );
   }
 }
 
-/// P-11 "Things to know": only rules Rido really applies (no waiting or cancel fees exist in the fare engine).
+/// P-11 "Things to know": only rules Tamil Taxi really applies (no waiting or cancel fees exist in the fare engine).
 const _thingsToKnow = <(IconData, Color, String)>[
-  (Symbols.lock_rounded, RidoColors.success, 'Your fare is locked when you book. Its time charge uses a fixed 18 km/h, not the traffic time on the map, so slow traffic won\'t change it.'),
-  (Symbols.trending_up_rounded, RidoColors.coral500, 'Surge is capped at 1.5x and all of it goes to your driver.'),
-  (Symbols.payments_rounded, RidoColors.navy700, 'Pay your driver by cash or UPI when the ride ends. Rido takes 0% of it.'),
-  (Symbols.timer_off_rounded, RidoColors.navy700, 'No waiting charges and no cancellation fees.'),
-  (Symbols.pin_rounded, RidoColors.navy700, 'Share your 4-digit ride OTP only when you are in the vehicle.'),
+  (Symbols.lock_rounded, TtColors.success, 'Your fare is locked when you book. Its time charge uses a fixed 18 km/h, not the traffic time on the map, so slow traffic won\'t change it.'),
+  (Symbols.trending_up_rounded, TtColors.coral500, 'Surge is capped at 1.5x and all of it goes to your driver.'),
+  (Symbols.payments_rounded, TtColors.navy700, 'Pay your driver by cash or UPI when the ride ends. Tamil Taxi takes 0% of it.'),
+  (Symbols.timer_off_rounded, TtColors.navy700, 'No waiting charges and no cancellation fees.'),
+  (Symbols.pin_rounded, TtColors.navy700, 'Share your 4-digit ride OTP only when you are in the vehicle.'),
 ];
 
 class _Note extends StatelessWidget {
@@ -96,9 +96,9 @@ class _Note extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Icon(icon, color: color, fill: 1, size: 22),
-      const SizedBox(width: RidoSpacing.m),
+      const SizedBox(width: TtSpacing.m),
       Expanded(
-        child: Text(text, style: context.type.body.copyWith(color: RidoColors.navy700)),
+        child: Text(text, style: context.type.body.copyWith(color: TtColors.navy700)),
       ),
     ],
   );

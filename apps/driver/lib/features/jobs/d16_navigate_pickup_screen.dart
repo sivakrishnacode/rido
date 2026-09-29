@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../router/routes.dart';
@@ -49,7 +49,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
       } on Exception catch (e) {
         if (!mounted) return;
         setState(() => _busy = false);
-        showRidoSnack(context, userMessage(e));
+        showTtSnack(context, userMessage(e));
         return;
       }
       if (!mounted) return;
@@ -74,12 +74,12 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
       try {
         await ref.read(driverSessionProvider.notifier).cancelJob(code: reason);
       } on Exception catch (e) {
-        if (mounted) showRidoSnack(context, userMessage(e));
+        if (mounted) showTtSnack(context, userMessage(e));
         return;
       }
       if (!mounted) return;
     }
-    showRidoSnack(context, 'Ride cancelled · ${reason.label}');
+    showTtSnack(context, 'Ride cancelled · ${reason.label}');
     context.go(Routes.home);
   }
 
@@ -91,7 +91,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
 
   void _call() => _api
       ? dialNumber(context, _job.customerPhone, name: _job.customerName)
-      : showRidoSnack(context, 'Calling ${_job.customerName} (number hidden)');
+      : showTtSnack(context, 'Calling ${_job.customerName} (number hidden)');
 
   @override
   Widget build(BuildContext context) {
@@ -112,17 +112,17 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
         if (!didPop) confirmLeaveJob(context);
       },
       child: Scaffold(
-        backgroundColor: RidoColors.background,
+        backgroundColor: TtColors.background,
         body: Column(
           children: [
             NavyHeader(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.s, RidoSpacing.s, RidoSpacing.m),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.s, TtSpacing.m),
               child: Row(children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('Going to pickup', style: t.bodySmall.copyWith(color: Colors.white70)),
                     Text(eta <= 0 ? 'Arriving now' : '$eta min · ${formatKm(km)}',
-                        style: RidoTextStyles.tabular(t.h1.copyWith(color: Colors.white))),
+                        style: TtTextStyles.tabular(t.h1.copyWith(color: Colors.white))),
                   ]),
                 ),
                 PopupMenuButton<String>(
@@ -130,11 +130,11 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                   icon: Container(
                     width: 48,
                     height: 48,
-                    decoration: const BoxDecoration(color: RidoColors.navy700, shape: BoxShape.circle),
+                    decoration: const BoxDecoration(color: TtColors.navy700, shape: BoxShape.circle),
                     child: const Icon(Symbols.more_vert_rounded, color: Colors.white),
                   ),
-                  color: RidoColors.surface,
-                  shape: RoundedRectangleBorder(borderRadius: RidoRadii.cardRadius),
+                  color: TtColors.surface,
+                  shape: RoundedRectangleBorder(borderRadius: TtRadii.cardRadius),
                   position: PopupMenuPosition.under,
                   onSelected: (v) {
                     if (v == 'help') context.push(Routes.help);
@@ -145,8 +145,8 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                       value: 'help',
                       height: 56,
                       child: Row(children: [
-                        const Icon(Symbols.support_agent_rounded, color: RidoColors.navy700),
-                        const SizedBox(width: RidoSpacing.m),
+                        const Icon(Symbols.support_agent_rounded, color: TtColors.navy700),
+                        const SizedBox(width: TtSpacing.m),
                         Text('Help', style: t.body),
                       ]),
                     ),
@@ -154,9 +154,9 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                       value: 'cancel',
                       height: 56,
                       child: Row(children: [
-                        const Icon(Symbols.cancel_rounded, color: RidoColors.error),
-                        const SizedBox(width: RidoSpacing.m),
-                        Text('Cancel ride', style: t.body.copyWith(color: RidoColors.error)),
+                        const Icon(Symbols.cancel_rounded, color: TtColors.error),
+                        const SizedBox(width: TtSpacing.m),
+                        Text('Cancel ride', style: t.body.copyWith(color: TtColors.error)),
                       ]),
                     ),
                   ],
@@ -177,12 +177,12 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                   ),
                 ),
                 Positioned(
-                  right: RidoSpacing.gutter,
-                  bottom: RidoSpacing.xl,
+                  right: TtSpacing.gutter,
+                  bottom: TtSpacing.xl,
                   child: NavigatePill(
                     onPressed: () => _api
                         ? openNavigation(context, _job.pickup.location)
-                        : showRidoSnack(context, 'Opening Google Maps'),
+                        : showTtSnack(context, 'Opening Google Maps'),
                   ),
                 ),
               ]),
@@ -191,8 +191,8 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
               handle: true,
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
                 Row(children: [
-                  RidoAvatar(initials: initialsOf(_job.customerName), size: 52),
-                  const SizedBox(width: RidoSpacing.m),
+                  TtAvatar(initials: initialsOf(_job.customerName), size: 52),
+                  const SizedBox(width: TtSpacing.m),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [
@@ -200,10 +200,10 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                           child: Text('${_job.customerName} · ${_job.customerRating.toStringAsFixed(1)}',
                               style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                         ),
-                        const Icon(Symbols.star_rounded, fill: 1, size: 20, color: RidoColors.navy900),
+                        const Icon(Symbols.star_rounded, fill: 1, size: 20, color: TtColors.navy900),
                       ]),
                       Text('${formatInr(_job.fare)} · Cash / UPI',
-                          style: RidoTextStyles.tabular(t.bodySmall.copyWith(color: RidoColors.navy500))),
+                          style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500))),
                     ]),
                   ),
                   RoundIconButton(
@@ -211,20 +211,20 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                     tooltip: 'Chat with ${_job.customerName}',
                     onPressed: () => context.push(Routes.chat),
                   ),
-                  const SizedBox(width: RidoSpacing.m),
+                  const SizedBox(width: TtSpacing.m),
                   RoundIconButton(
                     icon: Symbols.call_rounded,
                     tooltip: 'Call ${_job.customerName}',
-                    background: RidoColors.coral600,
+                    background: TtColors.coral600,
                     foreground: Colors.white,
                     onPressed: _call,
                   ),
                 ]),
-                const SizedBox(height: RidoSpacing.l),
-                RidoCard(
+                const SizedBox(height: TtSpacing.l),
+                TtCard(
                   child: Row(children: [
                     const PickupDot(),
-                    const SizedBox(width: RidoSpacing.m),
+                    const SizedBox(width: TtSpacing.m),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(_job.pickup.name, style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -233,7 +233,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                     ),
                   ]),
                 ),
-                const SizedBox(height: RidoSpacing.l),
+                const SizedBox(height: TtSpacing.l),
                 SwipeToConfirm(label: _arrivedLabel(), enabled: !_busy, onConfirmed: _arrived),
               ]),
             ),
@@ -262,7 +262,7 @@ class _CancelReasonDialogState extends State<_CancelReasonDialog> {
   CancelCode? _reason;
 
   @override
-  Widget build(BuildContext context) => RidoDialog(
+  Widget build(BuildContext context) => TtDialog(
         title: 'Why are you cancelling?',
         message: 'Frequent cancellations can lower your rating.',
         icon: Symbols.cancel_rounded,
@@ -281,12 +281,12 @@ class _CancelReasonDialogState extends State<_CancelReasonDialog> {
           ]),
         ),
         actions: [
-          RidoButton.danger(
+          TtButton.danger(
             label: 'Cancel ride',
             onPressed: _reason == null ? null : () => Navigator.of(context).pop(_reason),
           ),
-          const SizedBox(height: RidoSpacing.xs),
-          RidoButton.text(label: 'Keep ride', expand: true, onPressed: () => Navigator.of(context).pop()),
+          const SizedBox(height: TtSpacing.xs),
+          TtButton.text(label: 'Keep ride', expand: true, onPressed: () => Navigator.of(context).pop()),
         ],
       );
 }

@@ -1,10 +1,10 @@
 import { cn } from "@/lib/utils";
 
-/** "rido" wordmark: navy letters, the dot of the i in coral. */
+/** "tamiltaxi" wordmark: navy letters, the dot of the i in coral. */
 export function Wordmark({ className, tone = "navy" }: { className?: string; tone?: "navy" | "white" }) {
   return (
     <span
-      aria-label="rido"
+      aria-label="tamiltaxi"
       className={cn(
         "inline-flex items-baseline font-heading font-bold leading-none tracking-tight select-none",
         tone === "white" ? "text-white" : "text-navy-900",

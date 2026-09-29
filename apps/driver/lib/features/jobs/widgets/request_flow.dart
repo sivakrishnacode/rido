@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../state/driver_session.dart';
 import '../../../state/live_helpers.dart';
@@ -113,7 +113,7 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
       await ref.read(driverSessionProvider.notifier).acceptRequest();
     } on Exception catch (e) {
       if (!mounted) return;
-      showRidoSnack(context, userMessage(e));
+      showTtSnack(context, userMessage(e));
       setState(() => accepting = false);
       _closeIfEmpty();
       return;

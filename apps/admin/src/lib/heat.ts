@@ -49,7 +49,7 @@ export const METRIC_HINT: Record<HeatmapMetric, string> = {
 export function presetRange(preset: "today" | "7d" | "30d", now = new Date()): { from: string; to: string } {
   const to = now.toISOString();
   if (preset === "today") {
-    // Midnight IST (UTC+5:30), since Rido runs in Coimbatore.
+    // Midnight IST (UTC+5:30), since Tamil Taxi runs in Coimbatore.
     const ist = new Date(now.getTime() + 330 * 60_000);
     ist.setUTCHours(0, 0, 0, 0);
     return { from: new Date(ist.getTime() - 330 * 60_000).toISOString(), to };

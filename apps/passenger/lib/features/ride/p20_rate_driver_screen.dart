@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
@@ -39,7 +39,7 @@ class _P20RateDriverScreenState extends ConsumerState<P20RateDriverScreen> {
     final driver = ref.read(rideFlowProvider).driver.firstName;
     await ref.read(rideFlowProvider.notifier).finishRide(rating: submit ? _rating : null);
     if (!mounted) return;
-    if (submit) showRidoSnack(context, 'Thanks! Your rating helps $driver.', success: true);
+    if (submit) showTtSnack(context, 'Thanks! Your rating helps $driver.', success: true);
     context.go(Routes.ride);
   }
 
@@ -50,7 +50,7 @@ class _P20RateDriverScreenState extends ConsumerState<P20RateDriverScreen> {
     final driver = ride.driver;
 
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -59,7 +59,7 @@ class _P20RateDriverScreenState extends ConsumerState<P20RateDriverScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(0, 8, 8, 0),
                 child: TextButton(
-                  style: TextButton.styleFrom(foregroundColor: RidoColors.navy700),
+                  style: TextButton.styleFrom(foregroundColor: TtColors.navy700),
                   onPressed: _saving ? null : () => _finish(submit: false),
                   child: const Text('Skip'),
                 ),
@@ -75,7 +75,7 @@ class _P20RateDriverScreenState extends ConsumerState<P20RateDriverScreen> {
                   const SizedBox(height: 6),
                   Text(
                     '${ride.vehicle.label} · ${shortPlaceName(ride.pickup.name)} → ${shortPlaceName(ride.drop.name)}',
-                    style: t.body.copyWith(color: RidoColors.navy500),
+                    style: t.body.copyWith(color: TtColors.navy500),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
@@ -91,12 +91,12 @@ class _P20RateDriverScreenState extends ConsumerState<P20RateDriverScreen> {
                   const SizedBox(height: 8),
                   Text(
                     RatingStars.labels[_rating - 1],
-                    style: t.bodySemibold.copyWith(color: RidoColors.navy700, fontSize: 17),
+                    style: t.bodySemibold.copyWith(color: TtColors.navy700, fontSize: 17),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   Text(_rating >= 4 ? 'What went well?' : 'What could be better?',
-                      style: t.bodyMedium.copyWith(color: RidoColors.navy700)),
+                      style: t.bodyMedium.copyWith(color: TtColors.navy700)),
                   const SizedBox(height: 12),
                   ChoiceChips<String>(
                     options: P20RateDriverScreen.tags,
@@ -118,7 +118,7 @@ class _P20RateDriverScreenState extends ConsumerState<P20RateDriverScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: RidoButton(label: 'Submit', loading: _saving, onPressed: () => _finish(submit: true)),
+              child: TtButton(label: 'Submit', loading: _saving, onPressed: () => _finish(submit: true)),
             ),
           ],
         ),

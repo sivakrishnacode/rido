@@ -336,7 +336,7 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
         <Card className="gap-0 pb-0">
           <CardHeader className="border-b">
             <CardTitle className="font-semibold">Subscriptions</CardTitle>
-            <CardDescription>Daily, weekly or monthly plans. Rido takes no commission on fares.</CardDescription>
+            <CardDescription>Daily, weekly or monthly plans. Tamil Taxi takes no commission on fares.</CardDescription>
           </CardHeader>
           {d.subscriptions.length === 0 ? (
             <EmptyState icon={WalletCardsIcon} title="No subscriptions" description="The driver hasn't started a plan yet." />

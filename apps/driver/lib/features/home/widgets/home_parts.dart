@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'navy_header.dart';
 
@@ -30,17 +30,17 @@ class HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     return NavyHeader(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.m, RidoSpacing.gutter, RidoSpacing.m),
+      padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.m, TtSpacing.gutter, TtSpacing.m),
       child: Row(
         children: [
-          RidoAvatar(
+          TtAvatar(
             initials: initials,
             size: 46,
             tone: AvatarTone.dark,
-            ringColor: onlineRing ? RidoColors.success : null,
+            ringColor: onlineRing ? TtColors.success : null,
             image: photo,
           ),
-          const SizedBox(width: RidoSpacing.m),
+          const SizedBox(width: TtSpacing.m),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,7 +53,7 @@ class HomeHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: RidoSpacing.s),
+          const SizedBox(width: TtSpacing.s),
           Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -76,14 +76,14 @@ class OfflineHeaderPill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: const BoxDecoration(color: RidoColors.navy700, borderRadius: RidoRadii.pillRadius),
+        decoration: const BoxDecoration(color: TtColors.navy700, borderRadius: TtRadii.pillRadius),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Container(
             width: 10,
             height: 10,
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: RidoColors.navy300, width: 2)),
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: TtColors.navy300, width: 2)),
           ),
-          const SizedBox(width: RidoSpacing.s),
+          const SizedBox(width: TtSpacing.s),
           Text('Offline', style: context.type.bodySemibold.copyWith(color: Colors.white)),
         ]),
       );
@@ -101,17 +101,17 @@ class GoOnlineButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null || loading;
-    final fg = enabled ? Colors.white : RidoColors.navy500;
+    final fg = enabled ? Colors.white : TtColors.navy500;
     return Semantics(
       button: true,
       enabled: enabled,
       label: loading ? 'Going online' : (enabled ? 'Go online' : 'Go online, locked'),
       excludeSemantics: true,
       child: Material(
-        color: enabled ? RidoColors.coral600 : RidoColors.divider,
+        color: enabled ? TtColors.coral600 : TtColors.divider,
         shape: const StadiumBorder(),
         elevation: enabled ? 2 : 0,
-        shadowColor: RidoColors.shadow,
+        shadowColor: TtColors.shadow,
         child: InkWell(
           customBorder: const StadiumBorder(),
           onTap: loading ? null : onPressed,
@@ -128,7 +128,7 @@ class GoOnlineButton extends StatelessWidget {
                   )
                 else
                   Icon(enabled ? Symbols.power_settings_new_rounded : Symbols.lock_rounded, color: fg, size: 28, weight: 600),
-                const SizedBox(width: RidoSpacing.m),
+                const SizedBox(width: TtSpacing.m),
                 Text(loading ? 'GOING ONLINE…' : 'GO ONLINE',
                     style: context.type.h2.copyWith(color: fg, letterSpacing: 2, fontWeight: FontWeight.w700)),
               ],
@@ -154,36 +154,36 @@ class TodayCard extends StatelessWidget {
     final t = context.type;
     final ridesLabel = rides == 1 ? '1 ride' : '$rides rides';
     if (!online) {
-      return RidoCard(
+      return TtCard(
         shadow: true,
         borderColor: null,
-        padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.s, RidoSpacing.s),
+        padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.s, TtSpacing.s),
         child: Row(children: [
-          const Icon(Symbols.today_rounded, color: RidoColors.navy900),
-          const SizedBox(width: RidoSpacing.m),
+          const Icon(Symbols.today_rounded, color: TtColors.navy900),
+          const SizedBox(width: TtSpacing.m),
           Expanded(
             child: Text('${formatInr(earnings)} today · $ridesLabel',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: RidoTextStyles.tabular(t.h2)),
+                style: TtTextStyles.tabular(t.h2)),
           ),
           TextButton(onPressed: onEarnings, child: const Text('Earnings')),
         ]),
       );
     }
-    return RidoCard(
+    return TtCard(
       shadow: true,
       borderColor: null,
       onTap: onEarnings,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('You kept today', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+          Text('You kept today', style: t.bodySmall.copyWith(color: TtColors.navy500)),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(formatInr(earnings), style: t.heroSmall),
-              const SizedBox(width: RidoSpacing.m),
+              const SizedBox(width: TtSpacing.m),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 6),
@@ -192,12 +192,12 @@ class TodayCard extends StatelessWidget {
                       TextSpan(text: '$ridesLabel · '),
                       TextSpan(
                           text: '₹0',
-                          style: t.bodySmallMedium.copyWith(color: RidoColors.success, fontWeight: FontWeight.w700)),
+                          style: t.bodySmallMedium.copyWith(color: TtColors.success, fontWeight: FontWeight.w700)),
                       const TextSpan(text: ' commission'),
                     ]),
                     textAlign: TextAlign.end,
                     maxLines: 2,
-                    style: RidoTextStyles.tabular(t.bodySmallMedium.copyWith(color: RidoColors.navy700)),
+                    style: TtTextStyles.tabular(t.bodySmallMedium.copyWith(color: TtColors.navy700)),
                   ),
                 ),
               ),
@@ -221,18 +221,18 @@ class GraceBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     return Container(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.l, RidoSpacing.l, RidoSpacing.l),
+      padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.l, TtSpacing.l, TtSpacing.l),
       decoration: BoxDecoration(
-        color: RidoColors.warningTint,
-        borderRadius: RidoRadii.cardRadius,
-        border: Border.all(color: RidoColors.warning),
-        boxShadow: RidoShadows.soft,
+        color: TtColors.warningTint,
+        borderRadius: TtRadii.cardRadius,
+        border: Border.all(color: TtColors.warning),
+        boxShadow: TtShadows.soft,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Symbols.warning_rounded, fill: 1, color: RidoColors.warningText, size: 26),
-          const SizedBox(width: RidoSpacing.m),
+          const Icon(Symbols.warning_rounded, fill: 1, color: TtColors.warningText, size: 26),
+          const SizedBox(width: TtSpacing.m),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,11 +240,11 @@ class GraceBanner extends StatelessWidget {
                 Text('Payment failed. $daysLeft ${daysLeft == 1 ? 'day' : 'days'} left to renew.',
                     style: t.bodySemibold),
                 const SizedBox(height: 2),
-                Text('You can still go online.', style: t.body.copyWith(color: RidoColors.navy700)),
-                const SizedBox(height: RidoSpacing.m),
-                RidoButton(
+                Text('You can still go online.', style: t.body.copyWith(color: TtColors.navy700)),
+                const SizedBox(height: TtSpacing.m),
+                TtButton(
                   label: 'Pay ${amount == null ? '₹—' : formatInr(amount!)} now',
-                  variant: RidoButtonVariant.dark,
+                  variant: TtButtonVariant.dark,
                   expand: false,
                   height: 44,
                   onPressed: onPay,
@@ -275,15 +275,15 @@ class TripInProgressBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     return Material(
-      color: RidoColors.coral600,
+      color: TtColors.coral600,
       child: InkWell(
         onTap: onOpen,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.m, RidoSpacing.m, RidoSpacing.m),
+          padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.m, TtSpacing.m, TtSpacing.m),
           child: Row(
             children: [
               const Icon(Symbols.navigation_rounded, color: Colors.white, fill: 1, size: 26),
-              const SizedBox(width: RidoSpacing.m),
+              const SizedBox(width: TtSpacing.m),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,13 +292,13 @@ class TripInProgressBanner extends StatelessWidget {
                     Text(subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: RidoTextStyles.tabular(t.body.copyWith(color: Colors.white.withValues(alpha: 0.92)))),
+                        style: TtTextStyles.tabular(t.body.copyWith(color: Colors.white.withValues(alpha: 0.92)))),
                   ],
                 ),
               ),
-              const SizedBox(width: RidoSpacing.s),
+              const SizedBox(width: TtSpacing.s),
               Material(
-                color: RidoColors.surface,
+                color: TtColors.surface,
                 shape: const StadiumBorder(),
                 child: InkWell(
                   customBorder: const StadiumBorder(),
@@ -306,8 +306,8 @@ class TripInProgressBanner extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 14, 12),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text('Return', style: t.bodySemibold.copyWith(color: RidoColors.coral600)),
-                      const Icon(Symbols.chevron_right_rounded, color: RidoColors.coral600),
+                      Text('Return', style: t.bodySemibold.copyWith(color: TtColors.coral600)),
+                      const Icon(Symbols.chevron_right_rounded, color: TtColors.coral600),
                     ]),
                   ),
                 ),
@@ -330,23 +330,23 @@ class PlanStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = warning ? RidoColors.warningText : RidoColors.navy900;
+    final fg = warning ? TtColors.warningText : TtColors.navy900;
     return Material(
-      color: warning ? RidoColors.warningTint : RidoColors.inputBg,
-      borderRadius: RidoRadii.cardRadius,
+      color: warning ? TtColors.warningTint : TtColors.inputBg,
+      borderRadius: TtRadii.cardRadius,
       child: InkWell(
-        borderRadius: RidoRadii.cardRadius,
+        borderRadius: TtRadii.cardRadius,
         onTap: onTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 48),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.m),
+            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.m),
             child: Row(children: [
               Icon(warning ? Symbols.schedule_rounded : Symbols.verified_rounded,
-                  size: 22, fill: warning ? 0 : 1, color: warning ? RidoColors.warningText : RidoColors.success),
-              const SizedBox(width: RidoSpacing.m),
+                  size: 22, fill: warning ? 0 : 1, color: warning ? TtColors.warningText : TtColors.success),
+              const SizedBox(width: TtSpacing.m),
               Expanded(child: Text(text, style: context.type.body.copyWith(color: fg), maxLines: 2)),
-              if (!warning) const Icon(Symbols.chevron_right_rounded, color: RidoColors.navy500),
+              if (!warning) const Icon(Symbols.chevron_right_rounded, color: TtColors.navy500),
             ]),
           ),
         ),
@@ -374,24 +374,24 @@ class OnlineStatusRow extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: icon != null
-              ? Icon(icon, color: RidoColors.navy700, size: 26)
+              ? Icon(icon, color: TtColors.navy700, size: 26)
               : Container(
                   width: 22,
                   height: 22,
                   alignment: Alignment.center,
-                  decoration: const BoxDecoration(color: RidoColors.successTint, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(color: TtColors.successTint, shape: BoxShape.circle),
                   child: Container(
                     width: 12,
                     height: 12,
-                    decoration: const BoxDecoration(color: RidoColors.success, shape: BoxShape.circle),
+                    decoration: const BoxDecoration(color: TtColors.success, shape: BoxShape.circle),
                   ),
                 ),
         ),
-        const SizedBox(width: RidoSpacing.m),
+        const SizedBox(width: TtSpacing.m),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: t.h2),
-            Text(subtitle, style: t.body.copyWith(color: RidoColors.navy700)),
+            Text(subtitle, style: t.body.copyWith(color: TtColors.navy700)),
           ]),
         ),
       ],
@@ -409,14 +409,14 @@ class FiltersOnRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     return Container(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.m, RidoSpacing.xs, RidoSpacing.xs, RidoSpacing.xs),
-      decoration: const BoxDecoration(color: RidoColors.warningTint, borderRadius: RidoRadii.cardRadius),
+      padding: const EdgeInsets.fromLTRB(TtSpacing.m, TtSpacing.xs, TtSpacing.xs, TtSpacing.xs),
+      decoration: const BoxDecoration(color: TtColors.warningTint, borderRadius: TtRadii.cardRadius),
       child: Row(children: [
-        const Icon(Symbols.tune_rounded, color: RidoColors.warningText, size: 20),
-        const SizedBox(width: RidoSpacing.s),
+        const Icon(Symbols.tune_rounded, color: TtColors.warningText, size: 20),
+        const SizedBox(width: TtSpacing.s),
         Expanded(
           child: Text('Filters on · $summary',
-              style: t.bodySmall.copyWith(color: RidoColors.warningText), maxLines: 2, overflow: TextOverflow.ellipsis),
+              style: t.bodySmall.copyWith(color: TtColors.warningText), maxLines: 2, overflow: TextOverflow.ellipsis),
         ),
         TextButton(onPressed: onEdit, child: const Text('Edit')),
       ]),

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' show Marker;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 
@@ -16,7 +16,7 @@ class S08ServiceUnavailableScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Scaffold(backgroundColor: RidoColors.surface, body: S08ServiceUnavailableView());
+      const Scaffold(backgroundColor: TtColors.surface, body: S08ServiceUnavailableView());
 }
 
 /// The S-08 body (map with the service area + explanation sheet). Also embedded by P-07
@@ -42,8 +42,8 @@ class S08ServiceUnavailableView extends ConsumerWidget {
               left: 0,
               right: 0,
               top: 0,
-              height: mapBottom + RidoSpacing.xl,
-              child: RidoMap(
+              height: mapBottom + TtSpacing.xl,
+              child: TtMap(
                 center: Seed.cityCentre,
                 zoom: 10,
                 fitPoints: [pin, southEdge],
@@ -56,15 +56,15 @@ class S08ServiceUnavailableView extends ConsumerWidget {
                     height: 40,
                     child: Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: 6),
                         decoration: const BoxDecoration(
-                          color: RidoColors.surface,
-                          borderRadius: RidoRadii.pillRadius,
-                          boxShadow: RidoShadows.soft,
+                          color: TtColors.surface,
+                          borderRadius: TtRadii.pillRadius,
+                          boxShadow: TtShadows.soft,
                         ),
                         child: Text(
-                          'Rido service area',
-                          style: t.bodySmallMedium.copyWith(color: RidoColors.coral600, fontWeight: FontWeight.w600),
+                          'Tamil Taxi service area',
+                          style: t.bodySmallMedium.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -78,14 +78,14 @@ class S08ServiceUnavailableView extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: RidoSpacing.xs),
+                          padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: TtSpacing.xs),
                           decoration: const BoxDecoration(
-                            color: RidoColors.navy900,
-                            borderRadius: RidoRadii.pillRadius,
+                            color: TtColors.navy900,
+                            borderRadius: TtRadii.pillRadius,
                           ),
-                          child: Text('Your pin', style: t.bodySmallMedium.copyWith(color: RidoColors.surface)),
+                          child: Text('Your pin', style: t.bodySmallMedium.copyWith(color: TtColors.surface)),
                         ),
-                        const Icon(Symbols.location_on_rounded, fill: 1, size: 44, color: RidoColors.navy900),
+                        const Icon(Symbols.location_on_rounded, fill: 1, size: 44, color: TtColors.navy900),
                       ],
                     ),
                   ),
@@ -99,39 +99,39 @@ class S08ServiceUnavailableView extends ConsumerWidget {
               top: mapBottom,
               child: DecoratedBox(
                 decoration: const BoxDecoration(
-                  color: RidoColors.surface,
-                  borderRadius: RidoRadii.sheetTop,
-                  boxShadow: RidoShadows.raised,
+                  color: TtColors.surface,
+                  borderRadius: TtRadii.sheetTop,
+                  boxShadow: TtShadows.raised,
                 ),
                 child: SafeArea(
                   top: false,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(RidoSpacing.l, 0, RidoSpacing.l, RidoSpacing.l),
+                    padding: const EdgeInsets.fromLTRB(TtSpacing.l, 0, TtSpacing.l, TtSpacing.l),
                     child: Column(
                       children: [
                         const SheetHandle(),
                         Container(
                           width: 112,
                           height: 112,
-                          decoration: const BoxDecoration(color: RidoColors.coral50, shape: BoxShape.circle),
-                          child: const Icon(Symbols.wrong_location_rounded, size: 52, color: RidoColors.coral500),
+                          decoration: const BoxDecoration(color: TtColors.coral50, shape: BoxShape.circle),
+                          child: const Icon(Symbols.wrong_location_rounded, size: 52, color: TtColors.coral500),
                         ),
-                        const SizedBox(height: RidoSpacing.l),
-                        Text("Rido isn't in this area yet", style: t.h1, textAlign: TextAlign.center),
-                        const SizedBox(height: RidoSpacing.s),
+                        const SizedBox(height: TtSpacing.l),
+                        Text("Tamil Taxi isn't in this area yet", style: t.h1, textAlign: TextAlign.center),
+                        const SizedBox(height: TtSpacing.s),
                         Text(
                           "We're live across Coimbatore. More cities coming soon.",
-                          style: t.body.copyWith(color: RidoColors.navy700),
+                          style: t.body.copyWith(color: TtColors.navy700),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: RidoSpacing.xl),
-                        RidoButton(
+                        const SizedBox(height: TtSpacing.xl),
+                        TtButton(
                           label: 'Change location',
                           onPressed: () {
                             ref
                                 .read(demoSettingsProvider.notifier)
                                 .update((s) => s.copyWith(outsideServiceArea: false));
-                            showRidoSnack(context, 'Choose a place inside Coimbatore');
+                            showTtSnack(context, 'Choose a place inside Coimbatore');
                             if (context.canPop()) {
                               context.pop();
                             } else {

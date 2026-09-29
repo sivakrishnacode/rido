@@ -111,7 +111,7 @@ export class TripsService {
     const isGoods = FARE_RULES[dto.vehicleKind].isGoods;
     if (isGoods !== (dto.kind === TripKind.PARCEL)) throw new BadRequestException('Vehicle does not match trip kind');
     const [from, to] = await Promise.all([this.geo.locate(dto.pickup), this.geo.locate(dto.drop)]);
-    if (!from.isServiceable || !to.isServiceable) throw new BadRequestException("Rido isn't in this area yet");
+    if (!from.isServiceable || !to.isServiceable) throw new BadRequestException("Tamil Taxi isn't in this area yet");
     if (dto.rider && isGoods) throw new BadRequestException('Parcels are booked with sender and receiver details');
     const riderIsWoman = dto.rider
       ? dto.rider.isWoman

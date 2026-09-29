@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/driver_session.dart';
 
@@ -26,16 +26,16 @@ class S11MissedRequestBanner extends ConsumerWidget {
     return Semantics(
       liveRegion: true,
       child: Material(
-        color: RidoColors.navy900,
-        borderRadius: RidoRadii.cardRadius,
+        color: TtColors.navy900,
+        borderRadius: TtRadii.cardRadius,
         elevation: 6,
-        shadowColor: RidoColors.shadow,
+        shadowColor: TtColors.shadow,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, RidoSpacing.s, RidoSpacing.m),
+          padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.s, TtSpacing.m),
           child: Row(
             children: [
-              const Icon(Symbols.notifications_paused_rounded, color: RidoColors.warning, fill: 1, size: 26),
-              const SizedBox(width: RidoSpacing.m),
+              const Icon(Symbols.notifications_paused_rounded, color: TtColors.warning, fill: 1, size: 26),
+              const SizedBox(width: TtSpacing.m),
               Expanded(
                 child: Text(
                   'You missed a $kind request. Stay alert to get more ${kind}s.',
@@ -44,7 +44,7 @@ class S11MissedRequestBanner extends ConsumerWidget {
               ),
               TextButton(
                 onPressed: onDismiss ?? () => ref.read(driverSessionProvider.notifier).dismissMissedBanner(),
-                style: TextButton.styleFrom(foregroundColor: RidoColors.coral100),
+                style: TextButton.styleFrom(foregroundColor: TtColors.coral100),
                 child: const Text('OK'),
               ),
             ],

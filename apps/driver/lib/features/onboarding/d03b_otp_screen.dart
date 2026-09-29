@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/start_route.dart';
 import '../../router/routes.dart';
@@ -68,9 +68,9 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
     _startCountdown();
     try {
       await ref.read(driverRepositoryProvider).sendOtp(_apiPhone);
-      if (mounted) showRidoSnack(context, 'OTP resent');
+      if (mounted) showTtSnack(context, 'OTP resent');
     } on Exception catch (e) {
-      if (mounted) showRidoSnack(context, userMessage(e));
+      if (mounted) showTtSnack(context, userMessage(e));
     }
   }
 
@@ -83,7 +83,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _verifying = false);
-      showRidoSnack(context, userMessage(e));
+      showTtSnack(context, userMessage(e));
       return;
     }
     if (!mounted) return;
@@ -104,7 +104,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
     if (result == OtpResult.newUser) {
       ref.read(signupProvider.notifier).update((d) => d.copyWith(phone: widget.phone));
       setState(() => _verifying = false);
-      if (!widget.signup) showRidoSnack(context, "This number isn't registered yet. Let's sign you up.");
+      if (!widget.signup) showTtSnack(context, "This number isn't registered yet. Let's sign you up.");
       context.go(Routes.workType);
       return;
     }
@@ -116,7 +116,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
     }
     if (!mounted) return;
     setState(() => _verifying = false);
-    if (widget.signup) showRidoSnack(context, 'Welcome back! You already have a Rido Driver account.');
+    if (widget.signup) showTtSnack(context, 'Welcome back! You already have a Tamil Taxi Driver account.');
     context.go(route);
   }
 
@@ -124,7 +124,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
   Widget build(BuildContext context) {
     final t = context.type;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -133,9 +133,9 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
             subtitle: Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text('Sent to ', style: t.body.copyWith(color: RidoColors.navy300)),
-                Text('+91 ${widget.phone}', style: RidoTextStyles.tabular(t.bodySemibold.copyWith(color: Colors.white))),
-                Text(' · ', style: t.body.copyWith(color: RidoColors.navy300)),
+                Text('Sent to ', style: t.body.copyWith(color: TtColors.navy300)),
+                Text('+91 ${widget.phone}', style: TtTextStyles.tabular(t.bodySemibold.copyWith(color: Colors.white))),
+                Text(' · ', style: t.body.copyWith(color: TtColors.navy300)),
                 Semantics(
                   button: true,
                   label: 'Edit number',
@@ -146,7 +146,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
                       constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
                       child: Center(
                         widthFactor: 1,
-                        child: Text('Edit', style: t.bodySemibold.copyWith(color: RidoColors.coral100)),
+                        child: Text('Edit', style: t.bodySemibold.copyWith(color: TtColors.coral100)),
                       ),
                     ),
                   ),
@@ -156,7 +156,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.xl, RidoSpacing.l, RidoSpacing.l),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.xl, TtSpacing.l, TtSpacing.l),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -176,40 +176,40 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
                     },
                   ),
                   if (_error) ...[
-                    const SizedBox(height: RidoSpacing.s),
+                    const SizedBox(height: TtSpacing.s),
                     Row(
                       children: [
-                        const Icon(Symbols.error_rounded, size: 18, color: RidoColors.error, fill: 1),
+                        const Icon(Symbols.error_rounded, size: 18, color: TtColors.error, fill: 1),
                         const SizedBox(width: 6),
                         Text('Incorrect OTP. Please try again.',
-                            style: t.bodySmallMedium.copyWith(color: RidoColors.error)),
+                            style: t.bodySmallMedium.copyWith(color: TtColors.error)),
                       ],
                     ),
                   ],
-                  const SizedBox(height: RidoSpacing.m),
+                  const SizedBox(height: TtSpacing.m),
                   if (_secondsLeft > 0)
                     SizedBox(
                       height: 48,
                       child: Row(
                         children: [
-                          const Icon(Symbols.schedule_rounded, size: 20, color: RidoColors.navy500),
-                          const SizedBox(width: RidoSpacing.s),
-                          Text('Resend OTP in ', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                          const Icon(Symbols.schedule_rounded, size: 20, color: TtColors.navy500),
+                          const SizedBox(width: TtSpacing.s),
+                          Text('Resend OTP in ', style: t.bodySmall.copyWith(color: TtColors.navy500)),
                           Text(formatCountdown(Duration(seconds: _secondsLeft)),
-                              style: RidoTextStyles.tabular(t.bodySmallMedium.copyWith(
-                                  color: RidoColors.navy900, fontWeight: FontWeight.w700))),
+                              style: TtTextStyles.tabular(t.bodySmallMedium.copyWith(
+                                  color: TtColors.navy900, fontWeight: FontWeight.w700))),
                         ],
                       ),
                     )
                   else
-                    RidoButton.text(label: 'Resend OTP', icon: Symbols.refresh_rounded, onPressed: _resend),
+                    TtButton.text(label: 'Resend OTP', icon: Symbols.refresh_rounded, onPressed: _resend),
                 ],
               ),
             ),
           ),
           BottomActions(
             children: [
-              RidoButton(
+              TtButton(
                 label: 'Verify',
                 loading: _verifying,
                 onPressed: _code.length == 6 ? _verify : null,

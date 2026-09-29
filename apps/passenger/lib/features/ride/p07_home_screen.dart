@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/async_view.dart';
 import '../../common/trip_routes.dart';
@@ -44,7 +44,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   final ValueNotifier<double?> _paddedExtent = ValueNotifier(null);
   Timer? _padTimer;
 
-  final _map = RidoMapController();
+  final _map = TtMapController();
 
   /// Re-reads the location when the passenger comes back (e.g. from the system settings after S-05).
   AppLifecycleListener? _lifecycle;
@@ -56,7 +56,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
   /// Camera centre sits south of the pickup so the pickup shows above the sheet. On the Google engine the
   /// map is padded by the sheet instead (keeps the Google logo visible), so it centres on the pickup itself.
-  static LatLng _cameraFor(LatLng pickup) => RidoMap.usesGoogle ? pickup : offsetPoint(pickup, 950, 180);
+  static LatLng _cameraFor(LatLng pickup) => TtMap.usesGoogle ? pickup : offsetPoint(pickup, 950, 180);
   static final LatLng _camera = _cameraFor(_pickup);
   static const double _zoom = 15;
 
@@ -129,10 +129,10 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
         _moveToPickup(r);
       case LocateResult.outsideArea:
         if (!ref.read(isLiveApiProvider)) _moveTo(_camera);
-        showRidoSnack(
+        showTtSnack(
           context,
           ref.read(isLiveApiProvider)
-              ? "Rido isn't in your area yet. Choose a pickup in Coimbatore."
+              ? "Tamil Taxi isn't in your area yet. Choose a pickup in Coimbatore."
               : "You're outside Coimbatore. The demo keeps Gandhipuram as pickup.",
         );
       case LocateResult.denied:
@@ -145,7 +145,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
   String _greeting() {
     if (widget.showcase) return 'Good afternoon,';
-    final h = RidoClock.now().hour;
+    final h = TtClock.now().hour;
     if (h < 12) return 'Good morning,';
     if (h < 17) return 'Good afternoon,';
     return 'Good evening,';
@@ -164,11 +164,11 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
     final profile = ref.watch(currentProfileProvider);
 
     if (!widget.showcase && demo.outsideServiceArea) {
-      return const Scaffold(backgroundColor: RidoColors.surface, body: S08ServiceUnavailableView());
+      return const Scaffold(backgroundColor: TtColors.surface, body: S08ServiceUnavailableView());
     }
     if (!widget.showcase && demo.locationDenied) {
       return const Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: SafeArea(child: S05LocationDeniedView()),
       );
     }
@@ -179,7 +179,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
     final showNearby = !tripActive && (widget.showcase || !ref.watch(isLiveApiProvider));
 
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: LayoutBuilder(
         builder: (context, c) {
           // Follows the sheet while it is dragged (see the NotificationListener below).
@@ -188,10 +188,10 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
               Positioned.fill(
                 child: ValueListenableBuilder<double?>(
                   valueListenable: _paddedExtent,
-                  builder: (context, padded, _) => RidoMap(
+                  builder: (context, padded, _) => TtMap(
                     controller: _map,
                     center: tripActive
-                        ? (RidoMap.usesGoogle ? ride.pickup.location : offsetPoint(ride.pickup.location, 600, 180))
+                        ? (TtMap.usesGoogle ? ride.pickup.location : offsetPoint(ride.pickup.location, 600, 180))
                         : _cameraFor(ride.pickup.location),
                     zoom: _zoom,
                     mapPadding: sheetMapPadding(c.maxHeight * (padded ?? sheetSize)),
@@ -206,7 +206,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
               ),
               SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, RidoSpacing.l, 0),
+                  padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -215,7 +215,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                           Expanded(
                             child: _GreetingCard(greeting: _greeting(), profile: profile),
                           ),
-                          const SizedBox(width: RidoSpacing.s),
+                          const SizedBox(width: TtSpacing.s),
                           SosButton(size: 56, onPressed: () => context.push(Routes.sos)),
                         ],
                       ),
@@ -231,7 +231,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                   builder: (context, extent, child) {
                     final e = extent ?? sheetSize;
                     if (e >= 0.8) return const SizedBox.shrink();
-                    return Positioned(right: RidoSpacing.l, top: c.maxHeight * (1 - e) - 64, child: child!);
+                    return Positioned(right: TtSpacing.l, top: c.maxHeight * (1 - e) - 64, child: child!);
                   },
                   child: MapCircleButton(
                     icon: Symbols.my_location_rounded,
@@ -241,8 +241,8 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                 ),
               if (tripActive)
                 Positioned(
-                  left: RidoSpacing.m,
-                  right: RidoSpacing.m,
+                  left: TtSpacing.m,
+                  right: TtSpacing.m,
                   top: c.maxHeight * (1 - sheetSize) - 84,
                   child: _TripBanner(ride: ride, parcel: parcel, showcase: widget.showcase || widget.showTripBanner),
                 ),
@@ -289,13 +289,13 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
               readOnly: true,
               onTap: () => context.push(Routes.search),
             ),
-            const SizedBox(height: RidoSpacing.l),
+            const SizedBox(height: TtSpacing.l),
             _SavedPlacesRow(
               places: profile.savedPlaces,
               onPlace: (p) => _chooseDrop(p.place),
               onAdd: () => context.push(Routes.savedPlaceEditor()),
             ),
-            const SizedBox(height: RidoSpacing.s),
+            const SizedBox(height: TtSpacing.s),
             for (var i = 0; i < places.length; i++) ...[
               if (i > 0) const Divider(height: 1, indent: 52),
               LocationRow(
@@ -306,7 +306,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                 onTap: () => _chooseDrop(places[i]),
               ),
             ],
-            const SizedBox(height: RidoSpacing.l),
+            const SizedBox(height: TtSpacing.l),
             const _PromoCard(),
           ],
         ),
@@ -315,23 +315,23 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   }
 
   List<Widget> _activeSheet(PassengerProfile profile) {
-    void blocked() => showRidoSnack(context, 'You can book another ride after this trip ends.');
+    void blocked() => showTtSnack(context, 'You can book another ride after this trip ends.');
     return [
       SearchField(hint: 'Where are you going?', large: true, readOnly: true, showMic: false, onTap: blocked),
-      const SizedBox(height: RidoSpacing.l),
+      const SizedBox(height: TtSpacing.l),
       _SavedPlacesRow(places: profile.savedPlaces, onPlace: (_) => blocked()),
-      const SizedBox(height: RidoSpacing.l),
+      const SizedBox(height: TtSpacing.l),
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.m),
-        decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.cardRadius),
+        padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.m),
+        decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.cardRadius),
         child: Row(
           children: [
-            const Icon(Symbols.info_rounded, size: 20, color: RidoColors.navy700),
-            const SizedBox(width: RidoSpacing.m),
+            const Icon(Symbols.info_rounded, size: 20, color: TtColors.navy700),
+            const SizedBox(width: TtSpacing.m),
             Expanded(
               child: Text(
                 'You can book another ride after this trip ends.',
-                style: context.type.bodySmall.copyWith(color: RidoColors.navy700),
+                style: context.type.bodySmall.copyWith(color: TtColors.navy700),
               ),
             ),
           ],
@@ -354,25 +354,25 @@ class _GreetingCard extends StatelessWidget {
       button: true,
       label: 'Account, ${profile.name}',
       child: Material(
-        color: RidoColors.surface,
+        color: TtColors.surface,
         shape: const StadiumBorder(),
         elevation: 3,
-        shadowColor: RidoColors.shadow,
+        shadowColor: TtColors.shadow,
         child: InkWell(
           customBorder: const StadiumBorder(),
           onTap: () => context.go(Routes.account),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, RidoSpacing.l, 6),
+            padding: const EdgeInsets.fromLTRB(6, 6, TtSpacing.l, 6),
             child: Row(
               children: [
-                RidoAvatar(initials: profile.initials, size: 44),
-                const SizedBox(width: RidoSpacing.m),
+                TtAvatar(initials: profile.initials, size: 44),
+                const SizedBox(width: TtSpacing.m),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(greeting, style: t.bodySmall.copyWith(color: RidoColors.navy500), maxLines: 1),
+                      Text(greeting, style: t.bodySmall.copyWith(color: TtColors.navy500), maxLines: 1),
                       Text(profile.firstName, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
@@ -405,8 +405,8 @@ class _SavedPlacesRow extends StatelessWidget {
         children: [
           for (final p in shown) ...[
             Expanded(
-              child: RidoCard(
-                padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m),
+              child: TtCard(
+                padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m),
                 onTap: () => onPlace(p),
                 child: SizedBox(
                   height: 56,
@@ -416,8 +416,8 @@ class _SavedPlacesRow extends StatelessWidget {
                         SavedPlaceKind.home => Symbols.home_rounded,
                         SavedPlaceKind.work => Symbols.work_rounded,
                         SavedPlaceKind.other => Symbols.star_rounded,
-                      }, color: RidoColors.coral600),
-                      const SizedBox(width: RidoSpacing.m),
+                      }, color: TtColors.coral600),
+                      const SizedBox(width: TtSpacing.m),
                       Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -426,7 +426,7 @@ class _SavedPlacesRow extends StatelessWidget {
                             Text(p.label, style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
                             Text(
                               p.place.name,
-                              style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                              style: t.bodySmall.copyWith(color: TtColors.navy500),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -438,26 +438,26 @@ class _SavedPlacesRow extends StatelessWidget {
                 ),
               ),
             ),
-            if (onAdd != null || p != shown.last) const SizedBox(width: RidoSpacing.s),
+            if (onAdd != null || p != shown.last) const SizedBox(width: TtSpacing.s),
           ],
           if (onAdd != null)
             DashedBorder(
               child: Material(
                 color: Colors.transparent,
-                borderRadius: RidoRadii.cardRadius,
+                borderRadius: TtRadii.cardRadius,
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: onAdd,
                   child: SizedBox(
                     height: 58,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m),
+                      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Symbols.add_rounded, color: RidoColors.coral600, size: 22),
-                          const SizedBox(width: RidoSpacing.xs),
-                          Text('Add', style: t.bodySemibold.copyWith(color: RidoColors.coral600)),
+                          const Icon(Symbols.add_rounded, color: TtColors.coral600, size: 22),
+                          const SizedBox(width: TtSpacing.xs),
+                          Text('Add', style: t.bodySemibold.copyWith(color: TtColors.coral600)),
                         ],
                       ),
                     ),
@@ -479,8 +479,8 @@ class _PromoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     return Container(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.l, RidoSpacing.m, RidoSpacing.l),
-      decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.cardRadius),
+      padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.l, TtSpacing.m, TtSpacing.l),
+      decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
       child: Row(
         children: [
           Expanded(
@@ -490,19 +490,19 @@ class _PromoCard extends StatelessWidget {
                 Text('Your driver keeps 100% of your fare', style: t.bodySemibold),
                 const SizedBox(height: 2),
                 Text(
-                  'Rido is free for drivers: 0% commission, no subscription.',
-                  style: t.bodySmall.copyWith(color: RidoColors.navy700),
+                  'Tamil Taxi is free for drivers: 0% commission, no subscription.',
+                  style: t.bodySmall.copyWith(color: TtColors.navy700),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: RidoSpacing.m),
+          const SizedBox(width: TtSpacing.m),
           Container(
             width: 48,
             height: 48,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(color: RidoColors.coral500, shape: BoxShape.circle),
-            child: Text('0%', style: RidoTextStyles.tabular(t.bodySemibold.copyWith(color: RidoColors.surface))),
+            decoration: const BoxDecoration(color: TtColors.coral500, shape: BoxShape.circle),
+            child: Text('0%', style: TtTextStyles.tabular(t.bodySemibold.copyWith(color: TtColors.surface))),
           ),
         ],
       ),
@@ -533,7 +533,7 @@ class _TripBanner extends StatelessWidget {
               RidePhase.assigned => '$driver · at pickup in ${ride.etaMin} min',
               RidePhase.arrived => '$driver is at your pickup',
               RidePhase.inProgress =>
-                '$driver · arriving ${formatTime(RidoClock.now().add(Duration(minutes: ride.etaMin)))}',
+                '$driver · arriving ${formatTime(TtClock.now().add(Duration(minutes: ride.etaMin)))}',
               RidePhase.completed => 'Pay $driver ${formatInr(ride.quote.total)}',
               _ => 'Trip in progress',
             },
@@ -549,7 +549,7 @@ class _TripBanner extends StatelessWidget {
       if (route != null) {
         context.push(route);
       } else {
-        showRidoSnack(context, 'Your live trip opens here while a ride is on');
+        showTtSnack(context, 'Your live trip opens here while a ride is on');
       }
     }
 
@@ -557,24 +557,24 @@ class _TripBanner extends StatelessWidget {
       button: true,
       label: 'Trip in progress, $subtitle. Return to trip',
       child: Material(
-        color: RidoColors.navy900,
-        borderRadius: const BorderRadius.all(Radius.circular(RidoRadii.sheet)),
+        color: TtColors.navy900,
+        borderRadius: const BorderRadius.all(Radius.circular(TtRadii.sheet)),
         elevation: 4,
-        shadowColor: RidoColors.shadow,
+        shadowColor: TtColors.shadow,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: open,
           child: Padding(
-            padding: const EdgeInsets.all(RidoSpacing.m),
+            padding: const EdgeInsets.all(TtSpacing.m),
             child: Row(
               children: [
                 Container(
                   width: 44,
                   height: 44,
-                  decoration: const BoxDecoration(color: RidoColors.coral500, borderRadius: RidoRadii.cardRadius),
-                  child: Icon(icon, color: RidoColors.surface, fill: 1),
+                  decoration: const BoxDecoration(color: TtColors.coral500, borderRadius: TtRadii.cardRadius),
+                  child: Icon(icon, color: TtColors.surface, fill: 1),
                 ),
-                const SizedBox(width: RidoSpacing.m),
+                const SizedBox(width: TtSpacing.m),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -582,28 +582,28 @@ class _TripBanner extends StatelessWidget {
                     children: [
                       Text(
                         isParcel ? 'Parcel in progress' : 'Trip in progress',
-                        style: t.bodySemibold.copyWith(color: RidoColors.surface),
+                        style: t.bodySemibold.copyWith(color: TtColors.surface),
                         maxLines: 1,
                       ),
                       Text(
                         subtitle,
-                        style: t.bodySmall.copyWith(color: RidoColors.divider),
+                        style: t.bodySmall.copyWith(color: TtColors.divider),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: RidoSpacing.s),
+                const SizedBox(width: TtSpacing.s),
                 Container(
                   height: 40,
-                  padding: const EdgeInsets.only(left: RidoSpacing.m, right: RidoSpacing.s),
-                  decoration: const BoxDecoration(color: RidoColors.surface, borderRadius: RidoRadii.pillRadius),
+                  padding: const EdgeInsets.only(left: TtSpacing.m, right: TtSpacing.s),
+                  decoration: const BoxDecoration(color: TtColors.surface, borderRadius: TtRadii.pillRadius),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('Return', style: t.bodySemibold),
-                      const Icon(Symbols.chevron_right_rounded, size: 20, color: RidoColors.navy900),
+                      const Icon(Symbols.chevron_right_rounded, size: 20, color: TtColors.navy900),
                     ],
                   ),
                 ),
@@ -636,40 +636,40 @@ class _LocationBanners extends ConsumerWidget {
     if (!ref.watch(isLiveApiProvider)) return const SizedBox.shrink();
     final access = ref.watch(locationAccessProvider);
     final Widget? banner = switch (access) {
-      LocationAccess.serviceOff => RidoBanner(
-          type: RidoBannerType.warning,
+      LocationAccess.serviceOff => TtBanner(
+          type: TtBannerType.warning,
           icon: Symbols.location_off_rounded,
           title: 'Turn on location',
-          message: 'Rido needs your location to set your pickup and find drivers near you.',
+          message: 'Tamil Taxi needs your location to set your pickup and find drivers near you.',
           actionLabel: 'Turn on',
           onAction: onFix,
         ),
-      LocationAccess.denied => RidoBanner(
-          type: RidoBannerType.warning,
+      LocationAccess.denied => TtBanner(
+          type: TtBannerType.warning,
           icon: Symbols.location_off_rounded,
           title: 'Allow location access',
-          message: 'Rido uses your location to set your pickup and show drivers near you. The app works best with it.',
+          message: 'Tamil Taxi uses your location to set your pickup and show drivers near you. The app works best with it.',
           actionLabel: 'Allow',
           onAction: onFix,
         ),
-      LocationAccess.deniedForever => RidoBanner(
-          type: RidoBannerType.warning,
+      LocationAccess.deniedForever => TtBanner(
+          type: TtBannerType.warning,
           icon: Symbols.location_off_rounded,
-          title: 'Location is off for Rido',
+          title: 'Location is off for Tamil Taxi',
           message: 'Open Settings → Permissions → Location and choose "Allow while using the app".',
           actionLabel: 'Open settings',
           onAction: onFix,
         ),
       LocationAccess.granted || LocationAccess.unknown => outsideArea
-          ? const RidoBanner(
-              type: RidoBannerType.info,
+          ? const TtBanner(
+              type: TtBannerType.info,
               icon: Symbols.wrong_location_rounded,
-              title: "Rido isn't in your area yet",
+              title: "Tamil Taxi isn't in your area yet",
               message: 'You can still book a trip inside Coimbatore by choosing the pickup yourself.',
             )
           : null,
     };
     if (banner == null) return const SizedBox.shrink();
-    return Padding(padding: const EdgeInsets.only(top: RidoSpacing.s), child: banner);
+    return Padding(padding: const EdgeInsets.only(top: TtSpacing.s), child: banner);
   }
 }

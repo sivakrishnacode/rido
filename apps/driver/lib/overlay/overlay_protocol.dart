@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart' show VehicleKindUi;
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart' show VehicleKindUi;
 
 /// Messages between the app (main isolate) and the floating overlay (its own engine / isolate, see
 /// `overlayMain`), sent with `FlutterOverlayWindow.shareData` as JSON maps. The overlay only draws; every
@@ -178,7 +178,7 @@ enum BackgroundSurface {
   /// App in front, or offline: nothing.
   none,
 
-  /// Online in the background: the floating Rido bubble.
+  /// Online in the background: the floating Tamil Taxi bubble.
   bubble,
 
   /// A request while in the background: the full-screen overlay card (plus the ringing notification).

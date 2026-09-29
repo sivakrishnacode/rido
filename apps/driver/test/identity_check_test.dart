@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/onboarding/d07_documents_screen.dart';
-import 'package:rido_driver/features/onboarding/widgets/identity_check_card.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/onboarding/d07_documents_screen.dart';
+import 'package:tamiltaxi_driver/features/onboarding/widgets/identity_check_card.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 
@@ -22,7 +22,7 @@ void main() {
         }),
       ],
       child: MaterialApp(
-        theme: RidoTheme.light(),
+        theme: TtTheme.light(),
         home: const Scaffold(body: Padding(padding: EdgeInsets.all(16), child: IdentityCheckCard())),
       ),
     ));
@@ -50,7 +50,7 @@ void main() {
         identityProvider.overrideWith(() => _Declined(reasons)),
       ],
       child: MaterialApp(
-        theme: RidoTheme.light(),
+        theme: TtTheme.light(),
         home: const Scaffold(body: SingleChildScrollView(padding: EdgeInsets.all(16), child: IdentityCheckCard())),
       ),
     ));
@@ -68,7 +68,7 @@ void main() {
     usePhone(tester);
     await tester.pumpWidget(ProviderScope(
       overrides: [identityProvider.overrideWith(() => _Declined(const ['Driving licence: blurry']))],
-      child: MaterialApp(theme: RidoTheme.light(), home: const D07DocumentsScreen(readOnly: true)),
+      child: MaterialApp(theme: TtTheme.light(), home: const D07DocumentsScreen(readOnly: true)),
     ));
     await tester.pumpAndSettle();
     expect(find.textContaining('All your documents are verified'), findsNothing);
@@ -82,14 +82,14 @@ void main() {
     usePhone(tester);
     await tester.pumpWidget(ProviderScope(
       overrides: [identityProvider.overrideWith(() => _Declined(const ['Driving licence: blurry']))],
-      child: MaterialApp(theme: RidoTheme.light(), home: const D07DocumentsScreen(readOnly: true)),
+      child: MaterialApp(theme: TtTheme.light(), home: const D07DocumentsScreen(readOnly: true)),
     ));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(TextButton, 'Help'), findsOneWidget);
     final verifiedCards = tester.widgetList<Container>(find.byType(Container)).where((c) {
       final d = c.decoration;
       return d is BoxDecoration && d.border is Border && (d.border! as Border).top.color.toARGB32() ==
-          RidoColors.success.withValues(alpha: 0.55).toARGB32();
+          TtColors.success.withValues(alpha: 0.55).toARGB32();
     });
     expect(verifiedCards, hasLength(2), reason: 'RC and insurance, each its own card');
     await tester.pumpWidget(const SizedBox());

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
@@ -76,7 +76,7 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
     setState(() => _saving = false);
     if (!saved) return;
     if (widget.editing) {
-      showRidoSnack(context, 'Profile updated', success: true);
+      showTtSnack(context, 'Profile updated', success: true);
       if (context.canPop()) context.pop();
     } else {
       context.go(Routes.locationPermission);
@@ -88,55 +88,55 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
     final t = context.type;
     final editing = widget.editing;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
-      appBar: editing ? const RidoAppBar(title: 'Edit profile') : null,
+      backgroundColor: TtColors.surface,
+      appBar: editing ? const TtAppBar(title: 'Edit profile') : null,
       body: SafeArea(
         top: !editing,
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(RidoSpacing.l, editing ? RidoSpacing.s : 64, RidoSpacing.l, RidoSpacing.l),
+                padding: EdgeInsets.fromLTRB(TtSpacing.l, editing ? TtSpacing.s : 64, TtSpacing.l, TtSpacing.l),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (!editing) ...[
                       Text('What should we call you?', style: t.display),
-                      const SizedBox(height: RidoSpacing.s),
-                      Text('Your driver will see your first name.', style: t.body.copyWith(color: RidoColors.navy700)),
-                      const SizedBox(height: RidoSpacing.xxl),
+                      const SizedBox(height: TtSpacing.s),
+                      Text('Your driver will see your first name.', style: t.body.copyWith(color: TtColors.navy700)),
+                      const SizedBox(height: TtSpacing.xxl),
                     ],
-                    RidoTextField(
+                    TtTextField(
                       label: 'Full name',
                       controller: _name,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
                       onChanged: (_) => setState(() => _touched = true),
                     ),
-                    const SizedBox(height: RidoSpacing.xl),
+                    const SizedBox(height: TtSpacing.xl),
                     Text.rich(
                       TextSpan(
                         children: [
                           const TextSpan(text: 'Email '),
                           TextSpan(
                             text: '(optional)',
-                            style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                            style: t.bodySmall.copyWith(color: TtColors.navy500),
                           ),
                         ],
                       ),
-                      style: t.bodySmallMedium.copyWith(color: RidoColors.navy700),
+                      style: t.bodySmallMedium.copyWith(color: TtColors.navy700),
                     ),
                     const SizedBox(height: 6),
-                    RidoTextField(
+                    TtTextField(
                       hint: 'For ride receipts',
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.done,
                       onChanged: (_) => _touched = true,
                     ),
-                    const SizedBox(height: RidoSpacing.xl),
-                    Text('Gender', style: t.bodySmallMedium.copyWith(color: RidoColors.navy700)),
-                    const SizedBox(height: RidoSpacing.s),
+                    const SizedBox(height: TtSpacing.xl),
+                    Text('Gender', style: t.bodySmallMedium.copyWith(color: TtColors.navy700)),
+                    const SizedBox(height: TtSpacing.s),
                     ChoiceChips<Gender>(
                       options: _genders,
                       labelOf: _label,
@@ -147,16 +147,16 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
                         _touched = true;
                       }),
                     ),
-                    const SizedBox(height: RidoSpacing.m),
+                    const SizedBox(height: TtSpacing.m),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Symbols.lock_rounded, size: 18, color: RidoColors.navy500),
-                        const SizedBox(width: RidoSpacing.s),
+                        const Icon(Symbols.lock_rounded, size: 18, color: TtColors.navy500),
+                        const SizedBox(width: TtSpacing.s),
                         Expanded(
                           child: Text(
                             'Only used to offer the "Prefer women driver" option. Never shown to drivers.',
-                            style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                            style: t.bodySmall.copyWith(color: TtColors.navy500),
                           ),
                         ),
                       ],
@@ -166,8 +166,8 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.l),
-              child: RidoButton(
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.l, TtSpacing.l),
+              child: TtButton(
                 label: editing ? 'Save' : 'Continue',
                 loading: _saving,
                 onPressed: _name.text.trim().isEmpty ? null : _submit,

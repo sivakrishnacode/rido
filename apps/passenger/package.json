@@ -1,5 +1,5 @@
 {
-  "name": "@rido/passenger",
+  "name": "@tamiltaxi/passenger",
   "private": true,
   "version": "0.1.0",
   "scripts": {
@@ -8,10 +8,10 @@
     "test": "sh ../../scripts/flutter.sh test",
     "format": "sh ../../scripts/dart.sh format -l 120 lib test",
     "clean": "sh ../../scripts/flutter.sh clean",
-    "build:apk": "sh ../../scripts/flutter.sh build apk --release --target-platform android-arm,android-arm64 && mkdir -p ../../dist && cp build/app/outputs/flutter-apk/app-release.apk ../../dist/rido-passenger.apk"
+    "build:apk": "sh ../../scripts/flutter.sh build apk --release --target-platform android-arm,android-arm64 && mkdir -p ../../dist && cp build/app/outputs/flutter-apk/app-release.apk ../../dist/tamiltaxi-passenger.apk"
   },
   "dependencies": {
-    "@rido/ui": "*",
-    "@rido/data": "*"
+    "@tamiltaxi/ui": "*",
+    "@tamiltaxi/data": "*"
   }
 }

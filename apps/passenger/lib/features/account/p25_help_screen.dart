@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
@@ -43,7 +43,7 @@ class P25HelpScreen extends ConsumerWidget {
 
     final offline = tickets.error is OfflineException;
     return Scaffold(
-      appBar: const RidoAppBar(title: 'Help & support'),
+      appBar: const TtAppBar(title: 'Help & support'),
       body: offline
           ? S04NoInternetView(onRetry: () {
               ref.invalidate(ticketsProvider);
@@ -56,7 +56,7 @@ class P25HelpScreen extends ConsumerWidget {
               onRecentTrip: recent == null ? null : () => context.push(Routes.newTicket(tripId: recent!.id)),
               onTopic: (topic) => context.push(Routes.newTicket(topic: topic, tripId: tripId)),
               onRaiseTicket: () => context.push(Routes.newTicket(tripId: tripId)),
-              onWhatsApp: () => showRidoSnack(context, 'Opening WhatsApp'),
+              onWhatsApp: () => showTtSnack(context, 'Opening WhatsApp'),
             ),
     );
   }

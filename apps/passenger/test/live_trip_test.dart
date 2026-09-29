@@ -2,13 +2,13 @@
 // driver's GPS against the stored polyline, stale-update guard, chat merging and map insets.
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/common/launch.dart';
-import 'package:rido_passenger/common/map_insets.dart';
-import 'package:rido_passenger/state/live_trip.dart';
-import 'package:rido_passenger/state/parcel_flow.dart';
-import 'package:rido_passenger/state/ride_flow.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/common/launch.dart';
+import 'package:tamiltaxi_passenger/common/map_insets.dart';
+import 'package:tamiltaxi_passenger/state/live_trip.dart';
+import 'package:tamiltaxi_passenger/state/parcel_flow.dart';
+import 'package:tamiltaxi_passenger/state/ride_flow.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 ChatMessage _msg(String id, String text, {bool fromMe = true}) =>
     ChatMessage(id: id, text: text, fromMe: fromMe, sentAt: DateTime(2026, 9, 26, 10));
@@ -118,7 +118,7 @@ void main() {
   });
 
   test('apiErrorMessage shows the API message and a friendly offline text', () {
-    expect(apiErrorMessage(const ApiException(400, "Rido isn't in this area yet")), "Rido isn't in this area yet");
+    expect(apiErrorMessage(const ApiException(400, "Tamil Taxi isn't in this area yet")), "Tamil Taxi isn't in this area yet");
     expect(apiErrorMessage(const OfflineException()), contains('offline'));
     expect(apiErrorMessage(StateError('x')), 'Something went wrong. Please try again.');
   });
@@ -144,7 +144,7 @@ void main() {
   });
 
   test('sheetMapInsets leaves flutter_map untouched and shifts the fit for Google', () {
-    RidoMap.tilesEnabled = false; // flutter_map engine, as in every widget test
+    TtMap.tilesEnabled = false; // flutter_map engine, as in every widget test
     const fit = EdgeInsets.fromLTRB(56, 96, 56, 500);
     final flat = sheetMapInsets(fit, 500);
     expect(flat.map, EdgeInsets.zero);
@@ -172,7 +172,7 @@ void main() {
       drop: Seed.brookefields,
       vehicleAt: const LatLng(11.01, 76.96),
     );
-    expect(text, contains("Priya's Rido ride to ${Seed.brookefields.name}"));
+    expect(text, contains("Priya's Tamil Taxi ride to ${Seed.brookefields.name}"));
     expect(text, contains('Karthik S'));
     expect(text, contains('TN 37 AB 1234'));
     expect(text, contains('Grey Honda Activa (Bike)'));

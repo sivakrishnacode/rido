@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import 'app_notice.dart';
 import 'live_trip.dart';

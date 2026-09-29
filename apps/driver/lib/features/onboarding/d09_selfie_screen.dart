@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
@@ -64,7 +64,7 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
     }
     if (!mounted) return;
     context.go(Routes.home);
-    showRidoSnack(context, error ?? "Selfie verified. You're online", success: error == null);
+    showTtSnack(context, error ?? "Selfie verified. You're online", success: error == null);
   }
 
   @override
@@ -73,7 +73,7 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: RidoColors.navy900,
+        backgroundColor: TtColors.navy900,
         appBar: SignupAppBar(
           title: widget.dailyCheck ? 'Selfie check' : 'Selfie verification',
           step: widget.dailyCheck ? null : 5,
@@ -90,7 +90,7 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
                     child: ConstrainedBox(
                       constraints: BoxConstraints(minHeight: c.maxHeight),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l),
+                        padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -99,12 +99,12 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
                               label: 'Face guide',
                               child: DashedRing(
                                 size: d,
-                                color: _capturing ? RidoColors.success : RidoColors.coral500,
+                                color: _capturing ? TtColors.success : TtColors.coral500,
                                 strokeWidth: 4,
                                 child: Container(
                                   width: d - 20,
                                   height: d - 20,
-                                  decoration: const BoxDecoration(color: RidoColors.navy700, shape: BoxShape.circle),
+                                  decoration: const BoxDecoration(color: TtColors.navy700, shape: BoxShape.circle),
                                   child: _capturing
                                       ? const Center(
                                           child: SizedBox(
@@ -113,19 +113,19 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
                                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
                                           ),
                                         )
-                                      : Icon(Symbols.face_rounded, size: d * 0.6, color: RidoColors.navy500, fill: 0),
+                                      : Icon(Symbols.face_rounded, size: d * 0.6, color: TtColors.navy500, fill: 0),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: RidoSpacing.xl),
+                            const SizedBox(height: TtSpacing.xl),
                             Text(
                               _capturing ? 'Hold still…' : 'Look straight, remove helmet or cap',
                               textAlign: TextAlign.center,
                               style: t.h1.copyWith(color: Colors.white),
                             ),
-                            const SizedBox(height: RidoSpacing.s),
+                            const SizedBox(height: TtSpacing.s),
                             Text('Keep your face inside the circle, in good light.',
-                                textAlign: TextAlign.center, style: t.body.copyWith(color: RidoColors.navy300)),
+                                textAlign: TextAlign.center, style: t.body.copyWith(color: TtColors.navy300)),
                           ],
                         ),
                       ),
@@ -136,21 +136,21 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
             ),
             BottomActions(
               children: [
-                RidoButton(
+                TtButton(
                   label: _capturing ? 'Capturing…' : 'Take selfie',
                   icon: Symbols.photo_camera_rounded,
                   loading: _capturing,
                   onPressed: _take,
                 ),
-                const SizedBox(height: RidoSpacing.m),
+                const SizedBox(height: TtSpacing.m),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Symbols.verified_user_rounded, size: 18, color: RidoColors.navy300),
+                    const Icon(Symbols.verified_user_rounded, size: 18, color: TtColors.navy300),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text('We match this with your documents to keep riders safe.',
-                          style: t.caption.copyWith(color: RidoColors.navy300)),
+                          style: t.caption.copyWith(color: TtColors.navy300)),
                     ),
                   ],
                 ),

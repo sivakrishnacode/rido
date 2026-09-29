@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -11,7 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 Future<void> callNumber(BuildContext context, String phone, {String? name}) async {
   final digits = phone.replaceAll(RegExp(r'[^\d+]'), '');
   if (digits.isEmpty) {
-    showRidoSnack(context, name == null ? 'No phone number available' : "$name's number isn't available");
+    showTtSnack(context, name == null ? 'No phone number available' : "$name's number isn't available");
     return;
   }
   await _open(context, Uri(scheme: 'tel', path: digits), 'Could not open the phone app');
@@ -36,7 +36,7 @@ Future<void> shareText(BuildContext context, String text, {String? subject}) asy
   try {
     await SharePlus.instance.share(ShareParams(text: text, subject: subject));
   } catch (_) {
-    if (context.mounted) showRidoSnack(context, 'Could not open share options');
+    if (context.mounted) showTtSnack(context, 'Could not open share options');
   }
 }
 
@@ -51,7 +51,7 @@ Future<void> _open(BuildContext context, Uri uri, String failure) async {
   } catch (_) {
     ok = false;
   }
-  if (!ok && context.mounted) showRidoSnack(context, failure);
+  if (!ok && context.mounted) showTtSnack(context, failure);
 }
 
 /// Text for "Share trip": who is driving (name, plate, vehicle), where to, and where the vehicle is now.
@@ -66,7 +66,7 @@ String tripShareText({
 }) {
   final vehicle = [driver.vehicleColor, driver.vehicleModel].where((s) => s.trim().isNotEmpty).join(' ');
   final lines = [
-    parcel ? "$riderName's Rido parcel to ${drop.name}" : "$riderName's Rido ride to ${drop.name}",
+    parcel ? "$riderName's Tamil Taxi parcel to ${drop.name}" : "$riderName's Tamil Taxi ride to ${drop.name}",
     'Driver: ${driver.name}',
     'Vehicle: ${vehicle.isEmpty ? vehicleLabel : '$vehicle ($vehicleLabel)'} · ${driver.plate}',
     if (drop.address.isNotEmpty) 'Drop: ${drop.address}',

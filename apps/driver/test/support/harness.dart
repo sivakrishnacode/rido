@@ -8,20 +8,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:rido_driver/app.dart';
-import 'package:rido_driver/router/app_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_driver/app.dart';
+import 'package:tamiltaxi_driver/router/app_router.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// Test set-up shared by every test: no network tiles, bundled fonts, phone-sized view.
-const shotKey = ValueKey('rido-shot');
+const shotKey = ValueKey('tamiltaxi-shot');
 bool _fontsLoaded = false;
 
 /// Loads the Material Symbols font (package fonts are not auto-loaded in tests).
 Future<void> loadTestFonts() async {
   if (_fontsLoaded) return;
   _fontsLoaded = true;
-  RidoMap.tilesEnabled = false;
+  TtMap.tilesEnabled = false;
   RoadRouter.enabled = false;
   GoogleMapsConfig.enabled = false;
   GoogleFonts.config.allowRuntimeFetching = false;
@@ -51,7 +51,7 @@ Future<ProviderContainer> pumpRoute(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: RepaintBoundary(key: shotKey, child: RidoDriverApp(router: createDriverRouter(initialLocation: location))),
+      child: RepaintBoundary(key: shotKey, child: TtDriverApp(router: createDriverRouter(initialLocation: location))),
     ),
   );
   await tester.pump(const Duration(milliseconds: 50));

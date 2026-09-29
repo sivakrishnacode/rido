@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/map_insets.dart';
 import '../../common/trip_routes.dart';
@@ -58,7 +58,7 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
   Future<void> _add(VehicleKind v) async {
     final error = await ref.read(rideFlowProvider.notifier).addVehicle(v);
     if (!mounted) return;
-    showRidoSnack(context, error ?? 'Also looking for ${Seed.vehicle(v).name.toLowerCase()} now', success: error == null);
+    showTtSnack(context, error ?? 'Also looking for ${Seed.vehicle(v).name.toLowerCase()} now', success: error == null);
   }
 
   void _route(RidePhase phase) {
@@ -72,10 +72,10 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
     final error = await ref.read(rideFlowProvider.notifier).cancelSearch();
     if (!mounted) return;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
       return;
     }
-    showRidoSnack(context, 'Request cancelled');
+    showTtSnack(context, 'Request cancelled');
     context.go(Routes.ride);
   }
 
@@ -99,13 +99,13 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
         if (!didPop) _cancel();
       },
       child: Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: Stack(
           children: [
             Positioned.fill(
-              child: RidoMap(
+              child: TtMap(
                 // Google: centre on the pickup inside the padded area above the sheet (logo stays visible).
-                center: RidoMap.usesGoogle ? pickup : offsetPoint(pickup, 700, 180),
+                center: TtMap.usesGoogle ? pickup : offsetPoint(pickup, 700, 180),
                 mapPadding: sheetMapPadding(MediaQuery.sizeOf(context).height * 0.45),
                 zoom: 15,
                 pickup: pickup,
@@ -119,7 +119,7 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
               child: Align(
                 alignment: Alignment.topRight,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(0, RidoSpacing.m, RidoSpacing.l, 0),
+                  padding: const EdgeInsets.fromLTRB(0, TtSpacing.m, TtSpacing.l, 0),
                   child: SosButton(size: 56, onPressed: () => context.push(Routes.sos)),
                 ),
               ),
@@ -136,12 +136,12 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
                           width: 48,
                           height: 48,
                           decoration: const BoxDecoration(
-                            color: RidoColors.coral50,
-                            borderRadius: RidoRadii.cardRadius,
+                            color: TtColors.coral50,
+                            borderRadius: TtRadii.cardRadius,
                           ),
-                          child: Icon(q.vehicle.kind.icon, color: RidoColors.coral500, fill: 1, size: 28),
+                          child: Icon(q.vehicle.kind.icon, color: TtColors.coral500, fill: 1, size: 28),
                         ),
-                        const SizedBox(width: RidoSpacing.m),
+                        const SizedBox(width: TtSpacing.m),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,28 +156,28 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
                                 state.alsoVehicles.isEmpty
                                     ? 'Usually takes under a minute'
                                     : 'The first to accept takes it, at their fare',
-                                style: t.bodySmall.copyWith(color: RidoColors.navy700),
+                                style: t.bodySmall.copyWith(color: TtColors.navy700),
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: RidoSpacing.l),
+                    const SizedBox(height: TtSpacing.l),
                     const ClipRRect(
-                      borderRadius: RidoRadii.pillRadius,
+                      borderRadius: TtRadii.pillRadius,
                       child: LinearProgressIndicator(
                         minHeight: 6,
-                        color: RidoColors.coral500,
-                        backgroundColor: RidoColors.coral50,
+                        color: TtColors.coral500,
+                        backgroundColor: TtColors.coral50,
                       ),
                     ),
                     if (state.alternatives.isNotEmpty) ...[
-                      const SizedBox(height: RidoSpacing.l),
+                      const SizedBox(height: TtSpacing.l),
                       _BookAnyCard(alternatives: state.alternatives, busy: state.busy, onAdd: _add),
                     ],
-                    const SizedBox(height: RidoSpacing.l),
-                    RidoCard(
+                    const SizedBox(height: TtSpacing.l),
+                    TtCard(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -189,21 +189,21 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
                               dropSubtitle: state.drop.address,
                             ),
                           ),
-                          const SizedBox(width: RidoSpacing.s),
+                          const SizedBox(width: TtSpacing.s),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text(formatInr(q.total), style: RidoTextStyles.tabular(t.h1)),
+                              Text(formatInr(q.total), style: TtTextStyles.tabular(t.h1)),
                               Text('Cash / UPI', style: t.caption),
                             ],
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: RidoSpacing.s),
-                    RidoButton(
+                    const SizedBox(height: TtSpacing.s),
+                    TtButton(
                       label: 'Cancel request',
-                      variant: RidoButtonVariant.dangerText,
+                      variant: TtButtonVariant.dangerText,
                       loading: state.busy,
                       onPressed: _cancel,
                     ),
@@ -236,19 +236,19 @@ class _BookAnyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return RidoCard(
+    return TtCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('Taking a while? Add another vehicle', style: t.bodySemibold),
-          const SizedBox(height: RidoSpacing.xs),
+          const SizedBox(height: TtSpacing.xs),
           Text('Drivers of any vehicle you add can take your ride.', style: t.caption),
           for (final a in alternatives.take(2)) ...[
-            const SizedBox(height: RidoSpacing.m),
+            const SizedBox(height: TtSpacing.m),
             Row(
               children: [
-                Icon(a.vehicle.icon, color: RidoColors.coral500, fill: 1, size: 28),
-                const SizedBox(width: RidoSpacing.m),
+                Icon(a.vehicle.icon, color: TtColors.coral500, fill: 1, size: 28),
+                const SizedBox(width: TtSpacing.m),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,13 +262,13 @@ class _BookAnyCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Text(formatInr(a.quote.total), style: RidoTextStyles.tabular(t.bodySemibold)),
-                const SizedBox(width: RidoSpacing.m),
-                RidoButton(
+                Text(formatInr(a.quote.total), style: TtTextStyles.tabular(t.bodySemibold)),
+                const SizedBox(width: TtSpacing.m),
+                TtButton(
                   label: 'Add',
                   expand: false,
                   height: 40,
-                  variant: RidoButtonVariant.secondary,
+                  variant: TtButtonVariant.secondary,
                   onPressed: busy ? null : () => onAdd(a.vehicle),
                 ),
               ],

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/async_view.dart';
 import '../../common/trip_routes.dart';
@@ -26,13 +26,13 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
     final recent = ref.watch(recentParcelsProvider);
 
     return Scaffold(
-      backgroundColor: RidoColors.background,
+      backgroundColor: TtColors.background,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              color: RidoColors.surface,
+              color: TtColors.surface,
               padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 20, 16, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -40,8 +40,8 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
                   Text('Send anything, anywhere in Coimbatore', style: t.display),
                   const SizedBox(height: 20),
                   if (flow.isActive && !showcase) ...[
-                    RidoBanner(
-                      type: RidoBannerType.info,
+                    TtBanner(
+                      type: TtBannerType.info,
                       icon: Symbols.local_shipping_rounded,
                       title: 'Parcel in progress',
                       message: _activeMessage(flow),
@@ -85,11 +85,11 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Row(
                               children: [
-                                const Icon(Symbols.deployed_code_rounded, color: RidoColors.navy500),
+                                const Icon(Symbols.deployed_code_rounded, color: TtColors.navy500),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text('No parcels yet. Your deliveries will show up here.',
-                                      style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                                      style: t.bodySmall.copyWith(color: TtColors.navy500)),
                                 ),
                               ],
                             ),
@@ -165,7 +165,7 @@ class _RouteCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(label, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                        Text(label, style: t.bodySmall.copyWith(color: TtColors.navy500)),
                         const SizedBox(height: 2),
                         Text(value,
                             style: t.bodyMedium.copyWith(fontSize: 17, color: valueColor, fontWeight: FontWeight.w600),
@@ -174,7 +174,7 @@ class _RouteCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (chevron) const Icon(Symbols.chevron_right_rounded, color: RidoColors.navy700),
+                  if (chevron) const Icon(Symbols.chevron_right_rounded, color: TtColors.navy700),
                 ],
               ),
             ),
@@ -183,10 +183,10 @@ class _RouteCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: RidoColors.surface,
-        borderRadius: RidoRadii.cardRadius,
-        border: Border.all(color: RidoColors.divider),
-        boxShadow: RidoShadows.soft,
+        color: TtColors.surface,
+        borderRadius: TtRadii.cardRadius,
+        border: Border.all(color: TtColors.divider),
+        boxShadow: TtShadows.soft,
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -195,7 +195,7 @@ class _RouteCard extends StatelessWidget {
             marker: const PickupDot(size: 12),
             label: 'Pickup from',
             value: shortAddress(flow.pickup),
-            valueColor: RidoColors.navy900,
+            valueColor: TtColors.navy900,
             onTap: onPickup,
             semantics: 'Pickup from ${flow.pickup.name}. Edit pickup details',
           ),
@@ -204,7 +204,7 @@ class _RouteCard extends StatelessWidget {
             marker: const DropPin(size: 26),
             label: 'Deliver to',
             value: flow.dropSet ? shortAddress(flow.drop) : 'Tap to add drop',
-            valueColor: flow.dropSet ? RidoColors.navy900 : RidoColors.coral600,
+            valueColor: flow.dropSet ? TtColors.navy900 : TtColors.coral600,
             onTap: onDrop,
             chevron: true,
             semantics: flow.dropSet ? 'Deliver to ${flow.drop.name}. Edit drop details' : 'Add a drop address',
@@ -252,7 +252,7 @@ class _VehicleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return RidoCard(
+    return TtCard(
       onTap: onTap,
       padding: const EdgeInsets.fromLTRB(10, 14, 10, 14),
       child: Semantics(
@@ -269,7 +269,7 @@ class _VehicleTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(vehicle.name, style: t.bodySemibold, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  Text(vehicle.capacityLabel, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                  Text(vehicle.capacityLabel, style: t.bodySmall.copyWith(color: TtColors.navy500)),
                 ],
               ),
             ),
@@ -288,13 +288,13 @@ class _ZeroCommissionStrip extends StatelessWidget {
     final t = context.type;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.cardRadius),
+      decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: const BoxDecoration(color: RidoColors.surface, borderRadius: RidoRadii.pillRadius),
-            child: Text('0%', style: t.bodySmallMedium.copyWith(color: RidoColors.coral600, fontWeight: FontWeight.w700)),
+            decoration: const BoxDecoration(color: TtColors.surface, borderRadius: TtRadii.pillRadius),
+            child: Text('0%', style: t.bodySmallMedium.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w700)),
           ),
           const SizedBox(width: 12),
           Expanded(child: Text('Your driver keeps 100% of the fare', style: t.bodyMedium)),
@@ -318,7 +318,7 @@ class _RecentParcelTile extends StatelessWidget {
       TripStatus.completed => StatusKind.completed,
       _ => StatusKind.inProgress,
     };
-    return RidoCard(
+    return TtCard(
       onTap: onTap,
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -326,8 +326,8 @@ class _RecentParcelTile extends StatelessWidget {
           Container(
             width: 40,
             height: 40,
-            decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.cardRadius),
-            child: const Icon(Symbols.deployed_code_rounded, fill: 1, color: RidoColors.coral500),
+            decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
+            child: const Icon(Symbols.deployed_code_rounded, fill: 1, color: TtColors.coral500),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -338,7 +338,7 @@ class _RecentParcelTile extends StatelessWidget {
                     style: t.bodyMedium.copyWith(fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
                 Text(
                   '${formatRelativeDay(trip.startedAt)} · ${trip.vehicle.label} · ${formatInr(trip.fare)}',
-                  style: RidoTextStyles.tabular(t.bodySmall.copyWith(color: RidoColors.navy500)),
+                  style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

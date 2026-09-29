@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 class _Section {
   const _Section(this.heading, this.body);
@@ -9,19 +9,19 @@ class _Section {
 
 const _terms = [
   _Section(
-    '1. About Rido',
-    'Rido is a technology platform that connects passengers and senders in Coimbatore with independent '
-        'drivers of bikes, autos, cabs and goods vehicles. Rido does not own vehicles or employ drivers.',
+    '1. About Tamil Taxi',
+    'Tamil Taxi is a technology platform that connects passengers and senders in Coimbatore with independent '
+        'drivers of bikes, autos, cabs and goods vehicles. Tamil Taxi does not own vehicles or employ drivers.',
   ),
   _Section(
     '2. Drivers are independent',
-    'Every driver on Rido is an independent service provider. Rido is free for drivers: no subscription, and '
-        'they keep 100% of every fare. Rido takes 0% commission on rides and deliveries.',
+    'Every driver on Tamil Taxi is an independent service provider. Tamil Taxi is free for drivers: no subscription, and '
+        'they keep 100% of every fare. Tamil Taxi takes 0% commission on rides and deliveries.',
   ),
   _Section(
     '3. Fares and payment',
     'The fare shown before you book is locked at booking. Peak-time pricing is capped at 1.5x and goes to '
-        'your driver. You pay the driver directly by cash or UPI; Rido does not collect fares.',
+        'your driver. You pay the driver directly by cash or UPI; Tamil Taxi does not collect fares.',
   ),
   _Section(
     '4. Cancellations',
@@ -35,12 +35,12 @@ const _terms = [
   ),
   _Section(
     '6. Parcels',
-    'You are responsible for what you send. Rido connects you with drivers and is not liable for lost or '
+    'You are responsible for what you send. Tamil Taxi connects you with drivers and is not liable for lost or '
         'damaged goods; loading and unloading is done by the sender and receiver.',
   ),
   _Section(
     '7. Service area',
-    'Rido currently operates across Coimbatore. Bookings with a pickup outside the service area cannot be made.',
+    'Tamil Taxi currently operates across Coimbatore. Bookings with a pickup outside the service area cannot be made.',
   ),
   _Section(
     '8. Contact',
@@ -72,7 +72,7 @@ const _privacy = [
   ),
   _Section(
     'Location',
-    'Rido uses your location only while the app is open or a trip is in progress. You can turn it off in '
+    'Tamil Taxi uses your location only while the app is open or a trip is in progress. You can turn it off in '
         'your phone settings and enter your pickup manually.',
   ),
   _Section(
@@ -98,26 +98,26 @@ class LegalScreen extends StatelessWidget {
     final isPrivacy = doc == 'privacy';
     final sections = isPrivacy ? _privacy : _terms;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
-      appBar: RidoAppBar(title: isPrivacy ? 'Privacy policy' : 'Terms of service'),
+      backgroundColor: TtColors.surface,
+      appBar: TtAppBar(title: isPrivacy ? 'Privacy policy' : 'Terms of service'),
       body: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.xxl),
+          padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.l, TtSpacing.xxl),
           children: [
             Text('Last updated 1 Sep 2026', style: t.caption),
-            const SizedBox(height: RidoSpacing.m),
+            const SizedBox(height: TtSpacing.m),
             Text(
               isPrivacy
-                  ? 'Your privacy matters to us. This policy explains what Rido collects and why.'
-                  : 'These terms apply when you use the Rido app to book rides or send parcels in Coimbatore.',
-              style: t.body.copyWith(color: RidoColors.navy700),
+                  ? 'Your privacy matters to us. This policy explains what Tamil Taxi collects and why.'
+                  : 'These terms apply when you use the Tamil Taxi app to book rides or send parcels in Coimbatore.',
+              style: t.body.copyWith(color: TtColors.navy700),
             ),
             for (final s in sections) ...[
-              const SizedBox(height: RidoSpacing.xl),
+              const SizedBox(height: TtSpacing.xl),
               Text(s.heading, style: t.h2),
-              const SizedBox(height: RidoSpacing.s),
-              Text(s.body, style: t.body.copyWith(color: RidoColors.navy700)),
+              const SizedBox(height: TtSpacing.s),
+              Text(s.body, style: t.body.copyWith(color: TtColors.navy700)),
             ],
           ],
         ),

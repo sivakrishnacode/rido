@@ -104,7 +104,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" description="Today across Rido: drivers, trips, plan revenue and support." />
+      <PageHeader title="Dashboard" description="Today across Tamil Taxi: drivers, trips, plan revenue and support." />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
         <Kpi

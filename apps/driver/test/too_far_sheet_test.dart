@@ -2,9 +2,9 @@
 // "Other" note of 3+ characters is typed), and runWithFarCheck retries the step with that reason.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/jobs/widgets/too_far_sheet.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/jobs/widgets/too_far_sheet.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 
@@ -19,15 +19,15 @@ Future<void> _pumpHost(WidgetTester tester, Future<void> Function(BuildContext) 
   await loadTestFonts();
   usePhone(tester);
   await tester.pumpWidget(MaterialApp(
-    theme: RidoTheme.light(),
+    theme: TtTheme.light(),
     home: Scaffold(
       body: Builder(builder: (context) => Center(child: TextButton(onPressed: () => onTap(context), child: const Text('go')))),
     ),
   ));
 }
 
-RidoButton _continue(WidgetTester tester) =>
-    tester.widget<RidoButton>(find.widgetWithText(RidoButton, 'Continue anyway'));
+TtButton _continue(WidgetTester tester) =>
+    tester.widget<TtButton>(find.widgetWithText(TtButton, 'Continue anyway'));
 
 void main() {
   test('formatMetres', () {

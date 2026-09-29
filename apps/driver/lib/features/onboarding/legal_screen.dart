@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'widgets/signup_widgets.dart';
 
@@ -15,12 +15,12 @@ class LegalScreen extends StatelessWidget {
   static const _terms = <(String, String)>[
     (
       'Free to use',
-      'Rido charges no commission and no subscription for any vehicle type. It runs on voluntary contributions '
+      'Tamil Taxi charges no commission and no subscription for any vehicle type. It runs on voluntary contributions '
           'from drivers and riders (Account › Contribute); contributing is never required to get requests.'
     ),
     (
       'You keep 100% of fares',
-      'Riders pay you directly by cash or UPI. Rido never takes a share of a fare, tip or waiting charge.'
+      'Riders pay you directly by cash or UPI. Tamil Taxi never takes a share of a fare, tip or waiting charge.'
     ),
     (
       'Documents and safety',
@@ -60,25 +60,25 @@ class LegalScreen extends StatelessWidget {
     final privacy = doc == 'privacy';
     final sections = privacy ? _privacy : _terms;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       appBar: SignupAppBar(title: privacy ? 'Privacy Policy' : 'Driver Terms'),
       body: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.xl, RidoSpacing.l, RidoSpacing.xxl),
+          padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.xl, TtSpacing.l, TtSpacing.xxl),
           children: [
-            Text(privacy ? 'Rido Driver Privacy Policy' : 'Rido Driver Terms of Service', style: t.h1),
-            const SizedBox(height: RidoSpacing.xs),
-            Text('Last updated 1 Sep 2026', style: t.caption.copyWith(color: RidoColors.navy500)),
+            Text(privacy ? 'Tamil Taxi Driver Privacy Policy' : 'Tamil Taxi Driver Terms of Service', style: t.h1),
+            const SizedBox(height: TtSpacing.xs),
+            Text('Last updated 1 Sep 2026', style: t.caption.copyWith(color: TtColors.navy500)),
             for (final (title, body) in sections) ...[
-              const SizedBox(height: RidoSpacing.xl),
+              const SizedBox(height: TtSpacing.xl),
               Text(title, style: t.h2),
-              const SizedBox(height: RidoSpacing.s),
-              Text(body, style: t.body.copyWith(color: RidoColors.navy700)),
+              const SizedBox(height: TtSpacing.s),
+              Text(body, style: t.body.copyWith(color: TtColors.navy700)),
             ],
-            const SizedBox(height: RidoSpacing.xl),
-            Text('Questions? Write to support@rido.in or use Help & support in the app.',
-                style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+            const SizedBox(height: TtSpacing.xl),
+            Text('Questions? Write to support@tamiltaxi.co.in or use Help & support in the app.',
+                style: t.bodySmall.copyWith(color: TtColors.navy500)),
           ],
         ),
       ),

@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 /// [LiveSafety] without a network: answers (or fails) and records the calls.
 class FakeSafety implements LiveSafety {
-  FakeSafety({this.failShare = false, this.failSos = false, this.shareUrl = 'https://admin.rido.test/track/trip1.abc.SIGNATURE'});
+  FakeSafety({this.failShare = false, this.failSos = false, this.shareUrl = 'https://admin.tamiltaxi.test/track/trip1.abc.SIGNATURE'});
 
   final bool failShare;
   bool failSos;

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../state/driver_session.dart';
@@ -69,7 +69,7 @@ class _DriverChatScreenState extends ConsumerState<DriverChatScreen> {
         _add(m);
       }
     } catch (e) {
-      if (mounted && e is Exception) showRidoSnack(context, userMessage(e));
+      if (mounted && e is Exception) showTtSnack(context, userMessage(e));
     }
   }
 
@@ -86,7 +86,7 @@ class _DriverChatScreenState extends ConsumerState<DriverChatScreen> {
     try {
       _add(await ref.read(liveJobsProvider).sendMessage(_job.id, text));
     } on Exception catch (e) {
-      if (mounted) showRidoSnack(context, userMessage(e));
+      if (mounted) showTtSnack(context, userMessage(e));
     }
   }
 
@@ -96,13 +96,13 @@ class _DriverChatScreenState extends ConsumerState<DriverChatScreen> {
       return;
     }
     setState(() => _messages.add(
-        ChatMessage(id: 'd${_messages.length}', text: text, fromMe: true, sentAt: RidoClock.now())));
+        ChatMessage(id: 'd${_messages.length}', text: text, fromMe: true, sentAt: TtClock.now())));
     final delay = ref.read(simTimingProvider)(SimTimings.chatReply);
     _timers.add(Timer(delay, () {
       if (!mounted) return;
       final reply = Seed.passengerReplies[_replyIndex++ % Seed.passengerReplies.length];
       setState(() => _messages.add(
-          ChatMessage(id: 'p${_messages.length}', text: reply, fromMe: false, sentAt: RidoClock.now())));
+          ChatMessage(id: 'p${_messages.length}', text: reply, fromMe: false, sentAt: TtClock.now())));
     }));
   }
 
@@ -115,7 +115,7 @@ class _DriverChatScreenState extends ConsumerState<DriverChatScreen> {
         onSend: _send,
         onCall: () => _api
             ? dialNumber(context, _job.customerPhone, name: _job.customerName)
-            : showRidoSnack(context, 'Calling ${_job.customerName} (number hidden)'),
+            : showTtSnack(context, 'Calling ${_job.customerName} (number hidden)'),
         stripIcon: Symbols.location_on_rounded,
         stripText: 'Pickup: ${_job.pickup.name}',
       );

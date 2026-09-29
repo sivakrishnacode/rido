@@ -15,6 +15,6 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/places/[
     if (!place) return NextResponse.json({ message: "Place not found" }, { status: 404 });
     return NextResponse.json(place);
   } catch {
-    return NextResponse.json({ message: "Cannot reach the Rido API" }, { status: 503 });
+    return NextResponse.json({ message: "Cannot reach the Tamil Taxi API" }, { status: 503 });
   }
 }

@@ -8,7 +8,7 @@ import 'package:flutter_overlay_window/src/overlay_config.dart';
 class FlutterOverlayWindow {
   FlutterOverlayWindow._();
 
-  // Rido patch: broadcast, so the listener can be re-created (a single-subscription stream threw "Stream has
+  // Tamil Taxi patch: broadcast, so the listener can be re-created (a single-subscription stream threw "Stream has
   // already been listened to" and the driver app's bubble controller stopped working).
   static final StreamController _controller = StreamController.broadcast();
   static const MethodChannel _channel =
@@ -159,7 +159,7 @@ class FlutterOverlayWindow {
   }
 
   /// Check if the current overlay is active
-  /// Rido patch: from the overlay, bring the app to the front natively (works even when the app's own engine
+  /// Tamil Taxi patch: from the overlay, bring the app to the front natively (works even when the app's own engine
   /// was destroyed in the background).
   static Future<bool> openApp() async {
     final bool? res = await _overlayChannel.invokeMethod<bool?>('openApp');

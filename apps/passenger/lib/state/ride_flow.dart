@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import '../router/routes.dart';
 import 'app_notice.dart';
@@ -17,7 +17,7 @@ enum RidePhase {
   noDrivers,
   assigned,
 
-  /// The driver cancelled; Rido is re-searching (S-02).
+  /// The driver cancelled; Tamil Taxi is re-searching (S-02).
   driverCancelled,
   arrived,
   inProgress,
@@ -358,7 +358,7 @@ class RideFlowController extends Notifier<RideFlowState> {
   Future<String?> book() async {
     if (_live) return _bookLive();
     _sim.cancelAll();
-    final now = RidoClock.now();
+    final now = TtClock.now();
     state = state.copyWith(
       phase: RidePhase.searching,
       tripId: 'RD-${now.millisecondsSinceEpoch % 100000000}',
@@ -391,7 +391,7 @@ class RideFlowController extends Notifier<RideFlowState> {
     final arriveIn = _t(SimTimings.driverArrives);
 
     if (_demo.driverCancels && !state.driverCancelledOnce) {
-      // Driver starts moving, then cancels part-way; Rido re-searches automatically.
+      // Driver starts moving, then cancels part-way; Tamil Taxi re-searches automatically.
       _sim.animateAlong(approach, arriveIn);
       _sim.after(Duration(milliseconds: arriveIn.inMilliseconds * 2 ~/ 5), () {
         _sim.cancelAll();
@@ -633,7 +633,7 @@ class RideFlowController extends Notifier<RideFlowState> {
       unawaited(_sendLive(text));
       return;
     }
-    final now = RidoClock.now();
+    final now = TtClock.now();
     final mine = ChatMessage(id: 'c${now.microsecondsSinceEpoch}', text: text, fromMe: true, sentAt: now);
     state = state.copyWith(chat: [...state.chat, mine]);
     final replies = Seed.driverReplies;
@@ -643,7 +643,7 @@ class RideFlowController extends Notifier<RideFlowState> {
         id: 'r${DateTime.now().microsecondsSinceEpoch}',
         text: replies[(sentByMe - 1) % replies.length],
         fromMe: false,
-        sentAt: RidoClock.now(),
+        sentAt: TtClock.now(),
       );
       state = state.copyWith(chat: [...state.chat, reply]);
     });
@@ -651,7 +651,7 @@ class RideFlowController extends Notifier<RideFlowState> {
 
   Future<void> _sendLive(String text) async {
     final id = state.tripId;
-    final now = RidoClock.now();
+    final now = TtClock.now();
     final local = ChatMessage(id: 'local-${now.microsecondsSinceEpoch}', text: text, fromMe: true, sentAt: now);
     state = state.copyWith(chat: [...state.chat, local]);
     try {
@@ -791,7 +791,7 @@ class RideFlowController extends Notifier<RideFlowState> {
       fare: q.total,
       quote: q,
       status: status,
-      startedAt: state.bookedAt ?? RidoClock.now(),
+      startedAt: state.bookedAt ?? TtClock.now(),
       driver: state.driver,
       distanceKm: q.distanceKm,
       durationMin: q.durationMin,

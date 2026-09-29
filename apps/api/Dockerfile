@@ -1,14 +1,14 @@
-# Rido API image. Build from the repo root (npm workspaces):
-#   docker build -f apps/api/Dockerfile -t rido-api .
+# Tamil Taxi API image. Build from the repo root (npm workspaces):
+#   docker build -f apps/api/Dockerfile -t tamiltaxi-api .
 FROM node:24-alpine AS deps
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/passenger/package.json apps/passenger/
 COPY apps/driver/package.json apps/driver/
-COPY packages/rido_ui/package.json packages/rido_ui/
-COPY packages/rido_data/package.json packages/rido_data/
-RUN npm ci --workspace=@rido/api --include-workspace-root=false --no-audit --no-fund
+COPY packages/tamiltaxi_ui/package.json packages/tamiltaxi_ui/
+COPY packages/tamiltaxi_data/package.json packages/tamiltaxi_data/
+RUN npm ci --workspace=@tamiltaxi/api --include-workspace-root=false --no-audit --no-fund
 
 FROM deps AS build
 COPY apps/api apps/api
@@ -19,7 +19,7 @@ RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma genera
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /repo
-RUN apk add --no-cache tini && addgroup -S rido && adduser -S rido -G rido
+RUN apk add --no-cache tini && addgroup -S tamiltaxi && adduser -S tamiltaxi -G tamiltaxi
 COPY --from=build /repo/node_modules ./node_modules
 COPY --from=build /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /repo/apps/api/package.json ./apps/api/package.json
@@ -32,10 +32,10 @@ COPY --from=build /repo/apps/api/src/modules/subscriptions/plan-prices.ts ./apps
 COPY --from=build /repo/apps/api/src/modules/geo/h3.util.ts ./apps/api/src/modules/geo/h3.util.ts
 COPY apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
 # KYC uploads (a named volume in docker-compose; the directory must exist so the volume inherits the owner).
-RUN mkdir -p /data/uploads && chown rido:rido /data/uploads
+RUN mkdir -p /data/uploads && chown tamiltaxi:tamiltaxi /data/uploads
 ENV UPLOAD_DIR=/data/uploads
 WORKDIR /repo/apps/api
-USER rido
+USER tamiltaxi
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=5 \
   CMD wget -qO- http://127.0.0.1:3000/health || exit 1

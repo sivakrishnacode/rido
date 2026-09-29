@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// A 1px dashed rounded border (the "+ Add" saved-place tile on P-07).
 class DashedBorder extends StatelessWidget {
-  const DashedBorder({super.key, required this.child, this.color = RidoColors.navy300});
+  const DashedBorder({super.key, required this.child, this.color = TtColors.navy300});
 
   final Widget child;
   final Color color;
@@ -18,7 +18,7 @@ class _DashedPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(RidoRadii.card)).deflate(0.5);
+    final rrect = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(TtRadii.card)).deflate(0.5);
     final path = Path()..addRRect(rrect);
     final paint = Paint()
       ..color = color

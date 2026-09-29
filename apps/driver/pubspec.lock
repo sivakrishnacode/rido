@@ -943,20 +943,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.0"
-  rido_data:
-    dependency: "direct main"
-    description:
-      path: "../../packages/rido_data"
-      relative: true
-    source: path
-    version: "0.1.0"
-  rido_ui:
-    dependency: "direct main"
-    description:
-      path: "../../packages/rido_ui"
-      relative: true
-    source: path
-    version: "0.1.0"
   riverpod:
     dependency: transitive
     description:
@@ -1106,6 +1092,20 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+  tamiltaxi_data:
+    dependency: "direct main"
+    description:
+      path: "../../packages/tamiltaxi_data"
+      relative: true
+    source: path
+    version: "0.1.0"
+  tamiltaxi_ui:
+    dependency: "direct main"
+    description:
+      path: "../../packages/tamiltaxi_ui"
+      relative: true
+    source: path
+    version: "0.1.0"
   term_glyph:
     dependency: transitive
     description:

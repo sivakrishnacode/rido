@@ -78,7 +78,7 @@ export function NewAnnouncementButton({ cities }: { cities: { id: string; name: 
           >
             <DialogHeader>
               <DialogTitle>New announcement</DialogTitle>
-              <DialogDescription>Shown as a banner in the Rido apps while it is active.</DialogDescription>
+              <DialogDescription>Shown as a banner in the Tamil Taxi apps while it is active.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">

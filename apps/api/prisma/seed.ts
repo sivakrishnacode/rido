@@ -1,4 +1,4 @@
-// Seeds places and plan prices (idempotent). Run: npm run prisma:seed -w @rido/api
+// Seeds places and plan prices (idempotent). Run: npm run prisma:seed -w @tamiltaxi/api
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 

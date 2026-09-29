@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/home/widgets/demand_chip.dart';
-import 'package:rido_driver/features/home/widgets/demand_layer.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/home/widgets/demand_chip.dart';
+import 'package:tamiltaxi_driver/features/home/widgets/demand_layer.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 const _ring = [LatLng(11, 76.9), LatLng(11.1, 76.9), LatLng(11.1, 77)];
 
@@ -33,7 +33,7 @@ void main() {
   });
 
   Future<void> pump(WidgetTester tester, Widget child) => tester.pumpWidget(
-        MaterialApp(theme: RidoTheme.light(), home: Scaffold(body: child)),
+        MaterialApp(theme: TtTheme.light(), home: Scaffold(body: child)),
       );
 
   testWidgets('shows the area, surge and distance; directions opens navigation', (tester) async {

@@ -1,4 +1,4 @@
-# Rido · design export
+# Tamil Taxi · design export
 
 Phone frames: 390 × 844, exported at 2x (780 × 1688). Design system sections: 1x.
 Icons: Material Symbols Rounded — use the `material_symbols_icons` package with the same names. Maps in the PNGs are stylised stand-ins; use CARTO light tiles in Flutter.

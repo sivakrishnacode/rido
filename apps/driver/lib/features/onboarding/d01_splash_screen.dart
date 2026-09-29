@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/start_route.dart';
 import '../../router/routes.dart';
@@ -65,28 +65,28 @@ class _D01SplashScreenState extends ConsumerState<D01SplashScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: RidoColors.navy900,
+        backgroundColor: TtColors.navy900,
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
               Semantics(
-                label: 'Rido Driver',
+                label: 'Tamil Taxi Driver',
                 child: const Column(
                   children: [
                     DriverWordmark(size: 84),
-                    SizedBox(height: RidoSpacing.l),
+                    SizedBox(height: TtSpacing.l),
                     DriverTag(large: true),
                   ],
                 ),
               ),
               const Spacer(),
               Padding(
-                padding: const EdgeInsets.only(bottom: RidoSpacing.xxl + RidoSpacing.s),
+                padding: const EdgeInsets.only(bottom: TtSpacing.xxl + TtSpacing.s),
                 child: Text('0% commission · Coimbatore',
                     textAlign: TextAlign.center,
-                    style: context.type.body.copyWith(color: RidoColors.navy300)),
+                    style: context.type.body.copyWith(color: TtColors.navy300)),
               ),
             ],
           ),

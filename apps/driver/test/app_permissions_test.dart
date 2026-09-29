@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_driver/state/app_permissions.dart';
+import 'package:tamiltaxi_driver/state/app_permissions.dart';
 
 class FakeChecker extends AppPermissionChecker {
   final granted = <AppPermission>{};

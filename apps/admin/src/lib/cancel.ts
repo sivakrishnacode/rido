@@ -24,7 +24,7 @@ export type CancelCode = keyof typeof CANCEL_CODE_LABEL;
 const BY_LABEL: Record<CancelledBy, string> = {
   PASSENGER: "Passenger",
   DRIVER: "Driver",
-  SYSTEM: "Rido (automatic)",
+  SYSTEM: "Tamil Taxi (automatic)",
   ADMIN: "Admin",
 };
 

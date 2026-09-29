@@ -8,10 +8,10 @@ apps/passenger/*
 !apps/passenger/package.json
 apps/driver/*
 !apps/driver/package.json
-packages/rido_ui/*
-!packages/rido_ui/package.json
-packages/rido_data/*
-!packages/rido_data/package.json
+packages/tamiltaxi_ui/*
+!packages/tamiltaxi_ui/package.json
+packages/tamiltaxi_data/*
+!packages/tamiltaxi_data/package.json
 docs
 .git
 **/.next

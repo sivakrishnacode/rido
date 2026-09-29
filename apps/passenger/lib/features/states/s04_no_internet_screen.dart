@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// S-04 No internet: "You're offline", with a full-width Retry at the bottom.
 class S04NoInternetScreen extends StatelessWidget {
@@ -12,10 +12,10 @@ class S04NoInternetScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: SafeArea(
           child: S04NoInternetView(
-            onRetry: onRetry ?? () => showRidoSnack(context, 'Still offline. Check your connection.'),
+            onRetry: onRetry ?? () => showTtSnack(context, 'Still offline. Check your connection.'),
           ),
         ),
       );
@@ -43,17 +43,17 @@ class _S04NoInternetViewState extends State<S04NoInternetView> {
             child: Column(
               children: [
                 const SizedBox(height: 48),
-                const RidoIllustration(IllustrationKind.offline, width: 200, height: 200),
+                const TtIllustration(IllustrationKind.offline, width: 200, height: 200),
                 const SizedBox(height: 28),
                 Text("You're offline", style: t.display, textAlign: TextAlign.center),
                 const SizedBox(height: 8),
                 Text('Check your connection and try again',
-                    style: t.body.copyWith(color: RidoColors.navy700), textAlign: TextAlign.center),
+                    style: t.body.copyWith(color: TtColors.navy700), textAlign: TextAlign.center),
                 const SizedBox(height: 48),
-                RidoButton(
+                TtButton(
                   label: 'Retry',
                   icon: Symbols.refresh_rounded,
-                  onPressed: widget.onRetry ?? () => showRidoSnack(context, 'Still offline. Check your connection.'),
+                  onPressed: widget.onRetry ?? () => showTtSnack(context, 'Still offline. Check your connection.'),
                 ),
               ],
             ),

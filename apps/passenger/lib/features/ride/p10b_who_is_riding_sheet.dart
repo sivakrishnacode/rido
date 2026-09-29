@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// P-10b "Who's riding?" (bottom sheet over P-10): me, or someone else with their name, mobile number and
 /// "She's a woman" (which lets the ride use Butterfly). The driver sees and calls the rider; the ride OTP stays in
@@ -14,7 +14,7 @@ class P10bWhoIsRidingSheet extends StatefulWidget {
 
   /// Opens the sheet. Returns null when dismissed, else the choice: `(rider: null)` = me.
   static Future<({OtherRider? rider})?> show(BuildContext context, {required String me, OtherRider? current}) =>
-      showRidoSheet<({OtherRider? rider})>(context, builder: (_) => P10bWhoIsRidingSheet(me: me, current: current));
+      showTtSheet<({OtherRider? rider})>(context, builder: (_) => P10bWhoIsRidingSheet(me: me, current: current));
 
   @override
   State<P10bWhoIsRidingSheet> createState() => _P10bWhoIsRidingSheetState();
@@ -58,7 +58,7 @@ class _P10bWhoIsRidingSheetState extends State<P10bWhoIsRidingSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text("Who's riding?", style: t.h2),
-        const SizedBox(height: RidoSpacing.m),
+        const SizedBox(height: TtSpacing.m),
         RadioGroup<bool>(
           groupValue: _other,
           onChanged: (v) => setState(() => _other = v ?? false),
@@ -67,20 +67,20 @@ class _P10bWhoIsRidingSheetState extends State<P10bWhoIsRidingSheet> {
               value: false,
               contentPadding: EdgeInsets.zero,
               title: Text('Me', style: t.bodySemibold),
-              subtitle: Text(widget.me, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+              subtitle: Text(widget.me, style: t.bodySmall.copyWith(color: TtColors.navy500)),
             ),
             RadioListTile<bool>(
               value: true,
               contentPadding: EdgeInsets.zero,
               title: Text('Someone else', style: t.bodySemibold),
               subtitle: Text('Family or a friend. The driver will call them.',
-                  style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                  style: t.bodySmall.copyWith(color: TtColors.navy500)),
             ),
           ]),
         ),
         if (_other) ...[
-          const SizedBox(height: RidoSpacing.s),
-          RidoTextField(
+          const SizedBox(height: TtSpacing.s),
+          TtTextField(
             label: 'Their name',
             hint: 'e.g. Anjali',
             controller: _name,
@@ -89,36 +89,36 @@ class _P10bWhoIsRidingSheetState extends State<P10bWhoIsRidingSheet> {
             errorText: _tried ? _nameError : null,
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: RidoSpacing.m),
+          const SizedBox(height: TtSpacing.m),
           PhoneInput(
             label: 'Their mobile number',
             controller: _phone,
             errorText: _tried ? _phoneError : null,
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: RidoSpacing.s),
+          const SizedBox(height: TtSpacing.s),
           MergeSemantics(
             child: Row(children: [
               const ButterflyMark(size: 28),
-              const SizedBox(width: RidoSpacing.m),
+              const SizedBox(width: TtSpacing.m),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text("She's a woman", style: t.bodyMedium),
                   Text('Lets you choose Butterfly (women drivers) for her',
-                      style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                      style: t.bodySmall.copyWith(color: TtColors.navy500)),
                 ]),
               ),
               Switch(value: _isWoman, onChanged: (v) => setState(() => _isWoman = v)),
             ]),
           ),
-          const SizedBox(height: RidoSpacing.s),
+          const SizedBox(height: TtSpacing.s),
           Text(
             "The ride OTP shows in your app. Share it with them so they can start the ride.",
-            style: t.bodySmall.copyWith(color: RidoColors.navy700),
+            style: t.bodySmall.copyWith(color: TtColors.navy700),
           ),
         ],
-        const SizedBox(height: RidoSpacing.l),
-        RidoButton(label: 'Done', onPressed: _done),
+        const SizedBox(height: TtSpacing.l),
+        TtButton(label: 'Done', onPressed: _done),
       ],
     );
   }

@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/onboarding/profile_photo_screen.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/onboarding/profile_photo_screen.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 
@@ -21,7 +21,7 @@ void main() {
       0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
     ]);
     await tester.pumpWidget(MaterialApp(
-      theme: RidoTheme.light(),
+      theme: TtTheme.light(),
       home: Scaffold(body: RiderPreviewCard(profile: Seed.karthik, photo: MemoryImage(png))),
     ));
     await tester.pumpAndSettle();

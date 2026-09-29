@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/job_routes.dart';
 import '../../common/launch.dart';
@@ -126,7 +126,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
   }
 
   String _greeting() {
-    final h = RidoClock.now().hour;
+    final h = TtClock.now().hour;
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
     return 'Good evening';
@@ -146,7 +146,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       await ref.read(driverSessionProvider.notifier).goOnline();
     } on LocationProblem catch (e) {
       if (!mounted) return;
-      showRidoSnack(
+      showTtSnack(
         context,
         e.message,
         actionLabel: e.fix == LocationFix.none ? null : 'Settings',
@@ -163,24 +163,24 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       } else if (e.status == 403 && e.message.contains('on_hold')) {
         context.push(Routes.accountOnHold);
       } else {
-        showRidoSnack(context, e.message);
+        showTtSnack(context, e.message);
       }
     } on Exception catch (e) {
-      if (mounted) showRidoSnack(context, userMessage(e));
+      if (mounted) showTtSnack(context, userMessage(e));
     }
   }
 
   void _goOffline() {
     ref.read(driverSessionProvider.notifier).goOffline();
-    showRidoSnack(context, "You're offline. No new requests.");
+    showTtSnack(context, "You're offline. No new requests.");
   }
 
   Future<void> _resumePlan() async {
     try {
       await ref.read(planProvider.notifier).resume();
-      if (mounted) showRidoSnack(context, 'Plan resumed. You can go online.', success: true);
+      if (mounted) showTtSnack(context, 'Plan resumed. You can go online.', success: true);
     } on OfflineException {
-      if (mounted) showRidoSnack(context, "You're offline. Try again.");
+      if (mounted) showTtSnack(context, "You're offline. Try again.");
     }
   }
 
@@ -285,21 +285,21 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         access == LocationAccess.deniedForever ||
         access == LocationAccess.approximate) {
       // Nothing works without location: shown above everything else until it's allowed.
-      topCard = RidoBanner(
-        type: RidoBannerType.warning,
+      topCard = TtBanner(
+        type: TtBannerType.warning,
         icon: Symbols.location_off_rounded,
         title: switch (access) {
           LocationAccess.serviceOff => 'Turn on location',
-          LocationAccess.deniedForever => 'Location is off for Rido Driver',
+          LocationAccess.deniedForever => 'Location is off for Tamil Taxi Driver',
           LocationAccess.approximate => 'Turn on precise location',
           _ => 'Allow location access',
         },
         message: switch (access) {
           LocationAccess.deniedForever => 'Open Settings → Permissions → Location and choose "Allow while using the app". '
-              'Rido needs it to send you requests and share live tracking with riders.',
-          LocationAccess.approximate => 'Rido Driver only has your approximate location, so your GPS stops updating '
+              'Tamil Taxi needs it to send you requests and share live tracking with riders.',
+          LocationAccess.approximate => 'Tamil Taxi Driver only has your approximate location, so your GPS stops updating '
               'after going online. Choose "Precise", or turn on "Use precise location" in Settings → Permissions → Location.',
-          _ => 'Rido needs your location to send you ride requests nearby and share live tracking with riders.',
+          _ => 'Tamil Taxi needs your location to send you ride requests nearby and share live tracking with riders.',
         },
         actionLabel: switch (access) {
           LocationAccess.serviceOff => 'Turn on',
@@ -312,8 +312,8 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     } else if (missing.isNotEmpty) {
       // Shown (online too) until allowed; one at a time, most important first.
       final p = missing.first;
-      topCard = RidoBanner(
-        type: RidoBannerType.warning,
+      topCard = TtBanner(
+        type: TtBannerType.warning,
         icon: switch (p) {
           AppPermission.notifications => Symbols.notifications_off_rounded,
           AppPermission.overlay => Symbols.picture_in_picture_alt_rounded,
@@ -326,10 +326,10 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         },
         message: switch (p) {
           AppPermission.notifications =>
-            "Without notifications you won't hear new ride requests while Rido is in the background or closed.",
+            "Without notifications you won't hear new ride requests while Tamil Taxi is in the background or closed.",
           AppPermission.overlay =>
             'So new requests pop up over maps, music or WhatsApp and you can accept in time. '
-                'Find Rido Driver on the next screen and turn it on.',
+                'Find Tamil Taxi Driver on the next screen and turn it on.',
           AppPermission.fullScreen => 'So a new request lights up the screen when the phone is locked.',
         } +
             (missing.length > 1 ? ' (${missing.length - 1} more after this)' : ''),
@@ -337,8 +337,8 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         onAction: () => ref.read(missingPermissionsProvider.notifier).fix(p),
       );
     } else if (pausedUntil != null && !online) {
-      topCard = RidoBanner(
-        type: RidoBannerType.error,
+      topCard = TtBanner(
+        type: TtBannerType.error,
         icon: Symbols.pause_circle_rounded,
         title: "You're paused ${pausedUntilLabel(pausedUntil, DateTime.now())}",
         message: 'You cancelled too many rides this week. You can go online again after that.',
@@ -346,8 +346,8 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         onAction: () => context.push(Routes.accountPaused(pausedUntil)),
       );
     } else if (cancelRate != null && cancelRate.shouldWarn && job == null) {
-      topCard = RidoBanner(
-        type: RidoBannerType.warning,
+      topCard = TtBanner(
+        type: TtBannerType.warning,
         icon: Symbols.warning_rounded,
         title: cancelRate.title!,
         message: cancelRate.body,
@@ -360,16 +360,16 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       );
     } else if (!online && status == PlanStatus.expired) {
       topCard = const DecoratedBox(
-        decoration: BoxDecoration(borderRadius: RidoRadii.cardRadius, boxShadow: RidoShadows.soft),
-        child: RidoBanner(
-          type: RidoBannerType.error,
+        decoration: BoxDecoration(borderRadius: TtRadii.cardRadius, boxShadow: TtShadows.soft),
+        child: TtBanner(
+          type: TtBannerType.error,
           title: 'Plan expired',
           message: 'Renew to go online again. Your ratings and documents are saved.',
         ),
       );
     } else if (!online && status == PlanStatus.paused) {
-      topCard = const RidoBanner(
-        type: RidoBannerType.info,
+      topCard = const TtBanner(
+        type: TtBannerType.info,
         icon: Symbols.pause_circle_rounded,
         title: 'Plan paused',
         message: "You can't go online until you resume.",
@@ -433,11 +433,11 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         ),
         // Filters on: say so, or a quiet evening looks like the app is broken.
         if (prefs != null && prefs.hasFilters) ...[
-          const SizedBox(height: RidoSpacing.m),
+          const SizedBox(height: TtSpacing.m),
           FiltersOnRow(summary: prefs.summary, onEdit: () => context.push(Routes.bookingPreferences)),
         ],
-        const SizedBox(height: RidoSpacing.l),
-        RidoButton.secondary(label: 'Go offline', onPressed: _goOfflineOrShowcase),
+        const SizedBox(height: TtSpacing.l),
+        TtButton.secondary(label: 'Go offline', onPressed: _goOfflineOrShowcase),
       ]);
     } else {
       basePanel = _OfflinePanel(
@@ -470,7 +470,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
                   km: near.km,
                   onDirections: () => openNavigation(context, near.hotspot.centre),
                 ),
-                const Divider(height: RidoSpacing.xl),
+                const Divider(height: TtSpacing.xl),
                 child!,
               ]);
             },
@@ -478,7 +478,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
           );
 
     return Scaffold(
-      backgroundColor: RidoColors.background,
+      backgroundColor: TtColors.background,
       body: Column(
         children: [
           HomeHeader(
@@ -511,7 +511,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
               children: [
                 Positioned.fill(child: map),
                 if (topCard != null)
-                  Positioned(left: RidoSpacing.gutter, right: RidoSpacing.gutter, top: RidoSpacing.l, child: topCard),
+                  Positioned(left: TtSpacing.gutter, right: TtSpacing.gutter, top: TtSpacing.l, child: topCard),
                 Align(
                   alignment: Alignment.bottomCenter,
                   child: MeasureSize(
@@ -524,7 +524,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
                       children: [
                         if (missed)
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.l),
+                            padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, 0, TtSpacing.gutter, TtSpacing.l),
                             child: S11MissedRequestBanner(
                               showcase: _showcase,
                               delivery: delivery,
@@ -548,7 +548,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     if (_live) {
       _goOffline();
     } else {
-      showRidoSnack(context, "You're offline. No new requests.");
+      showTtSnack(context, "You're offline. No new requests.");
     }
   }
 }
@@ -592,19 +592,19 @@ class _OfflinePanel extends StatelessWidget {
       case PlanStatus.expired:
         children.addAll([
           const GoOnlineButton(onPressed: null),
-          const SizedBox(height: RidoSpacing.xl),
-          RidoButton(label: 'Renew ${formatInr(price)}', onPressed: onRenew),
+          const SizedBox(height: TtSpacing.xl),
+          TtButton(label: 'Renew ${formatInr(price)}', onPressed: onRenew),
         ]);
       case PlanStatus.paused:
         children.addAll([
           const GoOnlineButton(onPressed: null),
-          const SizedBox(height: RidoSpacing.xl),
-          RidoButton(label: 'Resume plan', icon: Symbols.play_circle_rounded, onPressed: onResume),
+          const SizedBox(height: TtSpacing.xl),
+          TtButton(label: 'Resume plan', icon: Symbols.play_circle_rounded, onPressed: onResume),
         ]);
       case PlanStatus.grace:
         children.addAll([
           GoOnlineButton(onPressed: onGoOnline, loading: goingOnline),
-          const SizedBox(height: RidoSpacing.xl),
+          const SizedBox(height: TtSpacing.xl),
           PlanStrip(
             warning: true,
             text: 'Grace ends ${formatDate(planEnd.add(Duration(days: graceDays)))}, 11:59 PM',
@@ -616,12 +616,12 @@ class _OfflinePanel extends StatelessWidget {
           Text(
             "You're offline. Go online to get ${delivery ? 'delivery' : 'ride'} requests.",
             textAlign: TextAlign.center,
-            style: t.body.copyWith(color: RidoColors.navy700),
+            style: t.body.copyWith(color: TtColors.navy700),
           ),
-          const SizedBox(height: RidoSpacing.l),
+          const SizedBox(height: TtSpacing.l),
           GoOnlineButton(onPressed: onGoOnline, loading: goingOnline),
           if (showPlan) ...[
-            const SizedBox(height: RidoSpacing.l),
+            const SizedBox(height: TtSpacing.l),
             PlanStrip(
               text: status == PlanStatus.cancelled
                   ? 'Plan cancelled · active till ${formatDate(planEnd)}'
@@ -644,13 +644,13 @@ class _QuietPanel extends StatelessWidget {
     final t = context.type;
     return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text('Waiting for rides…', style: t.display),
-      const SizedBox(height: RidoSpacing.l),
+      const SizedBox(height: TtSpacing.l),
       Container(
-        padding: const EdgeInsets.all(RidoSpacing.l),
-        decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.cardRadius),
+        padding: const EdgeInsets.all(TtSpacing.l),
+        decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
         child: Row(children: [
-          const Icon(Symbols.emoji_objects_rounded, color: RidoColors.coral600, fill: 1, size: 28),
-          const SizedBox(width: RidoSpacing.m),
+          const Icon(Symbols.emoji_objects_rounded, color: TtColors.coral600, fill: 1, size: 28),
+          const SizedBox(width: TtSpacing.m),
           Expanded(
             child: Text.rich(TextSpan(children: [
               const TextSpan(text: 'Busy areas right now:\n'),
@@ -659,8 +659,8 @@ class _QuietPanel extends StatelessWidget {
           ),
         ]),
       ),
-      const SizedBox(height: RidoSpacing.l),
-      RidoButton.secondary(label: 'Go offline', onPressed: onGoOffline),
+      const SizedBox(height: TtSpacing.l),
+      TtButton.secondary(label: 'Go offline', onPressed: onGoOffline),
     ]);
   }
 }
@@ -675,20 +675,20 @@ class _GpsTips extends StatelessWidget {
     Widget tip(IconData icon, String text) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(children: [
-            Icon(icon, color: RidoColors.navy700, size: 24),
-            const SizedBox(width: RidoSpacing.m),
+            Icon(icon, color: TtColors.navy700, size: 24),
+            const SizedBox(width: TtSpacing.m),
             Expanded(child: Text(text, style: t.body)),
           ]),
         );
     return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text('TRY THIS', style: t.overline),
-      const SizedBox(height: RidoSpacing.s),
+      const SizedBox(height: TtSpacing.s),
       tip(Symbols.location_on_rounded, 'Turn on Location · High accuracy'),
-      tip(Symbols.battery_saver_rounded, 'Turn off battery saver for Rido Driver'),
+      tip(Symbols.battery_saver_rounded, 'Turn off battery saver for Tamil Taxi Driver'),
       tip(Symbols.light_mode_rounded, 'Move out from under a flyover or building'),
       Align(
         alignment: Alignment.centerLeft,
-        child: RidoButton.text(label: 'Go offline', onPressed: onGoOffline),
+        child: TtButton.text(label: 'Go offline', onPressed: onGoOffline),
       ),
     ]);
   }

@@ -1,7 +1,7 @@
 {
-  "name": "rido",
+  "name": "tamiltaxi",
   "private": true,
-  "description": "Rido: zero-commission rides and parcels for Coimbatore (Flutter monorepo run by Turborepo)",
+  "description": "Tamil Taxi: zero-commission rides and parcels for Coimbatore (Flutter monorepo run by Turborepo)",
   "packageManager": "npm@11.11.0",
   "workspaces": [
     "apps/*",

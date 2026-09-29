@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../onboarding/widgets/signup_widgets.dart';
@@ -22,7 +22,7 @@ class S13SelfieCheckScreen extends StatelessWidget {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: RidoColors.navy900,
+        backgroundColor: TtColors.navy900,
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -49,7 +49,7 @@ class S13SelfieCheckScreen extends StatelessWidget {
                 children: [
                   Positioned.fill(
                     child: ExcludeSemantics(
-                      child: RidoMap(
+                      child: TtMap(
                         center: Seed.gandhipuram.location,
                         interactive: false,
                         showAttribution: false,
@@ -59,18 +59,18 @@ class S13SelfieCheckScreen extends StatelessWidget {
                   Positioned.fill(
                     child: GestureDetector(
                       onTap: close,
-                      child: const ColoredBox(color: RidoColors.scrim),
+                      child: const ColoredBox(color: TtColors.scrim),
                     ),
                   ),
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: Material(
-                      color: RidoColors.surface,
-                      borderRadius: RidoRadii.sheetTop,
+                      color: TtColors.surface,
+                      borderRadius: TtRadii.sheetTop,
                       child: SafeArea(
                         top: false,
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(RidoSpacing.l, 0, RidoSpacing.l, RidoSpacing.m),
+                          padding: const EdgeInsets.fromLTRB(TtSpacing.l, 0, TtSpacing.l, TtSpacing.m),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,8 +89,8 @@ class S13SelfieCheckScreen extends StatelessWidget {
                                           width: 160,
                                           height: 160,
                                           decoration:
-                                              const BoxDecoration(color: RidoColors.navy900, shape: BoxShape.circle),
-                                          child: const Icon(Symbols.face_rounded, size: 96, color: RidoColors.navy500),
+                                              const BoxDecoration(color: TtColors.navy900, shape: BoxShape.circle),
+                                          child: const Icon(Symbols.face_rounded, size: 96, color: TtColors.navy500),
                                         ),
                                       ),
                                       Positioned(
@@ -100,7 +100,7 @@ class S13SelfieCheckScreen extends StatelessWidget {
                                           width: 48,
                                           height: 48,
                                           decoration: BoxDecoration(
-                                            color: RidoColors.coral500,
+                                            color: TtColors.coral500,
                                             shape: BoxShape.circle,
                                             border: Border.all(color: Colors.white, width: 4),
                                           ),
@@ -112,16 +112,16 @@ class S13SelfieCheckScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: RidoSpacing.l),
+                              const SizedBox(height: TtSpacing.l),
                               Text('Quick selfie check', textAlign: TextAlign.center, style: t.h1),
-                              const SizedBox(height: RidoSpacing.xs),
+                              const SizedBox(height: TtSpacing.xs),
                               Text("We verify it's you to keep riders safe",
-                                  textAlign: TextAlign.center, style: t.body.copyWith(color: RidoColors.navy700)),
-                              const SizedBox(height: RidoSpacing.l),
-                              RidoButton(label: 'Take selfie', onPressed: () => context.push(Routes.dailySelfie)),
-                              const SizedBox(height: RidoSpacing.s),
+                                  textAlign: TextAlign.center, style: t.body.copyWith(color: TtColors.navy700)),
+                              const SizedBox(height: TtSpacing.l),
+                              TtButton(label: 'Take selfie', onPressed: () => context.push(Routes.dailySelfie)),
+                              const SizedBox(height: TtSpacing.s),
                               Text('Takes about 10 seconds · asked once a day',
-                                  textAlign: TextAlign.center, style: t.caption.copyWith(color: RidoColors.navy500)),
+                                  textAlign: TextAlign.center, style: t.caption.copyWith(color: TtColors.navy500)),
                             ],
                           ),
                         ),

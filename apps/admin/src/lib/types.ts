@@ -1,6 +1,6 @@
 import type { SafetyEvent, SosRecord } from "./safety";
 
-// Response shapes of the Rido admin API (apps/api/src/modules/admin, apps/api/prisma/schema.prisma).
+// Response shapes of the Tamil Taxi admin API (apps/api/src/modules/admin, apps/api/prisma/schema.prisma).
 // Dates arrive as ISO strings; money is whole rupees.
 
 import type { CancelCode, CancelFault, CancelledBy } from "./cancel";

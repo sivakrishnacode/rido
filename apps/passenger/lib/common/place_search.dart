@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../state/live_trip.dart';
 
@@ -24,7 +24,7 @@ Future<PlacePick?> showPlaceSearchSheet(
   required String title,
   Place? current,
   bool offerMap = false,
-}) => showRidoSheet<PlacePick>(
+}) => showTtSheet<PlacePick>(
   context,
   builder: (_) => _PlaceSearchSheet(title: title, current: current, offerMap: offerMap),
 );
@@ -149,10 +149,10 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
               children: [
-                const Icon(Symbols.error_rounded, size: 20, color: RidoColors.error, fill: 1),
+                const Icon(Symbols.error_rounded, size: 20, color: TtColors.error, fill: 1),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(_error!, style: t.bodySmall.copyWith(color: RidoColors.error)),
+                  child: Text(_error!, style: t.bodySmall.copyWith(color: TtColors.error)),
                 ),
                 TextButton(onPressed: () => _search(_query), child: const Text('Retry')),
               ],

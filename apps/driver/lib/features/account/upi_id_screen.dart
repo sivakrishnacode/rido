@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
@@ -42,11 +42,11 @@ class _UpiIdScreenState extends ConsumerState<UpiIdScreen> {
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      showRidoSnack(context, userMessage(e));
+      showTtSnack(context, userMessage(e));
       return;
     }
     if (!mounted) return;
-    showRidoSnack(context, 'UPI ID updated', success: true);
+    showTtSnack(context, 'UPI ID updated', success: true);
     context.pop();
   }
 
@@ -59,9 +59,9 @@ class _UpiIdScreenState extends ConsumerState<UpiIdScreen> {
       onSave: _save,
       children: [
         Text('Passengers pay you directly on this UPI ID. You keep 100%.',
-            style: t.body.copyWith(color: RidoColors.navy700)),
-        const SizedBox(height: RidoSpacing.l),
-        RidoTextField(
+            style: t.body.copyWith(color: TtColors.navy700)),
+        const SizedBox(height: TtSpacing.l),
+        TtTextField(
           label: 'UPI ID',
           hint: 'name@bank',
           controller: _upi,

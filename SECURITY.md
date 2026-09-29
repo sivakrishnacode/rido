@@ -1,11 +1,11 @@
 # Security policy
 
-Rido handles phone numbers, live locations and driver identity documents, so security reports are very welcome.
+Tamil Taxi handles phone numbers, live locations and driver identity documents, so security reports are very welcome.
 
 ## Reporting a vulnerability
 
 **Please don't open a public issue.** Report privately through
-[GitHub Security Advisories](https://github.com/sivakrishnacode/rido/security/advisories/new) ("Report a
+[GitHub Security Advisories](https://github.com/sivakrishnacode/tamiltaxi/security/advisories/new) ("Report a
 vulnerability").
 
 Include:

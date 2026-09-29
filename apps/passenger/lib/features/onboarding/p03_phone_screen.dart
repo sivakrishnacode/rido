@@ -2,8 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/live_trip.dart';
@@ -48,7 +48,7 @@ class _P03PhoneScreenState extends ConsumerState<P03PhoneScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _sending = false);
-        showRidoSnack(context, apiErrorMessage(e));
+        showTtSnack(context, apiErrorMessage(e));
       }
       return;
     }
@@ -62,22 +62,22 @@ class _P03PhoneScreenState extends ConsumerState<P03PhoneScreen> {
     final t = context.type;
     final canPop = context.canPop();
     return Scaffold(
-      backgroundColor: RidoColors.surface,
-      appBar: canPop ? const RidoAppBar() : null,
+      backgroundColor: TtColors.surface,
+      appBar: canPop ? const TtAppBar() : null,
       body: SafeArea(
         top: !canPop,
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(RidoSpacing.l, canPop ? RidoSpacing.l : 64, RidoSpacing.l, RidoSpacing.l),
+                padding: EdgeInsets.fromLTRB(TtSpacing.l, canPop ? TtSpacing.l : 64, TtSpacing.l, TtSpacing.l),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Enter your mobile number', style: t.display),
-                    const SizedBox(height: RidoSpacing.s),
-                    Text("We'll send you a 6-digit OTP", style: t.body.copyWith(color: RidoColors.navy700)),
-                    const SizedBox(height: RidoSpacing.xxl),
+                    const SizedBox(height: TtSpacing.s),
+                    Text("We'll send you a 6-digit OTP", style: t.body.copyWith(color: TtColors.navy700)),
+                    const SizedBox(height: TtSpacing.xxl),
                     ValueListenableBuilder(
                       valueListenable: _controller,
                       builder: (context, _, _) =>
@@ -88,33 +88,33 @@ class _P03PhoneScreenState extends ConsumerState<P03PhoneScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.l),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.l, TtSpacing.l),
               child: Column(
                 children: [
                   ValueListenableBuilder(
                     valueListenable: _controller,
-                    builder: (context, _, _) => RidoButton(
+                    builder: (context, _, _) => TtButton(
                       label: 'Send OTP',
                       loading: _sending,
                       onPressed: _digits.length == 10 ? _send : null,
                     ),
                   ),
-                  const SizedBox(height: RidoSpacing.m),
+                  const SizedBox(height: TtSpacing.m),
                   Text.rich(
                     TextSpan(
-                      style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                      style: t.bodySmall.copyWith(color: TtColors.navy500),
                       children: [
                         const TextSpan(text: 'By continuing, you agree to our '),
                         TextSpan(
                           text: 'Terms',
                           recognizer: _terms,
-                          style: const TextStyle(color: RidoColors.coral600, fontWeight: FontWeight.w600),
+                          style: const TextStyle(color: TtColors.coral600, fontWeight: FontWeight.w600),
                         ),
                         const TextSpan(text: ' & '),
                         TextSpan(
                           text: 'Privacy Policy',
                           recognizer: _privacy,
-                          style: const TextStyle(color: RidoColors.coral600, fontWeight: FontWeight.w600),
+                          style: const TextStyle(color: TtColors.coral600, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),

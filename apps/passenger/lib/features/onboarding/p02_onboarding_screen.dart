@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import 'widgets/onboarding_scenes.dart';
@@ -18,8 +18,8 @@ const _slides = [
   _Slide('Lower fares, every ride', 'Bike, auto or cab across Coimbatore — with no commission added to your fare.'),
   _Slide(
     'Your driver keeps 100%',
-    'Rido is free for drivers: no commission, no subscription. Every rupee you pay goes to them.',
-    caption: 'Rido takes 0% commission.',
+    'Tamil Taxi is free for drivers: no commission, no subscription. Every rupee you pay goes to them.',
+    caption: 'Tamil Taxi takes 0% commission.',
   ),
   _Slide(
     'Rides and parcels in one app',
@@ -63,7 +63,7 @@ class _P02OnboardingScreenState extends ConsumerState<P02OnboardingScreen> {
   Widget build(BuildContext context) {
     final t = context.type;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -72,7 +72,7 @@ class _P02OnboardingScreenState extends ConsumerState<P02OnboardingScreen> {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: Padding(
-                  padding: const EdgeInsets.only(right: RidoSpacing.s),
+                  padding: const EdgeInsets.only(right: TtSpacing.s),
                   child: AnimatedOpacity(
                     opacity: _last ? 0 : 1,
                     duration: const Duration(milliseconds: 200),
@@ -81,10 +81,10 @@ class _P02OnboardingScreenState extends ConsumerState<P02OnboardingScreen> {
                       child: TextButton(
                         onPressed: _finish,
                         style: TextButton.styleFrom(
-                          foregroundColor: RidoColors.navy700,
+                          foregroundColor: TtColors.navy700,
                           minimumSize: const Size(64, 48),
                         ),
-                        child: Text('Skip', style: t.bodySemibold.copyWith(color: RidoColors.navy700)),
+                        child: Text('Skip', style: t.bodySemibold.copyWith(color: TtColors.navy700)),
                       ),
                     ),
                   ),
@@ -100,14 +100,14 @@ class _P02OnboardingScreenState extends ConsumerState<P02OnboardingScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.xl),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.l, TtSpacing.xl),
               child: _last
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _Dots(page: _page),
-                        const SizedBox(height: RidoSpacing.xl),
-                        RidoButton(label: 'Get started', onPressed: _finish),
+                        const SizedBox(height: TtSpacing.xl),
+                        TtButton(label: 'Get started', onPressed: _finish),
                       ],
                     )
                   : Row(
@@ -117,7 +117,7 @@ class _P02OnboardingScreenState extends ConsumerState<P02OnboardingScreen> {
                         Tooltip(
                           message: 'Next',
                           child: Material(
-                            color: RidoColors.coral600,
+                            color: TtColors.coral600,
                             shape: const CircleBorder(),
                             child: InkWell(
                               customBorder: const CircleBorder(),
@@ -125,7 +125,7 @@ class _P02OnboardingScreenState extends ConsumerState<P02OnboardingScreen> {
                               child: const SizedBox(
                                 width: 56,
                                 height: 56,
-                                child: Icon(Symbols.arrow_forward_rounded, color: RidoColors.surface),
+                                child: Icon(Symbols.arrow_forward_rounded, color: TtColors.surface),
                               ),
                             ),
                           ),
@@ -152,7 +152,7 @@ class _SlideView extends StatelessWidget {
       builder: (context, c) {
         final sceneH = (c.maxHeight * 0.58).clamp(200.0, 400.0);
         return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l),
+          padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -161,30 +161,30 @@ class _SlideView extends StatelessWidget {
                 width: double.infinity,
                 child: OnboardingScene(index: index),
               ),
-              const SizedBox(height: RidoSpacing.xxl),
+              const SizedBox(height: TtSpacing.xxl),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.s),
+                padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(slide.title, style: t.display),
-                    const SizedBox(height: RidoSpacing.m),
-                    Text(slide.body, style: t.body.copyWith(color: RidoColors.navy700)),
+                    const SizedBox(height: TtSpacing.m),
+                    Text(slide.body, style: t.body.copyWith(color: TtColors.navy700)),
                     if (slide.caption != null) ...[
-                      const SizedBox(height: RidoSpacing.m),
+                      const SizedBox(height: TtSpacing.m),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: 6),
-                        decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.pillRadius),
+                        padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: 6),
+                        decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.pillRadius),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Symbols.verified_rounded, fill: 1, size: 18, color: RidoColors.coral600),
+                            const Icon(Symbols.verified_rounded, fill: 1, size: 18, color: TtColors.coral600),
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
                                 slide.caption!,
                                 style: t.bodySmallMedium.copyWith(
-                                  color: RidoColors.coral600,
+                                  color: TtColors.coral600,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -217,12 +217,12 @@ class _Dots extends StatelessWidget {
         for (var i = 0; i < _slides.length; i++)
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.only(right: RidoSpacing.s),
+            margin: const EdgeInsets.only(right: TtSpacing.s),
             width: i == page ? 24 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: i == page ? RidoColors.coral600 : RidoColors.divider,
-              borderRadius: RidoRadii.pillRadius,
+              color: i == page ? TtColors.coral600 : TtColors.divider,
+              borderRadius: TtRadii.pillRadius,
             ),
           ),
       ],

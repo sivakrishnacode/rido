@@ -28,7 +28,7 @@ val mapsApiKey: String =
         ?: ""
 
 android {
-    namespace = "com.rido.driver"
+    namespace = "com.tamiltaxi.driver"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -41,7 +41,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.rido.driver"
+        applicationId = "com.tamiltaxi.driver"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // google_maps_flutter_android needs API 24+.

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/ride_flow.dart';
 
@@ -34,7 +34,7 @@ class _S03CancelRideDialogState extends ConsumerState<S03CancelRideDialog> {
     final message = ride.phase == RidePhase.arrived
         ? '$name is waiting at your pickup. Tell us why:'
         : '$name is ${ride.etaMin < 1 ? 1 : ride.etaMin} min away. Tell us why:';
-    return RidoDialog(
+    return TtDialog(
       title: 'Cancel this ride?',
       message: message,
       content: Column(
@@ -48,12 +48,12 @@ class _S03CancelRideDialogState extends ConsumerState<S03CancelRideDialog> {
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 48),
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: RidoColors.divider))),
+                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: TtColors.divider))),
                   child: Row(
                     children: [
                       Icon(
                         r == _reason ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
-                        color: r == _reason ? RidoColors.coral600 : RidoColors.navy500,
+                        color: r == _reason ? TtColors.coral600 : TtColors.navy500,
                         size: 24,
                       ),
                       const SizedBox(width: 14),
@@ -68,13 +68,13 @@ class _S03CancelRideDialogState extends ConsumerState<S03CancelRideDialog> {
         ],
       ),
       actions: [
-        RidoButton.danger(
+        TtButton.danger(
           label: 'Cancel ride',
           onPressed: _reason == null ? null : () => Navigator.of(context).maybePop(_reason),
         ),
         const SizedBox(height: 4),
         TextButton(
-          style: TextButton.styleFrom(foregroundColor: RidoColors.navy900),
+          style: TextButton.styleFrom(foregroundColor: TtColors.navy900),
           onPressed: () => Navigator.of(context).maybePop(),
           child: const Text('Keep ride'),
         ),

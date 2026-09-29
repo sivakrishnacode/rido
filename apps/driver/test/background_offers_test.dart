@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_driver/overlay/background_offers.dart';
-import 'package:rido_driver/state/driver_session.dart';
+import 'package:tamiltaxi_driver/overlay/background_offers.dart';
+import 'package:tamiltaxi_driver/state/driver_session.dart';
 
 /// The overlay plugin's native side as Android behaves: the window service starts *asynchronously*
 /// ([startDelay] after showOverlay returns), `closeOverlay` stops it (also while starting).

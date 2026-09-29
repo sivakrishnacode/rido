@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../router/routes.dart';
@@ -46,7 +46,7 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
       } on Exception catch (e) {
         if (!mounted) return;
         setState(() => _busy = false);
-        showRidoSnack(context, userMessage(e));
+        showTtSnack(context, userMessage(e));
         return;
       }
       if (!mounted) return;
@@ -75,7 +75,7 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
     final live = !widget.showcase && session.job != null;
     final route = live && session.route.isNotEmpty ? session.route : _fallbackRoute;
     final eta = live ? session.etaMin : 9;
-    final arrival = RidoClock.now().add(Duration(minutes: eta));
+    final arrival = TtClock.now().add(Duration(minutes: eta));
 
     return PopScope(
       canPop: !live,
@@ -83,19 +83,19 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
         if (!didPop) confirmLeaveJob(context);
       },
       child: Scaffold(
-        backgroundColor: RidoColors.background,
+        backgroundColor: TtColors.background,
         body: Column(
           children: [
             NavyHeader(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.m, RidoSpacing.gutter, RidoSpacing.m),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.m, TtSpacing.gutter, TtSpacing.m),
               child: Row(children: [
                 Container(
                   width: 48,
                   height: 48,
-                  decoration: const BoxDecoration(color: RidoColors.success, borderRadius: RidoRadii.cardRadius),
+                  decoration: const BoxDecoration(color: TtColors.success, borderRadius: TtRadii.cardRadius),
                   child: Icon(_api ? Symbols.navigation_rounded : Symbols.turn_left_rounded, color: Colors.white, size: 30),
                 ),
-                const SizedBox(width: RidoSpacing.m),
+                const SizedBox(width: TtSpacing.m),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(eta <= 1 ? 'Arriving at drop' : (_api ? 'Going to drop' : 'In 300 m, turn left'),
@@ -104,10 +104,10 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
                         style: t.bodySmall.copyWith(color: Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ]),
                 ),
-                const SizedBox(width: RidoSpacing.s),
+                const SizedBox(width: TtSpacing.s),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text('$eta min', style: RidoTextStyles.tabular(t.h2.copyWith(color: Colors.white))),
-                  Text(formatTime(arrival), style: RidoTextStyles.tabular(t.bodySmall.copyWith(color: Colors.white70))),
+                  Text('$eta min', style: TtTextStyles.tabular(t.h2.copyWith(color: Colors.white))),
+                  Text(formatTime(arrival), style: TtTextStyles.tabular(t.bodySmall.copyWith(color: Colors.white70))),
                 ]),
               ]),
             ),
@@ -126,13 +126,13 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
                 ),
                 if (_api)
                   Positioned(
-                    right: RidoSpacing.gutter,
-                    top: RidoSpacing.l,
+                    right: TtSpacing.gutter,
+                    top: TtSpacing.l,
                     child: NavigatePill(onPressed: () => openNavigation(context, _job.drop.location)),
                   ),
                 Positioned(
-                  right: RidoSpacing.gutter,
-                  bottom: RidoSpacing.xl,
+                  right: TtSpacing.gutter,
+                  bottom: TtSpacing.xl,
                   child: SosButton(onPressed: () => context.push(Routes.sos)),
                 ),
               ]),
@@ -142,20 +142,20 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Padding(padding: EdgeInsets.only(top: 2), child: DropPin(size: 28)),
-                  const SizedBox(width: RidoSpacing.m),
+                  const SizedBox(width: TtSpacing.m),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(_job.drop.name, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                       Text(_job.drop.address, style: t.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                     ]),
                   ),
-                  const SizedBox(width: RidoSpacing.s),
+                  const SizedBox(width: TtSpacing.s),
                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(formatInr(_job.fare), style: RidoTextStyles.tabular(t.h1)),
-                    Text(_job.customerName, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                    Text(formatInr(_job.fare), style: TtTextStyles.tabular(t.h1)),
+                    Text(_job.customerName, style: t.bodySmall.copyWith(color: TtColors.navy500)),
                   ]),
                 ]),
-                const SizedBox(height: RidoSpacing.l),
+                const SizedBox(height: TtSpacing.l),
                 SwipeToConfirm(label: _endLabel(), enabled: !_busy, onConfirmed: () => _endRide(live)),
               ]),
             ),

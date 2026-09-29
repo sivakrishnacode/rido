@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/driver_account.dart';
 
@@ -19,8 +19,8 @@ class DriverNewTicketScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.read(supportRepositoryProvider);
     return Scaffold(
-      backgroundColor: RidoColors.background,
-      appBar: const RidoAppBar(title: 'Raise a ticket'),
+      backgroundColor: TtColors.background,
+      appBar: const TtAppBar(title: 'Raise a ticket'),
       body: NewTicketView(
         topics: repo.topics(driver: true),
         initialTopic: topic,
@@ -29,10 +29,10 @@ class DriverNewTicketScreen extends ConsumerWidget {
             final ticket = await repo.raiseTicket(topic: topic, description: description);
             ref.invalidate(driverTicketsProvider);
             if (!context.mounted) return;
-            showRidoSnack(context, 'Ticket ${ticket.id} raised. We usually reply within 24 hours.', success: true);
+            showTtSnack(context, 'Ticket ${ticket.id} raised. We usually reply within 24 hours.', success: true);
             if (context.canPop()) context.pop();
           } on OfflineException {
-            if (context.mounted) showRidoSnack(context, "You're offline. Try again.");
+            if (context.mounted) showTtSnack(context, "You're offline. Try again.");
           }
         },
       ),

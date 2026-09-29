@@ -10,7 +10,7 @@ import { VEHICLE_COLORS } from "../colors";
 import { DemandLayer, type DemandHover } from "./demand-layer";
 import { HeatOverlay } from "./heat-overlay";
 import { HexLayer } from "./hex-layer";
-import { RidoMap } from "./rido-map";
+import { TtMap } from "./tamiltaxi-map";
 
 function LiveLayers({ data, focus, compact }: { data: LiveData; focus: { lat: number; lng: number } | null; compact: boolean }) {
   const map = useMap();
@@ -130,7 +130,7 @@ export function LiveMap({
   overlay?: React.ReactNode;
 }) {
   return (
-    <RidoMap
+    <TtMap
       center={{ lat: center[0], lng: center[1] }}
       zoom={compact ? 11 : 12}
       className={className}
@@ -141,7 +141,7 @@ export function LiveMap({
       {heat && <HeatOverlay metric={heat} opacity={0.45} />}
       {area && <HexLayer cells={area.cells} style={{ color: "#D84315", fillColor: "#F4511E", fillOpacity: 0.08, weight: 0.5, opacity: 0.5 }} />}
       <LiveLayers data={data} focus={focus ? { lat: focus[0], lng: focus[1] } : null} compact={compact} />
-    </RidoMap>
+    </TtMap>
   );
 }
 

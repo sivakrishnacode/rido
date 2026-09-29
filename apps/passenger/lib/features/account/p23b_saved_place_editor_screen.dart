@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/place_search.dart';
 import '../../router/routes.dart';
@@ -109,14 +109,14 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
     if (!mounted) return;
     setState(() => _saving = false);
     if (!saved) return;
-    showRidoSnack(context, '$label saved', success: true);
+    showTtSnack(context, '$label saved', success: true);
     _close();
   }
 
   Future<void> _delete() async {
     final e = _existing;
     if (e == null) return;
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Delete ${e.label}?',
       message: 'You can add it again any time.',
@@ -128,7 +128,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
     if (!ok || !mounted) return;
     final removed = await ref.read(passengerProfileProvider.notifier).removeSavedPlace(e.id);
     if (!mounted || !removed) return;
-    showRidoSnack(context, '${e.label} deleted');
+    showTtSnack(context, '${e.label} deleted');
     _close();
   }
 
@@ -141,8 +141,8 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
     final place = _place;
 
     return Scaffold(
-      backgroundColor: RidoColors.surface,
-      appBar: RidoAppBar(
+      backgroundColor: TtColors.surface,
+      appBar: TtAppBar(
         title: _existing == null ? 'Add saved place' : 'Edit saved place',
         bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1)),
         actions: [
@@ -150,7 +150,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
             IconButton(
               tooltip: 'Delete place',
               onPressed: _delete,
-              icon: const Icon(Symbols.delete_rounded, color: RidoColors.error),
+              icon: const Icon(Symbols.delete_rounded, color: TtColors.error),
             ),
         ],
       ),
@@ -160,7 +160,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
               children: [
-                Text('Save as', style: t.bodyMedium.copyWith(color: RidoColors.navy700)),
+                Text('Save as', style: t.bodyMedium.copyWith(color: TtColors.navy700)),
                 const SizedBox(height: 10),
                 ChoiceChips<SavedPlaceKind>(
                   options: SavedPlaceKind.values,
@@ -175,7 +175,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
                 ),
                 if (_kind == SavedPlaceKind.other) ...[
                   const SizedBox(height: 16),
-                  RidoTextField(
+                  TtTextField(
                     label: 'Name this place',
                     hint: 'e.g. Gym, Amma’s house',
                     controller: _name,
@@ -186,9 +186,9 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
                 const SizedBox(height: 20),
                 Container(
                   decoration: BoxDecoration(
-                    color: RidoColors.surface,
-                    borderRadius: RidoRadii.cardRadius,
-                    border: Border.all(color: RidoColors.divider),
+                    color: TtColors.surface,
+                    borderRadius: TtRadii.cardRadius,
+                    border: Border.all(color: TtColors.divider),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Column(
@@ -198,7 +198,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
                         SizedBox(
                           height: 132,
                           child: IgnorePointer(
-                            child: RidoMap(
+                            child: TtMap(
                               key: ValueKey(place.id),
                               center: place.location,
                               zoom: 15.5,
@@ -214,13 +214,13 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
                           children: [
                             Expanded(
                               child: place == null
-                                  ? Text('Choose the place to save', style: t.body.copyWith(color: RidoColors.navy500))
+                                  ? Text('Choose the place to save', style: t.body.copyWith(color: TtColors.navy500))
                                   : Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(place.name, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                                         Text(place.address,
-                                            style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                                            style: t.bodySmall.copyWith(color: TtColors.navy500),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis),
                                       ],
@@ -231,7 +231,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
                               onPressed: _pickPlace,
                               style: OutlinedButton.styleFrom(
                                 minimumSize: const Size(48, 44),
-                                side: const BorderSide(color: RidoColors.divider, width: 1.5),
+                                side: const BorderSide(color: TtColors.divider, width: 1.5),
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 textStyle: t.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                               ),
@@ -244,7 +244,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
                   ),
                 ),
                 const SizedBox(height: 20),
-                RidoTextField(
+                TtTextField(
                   label: 'House / flat · landmark',
                   hint: 'e.g. 14, NSR Road, near Bharathi Park',
                   controller: _note,
@@ -257,7 +257,7 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: RidoButton(
+              child: TtButton(
                 label: 'Save place',
                 loading: _saving,
                 onPressed: _canSave ? () => _save(profile) : null,

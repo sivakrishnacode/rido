@@ -1,6 +1,6 @@
 # Google Maps Platform: getting and using the API keys
 
-How to create the Google Maps keys for Rido in your Google Cloud (GCP) project, restrict them, cap spending, and plug
+How to create the Google Maps keys for Tamil Taxi in your Google Cloud (GCP) project, restrict them, cap spending, and plug
 them into the apps and the backend. Takes about 15 minutes.
 
 Without keys everything still works: the apps fall back to CARTO map tiles, the free OSRM router and seed places, and
@@ -12,10 +12,10 @@ the API falls back to seeded places and straight-line distances.
 
 | Key | Used by | APIs it may call | Restricted to |
 |---|---|---|---|
-| **1. `rido-android-maps`** | Both Android apps, to draw the map | Maps SDK for Android | Android apps `com.rido.passenger` and `com.rido.driver` + signing SHA-1 |
+| **1. `rido-android-maps`** | Both Android apps, to draw the map | Maps SDK for Android | Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver` + signing SHA-1 |
 | **2. `rido-server`** | Backend (`apps/api`) | Places API (New), Geocoding API, Routes API | Your server's IP address |
 | **3. `rido-app-services`** (prototype only) | Apps' direct search / geocode / route calls; **for now also the admin panel's maps** | Places API (New), Geocoding API, Routes API, **Maps JavaScript API** | API restrictions only (see note) |
-| **4. `rido-admin-web`** (recommended, not created yet) | Admin panel maps in the browser (`apps/admin`) | Maps JavaScript API only | HTTP referrers: your admin domain(s), plus `http://localhost:3001/*` for dev |
+| **4. `tamiltaxi-admin-web`** (recommended, not created yet) | Admin panel maps in the browser (`apps/admin`) | Maps JavaScript API only | HTTP referrers: your admin domain(s), plus `http://localhost:3001/*` for dev |
 
 **Why key 3 exists:** the apps currently call Places, Geocoding and Routes directly over HTTPS. Those calls can't
 prove they come from the Android app, so an Android-restricted key would be rejected. Key 3 is limited to those
@@ -74,8 +74,8 @@ Go to **APIs & Services → Credentials → Create credentials → API key**. Fo
 ### Key 1: `rido-android-maps`
 - **Name:** `rido-android-maps`
 - **Application restrictions:** Android apps → **Add** twice:
-  - Package `com.rido.passenger`, SHA-1 `B5:C9:F1:A3:D4:2E:20:F7:24:2A:F7:94:54:CC:26:36:3B:4D:52:99`
-  - Package `com.rido.driver`, same SHA-1
+  - Package `com.tamiltaxi.passenger`, SHA-1 `B5:C9:F1:A3:D4:2E:20:F7:24:2A:F7:94:54:CC:26:36:3B:4D:52:99`
+  - Package `com.tamiltaxi.driver`, same SHA-1
   - Later, add the release / Play signing SHA-1 for both packages.
 - **API restrictions:** Restrict key → **Maps SDK for Android** only.
 
@@ -90,8 +90,8 @@ Go to **APIs & Services → Credentials → Create credentials → API key**. Fo
 - **Application restrictions:** None (see "Why key 3 exists" above).
 - **API restrictions:** **Places API (New)**, **Geocoding API**, **Routes API**.
 
-### Key 4: `rido-admin-web` (recommended once the admin panel has a domain)
-- **Name:** `rido-admin-web`
+### Key 4: `tamiltaxi-admin-web` (recommended once the admin panel has a domain)
+- **Name:** `tamiltaxi-admin-web`
 - **Application restrictions:** Websites (HTTP referrers): `https://admin.<your-domain>/*` and `http://localhost:3001/*`.
 - **API restrictions:** **Maps JavaScript API** only.
 - Put it in `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` (`apps/admin/.env.local` for dev, `GOOGLE_MAPS_BROWSER_KEY` in the root
@@ -116,9 +116,9 @@ System Limits**. Edit **requests per day** to a safe pilot cap, e.g.:
 | Geocoding API | 1,000 |
 | Routes API: Compute Routes | 1,500 |
 
-When a cap is hit, calls fail and Rido falls back to local data automatically. Raise the caps as traffic grows.
+When a cap is hit, calls fail and Tamil Taxi falls back to local data automatically. Raise the caps as traffic grows.
 
-## Step 6: Put the keys into Rido
+## Step 6: Put the keys into Tamil Taxi
 
 Never commit keys. `local.properties` and `.env` files are git-ignored.
 

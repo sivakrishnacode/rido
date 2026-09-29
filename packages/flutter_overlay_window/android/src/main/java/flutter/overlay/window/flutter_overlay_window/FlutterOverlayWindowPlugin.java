@@ -55,7 +55,7 @@ public class FlutterOverlayWindowPlugin implements
                 JSONMessageCodec.INSTANCE);
         messenger.setMessageHandler(this);
 
-        // Rido patch: WindowSetup.messenger is where the overlay's messages go (the main app). Every engine registers
+        // Tamil Taxi patch: WindowSetup.messenger is where the overlay's messages go (the main app). Every engine registers
         // this plugin (the overlay's own engine, the FCM background engine…), and each used to overwrite it, so the
         // request card's Accept went to a headless engine. Only the engine attached to the Activity claims it
         // (onAttachedToActivity); this is just a fallback until then.
@@ -125,7 +125,7 @@ public class FlutterOverlayWindowPlugin implements
         } else if (call.method.equals("getOverlayPosition")) {
             result.success(OverlayService.getCurrentPosition());
         } else if (call.method.equals("closeOverlay")) {
-            // Rido patch: always stop the service (it may still be starting, isRunning not yet set) and always answer
+            // Tamil Taxi patch: always stop the service (it may still be starting, isRunning not yet set) and always answer
             // (the Future never completed when the overlay wasn't running, which blocked the app's overlay queue).
             final Intent i = new Intent(context, OverlayService.class);
             context.stopService(i);
@@ -140,7 +140,7 @@ public class FlutterOverlayWindowPlugin implements
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         channel.setMethodCallHandler(null);
-        // Rido patch: only release the messenger this engine owns (an FCM background engine shutting down cleared
+        // Tamil Taxi patch: only release the messenger this engine owns (an FCM background engine shutting down cleared
         // the main app's handler).
         if (messenger != null) messenger.setMessageHandler(null);
         if (WindowSetup.messenger == messenger) WindowSetup.messenger = null;
@@ -149,7 +149,7 @@ public class FlutterOverlayWindowPlugin implements
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
         mActivity = binding.getActivity();
-        // Rido patch: the engine showing the app's Activity is the main app: overlay messages go here.
+        // Tamil Taxi patch: the engine showing the app's Activity is the main app: overlay messages go here.
         WindowSetup.messenger = messenger;
         messenger.setMessageHandler(this);
         if (FlutterEngineCache.getInstance().get(OverlayConstants.CACHED_TAG) == null) {

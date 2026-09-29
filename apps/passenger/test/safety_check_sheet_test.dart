@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/features/ride/safety_check_sheet.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/ride/safety_check_sheet.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/fake_safety.dart';
 import 'support/harness.dart';
@@ -21,7 +21,7 @@ Future<List<SafetyAnswer?>> _pump(WidgetTester tester, FakeSafety safety, Safety
   await tester.pumpWidget(ProviderScope(
     overrides: [liveSafetyProvider.overrideWithValue(safety)],
     child: MaterialApp(
-      theme: RidoTheme.light(),
+      theme: TtTheme.light(),
       home: Builder(
         builder: (context) => Scaffold(
           body: Center(

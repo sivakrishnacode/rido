@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// Map-over-sheet layout used by the in-trip screens (P-13, P-15, P-16, S-01, S-02):
 /// the map fills the screen, [overlays] float on it and [sheet] sits at the bottom with
@@ -29,7 +29,7 @@ class TripSheetScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: RidoColors.inputBg,
+      backgroundColor: TtColors.inputBg,
       appBar: appBar,
       body: LayoutBuilder(
         builder: (context, c) => Stack(
@@ -47,9 +47,9 @@ class TripSheetScaffold extends StatelessWidget {
                     constraints: BoxConstraints(maxHeight: c.maxHeight * maxSheetFraction),
                     child: DecoratedBox(
                       decoration: const BoxDecoration(
-                        color: RidoColors.surface,
-                        borderRadius: RidoRadii.sheetTop,
-                        boxShadow: RidoShadows.raised,
+                        color: TtColors.surface,
+                        borderRadius: TtRadii.sheetTop,
+                        boxShadow: TtShadows.raised,
                       ),
                       child: SafeArea(
                         top: false,
@@ -119,11 +119,11 @@ class TripDriverRow extends StatelessWidget {
                   children: [
                     const WidgetSpan(
                       alignment: PlaceholderAlignment.middle,
-                      child: Icon(Symbols.star_rounded, fill: 1, size: 18, color: RidoColors.warning),
+                      child: Icon(Symbols.star_rounded, fill: 1, size: 18, color: TtColors.warning),
                     ),
                     TextSpan(
                       text: ' ${driver.rating.toStringAsFixed(1)}',
-                      style: RidoTextStyles.tabular(t.bodySmallMedium),
+                      style: TtTextStyles.tabular(t.bodySmallMedium),
                     ),
                     TextSpan(text: ' (${formatCount(driver.rides)} rides)', style: t.caption),
                   ],
@@ -187,8 +187,8 @@ class RoundIconAction extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
-    this.background = RidoColors.coral50,
-    this.foreground = RidoColors.coral600,
+    this.background = TtColors.coral50,
+    this.foreground = TtColors.coral600,
     this.size = 48,
   });
 
@@ -231,9 +231,9 @@ class TripActionButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.caption,
-    this.background = RidoColors.coral50,
-    this.foreground = RidoColors.coral600,
-    this.labelColor = RidoColors.navy900,
+    this.background = TtColors.coral50,
+    this.foreground = TtColors.coral600,
+    this.labelColor = TtColors.navy900,
   });
 
   final IconData icon;
@@ -253,7 +253,7 @@ class TripActionButton extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: RidoRadii.cardRadius,
+        borderRadius: TtRadii.cardRadius,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(
@@ -298,9 +298,9 @@ class RideOtpCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
         decoration: BoxDecoration(
-          color: RidoColors.coral50,
-          borderRadius: RidoRadii.cardRadius,
-          border: Border.all(color: RidoColors.coral100),
+          color: TtColors.coral50,
+          borderRadius: TtRadii.cardRadius,
+          border: Border.all(color: TtColors.coral100),
         ),
         child: Row(
           children: [
@@ -308,10 +308,10 @@ class RideOtpCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label.toUpperCase(), style: t.overline.copyWith(color: RidoColors.coral600)),
+                  Text(label.toUpperCase(), style: t.overline.copyWith(color: TtColors.coral600)),
                   if (caption != null) ...[
                     const SizedBox(height: 4),
-                    Text(caption!, style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+                    Text(caption!, style: t.bodySmall.copyWith(color: TtColors.navy700)),
                   ],
                 ],
               ),
@@ -323,7 +323,7 @@ class RideOtpCard extends StatelessWidget {
                 width: 36,
                 height: 50,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: RidoColors.surface, borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: TtColors.surface, borderRadius: BorderRadius.circular(8)),
                 child: Text(d, style: t.otp),
               ),
           ],
@@ -353,8 +353,8 @@ class TripRouteSummary extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(formatInr(fare), style: RidoTextStyles.tabular(t.h1)),
-            Text('Cash / UPI', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+            Text(formatInr(fare), style: TtTextStyles.tabular(t.h1)),
+            Text('Cash / UPI', style: t.bodySmall.copyWith(color: TtColors.navy500)),
           ],
         ),
       ],
@@ -373,11 +373,11 @@ class EtaBubble extends StatelessWidget {
     children: [
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: const BoxDecoration(color: RidoColors.navy900, borderRadius: RidoRadii.pillRadius),
+        decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.pillRadius),
         child: Text(
           text,
           maxLines: 1,
-          style: RidoTextStyles.tabular(context.type.bodySemibold.copyWith(color: Colors.white)),
+          style: TtTextStyles.tabular(context.type.bodySemibold.copyWith(color: Colors.white)),
         ),
       ),
       CustomPaint(size: const Size(12, 6), painter: _TailPainter()),
@@ -393,7 +393,7 @@ class _TailPainter extends CustomPainter {
       ..lineTo(size.width, 0)
       ..lineTo(size.width / 2, size.height)
       ..close();
-    canvas.drawPath(p, Paint()..color = RidoColors.navy900);
+    canvas.drawPath(p, Paint()..color = TtColors.navy900);
   }
 
   @override

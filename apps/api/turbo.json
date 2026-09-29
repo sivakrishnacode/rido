@@ -7,7 +7,7 @@
       "outputs": []
     },
     "test": {
-      "inputs": ["src/**", "test/**", "vitest.config.ts", "package.json", "$TURBO_ROOT$/packages/rido_data/test/fixtures/**"],
+      "inputs": ["src/**", "test/**", "vitest.config.ts", "package.json", "$TURBO_ROOT$/packages/tamiltaxi_data/test/fixtures/**"],
       "outputs": []
     }
   }

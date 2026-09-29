@@ -4,7 +4,7 @@ import type { ApiErrorBody } from "./types";
 
 export const DEFAULT_API_URL = "http://localhost:3000/v1";
 
-/** Base URL of the Rido API, without a trailing slash. */
+/** Base URL of the Tamil Taxi API, without a trailing slash. */
 export function apiBaseUrl(env: Record<string, string | undefined> = process.env): string {
   return (env.API_URL?.trim() || DEFAULT_API_URL).replace(/\/+$/, "");
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// A res-7 hex is about 1.2 km across: closer than this to its centre counts as being in it.
 const double kInsideHotspotKm = 1.2;
@@ -28,18 +28,18 @@ class NearestDemandChip extends StatelessWidget {
       container: true,
       label: '$tag, $place, ${inside ? "you're in it" : formatKm(km)}',
       child: Row(children: [
-        const Icon(Symbols.location_on_rounded, color: RidoColors.navy900, size: 26),
-        const SizedBox(width: RidoSpacing.m),
+        const Icon(Symbols.location_on_rounded, color: TtColors.navy900, size: 26),
+        const SizedBox(width: TtSpacing.m),
         Expanded(
           child: ExcludeSemantics(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Icon(Symbols.trending_up_rounded, size: 16, color: high ? RidoColors.coral600 : RidoColors.warningText),
+                Icon(Symbols.trending_up_rounded, size: 16, color: high ? TtColors.coral600 : TtColors.warningText),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
                     tag,
-                    style: t.overline.copyWith(color: high ? RidoColors.coral600 : RidoColors.warningText),
+                    style: t.overline.copyWith(color: high ? TtColors.coral600 : TtColors.warningText),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -48,21 +48,21 @@ class NearestDemandChip extends StatelessWidget {
             ]),
           ),
         ),
-        const SizedBox(width: RidoSpacing.m),
+        const SizedBox(width: TtSpacing.m),
         if (inside)
-          Text("You're here", style: t.caption.copyWith(color: RidoColors.successText))
+          Text("You're here", style: t.caption.copyWith(color: TtColors.successText))
         else
           Material(
-            color: RidoColors.inputBg,
-            borderRadius: RidoRadii.cardRadius,
+            color: TtColors.inputBg,
+            borderRadius: TtRadii.cardRadius,
             child: InkWell(
-              borderRadius: RidoRadii.cardRadius,
+              borderRadius: TtRadii.cardRadius,
               onTap: onDirections,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Symbols.turn_right_rounded, color: RidoColors.navy900, size: 22),
-                  Text(formatKm(km), style: t.caption.copyWith(color: RidoColors.navy900)),
+                  const Icon(Symbols.turn_right_rounded, color: TtColors.navy900, size: 22),
+                  Text(formatKm(km), style: t.caption.copyWith(color: TtColors.navy900)),
                 ]),
               ),
             ),

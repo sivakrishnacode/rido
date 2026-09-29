@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// PP-05 Prohibited items: what drivers cannot carry. Content of a bottom sheet.
 class PP05ProhibitedItemsSheet extends StatelessWidget {
@@ -19,7 +19,7 @@ class PP05ProhibitedItemsSheet extends StatelessWidget {
 
   /// Opens the sheet over the current screen.
   static Future<void> show(BuildContext context) =>
-      showRidoSheet<void>(context, builder: (_) => const PP05ProhibitedItemsSheet());
+      showTtSheet<void>(context, builder: (_) => const PP05ProhibitedItemsSheet());
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +30,7 @@ class PP05ProhibitedItemsSheet extends StatelessWidget {
       children: [
         Text('Items we can’t carry', style: t.h1),
         const SizedBox(height: 4),
-        Text('Drivers can refuse a parcel that contains any of these.', style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+        Text('Drivers can refuse a parcel that contains any of these.', style: t.bodySmall.copyWith(color: TtColors.navy700)),
         const SizedBox(height: 12),
         for (final (icon, label) in _items) ...[
           Padding(
@@ -40,8 +40,8 @@ class PP05ProhibitedItemsSheet extends StatelessWidget {
                 Container(
                   width: 40,
                   height: 40,
-                  decoration: const BoxDecoration(color: RidoColors.errorTint, shape: BoxShape.circle),
-                  child: Icon(icon, size: 20, color: RidoColors.error),
+                  decoration: const BoxDecoration(color: TtColors.errorTint, shape: BoxShape.circle),
+                  child: Icon(icon, size: 20, color: TtColors.error),
                 ),
                 const SizedBox(width: 16),
                 Expanded(child: Text(label, style: t.body)),
@@ -51,7 +51,7 @@ class PP05ProhibitedItemsSheet extends StatelessWidget {
           const Divider(),
         ],
         const SizedBox(height: 20),
-        RidoButton(label: 'Got it', onPressed: () => Navigator.of(context).maybePop()),
+        TtButton(label: 'Got it', onPressed: () => Navigator.of(context).maybePop()),
       ],
     );
   }

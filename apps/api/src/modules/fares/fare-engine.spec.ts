@@ -22,7 +22,7 @@ interface WaitingCase {
   };
   readonly expected: { waitPerMin: number; waitingCharge: number; total?: number };
 }
-const FIXTURE = JSON.parse(readFileSync(new URL('../../../../../packages/rido_data/test/fixtures/fare_cases.json', import.meta.url), 'utf8')) as {
+const FIXTURE = JSON.parse(readFileSync(new URL('../../../../../packages/tamiltaxi_data/test/fixtures/fare_cases.json', import.meta.url), 'utf8')) as {
   cases: FareCase[];
   waitingCases: WaitingCase[];
 };

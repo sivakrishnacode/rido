@@ -167,7 +167,7 @@ export class DriverBlocksService implements OnModuleInit {
     ]);
     await this.jobs.cancel(UNBLOCK_JOB, driverId);
     await this.cleared(driverId);
-    void this.notifier.driverAccount({ driverId, kind: 'UNBLOCKED', title: 'You can go online again', body: 'Rido support lifted your pause' });
+    void this.notifier.driverAccount({ driverId, kind: 'UNBLOCKED', title: 'You can go online again', body: 'Tamil Taxi support lifted your pause' });
     return lifted;
   }
 

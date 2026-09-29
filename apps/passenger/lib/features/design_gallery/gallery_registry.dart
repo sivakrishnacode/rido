@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../account/p23_account_screen.dart';
@@ -164,8 +164,8 @@ class DesignSystemScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Scaffold(
-        backgroundColor: RidoColors.background,
-        appBar: RidoAppBar(title: 'Design system', subtitle: 'Rido · live board'),
+        backgroundColor: TtColors.background,
+        appBar: TtAppBar(title: 'Design system', subtitle: 'Tamil Taxi · live board'),
         body: DesignSystemBoard(),
       );
 }
@@ -189,9 +189,9 @@ class _FrameNotFound extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: const RidoAppBar(title: 'Frame not found'),
+        appBar: const TtAppBar(title: 'Frame not found'),
         body: EmptyState(
-          illustration: const RidoIllustration(IllustrationKind.emptyTrips, width: 200, height: 160),
+          illustration: const TtIllustration(IllustrationKind.emptyTrips, width: 200, height: 160),
           title: 'Frame not found',
           message: 'There is no designed frame called "$frameId".',
           actionLabel: 'Back to gallery',

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../common/passenger_shell.dart';
 import '../../../router/routes.dart';
@@ -16,7 +16,7 @@ class ActivityHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: RidoColors.surface,
+        color: TtColors.surface,
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -51,7 +51,7 @@ class ActivityShowcaseNav extends StatelessWidget {
   static const _roots = [Routes.ride, Routes.parcel, Routes.activity, Routes.account];
 
   @override
-  Widget build(BuildContext context) => RidoBottomNav(
+  Widget build(BuildContext context) => TtBottomNav(
         items: PassengerShell.items,
         currentIndex: 2,
         onTap: (i) => context.go(_roots[i]),

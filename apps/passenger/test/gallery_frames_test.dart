@@ -3,8 +3,8 @@
 // at the narrowest and widest supported phone widths.
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_passenger/features/design_gallery/gallery_registry.dart';
-import 'package:rido_passenger/router/routes.dart';
+import 'package:tamiltaxi_passenger/features/design_gallery/gallery_registry.dart';
+import 'package:tamiltaxi_passenger/router/routes.dart';
 
 import 'support/harness.dart';
 

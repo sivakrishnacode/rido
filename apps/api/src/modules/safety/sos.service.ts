@@ -48,7 +48,7 @@ export class SosService {
     const role = trip.passengerId === user.userId ? SafetyParty.PASSENGER : user.driverId && trip.driverId === user.driverId ? SafetyParty.DRIVER : null;
     if (!role) throw new ForbiddenException();
     const end = tripEnd(trip);
-    if (end && Date.now() - end.getTime() > SOS_AFTER_END_MS) throw new BadRequestException('This trip ended a while ago. Call 112 or Rido support');
+    if (end && Date.now() - end.getTime() > SOS_AFTER_END_MS) throw new BadRequestException('This trip ended a while ago. Call 112 or Tamil Taxi support');
 
     const recent = await this.prisma.sos.findFirst({
       where: { tripId, userId: user.userId, status: { in: [SosStatus.OPEN, SosStatus.ACKNOWLEDGED] }, createdAt: { gte: new Date(Date.now() - SOS_DEDUPE_MS) } },
@@ -149,7 +149,7 @@ export class SosService {
     return { items, total, page, pageSize, open };
   }
 
-  /** Someone at Rido is on it. Only an OPEN SOS can be acknowledged (409 otherwise). */
+  /** Someone at Tamil Taxi is on it. Only an OPEN SOS can be acknowledged (409 otherwise). */
   async acknowledge(id: string, adminId: string): Promise<Sos> {
     const { count } = await this.prisma.sos.updateMany({
       where: { id, status: SosStatus.OPEN },

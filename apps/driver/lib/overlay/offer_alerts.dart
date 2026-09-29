@@ -24,14 +24,14 @@ abstract final class OfferAlerts {
     playSound: true,
     enableVibration: true,
   );
-  static const _native = MethodChannel('rido/driver_app');
+  static const _native = MethodChannel('tamiltaxi/driver_app');
   static final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
   static bool _ready = false;
 
 
   static String tagFor(String tripId) => 'trip-$tripId';
 
-  /// Initialises the plugin in this isolate unless RidoPush already did (it owns the tap callback there).
+  /// Initialises the plugin in this isolate unless TtPush already did (it owns the tap callback there).
   static Future<void> ensureReady({bool initialise = true}) async {
     if (_ready) return;
     _ready = true;
@@ -131,7 +131,7 @@ Future<void> driverBackgroundPush(RemoteMessage message) async {
   await OfferAlerts.showOfferNotification(
     tripId: tripId,
     title: message.notification?.title ?? 'New ride request',
-    body: message.notification?.body ?? 'Open Rido Driver to accept',
+    body: message.notification?.body ?? 'Open Tamil Taxi Driver to accept',
     timeout: Duration(milliseconds: message.ttl != null && message.ttl! > 0 ? message.ttl! * 1000 : 20000),
   );
 }

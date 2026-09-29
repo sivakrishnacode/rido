@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// The label of the "Passenger didn't come" button: a countdown until [noShowAt], then the action.
 /// Null [noShowAt] (not known yet) shows the countdown text without a time.
@@ -51,7 +51,7 @@ class _NoShowButtonState extends State<NoShowButton> {
     final now = DateTime.now();
     final at = widget.noShowAt;
     final isOpen = at != null && !at.isAfter(now);
-    return RidoButton.text(
+    return TtButton.text(
       label: noShowLabel(at, now),
       onPressed: widget.enabled && isOpen ? widget.onCancel : null,
     );

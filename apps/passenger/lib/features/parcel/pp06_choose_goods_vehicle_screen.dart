@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
@@ -33,14 +33,14 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
     final error = await ref.read(parcelFlowProvider.notifier).book();
     if (!mounted) return;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
       return;
     }
     context.go(Routes.parcelFinding);
   }
 
   void _showFare(BuildContext context, FareQuote q) {
-    showRidoSheet<void>(
+    showTtSheet<void>(
       context,
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
@@ -48,10 +48,10 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
         children: [
           FareBreakdown.fromQuote(q, title: 'Fare breakdown', subtitle: '${q.vehicle.name} · ${formatKm(q.distanceKm)}'),
           const SizedBox(height: 8),
-          Text('Pay the driver directly by cash or UPI. Rido takes no commission.',
-              style: ctx.type.caption.copyWith(color: RidoColors.navy500)),
+          Text('Pay the driver directly by cash or UPI. Tamil Taxi takes no commission.',
+              style: ctx.type.caption.copyWith(color: TtColors.navy500)),
           const SizedBox(height: 16),
-          RidoButton(label: 'Got it', onPressed: () => Navigator.of(ctx).pop()),
+          TtButton(label: 'Got it', onPressed: () => Navigator.of(ctx).pop()),
         ],
       ),
     );
@@ -72,11 +72,11 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
     final insets = sheetMapInsets(EdgeInsets.fromLTRB(56, top + 96, 56, height * 0.64 + 24), height * 0.64);
 
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: Stack(
         children: [
           Positioned.fill(
-            child: RidoMap(
+            child: TtMap(
               pickup: s.pickup.location,
               drop: s.drop.location,
               route: s.routeOrDefault,
@@ -129,7 +129,7 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                                   textAlign: TextAlign.right,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: t.caption.copyWith(color: RidoColors.navy700),
+                                  style: t.caption.copyWith(color: TtColors.navy700),
                                 ),
                               ),
                             ],
@@ -154,7 +154,7 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                           const SizedBox(height: 6),
                           Text('Who pays the driver?', style: t.bodyMedium),
                           const SizedBox(height: 10),
-                          RidoSegmented<ParcelPayer>(
+                          TtSegmented<ParcelPayer>(
                             options: ParcelPayer.values,
                             labelOf: (p) => p == ParcelPayer.sender ? 'Sender (me)' : 'Receiver',
                             selected: s.details.payer,
@@ -163,16 +163,16 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              const Icon(Symbols.back_hand_rounded, size: 20, color: RidoColors.navy700),
+                              const Icon(Symbols.back_hand_rounded, size: 20, color: TtColors.navy700),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text('Loading and unloading is done by the sender and receiver.',
-                                    style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+                                    style: t.bodySmall.copyWith(color: TtColors.navy700)),
                               ),
                               TextButton(
                                 onPressed: quotesReady ? () => _showFare(context, quote) : null,
                                 style: TextButton.styleFrom(
-                                  foregroundColor: RidoColors.coral600,
+                                  foregroundColor: TtColors.coral600,
                                   minimumSize: const Size(48, 48),
                                   padding: const EdgeInsets.symmetric(horizontal: 8),
                                   textStyle: t.bodyMedium.copyWith(fontWeight: FontWeight.w600),
@@ -183,8 +183,8 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Rido connects you with drivers and is not liable for lost or damaged goods.',
-                            style: t.caption.copyWith(color: RidoColors.navy500),
+                            'Tamil Taxi connects you with drivers and is not liable for lost or damaged goods.',
+                            style: t.caption.copyWith(color: TtColors.navy500),
                           ),
                         ],
                       ),
@@ -192,7 +192,7 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: RidoButton(
+                    child: TtButton(
                       label: quotesReady ? 'Book ${quote.vehicle.name} · ${formatInr(quote.total)}' : 'Book',
                       loading: s.busy,
                       onPressed: canBook ? _book : null,
@@ -215,13 +215,13 @@ class _RouteChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: const BoxDecoration(color: RidoColors.surface, borderRadius: RidoRadii.pillRadius, boxShadow: RidoShadows.soft),
+        decoration: const BoxDecoration(color: TtColors.surface, borderRadius: TtRadii.pillRadius, boxShadow: TtShadows.soft),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Symbols.route_rounded, size: 18, color: RidoColors.coral600),
+            const Icon(Symbols.route_rounded, size: 18, color: TtColors.coral600),
             const SizedBox(width: 6),
-            Text(label, style: RidoTextStyles.tabular(context.type.bodySmallMedium.copyWith(color: RidoColors.navy900))),
+            Text(label, style: TtTextStyles.tabular(context.type.bodySmallMedium.copyWith(color: TtColors.navy900))),
           ],
         ),
       );
@@ -246,9 +246,9 @@ class _QuotesPending extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         children: [
-          Text(message, style: context.type.body.copyWith(color: RidoColors.navy700), textAlign: TextAlign.center),
+          Text(message, style: context.type.body.copyWith(color: TtColors.navy700), textAlign: TextAlign.center),
           const SizedBox(height: 8),
-          RidoButton.text(label: 'Try again', onPressed: onRetry),
+          TtButton.text(label: 'Try again', onPressed: onRetry),
         ],
       ),
     );

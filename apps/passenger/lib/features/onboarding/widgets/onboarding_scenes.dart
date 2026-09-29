@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// The three flat onboarding scenes (P-02a/b/c), drawn with shapes, icons and a painter.
 class OnboardingScene extends StatelessWidget {
@@ -11,9 +11,9 @@ class OnboardingScene extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(RidoSpacing.xl),
+      borderRadius: BorderRadius.circular(TtSpacing.xl),
       child: ColoredBox(
-        color: RidoColors.coral50,
+        color: TtColors.coral50,
         child: LayoutBuilder(
           builder: (context, c) => switch (index) {
             0 => _CityBikeScene(size: c.biggest),
@@ -35,7 +35,7 @@ class _Road extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
     height: height,
     child: ColoredBox(
-      color: RidoColors.navy900,
+      color: TtColors.navy900,
       child: CustomPaint(painter: _DashPainter(), size: Size.infinite),
     ),
   );
@@ -45,7 +45,7 @@ class _DashPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
-      ..color = RidoColors.navy500
+      ..color = TtColors.navy500
       ..strokeWidth = 4;
     final y = size.height * 0.52;
     for (double x = 0; x < size.width; x += 32) {
@@ -74,8 +74,8 @@ class _CityBikeScene extends StatelessWidget {
         width: w * width,
         height: h * height,
         decoration: const BoxDecoration(
-          color: RidoColors.coral100,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(RidoSpacing.m)),
+          color: TtColors.coral100,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(TtSpacing.m)),
         ),
       ),
     );
@@ -88,7 +88,7 @@ class _CityBikeScene extends StatelessWidget {
           child: Container(
             width: w * 0.16,
             height: w * 0.16,
-            decoration: BoxDecoration(color: RidoColors.coral500.withValues(alpha: 0.88), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: TtColors.coral500.withValues(alpha: 0.88), shape: BoxShape.circle),
           ),
         ),
         building(0.07, 0.12, 0.3),
@@ -100,7 +100,7 @@ class _CityBikeScene extends StatelessWidget {
         Positioned(
           left: w * 0.5 - bike * 0.62,
           top: ground - bike * 0.78,
-          child: Icon(Symbols.two_wheeler_rounded, fill: 1, size: bike * 1.24, color: RidoColors.coral500),
+          child: Icon(Symbols.two_wheeler_rounded, fill: 1, size: bike * 1.24, color: TtColors.coral500),
         ),
       ],
     );
@@ -124,27 +124,27 @@ class _DriverScene extends StatelessWidget {
         Container(
           width: orb,
           height: orb,
-          decoration: const BoxDecoration(color: RidoColors.coral100, shape: BoxShape.circle),
+          decoration: const BoxDecoration(color: TtColors.coral100, shape: BoxShape.circle),
         ),
         CustomPaint(size: Size.square(face), painter: _FacePainter()),
         Positioned(
           right: w * 0.1,
           top: h * 0.13,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.s),
+            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.s),
             decoration: const BoxDecoration(
-              color: RidoColors.surface,
-              borderRadius: RidoRadii.pillRadius,
-              boxShadow: RidoShadows.soft,
+              color: TtColors.surface,
+              borderRadius: TtRadii.pillRadius,
+              boxShadow: TtShadows.soft,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Symbols.payments_rounded, color: RidoColors.success, size: 26),
-                const SizedBox(width: RidoSpacing.s),
+                const Icon(Symbols.payments_rounded, color: TtColors.success, size: 26),
+                const SizedBox(width: TtSpacing.s),
                 Text(
                   '100%',
-                  style: RidoTextStyles.tabular(t.h1.copyWith(color: RidoColors.success, fontWeight: FontWeight.w700)),
+                  style: TtTextStyles.tabular(t.h1.copyWith(color: TtColors.success, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -154,14 +154,14 @@ class _DriverScene extends StatelessWidget {
           left: w * 0.1,
           bottom: h * 0.13,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.s),
-            decoration: const BoxDecoration(color: RidoColors.coral500, borderRadius: RidoRadii.pillRadius),
+            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.s),
+            decoration: const BoxDecoration(color: TtColors.coral500, borderRadius: TtRadii.pillRadius),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Symbols.electric_rickshaw_rounded, color: RidoColors.surface, size: 20),
-                const SizedBox(width: RidoSpacing.s),
-                Text('Murugan · Auto', style: t.bodySemibold.copyWith(color: RidoColors.surface)),
+                const Icon(Symbols.electric_rickshaw_rounded, color: TtColors.surface, size: 20),
+                const SizedBox(width: TtSpacing.s),
+                Text('Murugan · Auto', style: t.bodySemibold.copyWith(color: TtColors.surface)),
               ],
             ),
           ),
@@ -177,9 +177,9 @@ class _FacePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final r = size.width / 2;
     final c = size.center(Offset.zero);
-    canvas.drawCircle(c, r, Paint()..color = RidoColors.navy900);
+    canvas.drawCircle(c, r, Paint()..color = TtColors.navy900);
     final eye = Paint()
-      ..color = RidoColors.coral100
+      ..color = TtColors.coral100
       ..style = PaintingStyle.stroke
       ..strokeWidth = r * 0.1
       ..strokeCap = StrokeCap.round
@@ -200,7 +200,7 @@ class _FacePainter extends CustomPainter {
       ..lineTo(c.dx + r * 0.46, c.dy + r * 0.2)
       ..arcToPoint(Offset(c.dx - r * 0.46, c.dy + r * 0.2), radius: Radius.circular(r * 0.5))
       ..close();
-    canvas.drawPath(smile, Paint()..color = RidoColors.coral100);
+    canvas.drawPath(smile, Paint()..color = TtColors.coral100);
   }
 
   @override
@@ -229,23 +229,23 @@ class _ParcelScene extends StatelessWidget {
             width: box,
             height: box,
             decoration: BoxDecoration(
-              color: RidoColors.surface,
-              borderRadius: BorderRadius.circular(RidoSpacing.xl),
-              boxShadow: RidoShadows.soft,
+              color: TtColors.surface,
+              borderRadius: BorderRadius.circular(TtSpacing.xl),
+              boxShadow: TtShadows.soft,
             ),
-            child: Icon(Symbols.package_2_rounded, size: box * 0.5, color: RidoColors.navy900),
+            child: Icon(Symbols.package_2_rounded, size: box * 0.5, color: TtColors.navy900),
           ),
         ),
         Positioned(left: 0, right: 0, bottom: 0, child: _Road(height: roadH)),
         Positioned(
           left: w * 0.04,
           top: ground - bike * 0.74,
-          child: Icon(Symbols.two_wheeler_rounded, fill: 1, size: bike * 1.2, color: RidoColors.coral500),
+          child: Icon(Symbols.two_wheeler_rounded, fill: 1, size: bike * 1.2, color: TtColors.coral500),
         ),
         Positioned(
           right: w * 0.02,
           top: ground - truck * 0.72,
-          child: Icon(Symbols.local_shipping_rounded, fill: 1, size: truck, color: RidoColors.coral500),
+          child: Icon(Symbols.local_shipping_rounded, fill: 1, size: truck, color: TtColors.coral500),
         ),
       ],
     );

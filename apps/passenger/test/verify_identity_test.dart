@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/features/account/verify_identity_screen.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/account/verify_identity_screen.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 
@@ -20,7 +20,7 @@ void main() {
           return (IdentitySdkOutcome.completed, null);
         }),
       ],
-      child: MaterialApp(theme: RidoTheme.light(), home: const VerifyIdentityScreen()),
+      child: MaterialApp(theme: TtTheme.light(), home: const VerifyIdentityScreen()),
     ));
     await tester.pumpAndSettle();
     expect(find.text('Get a Verified badge'), findsOneWidget);
@@ -42,7 +42,7 @@ void main() {
     container.read(demoSettingsProvider.notifier).update((s) => s.copyWith(rejectKyc: true));
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(theme: RidoTheme.light(), home: const VerifyIdentityScreen()),
+      child: MaterialApp(theme: TtTheme.light(), home: const VerifyIdentityScreen()),
     ));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Verify now'));

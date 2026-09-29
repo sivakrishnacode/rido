@@ -1,13 +1,13 @@
-# Rido
+# Tamil Taxi
 
 **Open-source ride-hailing and parcel delivery: 0% commission and no subscription for drivers.**
 
-Rido is a full ride-hailing platform built for Coimbatore, India. It has a rider app, a driver app, a backend and an
+Tamil Taxi is a full ride-hailing platform built for Coimbatore, India. It has a rider app, a driver app, a backend and an
 admin panel. Drivers keep the whole fare. There is no commission and no fee, and the running costs are paid by the
 project, with optional UPI contributions from riders and drivers. The code is open so that anyone can check it,
 improve it, or run it in their own city.
 
-[![CI](https://github.com/sivakrishnacode/rido/actions/workflows/ci.yml/badge.svg)](https://github.com/sivakrishnacode/rido/actions/workflows/ci.yml)
+[![CI](https://github.com/sivakrishnacode/tamiltaxi/actions/workflows/ci.yml/badge.svg)](https://github.com/sivakrishnacode/tamiltaxi/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -68,7 +68,7 @@ You need **Node 24**, **Docker** and, for the apps, **Flutter stable** with an A
 ### 1. Backend and admin (Docker)
 
 ```bash
-git clone https://github.com/sivakrishnacode/rido.git && cd rido
+git clone https://github.com/sivakrishnacode/tamiltaxi.git && cd tamiltaxi
 cp .env.example .env
 docker compose up -d                 # Postgres, Redis, API on :3000, admin on :3001
 curl localhost:3000/health/ready
@@ -82,10 +82,10 @@ Open http://localhost:3001 and sign in with phone **9000000001** and OTP **12345
 npm install && npm run get           # JS deps, flutter pub get everywhere, prisma generate
 
 # Against your local API (the Android emulator reaches your PC at 10.0.2.2)
-cd apps/passenger && sh ../../scripts/flutter.sh run --dart-define=RIDO_API_URL=http://10.0.2.2:3000/v1
+cd apps/passenger && sh ../../scripts/flutter.sh run --dart-define=TT_API_URL=http://10.0.2.2:3000/v1
 
 # Or with no backend at all: seed data and simulated trips
-cd apps/driver && sh ../../scripts/flutter.sh run --dart-define=RIDO_LIVE_API=false
+cd apps/driver && sh ../../scripts/flutter.sh run --dart-define=TT_LIVE_API=false
 ```
 
 Demo codes:
@@ -96,7 +96,7 @@ Demo codes:
 | Ride OTP | `4829` |
 | Delivery OTP | `7153` |
 
-`npm run seed:test-drivers -w @rido/api` adds 11 approved drivers to sign in as. Run it after
+`npm run seed:test-drivers -w @tamiltaxi/api` adds 11 approved drivers to sign in as. Run it after
 `cp apps/api/.env.example apps/api/.env`, so the seeder can reach the Docker Postgres.
 
 In both apps, **Account › Design gallery** opens any screen on its own. Its **Demo controls** force states such as
@@ -109,13 +109,13 @@ Maps work without any keys: CARTO tiles, seeded places and straight-line distanc
 
 ```
 apps/
-  api/          NestJS 12 + Prisma 7 + Redis + Socket.IO          @rido/api
-  admin/        Next.js 16 admin panel, port 3001                 @rido/admin
-  passenger/    Flutter rider app "Rido" (com.rido.passenger)     @rido/passenger
-  driver/       Flutter driver app "Rido Driver" (com.rido.driver)@rido/driver
+  api/          NestJS 12 + Prisma 7 + Redis + Socket.IO          @tamiltaxi/api
+  admin/        Next.js 16 admin panel, port 3001                 @tamiltaxi/admin
+  passenger/    Flutter rider app "Tamil Taxi" (com.tamiltaxi.passenger)     @tamiltaxi/passenger
+  driver/       Flutter driver app "Tamil Taxi Driver" (com.tamiltaxi.driver)@tamiltaxi/driver
 packages/
-  rido_ui/      design system: theme, widgets, map, illustrations @rido/ui
-  rido_data/    models, fare engine, API client, mock repos, simulator  @rido/data
+  tamiltaxi_ui/      design system: theme, widgets, map, illustrations @tamiltaxi/ui
+  tamiltaxi_data/    models, fare engine, API client, mock repos, simulator  @tamiltaxi/data
   flutter_overlay_window/  vendored plugin (MIT) for the driver's floating bubble
 docs/
   tech-docs/using.tech.md  full technical reference
@@ -132,10 +132,10 @@ the Flutter tasks in dependency order and caches them.
 | Command | What it does |
 |---|---|
 | `npm run check` | Analyze and test everything (CI runs this) |
-| `npx turbo run analyze test --filter=@rido/driver` | One package only |
-| `npm run test:e2e -w @rido/api` | Full ride lifecycle against a real Postgres and Redis |
-| `npm run start:dev -w @rido/api` | API with hot reload (databases: `docker compose up -d postgres redis`) |
-| `npm run dev -w @rido/admin` | Admin panel with hot reload |
+| `npx turbo run analyze test --filter=@tamiltaxi/driver` | One package only |
+| `npm run test:e2e -w @tamiltaxi/api` | Full ride lifecycle against a real Postgres and Redis |
+| `npm run start:dev -w @tamiltaxi/api` | API with hot reload (databases: `docker compose up -d postgres redis`) |
+| `npm run dev -w @tamiltaxi/admin` | Admin panel with hot reload |
 | `./scripts/build_apks.sh` | Release APKs → `dist/` |
 
 ## Documentation
@@ -171,6 +171,6 @@ Please report security issues privately (see [SECURITY.md](SECURITY.md)). This p
 
 ## License
 
-[GNU AGPL-3.0](LICENSE). You can use, change and run Rido, including as a service. If you run a modified version
+[GNU AGPL-3.0](LICENSE). You can use, change and run Tamil Taxi, including as a service. If you run a modified version
 for other people, you must publish your changes under the same license. The vendored
 `packages/flutter_overlay_window` is MIT (see its [LICENSE](packages/flutter_overlay_window/LICENSE)).

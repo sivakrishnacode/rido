@@ -27,7 +27,7 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/payment
     <>
       <PageHeader
         title="Payments"
-        description={`${formatCount(data.total)} plan payments from drivers (UPI Autopay). Rido earns from plans only, never from fares.`}
+        description={`${formatCount(data.total)} plan payments from drivers (UPI Autopay). Tamil Taxi earns from plans only, never from fares.`}
         actions={<ExportButton entity="payments" />}
       />
       <ListFilters filters={[{ name: "status", label: "Statuses", options: PAYMENT_STATUSES.map((s) => ({ value: s, label: humanize(s) })) }]} />

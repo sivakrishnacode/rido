@@ -1,4 +1,4 @@
-/** Claims the Rido API puts in its JWT (apps/api/src/core/auth/auth-user.ts). */
+/** Claims the Tamil Taxi API puts in its JWT (apps/api/src/core/auth/auth-user.ts). */
 export interface JwtClaims {
   readonly sub?: string;
   readonly role?: string;

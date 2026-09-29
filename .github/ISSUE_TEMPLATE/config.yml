@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/sivakrishnacode/rido/security/advisories/new
+    url: https://github.com/sivakrishnacode/tamiltaxi/security/advisories/new
     about: Report privately, not in a public issue.

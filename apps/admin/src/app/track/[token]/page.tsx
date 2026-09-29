@@ -7,8 +7,8 @@ import { fetchShare, viewerIp } from "@/lib/track-server";
 import { TrackView } from "./track-view";
 
 export const metadata: Metadata = {
-  title: { absolute: "Live trip · Rido" },
-  description: "Follow a Rido trip live.",
+  title: { absolute: "Live trip · Tamil Taxi" },
+  description: "Follow a Tamil Taxi trip live.",
   robots: { index: false, follow: false },
 };
 
@@ -27,7 +27,7 @@ export default async function TrackPage({ params }: PageProps<"/track/[token]">)
       </header>
       <TrackView token={token} initial={initial} />
       <footer className="pt-2 text-center text-xs text-muted-foreground">
-        Shared by a Rido rider. The location stops 30 minutes after the trip ends. In an emergency call 112.
+        Shared by a Tamil Taxi rider. The location stops 30 minutes after the trip ends. In an emergency call 112.
       </footer>
     </main>
   );

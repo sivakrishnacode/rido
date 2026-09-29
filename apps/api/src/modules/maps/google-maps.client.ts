@@ -145,7 +145,7 @@ export class GoogleMapsClient {
   /**
    * Places Autocomplete (New). Pass the same [sessionToken] until [placeDetails] ends the session.
    * [restriction]: only places inside this rectangle (the service area; `locationRestriction`, not a bias, so
-   * nothing Rido can't serve is suggested). [origin]: the pickup, so each suggestion carries `distanceMeters`.
+   * nothing Tamil Taxi can't serve is suggested). [origin]: the pickup, so each suggestion carries `distanceMeters`.
    * Neither changes the SKU (Autocomplete per session, ended by Place Details).
    */
   async autocomplete(params: { input: string; sessionToken: string; restriction: LatLngBounds; origin?: LatLngLiteral }): Promise<PlaceSuggestion[] | null> {

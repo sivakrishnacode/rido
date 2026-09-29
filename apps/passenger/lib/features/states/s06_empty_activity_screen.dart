@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../activity/widgets/activity_header.dart';
@@ -59,9 +59,9 @@ class S06EmptyActivityView extends StatelessWidget {
                 Text(title, style: t.display, textAlign: TextAlign.center),
                 const SizedBox(height: 10),
                 Text('Your rides and parcels will show here',
-                    style: t.body.copyWith(color: RidoColors.navy700, fontSize: 17), textAlign: TextAlign.center),
+                    style: t.body.copyWith(color: TtColors.navy700, fontSize: 17), textAlign: TextAlign.center),
                 const SizedBox(height: 28),
-                RidoButton(
+                TtButton(
                   label: 'Book a ride',
                   expand: false,
                   onPressed: onBookRide ?? () => context.go(Routes.ride),
@@ -91,17 +91,17 @@ class _EmptyListCard extends StatelessWidget {
               height: 120,
               padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
               decoration: BoxDecoration(
-                color: RidoColors.surface,
-                borderRadius: RidoRadii.cardRadius,
-                boxShadow: RidoShadows.soft,
+                color: TtColors.surface,
+                borderRadius: TtRadii.cardRadius,
+                boxShadow: TtShadows.soft,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _line(68, RidoColors.coral100),
-                  _line(48, RidoColors.divider),
-                  _line(58, RidoColors.divider),
-                  _line(34, RidoColors.divider),
+                  _line(68, TtColors.coral100),
+                  _line(48, TtColors.divider),
+                  _line(58, TtColors.divider),
+                  _line(34, TtColors.divider),
                 ],
               ),
             ),
@@ -112,9 +112,9 @@ class _EmptyListCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: RidoColors.coral500,
+                  color: TtColors.coral500,
                   shape: BoxShape.circle,
-                  border: Border.all(color: RidoColors.surface, width: 3),
+                  border: Border.all(color: TtColors.surface, width: 3),
                 ),
                 child: const Icon(Symbols.two_wheeler_rounded, fill: 1, color: Colors.white, size: 24),
               ),
@@ -127,6 +127,6 @@ class _EmptyListCard extends StatelessWidget {
         width: w,
         height: 7,
         margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(color: c, borderRadius: RidoRadii.pillRadius),
+        decoration: BoxDecoration(color: c, borderRadius: TtRadii.pillRadius),
       );
 }

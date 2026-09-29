@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// Simple account edit screen: navy app bar, scrolling fields and a pinned Save button.
 class EditFormScaffold extends StatelessWidget {
@@ -20,22 +20,22 @@ class EditFormScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: RidoColors.background,
-        appBar: RidoAppBar.driver(title: title, showBack: true),
+        backgroundColor: TtColors.background,
+        appBar: TtAppBar.driver(title: title, showBack: true),
         body: Column(children: [
           Expanded(
             child: loading
                 ? const Center(child: CircularProgressIndicator())
                 : ListView(
-                    padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.xl, RidoSpacing.gutter, RidoSpacing.l),
+                    padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.xl, TtSpacing.gutter, TtSpacing.l),
                     children: children,
                   ),
           ),
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.s, RidoSpacing.gutter, RidoSpacing.l),
-              child: RidoButton(label: 'Save', loading: saving, onPressed: loading ? null : onSave),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.gutter, TtSpacing.l),
+              child: TtButton(label: 'Save', loading: saving, onPressed: loading ? null : onSave),
             ),
           ),
         ]),

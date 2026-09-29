@@ -113,7 +113,7 @@ export function AppShell({
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
       <aside className="sticky top-0 hidden h-screen flex-col overflow-y-auto border-r bg-sidebar px-4 py-6 lg:flex">
-        <Link href="/" className="mb-6 px-3" aria-label="Rido admin home">
+        <Link href="/" className="mb-6 px-3" aria-label="Tamil Taxi admin home">
           <Wordmark className="text-[28px]" />
           <span className="mt-1 block text-xs font-medium tracking-wide text-muted-foreground uppercase">Admin</span>
         </Link>

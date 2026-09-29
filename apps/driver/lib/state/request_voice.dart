@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Language the request is read out in. The phone's own text-to-speech voice is used (Google TTS ships Tamil).

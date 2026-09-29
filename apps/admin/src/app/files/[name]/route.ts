@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/files/[name]
       cache: "no-store",
     });
   } catch {
-    return NextResponse.json({ message: "Cannot reach the Rido API" }, { status: 503 });
+    return NextResponse.json({ message: "Cannot reach the Tamil Taxi API" }, { status: 503 });
   }
   if (res.status === 401) return NextResponse.redirect(publicUrl(request, "/auth/signout?expired=1"));
   if (!res.ok || !res.body) return NextResponse.json({ message: "File not found" }, { status: res.status });

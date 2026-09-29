@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_driver/features/account/booking_preferences_screen.dart';
-import 'package:rido_driver/state/booking_prefs.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/account/booking_preferences_screen.dart';
+import 'package:tamiltaxi_driver/state/booking_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/harness.dart';

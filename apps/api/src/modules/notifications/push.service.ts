@@ -49,7 +49,7 @@ export class PushService {
       return null;
     }
     try {
-      const app: App = initializeApp({ credential: cert(JSON.parse(json) as object) }, 'rido');
+      const app: App = initializeApp({ credential: cert(JSON.parse(json) as object) }, 'tamiltaxi');
       logger.log('Push enabled (FCM)');
       return getMessaging(app);
     } catch (e) {

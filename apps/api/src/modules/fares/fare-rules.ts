@@ -15,7 +15,7 @@ export interface FareRule {
   readonly capacity: number;
 }
 
-/** Same rates as the apps (packages/rido_data/lib/src/seed.dart). */
+/** Same rates as the apps (packages/tamiltaxi_data/lib/src/seed.dart). */
 export const FARE_RULES: Readonly<Record<VehicleKind, FareRule>> = {
   BIKE: { base: 12, perKm: 5, perMin: 0.15, minFare: 25, waitPerMin: 1, etaMin: 2, isGoods: false, capacity: 1 },
   AUTO: { base: 25, perKm: 9, perMin: 0.3, minFare: 35, waitPerMin: 1, etaMin: 4, isGoods: false, capacity: 3 },

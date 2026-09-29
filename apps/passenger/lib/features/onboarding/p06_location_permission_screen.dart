@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/device_location.dart';
 import '../../router/routes.dart';
@@ -18,7 +18,7 @@ class P06LocationPermissionScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -28,17 +28,17 @@ class P06LocationPermissionScreen extends ConsumerWidget {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: c.maxHeight),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.xl, vertical: RidoSpacing.xl),
+                      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.xl, vertical: TtSpacing.xl),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const _PinIllustration(size: 240),
-                          const SizedBox(height: RidoSpacing.xxl),
+                          const SizedBox(height: TtSpacing.xxl),
                           Text('Allow location access', style: t.display, textAlign: TextAlign.center),
-                          const SizedBox(height: RidoSpacing.m),
+                          const SizedBox(height: TtSpacing.m),
                           Text(
                             'So your driver finds you at the exact spot — even in busy Gandhipuram.',
-                            style: t.body.copyWith(color: RidoColors.navy700),
+                            style: t.body.copyWith(color: TtColors.navy700),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -49,10 +49,10 @@ class P06LocationPermissionScreen extends ConsumerWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.s, RidoSpacing.l, RidoSpacing.l),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.l, TtSpacing.l),
               child: Column(
                 children: [
-                  RidoButton(
+                  TtButton(
                     label: 'Allow',
                     onPressed: () async {
                       // Real Android permission prompt + GPS fix (see lib/common/device_location.dart).
@@ -63,18 +63,18 @@ class P06LocationPermissionScreen extends ConsumerWidget {
                         return;
                       }
                       if (r == LocateResult.outsideArea) {
-                        showRidoSnack(
+                        showTtSnack(
                           context,
                           ref.read(isLiveApiProvider)
-                              ? "Rido isn't in your area yet. Choose a pickup in Coimbatore."
+                              ? "Tamil Taxi isn't in your area yet. Choose a pickup in Coimbatore."
                               : "You're outside Coimbatore, so the demo uses Gandhipuram as pickup.",
                         );
                       }
                       context.go(Routes.ride);
                     },
                   ),
-                  const SizedBox(height: RidoSpacing.s),
-                  RidoButton.text(
+                  const SizedBox(height: TtSpacing.s),
+                  TtButton.text(
                     label: 'Enter location manually',
                     expand: true,
                     onPressed: () => context.go(Routes.ride),
@@ -104,12 +104,12 @@ class _PinIllustration extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Container(
-            decoration: const BoxDecoration(color: RidoColors.coral50, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: TtColors.coral50, shape: BoxShape.circle),
           ),
           Container(
             width: size * 0.7,
             height: size * 0.7,
-            decoration: const BoxDecoration(color: RidoColors.coral100, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: TtColors.coral100, shape: BoxShape.circle),
           ),
           Positioned(
             bottom: size * 0.26,
@@ -117,14 +117,14 @@ class _PinIllustration extends StatelessWidget {
               width: size * 0.3,
               height: size * 0.07,
               decoration: BoxDecoration(
-                color: RidoColors.navy900.withValues(alpha: 0.12),
+                color: TtColors.navy900.withValues(alpha: 0.12),
                 borderRadius: const BorderRadius.all(Radius.elliptical(100, 40)),
               ),
             ),
           ),
           Padding(
             padding: EdgeInsets.only(bottom: size * 0.1),
-            child: Icon(Symbols.location_on_rounded, fill: 1, size: size * 0.42, color: RidoColors.coral500),
+            child: Icon(Symbols.location_on_rounded, fill: 1, size: size * 0.42, color: TtColors.coral500),
           ),
         ],
       ),

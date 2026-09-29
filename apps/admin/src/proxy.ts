@@ -4,8 +4,8 @@ import { isUsableAdminToken } from "@/lib/jwt";
 import { publicUrl } from "@/lib/public-url";
 
 // Keep in sync with src/lib/session.ts (that module is server-only and uses next/headers).
-const TOKEN_COOKIE = "rido_admin_token";
-const USER_COOKIE = "rido_admin_user";
+const TOKEN_COOKIE = "tt_admin_token";
+const USER_COOKIE = "tt_admin_user";
 
 /**
  * Optimistic auth check (Next 16 proxy, formerly middleware): no usable admin cookie → /login.

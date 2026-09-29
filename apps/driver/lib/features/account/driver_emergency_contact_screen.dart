@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/live_helpers.dart';
 import 'account_providers.dart';
@@ -45,7 +45,7 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
     }, onError: (Object e) {
       if (!mounted) return;
       setState(() => _contact = const EmergencyContact(id: '', name: '', relation: '', phone: ''));
-      if (e is Exception) showRidoSnack(context, userMessage(e));
+      if (e is Exception) showTtSnack(context, userMessage(e));
     });
   }
 
@@ -76,12 +76,12 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      showRidoSnack(context, userMessage(e));
+      showTtSnack(context, userMessage(e));
       return;
     }
     ref.invalidate(driverEmergencyContactProvider);
     if (!mounted) return;
-    showRidoSnack(context, 'Emergency contact saved', success: true);
+    showTtSnack(context, 'Emergency contact saved', success: true);
     context.pop();
   }
 
@@ -95,17 +95,17 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
       onSave: _save,
       children: [
         Text('When you press SOS, we send this person your live location.',
-            style: t.body.copyWith(color: RidoColors.navy700)),
-        const SizedBox(height: RidoSpacing.l),
-        RidoTextField(
+            style: t.body.copyWith(color: TtColors.navy700)),
+        const SizedBox(height: TtSpacing.l),
+        TtTextField(
           label: 'Name',
           controller: _name,
           textCapitalization: TextCapitalization.words,
           errorText: _tried && _name.text.trim().isEmpty ? 'Enter a name' : null,
         ),
-        const SizedBox(height: RidoSpacing.l),
-        RidoTextField(label: 'Relation', hint: 'Wife, brother, friend…', controller: _relation),
-        const SizedBox(height: RidoSpacing.l),
+        const SizedBox(height: TtSpacing.l),
+        TtTextField(label: 'Relation', hint: 'Wife, brother, friend…', controller: _relation),
+        const SizedBox(height: TtSpacing.l),
         PhoneInput(controller: _phone, errorText: _tried && !_phoneOk ? 'Enter a 10-digit mobile number' : null),
       ],
     );

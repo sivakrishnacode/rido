@@ -1,4 +1,4 @@
-# Rido credentials template
+# Tamil Taxi credentials template
 
 Never commit this file or paste its contents into tickets, chats or docs. Rotate any key that leaks.
 Git-ignored by `/.gitignore` (`docs/tech-docs/credentials*`). Keep a copy in a password manager.
@@ -26,7 +26,7 @@ Auto-created "Maps Platform API Key": delete it (unused).
 
 | Item | Value | Where |
 |---|---|---|
-| Postgres | user `rido`, password `rido`, db `rido`, host port 5432 | `/.env` |
+| Postgres | user `tamiltaxi`, password `tamiltaxi`, db `tamiltaxi`, host port 5432 | `/.env` |
 | Redis | no password, host port 6380 | `/.env` |
 | JWT_SECRET (dev) | `change-me-to-a-long-random-string-32chars` (Docker), `dev-only-change-me` (local dev) | `/.env`, `apps/api/.env` |
 | OTP | dev mode: `DEV_OTP_CODE` (Docker: `123456`), or any 6 digits except `000000` under `npm run start:dev` | `OTP_DEV_MODE=true` |
@@ -37,7 +37,7 @@ Production: generate a new JWT secret (`openssl rand -hex 32`), set a strong Pos
 
 | Item | Value | Where |
 |---|---|---|
-| CARTO basemaps key | `<key>` | default in `packages/rido_ui/lib/src/widgets/rido_map.dart` (override `--dart-define=CARTO_KEY=`) |
+| CARTO basemaps key | `<key>` | default in `packages/tamiltaxi_ui/lib/src/widgets/tt_map.dart` (override `--dart-define=CARTO_KEY=`) |
 
 The CARTO key is currently in source code as a default; move it to `.dart-defines.json` before the repo becomes public.
 

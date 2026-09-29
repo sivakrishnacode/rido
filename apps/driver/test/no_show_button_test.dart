@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_driver/features/jobs/widgets/no_show_button.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_driver/features/jobs/widgets/no_show_button.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 void main() {
   final now = DateTime(2026, 9, 28, 10);
@@ -13,7 +13,7 @@ void main() {
   });
 
   Future<void> pump(WidgetTester tester, DateTime at, VoidCallback onCancel) => tester.pumpWidget(MaterialApp(
-        theme: RidoTheme.light(),
+        theme: TtTheme.light(),
         home: Scaffold(body: NoShowButton(noShowAt: at, onCancel: onCancel)),
       ));
 

@@ -1,14 +1,14 @@
 // What the passenger sees from Google Maps data: travel time (traffic) vs the fare's minutes on P-10 / P-11.
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/features/ride/p11_fare_details_sheet.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/ride/p11_fare_details_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_passenger/app.dart';
-import 'package:rido_passenger/router/app_router.dart';
-import 'package:rido_passenger/router/routes.dart';
-import 'package:rido_passenger/state/ride_flow.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_passenger/app.dart';
+import 'package:tamiltaxi_passenger/router/app_router.dart';
+import 'package:tamiltaxi_passenger/router/routes.dart';
+import 'package:tamiltaxi_passenger/state/ride_flow.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/harness.dart';
@@ -73,7 +73,7 @@ void main() {
     await _openP10(tester, travelMin: 24);
     expect(find.text('11.4 km · 24 min'), findsOneWidget);
     // Pickup in 3 min + 24 min on the road, not 3 + 38 fare minutes.
-    final drop = formatTime(RidoClock.now().add(const Duration(minutes: 27)));
+    final drop = formatTime(TtClock.now().add(const Duration(minutes: 27)));
     expect(find.text('3 min away · Drop $drop'), findsWidgets);
 
     await tester.tap(find.text('Fare details'));
@@ -121,7 +121,7 @@ Future<void> _openWithPickup(WidgetTester tester, String location) async {
       );
   await tester.pumpWidget(UncontrolledProviderScope(
     container: c,
-    child: RidoPassengerApp(router: createPassengerRouter(initialLocation: location)),
+    child: TtPassengerApp(router: createPassengerRouter(initialLocation: location)),
   ));
   await tester.pump(const Duration(seconds: 1));
 }

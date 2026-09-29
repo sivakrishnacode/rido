@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../common/launch.dart';
 
@@ -43,7 +43,7 @@ class TooFarSheet extends StatefulWidget {
   final LatLng target;
 
   static Future<String?> show(BuildContext context, TooFar info, {required LatLng target}) =>
-      showRidoSheet<String>(context, builder: (_) => TooFarSheet(info: info, target: target));
+      showTtSheet<String>(context, builder: (_) => TooFarSheet(info: info, target: target));
 
   @override
   State<TooFarSheet> createState() => _TooFarSheetState();
@@ -78,18 +78,18 @@ class _TooFarSheetState extends State<TooFarSheet> {
     return SingleChildScrollView(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-        const SizedBox(height: RidoSpacing.s),
-        RidoBanner(
-          type: RidoBannerType.warning,
+        const SizedBox(height: TtSpacing.s),
+        TtBanner(
+          type: TtBannerType.warning,
           icon: Symbols.wrong_location_rounded,
           title: info.message,
           message: _pickup
               ? 'You need to be within ${formatMetres(info.radiusM)} of the pickup. The passenger may be waiting somewhere else.'
               : 'Trips end within ${formatMetres(info.radiusM)} of the drop. Ending early can lead to fare disputes.',
         ),
-        const SizedBox(height: RidoSpacing.l),
+        const SizedBox(height: TtSpacing.l),
         Text(_pickup ? 'Why are you marking arrived here?' : 'Why are you ending here?', style: t.h2),
-        const SizedBox(height: RidoSpacing.s),
+        const SizedBox(height: TtSpacing.s),
         ChoiceChips<String>(
           options: _options,
           labelOf: (r) => r,
@@ -97,8 +97,8 @@ class _TooFarSheetState extends State<TooFarSheet> {
           onChanged: (r) => setState(() => _choice = r),
         ),
         if (_choice == _other) ...[
-          const SizedBox(height: RidoSpacing.m),
-          RidoTextField(
+          const SizedBox(height: TtSpacing.m),
+          TtTextField(
             label: 'Tell us what happened',
             hint: '3 to 200 characters',
             controller: _note,
@@ -107,19 +107,19 @@ class _TooFarSheetState extends State<TooFarSheet> {
             onChanged: (_) => setState(() {}),
           ),
         ],
-        const SizedBox(height: RidoSpacing.xl),
-        RidoButton(
+        const SizedBox(height: TtSpacing.xl),
+        TtButton(
           label: 'Continue anyway',
           onPressed: _reason == null ? null : () => Navigator.of(context).pop(_reason),
         ),
-        const SizedBox(height: RidoSpacing.s),
-        RidoButton.secondary(
+        const SizedBox(height: TtSpacing.s),
+        TtButton.secondary(
           label: _pickup ? 'Navigate to pickup' : 'Navigate to drop',
           icon: Symbols.near_me_rounded,
           onPressed: () => openNavigation(context, widget.target),
         ),
-        const SizedBox(height: RidoSpacing.xs),
-        RidoButton.text(label: 'Cancel', expand: true, onPressed: () => Navigator.of(context).pop()),
+        const SizedBox(height: TtSpacing.xs),
+        TtButton.text(label: 'Cancel', expand: true, onPressed: () => Navigator.of(context).pop()),
       ]),
     );
   }

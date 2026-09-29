@@ -1,4 +1,4 @@
-// End-to-end: needs Postgres + Redis (`docker compose up -d postgres redis` and `npm run prisma:deploy -w @rido/api`).
+// End-to-end: needs Postgres + Redis (`docker compose up -d postgres redis` and `npm run prisma:deploy -w @tamiltaxi/api`).
 import { createHmac } from 'node:crypto';
 
 import type { INestApplication } from '@nestjs/common';
@@ -61,7 +61,7 @@ function signed(body: Record<string, unknown>): { headers: Record<string, string
   return { headers: { 'x-signature-v2': sig, 'x-timestamp': String(Math.floor(Date.now() / 1000)) }, body };
 }
 
-describe('Rido API (e2e)', () => {
+describe('Tamil Taxi API (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let http: ReturnType<typeof request>;
@@ -1082,7 +1082,7 @@ describe('Rido API (e2e)', () => {
   it('serves the public app config: plans off, contribute page without a cost until one is set', async () => {
     const res = await http.get('/v1/app-config').expect(200);
     expect(res.body.driverPlansEnabled).toBe(false);
-    expect(res.body.contribute).toMatchObject({ upiId: '', payeeName: 'Rido', monthlyCost: null });
+    expect(res.body.contribute).toMatchObject({ upiId: '', payeeName: 'Tamil Taxi', monthlyCost: null });
   });
 
   it('starts a free trial and lists daily/weekly/monthly plans', async () => {

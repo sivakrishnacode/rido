@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../features/jobs/widgets/request_stack_view.dart';
 import 'overlay_protocol.dart';
@@ -12,7 +12,7 @@ import 'overlay_protocol.dart';
 /// flutter_overlay_window at `overlayMain`). It only draws and forwards taps; the app (main isolate) makes
 /// every API call and decides what to show ([OverlayMsg]).
 ///
-/// - Bubble: a 64 dp draggable Rido logo that snaps to the nearest edge; tap → open the app.
+/// - Bubble: a 64 dp draggable Tamil Taxi logo that snaps to the nearest edge; tap → open the app.
 /// - Request: the overlay grows to full screen with the request cards (the app's list: fare and ₹/km, pickup →
 ///   drop, the server's countdown, swipe to accept, ✕). The last decline / timeout shrinks it back to the bubble.
 class DriverOverlayApp extends StatefulWidget {
@@ -182,7 +182,7 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
         if (!mounted || _offer == null) return;
         setState(() {
           _accepting = false;
-          _error = "Rido didn't respond. Opening the app…";
+          _error = "Tamil Taxi didn't respond. Opening the app…";
           _errorAt = DateTime.now();
         });
         await FlutterOverlayWindow.openApp();
@@ -215,7 +215,7 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       color: Colors.transparent,
-      theme: RidoTheme.light(),
+      theme: TtTheme.light(),
       home: offer == null
           ? Material(type: MaterialType.transparency, child: _Bubble(onTap: () => _send(OverlayMsg.open)))
           : _StackCard(
@@ -241,13 +241,13 @@ class _Bubble extends StatelessWidget {
           onTap: onTap,
           child: Semantics(
             button: true,
-            label: 'Open Rido Driver',
+            label: 'Open Tamil Taxi Driver',
             child: SizedBox.square(
               dimension: 60,
               child: Stack(children: [
                 Container(
-                  decoration: const BoxDecoration(shape: BoxShape.circle, boxShadow: RidoShadows.soft),
-                  child: ClipOval(child: Image.asset('assets/brand/rido_icon.png', width: 60, height: 60, fit: BoxFit.cover)),
+                  decoration: const BoxDecoration(shape: BoxShape.circle, boxShadow: TtShadows.soft),
+                  child: ClipOval(child: Image.asset('assets/brand/tt_icon.png', width: 60, height: 60, fit: BoxFit.cover)),
                 ),
                 // Online dot.
                 Positioned(
@@ -257,7 +257,7 @@ class _Bubble extends StatelessWidget {
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: RidoColors.success,
+                      color: TtColors.success,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2.5),
                     ),
@@ -303,8 +303,8 @@ class _StackCard extends StatelessWidget {
             icon: const Icon(Icons.open_in_new_rounded, size: 18),
             label: const Text('Open app'),
             style: TextButton.styleFrom(
-              foregroundColor: RidoColors.navy900,
-              backgroundColor: RidoColors.inputBg,
+              foregroundColor: TtColors.navy900,
+              backgroundColor: TtColors.inputBg,
               shape: const StadiumBorder(),
               minimumSize: const Size(48, 44),
             ),
@@ -315,10 +315,10 @@ class _StackCard extends StatelessWidget {
         ),
         if (error != null)
           Positioned(
-            left: RidoSpacing.gutter,
-            right: RidoSpacing.gutter,
+            left: TtSpacing.gutter,
+            right: TtSpacing.gutter,
             bottom: 40,
-            child: RidoBanner(type: RidoBannerType.error, title: error!),
+            child: TtBanner(type: TtBannerType.error, title: error!),
           ),
       ]);
 }

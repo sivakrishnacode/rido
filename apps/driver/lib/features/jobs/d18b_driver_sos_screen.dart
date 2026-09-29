@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../state/driver_account.dart';
@@ -104,7 +104,7 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
   }
 
   Future<void> _call112() async {
-    final ok = await showRidoConfirm(
+    final ok = await showTtConfirm(
       context,
       title: 'Call 112?',
       message: 'This connects you to the national emergency number.',
@@ -117,7 +117,7 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
     if (_api) {
       await dialNumber(context, '112');
     } else {
-      showRidoSnack(context, 'Calling 112');
+      showTtSnack(context, 'Calling 112');
     }
   }
 
@@ -136,8 +136,8 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
     Widget detail(String label, String value) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(children: [
-            Text(label, style: t.body.copyWith(color: RidoColors.navy700)),
-            const SizedBox(width: RidoSpacing.l),
+            Text(label, style: t.body.copyWith(color: TtColors.navy700)),
+            const SizedBox(width: TtSpacing.l),
             Expanded(
               child: Text(value,
                   textAlign: TextAlign.end, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.bodySemibold),
@@ -146,17 +146,17 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
         );
 
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: Column(
         children: [
           AnnotatedRegion<SystemUiOverlayStyle>(
             value: SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent),
             child: Material(
-              color: RidoColors.sos,
+              color: TtColors.sos,
               child: SafeArea(
                 bottom: false,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(RidoSpacing.xs, 0, RidoSpacing.gutter, RidoSpacing.xl),
+                  padding: const EdgeInsets.fromLTRB(TtSpacing.xs, 0, TtSpacing.gutter, TtSpacing.xl),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     IconButton(
                       tooltip: 'Close',
@@ -164,10 +164,10 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
                       icon: const Icon(Symbols.close_rounded, color: Colors.white),
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(left: RidoSpacing.m),
+                      padding: const EdgeInsets.only(left: TtSpacing.m),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text('Emergency help', style: t.display.copyWith(color: Colors.white)),
-                        const SizedBox(height: RidoSpacing.xs),
+                        const SizedBox(height: TtSpacing.xs),
                         Text('Stay calm, ${profile.firstName}. Help is one tap away.',
                             style: t.body.copyWith(color: Colors.white)),
                       ]),
@@ -179,14 +179,14 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.xl, RidoSpacing.gutter, RidoSpacing.l),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.xl, TtSpacing.gutter, TtSpacing.l),
               children: [
                 SizedBox(
                   height: 64,
                   child: FilledButton.icon(
                     onPressed: _call112,
                     style: FilledButton.styleFrom(
-                      backgroundColor: RidoColors.sos,
+                      backgroundColor: TtColors.sos,
                       foregroundColor: Colors.white,
                       textStyle: t.h1,
                     ),
@@ -196,8 +196,8 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
                 ),
                 const SectionLabel('Alert my emergency contact'),
                 Row(children: [
-                  RidoAvatar(initials: contact == null ? '…' : initialsOf(contact.name).substring(0, 1), tone: AvatarTone.navy, size: 44),
-                  const SizedBox(width: RidoSpacing.m),
+                  TtAvatar(initials: contact == null ? '…' : initialsOf(contact.name).substring(0, 1), tone: AvatarTone.navy, size: 44),
+                  const SizedBox(width: TtSpacing.m),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(
@@ -218,82 +218,82 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
                                 contact == null || contact.phone.isEmpty
                                     ? 'Add one in Account › Emergency contact'
                                     : 'Call to tell them where you are',
-                                style: t.bodySmall.copyWith(color: RidoColors.navy500))
+                                style: t.bodySmall.copyWith(color: TtColors.navy500))
                             : _sent
                             ? Row(children: [
-                                const Icon(Symbols.check_circle_rounded, color: RidoColors.success, fill: 1, size: 18),
+                                const Icon(Symbols.check_circle_rounded, color: TtColors.success, fill: 1, size: 18),
                                 const SizedBox(width: 6),
-                                Text('Live location sent', style: t.bodySmallMedium.copyWith(color: RidoColors.successText)),
+                                Text('Live location sent', style: t.bodySmallMedium.copyWith(color: TtColors.successText)),
                               ])
-                            : Text('Sending live location…', style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                            : Text('Sending live location…', style: t.bodySmall.copyWith(color: TtColors.navy500)),
                       ),
                     ]),
                   ),
                   RoundIconButton(
                     icon: Symbols.call_rounded,
                     tooltip: 'Call ${contact?.name ?? 'emergency contact'}',
-                    background: RidoColors.inputBg,
-                    foreground: RidoColors.navy900,
+                    background: TtColors.inputBg,
+                    foreground: TtColors.navy900,
                     size: 48,
                     onPressed: () => _api
                         ? dialNumber(context, contact?.phone ?? '', name: contact?.name)
-                        : showRidoSnack(context, 'Calling ${contact?.name ?? 'your emergency contact'}'),
+                        : showTtSnack(context, 'Calling ${contact?.name ?? 'your emergency contact'}'),
                   ),
                 ]),
-                const SizedBox(height: RidoSpacing.xl),
+                const SizedBox(height: TtSpacing.xl),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
                   child: _api
                       ? (_sosId != null
-                          ? const RidoBanner(
+                          ? const TtBanner(
                               key: ValueKey('sos'),
-                              type: RidoBannerType.success,
+                              type: TtBannerType.success,
                               icon: Symbols.verified_user_rounded,
-                              title: 'Rido safety team has been alerted',
+                              title: 'Tamil Taxi safety team has been alerted',
                               message: 'They can see your trip and location. Call 112 if you are in danger.',
                             )
                           : _ticketId != null
-                          ? RidoBanner(
+                          ? TtBanner(
                               key: const ValueKey('ticket'),
-                              type: RidoBannerType.success,
+                              type: TtBannerType.success,
                               icon: Symbols.verified_user_rounded,
-                              title: 'Rido safety team has been alerted',
+                              title: 'Tamil Taxi safety team has been alerted',
                               message: 'Ticket $_ticketId has your trip and location. Call 112 if you are in danger.',
                             )
                           : _alertFailed
-                              ? const RidoBanner(
+                              ? const TtBanner(
                                   key: ValueKey('failed'),
-                                  type: RidoBannerType.error,
+                                  type: TtBannerType.error,
                                   icon: Symbols.shield_rounded,
-                                  title: "Couldn't reach the Rido safety team",
+                                  title: "Couldn't reach the Tamil Taxi safety team",
                                   message: 'Call 112 if you are in danger.',
                                 )
-                              : const RidoBanner(
+                              : const TtBanner(
                                   key: ValueKey('alerting'),
-                                  type: RidoBannerType.info,
+                                  type: TtBannerType.info,
                                   icon: Symbols.shield_rounded,
-                                  title: 'Alerting Rido safety team…',
+                                  title: 'Alerting Tamil Taxi safety team…',
                                 ))
                       : _teamNotified
-                      ? const RidoBanner(
+                      ? const TtBanner(
                           key: ValueKey('notified'),
-                          type: RidoBannerType.success,
+                          type: TtBannerType.success,
                           icon: Symbols.verified_user_rounded,
-                          title: 'Rido safety team has been notified',
+                          title: 'Tamil Taxi safety team has been notified',
                           message: "They'll call you within 2 minutes.",
                         )
-                      : const RidoBanner(
+                      : const TtBanner(
                           key: ValueKey('notifying'),
-                          type: RidoBannerType.info,
+                          type: TtBannerType.info,
                           icon: Symbols.shield_rounded,
-                          title: 'Notifying Rido safety team…',
+                          title: 'Notifying Tamil Taxi safety team…',
                         ),
                 ),
-                const SizedBox(height: RidoSpacing.l),
-                RidoCard(
+                const SizedBox(height: TtSpacing.l),
+                TtCard(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     Text('TRIP DETAILS SHARED', style: t.overline),
-                    const SizedBox(height: RidoSpacing.s),
+                    const SizedBox(height: TtSpacing.s),
                     detail(job.isDelivery ? 'Receiver' : 'Passenger',
                         '${job.customerName} · ${job.customerRating.toStringAsFixed(1)}★'),
                     detail('Trip', '${job.pickup.name.split(' ').first} → ${job.drop.name.split(' ').first}'),
@@ -307,8 +307,8 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.s, RidoSpacing.gutter, RidoSpacing.l),
-              child: RidoButton.secondary(label: "I'm safe", onPressed: () => popOrHome(context)),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.gutter, TtSpacing.l),
+              child: TtButton.secondary(label: "I'm safe", onPressed: () => popOrHome(context)),
             ),
           ),
         ],

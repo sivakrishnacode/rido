@@ -7,7 +7,7 @@ export function ExportButton({ entity }: { entity: "trips" | "drivers" | "paymen
   return (
     <Button asChild variant="outline">
       {/* A plain <a> so the browser treats the response as a file download. */}
-      <a href={`/export/${entity}`} download={`rido-${entity}.csv`}>
+      <a href={`/export/${entity}`} download={`tamiltaxi-${entity}.csv`}>
         <DownloadIcon /> Export CSV
       </a>
     </Button>

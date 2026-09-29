@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 /// Live API: the demand hotspots and service-area outline for the driver's Home map, refreshed every two minutes
 /// while Home is showing it (the API caches it for a minute, so drivers polling costs almost nothing). Null until

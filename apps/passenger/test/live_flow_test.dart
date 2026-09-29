@@ -5,12 +5,12 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/router/routes.dart';
-import 'package:rido_passenger/state/app_notice.dart';
-import 'package:rido_passenger/state/parcel_flow.dart';
-import 'package:rido_passenger/state/passenger_session.dart';
-import 'package:rido_passenger/state/ride_flow.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/router/routes.dart';
+import 'package:tamiltaxi_passenger/state/app_notice.dart';
+import 'package:tamiltaxi_passenger/state/parcel_flow.dart';
+import 'package:tamiltaxi_passenger/state/passenger_session.dart';
+import 'package:tamiltaxi_passenger/state/ride_flow.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _driver = DriverProfile(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import 'gallery_registry.dart';
@@ -42,12 +42,12 @@ class _GalleryScreensTabState extends State<GalleryScreensTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.m, RidoSpacing.gutter, 0),
+          padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.m, TtSpacing.gutter, 0),
           child: SearchField(
             hint: 'Search by ID or name',
             controller: _controller,
             leadingIcon: Symbols.search_rounded,
-            leadingColor: RidoColors.navy500,
+            leadingColor: TtColors.navy500,
             showMic: false,
             onChanged: (v) => setState(() => _query = v),
           ),
@@ -56,27 +56,27 @@ class _GalleryScreensTabState extends State<GalleryScreensTab> {
           child: filtered.isEmpty
               ? Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(RidoSpacing.xl),
+                    padding: const EdgeInsets.all(TtSpacing.xl),
                     child: Text(
                       'No frames match "$_query"',
-                      style: t.body.copyWith(color: RidoColors.navy500),
+                      style: t.body.copyWith(color: TtColors.navy500),
                       textAlign: TextAlign.center,
                     ),
                   ),
                 )
               : ListView(
-                  padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, 0, RidoSpacing.gutter, RidoSpacing.xxl),
+                  padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, 0, TtSpacing.gutter, TtSpacing.xxl),
                   children: [
                     Padding(
-                      padding: const EdgeInsets.only(top: RidoSpacing.m),
+                      padding: const EdgeInsets.only(top: TtSpacing.m),
                       child: Text(
                         '${filtered.length} of ${galleryEntries.length} frames',
-                        style: t.caption.copyWith(color: RidoColors.navy500),
+                        style: t.caption.copyWith(color: TtColors.navy500),
                       ),
                     ),
                     for (final part in parts.entries) ...[
                       SectionLabel(part.key.toUpperCase()),
-                      RidoListGroup(children: [for (final e in part.value) _FrameRow(entry: e)]),
+                      TtListGroup(children: [for (final e in part.value) _FrameRow(entry: e)]),
                     ],
                   ],
                 ),
@@ -103,41 +103,41 @@ class _FrameRow extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 56),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: RidoSpacing.s),
+            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: TtSpacing.s),
             child: Row(
               children: [
                 Container(
                   constraints: const BoxConstraints(minWidth: 64),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   alignment: Alignment.center,
-                  decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.pillRadius),
+                  decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.pillRadius),
                   child: Text(
                     entry.id,
                     maxLines: 1,
-                    style: RidoTextStyles.tabular(t.caption.copyWith(color: RidoColors.coral600, fontWeight: FontWeight.w600)),
+                    style: TtTextStyles.tabular(t.caption.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w600)),
                   ),
                 ),
-                const SizedBox(width: RidoSpacing.m),
+                const SizedBox(width: TtSpacing.m),
                 Expanded(
                   child: Text(entry.name, style: t.bodySmallMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
                 ),
-                const SizedBox(width: RidoSpacing.s),
+                const SizedBox(width: TtSpacing.s),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: showcaseOnly ? RidoColors.warningTint : RidoColors.successTint,
-                    borderRadius: RidoRadii.pillRadius,
+                    color: showcaseOnly ? TtColors.warningTint : TtColors.successTint,
+                    borderRadius: TtRadii.pillRadius,
                   ),
                   child: Text(
                     entry.tag.label,
                     style: t.caption.copyWith(
-                      color: showcaseOnly ? RidoColors.warningText : RidoColors.successText,
+                      color: showcaseOnly ? TtColors.warningText : TtColors.successText,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                const SizedBox(width: RidoSpacing.xs),
-                const Icon(Symbols.chevron_right_rounded, size: 20, color: RidoColors.navy500),
+                const SizedBox(width: TtSpacing.xs),
+                const Icon(Symbols.chevron_right_rounded, size: 20, color: TtColors.navy500),
               ],
             ),
           ),
@@ -156,7 +156,7 @@ class DemoGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [SectionLabel(title.toUpperCase()), RidoListGroup(children: children)],
+        children: [SectionLabel(title.toUpperCase()), TtListGroup(children: children)],
       );
 }
 
@@ -184,23 +184,23 @@ class DemoSwitchTile extends StatelessWidget {
       child: InkWell(
         onTap: () => onChanged(!value),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: RidoSpacing.s),
+          padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: TtSpacing.s),
           child: Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 22, color: RidoColors.navy700),
-                const SizedBox(width: RidoSpacing.m),
+                Icon(icon, size: 22, color: TtColors.navy700),
+                const SizedBox(width: TtSpacing.m),
               ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: t.bodyMedium),
-                    Text(explanation, style: t.caption.copyWith(color: RidoColors.navy500)),
+                    Text(explanation, style: t.caption.copyWith(color: TtColors.navy500)),
                   ],
                 ),
               ),
-              const SizedBox(width: RidoSpacing.s),
+              const SizedBox(width: TtSpacing.s),
               Switch(value: value, onChanged: onChanged),
             ],
           ),
@@ -223,28 +223,28 @@ class DemoChoiceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     return Padding(
-      padding: const EdgeInsets.all(RidoSpacing.m),
+      padding: const EdgeInsets.all(TtSpacing.m),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 22, color: RidoColors.navy700),
-                const SizedBox(width: RidoSpacing.m),
+                Icon(icon, size: 22, color: TtColors.navy700),
+                const SizedBox(width: TtSpacing.m),
               ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: t.bodyMedium),
-                    Text(explanation, style: t.caption.copyWith(color: RidoColors.navy500)),
+                    Text(explanation, style: t.caption.copyWith(color: TtColors.navy500)),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: RidoSpacing.m),
+          const SizedBox(height: TtSpacing.m),
           child,
         ],
       ),

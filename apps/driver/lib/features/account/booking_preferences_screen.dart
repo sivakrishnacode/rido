@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/booking_prefs.dart';
 import '../../state/driver_session.dart';
@@ -34,7 +34,7 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
     final draft = _draft;
     if (draft == null) return;
     if (draft.minTripKm != null && draft.maxTripKm != null && draft.minTripKm! >= draft.maxTripKm!) {
-      showRidoSnack(context, 'The shortest trip must be less than the longest trip');
+      showTtSnack(context, 'The shortest trip must be less than the longest trip');
       return;
     }
     setState(() => _saving = true);
@@ -43,11 +43,11 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      showRidoSnack(context, userMessage(e));
+      showTtSnack(context, userMessage(e));
       return;
     }
     if (!mounted) return;
-    showRidoSnack(context, draft.hasFilters ? 'Saved. You only get requests that fit' : 'Saved. You get every request',
+    showTtSnack(context, draft.hasFilters ? 'Saved. You only get requests that fit' : 'Saved. You get every request',
         success: true);
     context.pop();
   }
@@ -56,11 +56,11 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
   Future<void> _saveHereAsHome() async {
     final here = ref.read(driverSessionProvider.notifier).position ?? ref.read(driverSessionProvider.notifier).vehicle.value?.position;
     if (here == null) {
-      showRidoSnack(context, 'Waiting for your location. Try again in a moment');
+      showTtSnack(context, 'Waiting for your location. Try again in a moment');
       return;
     }
     await ref.read(savedHomeProvider.notifier).set(here);
-    if (mounted) showRidoSnack(context, 'Home saved', success: true);
+    if (mounted) showTtSnack(context, 'Home saved', success: true);
   }
 
   @override
@@ -83,8 +83,8 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
           ? [Text("Couldn't load your preferences. Check your internet and try again.", style: t.body)]
           : [
               Text('Choose which requests reach you. Fewer filters means more requests.',
-                  style: t.body.copyWith(color: RidoColors.navy700)),
-              const SizedBox(height: RidoSpacing.l),
+                  style: t.body.copyWith(color: TtColors.navy700)),
+              const SizedBox(height: TtSpacing.l),
               _Card(children: [
                 _SwitchRow(
                   icon: Symbols.record_voice_over_rounded,
@@ -94,8 +94,8 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
                   onChanged: (v) => ref.read(requestVoiceProvider.notifier).setEnabled(v),
                 ),
                 if (voice.enabled) ...[
-                  const SizedBox(height: RidoSpacing.m),
-                  RidoSegmented<VoiceLanguage>(
+                  const SizedBox(height: TtSpacing.m),
+                  TtSegmented<VoiceLanguage>(
                     options: VoiceLanguage.values,
                     labelOf: (l) => l.label,
                     selected: voice.language,
@@ -103,7 +103,7 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
                   ),
                 ],
               ]),
-              const SizedBox(height: RidoSpacing.m),
+              const SizedBox(height: TtSpacing.m),
               _Card(children: [
                 _SwitchRow(
                   icon: Symbols.home_pin_rounded,
@@ -120,16 +120,16 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
                 ),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: RidoButton.text(
+                  child: TtButton.text(
                     label: home == null ? 'Save my location as Home' : 'Update Home to my location',
                     onPressed: _saveHereAsHome,
                   ),
                 ),
               ]),
-              const SizedBox(height: RidoSpacing.m),
+              const SizedBox(height: TtSpacing.m),
               _Card(children: [
                 _RowTitle(icon: Symbols.near_me_rounded, title: 'Farthest pickup'),
-                const SizedBox(height: RidoSpacing.s),
+                const SizedBox(height: TtSpacing.s),
                 _Stepper(
                   label: draft.maxPickupKm == null ? 'Any distance' : '${formatKm(draft.maxPickupKm!)} max',
                   steps: kPickupSteps,
@@ -137,17 +137,17 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
                   onChanged: (v) => update(draft.copyWith(maxPickupKm: () => v)),
                 ),
               ]),
-              const SizedBox(height: RidoSpacing.m),
+              const SizedBox(height: TtSpacing.m),
               _Card(children: [
                 _RowTitle(icon: Symbols.route_rounded, title: 'Trip length'),
-                const SizedBox(height: RidoSpacing.s),
+                const SizedBox(height: TtSpacing.s),
                 _LimitRow(
                   label: 'Longer than',
                   value: draft.minTripKm,
                   onChanged: (v) => update(draft.copyWith(minTripKm: () => v)),
                   fallback: 5,
                 ),
-                const Divider(height: RidoSpacing.xl),
+                const Divider(height: TtSpacing.xl),
                 _LimitRow(
                   label: 'Shorter than',
                   value: draft.maxTripKm,
@@ -155,9 +155,9 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
                   fallback: 15,
                 ),
               ]),
-              const SizedBox(height: RidoSpacing.l),
+              const SizedBox(height: TtSpacing.l),
               Text('Pickup distance is a straight line from you. Filters never change the fare.',
-                  style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                  style: t.bodySmall.copyWith(color: TtColors.navy500)),
             ],
     );
   }
@@ -169,11 +169,11 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(RidoSpacing.l),
+        padding: const EdgeInsets.all(TtSpacing.l),
         decoration: BoxDecoration(
-          color: RidoColors.surface,
-          borderRadius: RidoRadii.cardRadius,
-          border: Border.all(color: RidoColors.divider),
+          color: TtColors.surface,
+          borderRadius: TtRadii.cardRadius,
+          border: Border.all(color: TtColors.divider),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
       );
@@ -186,8 +186,8 @@ class _RowTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(children: [
-        Icon(icon, color: RidoColors.coral600, size: 24),
-        const SizedBox(width: RidoSpacing.m),
+        Icon(icon, color: TtColors.coral600, size: 24),
+        const SizedBox(width: TtSpacing.m),
         Expanded(child: Text(title, style: context.type.bodySemibold)),
       ]);
 }
@@ -203,12 +203,12 @@ class _SwitchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MergeSemantics(
         child: Row(children: [
-          Icon(icon, color: RidoColors.coral600, size: 24),
-          const SizedBox(width: RidoSpacing.m),
+          Icon(icon, color: TtColors.coral600, size: 24),
+          const SizedBox(width: TtSpacing.m),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: context.type.bodySemibold),
-              Text(subtitle, style: context.type.bodySmall.copyWith(color: RidoColors.navy500)),
+              Text(subtitle, style: context.type.bodySmall.copyWith(color: TtColors.navy500)),
             ]),
           ),
           Switch(value: value, onChanged: onChanged),

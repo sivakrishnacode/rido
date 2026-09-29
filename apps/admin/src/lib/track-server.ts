@@ -23,7 +23,7 @@ export async function fetchShare(token: string, forwardedFor: string | null): Pr
     }
     return shareResult(res.status, body);
   } catch {
-    return { kind: "error", message: "Couldn't reach Rido. Retrying…" };
+    return { kind: "error", message: "Couldn't reach Tamil Taxi. Retrying…" };
   }
 }
 

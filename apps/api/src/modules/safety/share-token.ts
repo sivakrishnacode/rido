@@ -17,7 +17,7 @@ export interface ShareClaims {
 
 /** The signing key, derived from the API's JWT secret so a share token can never pass as a JWT (or the other way). */
 function key(secret: string): Buffer {
-  return createHmac('sha256', secret).update('rido:trip-share:v1').digest();
+  return createHmac('sha256', secret).update('tamiltaxi:trip-share:v1').digest();
 }
 
 function sign(body: string, secret: string): string {

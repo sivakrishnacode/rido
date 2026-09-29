@@ -1,7 +1,7 @@
 {
-  "name": "@rido/api",
+  "name": "@tamiltaxi/api",
   "version": "0.1.0",
-  "description": "Rido backend: NestJS + Prisma (Postgres) + Redis",
+  "description": "Tamil Taxi backend: NestJS + Prisma (Postgres) + Redis",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

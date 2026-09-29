@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import 'driver_session.dart';
 
@@ -100,7 +100,7 @@ RideRequest rideRequestFromUpdate(LiveTripUpdate update, {RideRequest? offer}) {
     pickupEtaMin: offer?.pickupEtaMin ?? 0,
     tripKm: trip.distanceKm > 0 ? trip.distanceKm : (offer?.tripKm ?? 0),
     tripMin: trip.durationMin > 0 ? trip.durationMin : (offer?.tripMin ?? 0),
-    customerName: name ?? offer?.customerName ?? 'Rido customer',
+    customerName: name ?? offer?.customerName ?? 'Tamil Taxi customer',
     customerRating: offer?.customerRating ?? 4.8,
     customerPhone: phone ?? offer?.customerPhone ?? '',
     isWomenOnly: update.json['womenDriver'] == 'ONLY' || (offer?.isWomenOnly ?? false),

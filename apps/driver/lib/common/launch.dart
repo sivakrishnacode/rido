@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Opens the phone dialer with [phone] (a customer, the emergency contact or 112).
@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 Future<void> dialNumber(BuildContext context, String phone, {String? name}) async {
   final number = phone.replaceAll(RegExp(r'[^\d+]'), '');
   if (number.isEmpty) {
-    showRidoSnack(context, name == null ? 'No phone number' : 'No phone number for $name');
+    showTtSnack(context, name == null ? 'No phone number' : 'No phone number for $name');
     return;
   }
   var opened = false;
@@ -17,7 +17,7 @@ Future<void> dialNumber(BuildContext context, String phone, {String? name}) asyn
   } catch (_) {
     opened = false;
   }
-  if (!opened && context.mounted) showRidoSnack(context, 'Could not open the dialer. Call $number');
+  if (!opened && context.mounted) showTtSnack(context, 'Could not open the dialer. Call $number');
 }
 
 /// Turn-by-turn navigation to [to] in Google Maps (or the browser). The app itself never calls a
@@ -34,7 +34,7 @@ Future<void> openNavigation(BuildContext context, LatLng to) async {
   } catch (_) {
     opened = false;
   }
-  if (!opened && context.mounted) showRidoSnack(context, 'Could not open Google Maps');
+  if (!opened && context.mounted) showTtSnack(context, 'Could not open Google Maps');
 }
 
 /// Opens a `upi://pay` link in the phone's UPI app (GPay, PhonePe, Paytm, BHIM…).
@@ -45,5 +45,5 @@ Future<void> openUpi(BuildContext context, Uri uri) async {
   } catch (_) {
     opened = false;
   }
-  if (!opened && context.mounted) showRidoSnack(context, 'No UPI app found. Scan the QR code from another phone');
+  if (!opened && context.mounted) showTtSnack(context, 'No UPI app found. Scan the QR code from another phone');
 }

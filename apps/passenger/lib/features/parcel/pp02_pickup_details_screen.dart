@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
@@ -77,7 +77,7 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
     final t = context.type;
     final pickup = ref.watch(parcelFlowProvider.select((s) => s.pickup));
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       appBar: const ParcelStepAppBar(title: 'Pickup details', step: 1),
       body: Column(
         children: [
@@ -89,7 +89,7 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
                 children: [
                   ParcelLocationCard(place: pickup, isPickup: true, onChange: _changePlace),
                   const SizedBox(height: 20),
-                  RidoTextField(
+                  TtTextField(
                     label: 'Sender name',
                     controller: _name,
                     errorText: _nameError,
@@ -109,7 +109,7 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
                     },
                   ),
                   const SizedBox(height: 16),
-                  RidoTextField(
+                  TtTextField(
                     label: 'Building / floor / landmark',
                     hint: 'Flat, floor, building, nearby landmark',
                     controller: _note,
@@ -117,7 +117,7 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
                     textCapitalization: TextCapitalization.sentences,
                   ),
                   const SizedBox(height: 6),
-                  Text('Helps the driver find you faster', style: t.caption.copyWith(color: RidoColors.navy500)),
+                  Text('Helps the driver find you faster', style: t.caption.copyWith(color: TtColors.navy500)),
                 ],
               ),
             ),
@@ -126,7 +126,7 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: RidoButton(label: 'Confirm pickup', onPressed: _confirm),
+              child: TtButton(label: 'Confirm pickup', onPressed: _confirm),
             ),
           ),
         ],

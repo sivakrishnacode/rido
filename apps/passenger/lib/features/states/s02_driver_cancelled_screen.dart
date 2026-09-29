@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/map_insets.dart';
 import '../../common/trip_routes.dart';
@@ -35,10 +35,10 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
     final error = await ref.read(rideFlowProvider.notifier).cancelRide(code: CancelCode.waitTooLong, note: 'After the driver cancelled');
     if (!mounted) return;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
       return;
     }
-    showRidoSnack(context, 'Ride request cancelled');
+    showTtSnack(context, 'Ride request cancelled');
     context.go(Routes.ride);
   }
 
@@ -61,10 +61,10 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
         if (!didPop) context.go(Routes.ride);
       },
       child: TripSheetScaffold(
-        map: (context, h) => RidoMap(
+        map: (context, h) => TtMap(
           pickup: ride.pickup.location,
           pulseAt: ride.pickup.location,
-          pulseColor: RidoColors.success,
+          pulseColor: TtColors.success,
           fitPoints: [offsetPoint(ride.pickup.location, 700, 0), offsetPoint(ride.pickup.location, 700, 180)],
           fitPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).fit,
           mapPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).map,
@@ -78,14 +78,14 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
               child: StateOrb(
                 size: 120,
                 badge: Symbols.sync_rounded,
-                badgeColor: RidoColors.coral500,
+                badgeColor: TtColors.coral500,
                 label: 'Finding another driver',
                 child: Container(
                   width: 78,
                   height: 78,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: RidoColors.surface, width: 3),
+                    border: Border.all(color: TtColors.surface, width: 3),
                   ),
                   child: DriverAvatar(driver: _cancelled, size: 72, tone: AvatarTone.navy),
                 ),
@@ -95,10 +95,10 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
             Text('${_cancelled.firstName} had to cancel', style: t.h1, textAlign: TextAlign.center),
             const SizedBox(height: 6),
             Text("We're finding you another driver",
-                style: t.body.copyWith(color: RidoColors.navy700), textAlign: TextAlign.center),
+                style: t.body.copyWith(color: TtColors.navy700), textAlign: TextAlign.center),
             const SizedBox(height: 20),
             ClipRRect(
-              borderRadius: RidoRadii.pillRadius,
+              borderRadius: TtRadii.pillRadius,
               child: LinearProgressIndicator(
                 minHeight: 6,
                 value: widget.showcase ? 0.02 : null,
@@ -108,14 +108,14 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.cardRadius),
+              decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.cardRadius),
               child: Row(
                 children: [
-                  const Icon(Symbols.check_circle_rounded, fill: 1, color: RidoColors.success),
+                  const Icon(Symbols.check_circle_rounded, fill: 1, color: TtColors.success),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text('No charge to you · Same fare ${formatInr(ride.quote.total)}',
-                        style: t.bodyMedium.copyWith(color: RidoColors.navy700)),
+                        style: t.bodyMedium.copyWith(color: TtColors.navy700)),
                   ),
                 ],
               ),
@@ -123,7 +123,7 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
             const SizedBox(height: 12),
             Center(
               child: TextButton(
-                style: TextButton.styleFrom(foregroundColor: RidoColors.error),
+                style: TextButton.styleFrom(foregroundColor: TtColors.error),
                 onPressed: _cancel,
                 child: const Text('Cancel request'),
               ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
@@ -45,7 +45,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
     final error = await ref.read(rideFlowProvider.notifier).book();
     if (!mounted) return;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
       return;
     }
     context.go(Routes.findingDriver);
@@ -64,7 +64,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
     final route = state.routeOrDefault;
     final womenDriver = flow.womenDriver;
     final fastest = _fastestKind(state.quotes);
-    final now = RidoClock.now();
+    final now = TtClock.now();
     String subtitleOf(FareQuote q) {
       final eta = q.pickupEtaMin;
       if (eta == null) return womenDriver == WomenDriverPref.only ? 'No women drivers nearby right now' : 'No drivers nearby right now';
@@ -73,11 +73,11 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
     }
 
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: LayoutBuilder(
         builder: (context, c) {
           final sheetH = (c.maxHeight * 0.66).clamp(360.0, 580.0).toDouble();
-          final mapH = c.maxHeight - sheetH + RidoSpacing.l;
+          final mapH = c.maxHeight - sheetH + TtSpacing.l;
           return Stack(
             fit: StackFit.expand,
             children: [
@@ -86,14 +86,14 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                 right: 0,
                 top: 0,
                 height: mapH,
-                child: RidoMap(
+                child: TtMap(
                   pickup: state.pickup.location,
                   drop: state.drop.location,
                   route: route,
                   fitPoints: route,
                   fitPadding: const EdgeInsets.fromLTRB(56, 96, 56, 88),
                   // The sheet overlaps the map's bottom edge; keep the Google logo above it.
-                  mapPadding: sheetMapPadding(RidoSpacing.l + 8),
+                  mapPadding: sheetMapPadding(TtSpacing.l + 8),
                 ),
               ),
               Positioned(
@@ -101,7 +101,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                 top: 0,
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, 0, 0),
+                    padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, 0, 0),
                     child: MapCircleButton(
                       icon: Symbols.arrow_back_rounded,
                       tooltip: 'Back',
@@ -116,20 +116,20 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                 top: mapH - 76,
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.s),
+                    padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.s),
                     decoration: const BoxDecoration(
-                      color: RidoColors.surface,
-                      borderRadius: RidoRadii.pillRadius,
-                      boxShadow: RidoShadows.soft,
+                      color: TtColors.surface,
+                      borderRadius: TtRadii.pillRadius,
+                      boxShadow: TtShadows.soft,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Symbols.conversion_path_rounded, size: 20, color: RidoColors.coral600),
-                        const SizedBox(width: RidoSpacing.s),
+                        const Icon(Symbols.conversion_path_rounded, size: 20, color: TtColors.coral600),
+                        const SizedBox(width: TtSpacing.s),
                         Text(
                           quotesReady ? state.estimate.label : 'Getting fares…',
-                          style: RidoTextStyles.tabular(t.bodySemibold),
+                          style: TtTextStyles.tabular(t.bodySemibold),
                         ),
                       ],
                     ),
@@ -143,9 +143,9 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                 height: sheetH,
                 child: DecoratedBox(
                   decoration: const BoxDecoration(
-                    color: RidoColors.surface,
-                    borderRadius: RidoRadii.sheetTop,
-                    boxShadow: RidoShadows.raised,
+                    color: TtColors.surface,
+                    borderRadius: TtRadii.sheetTop,
+                    boxShadow: TtShadows.raised,
                   ),
                   child: SafeArea(
                     top: false,
@@ -154,7 +154,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                         const SheetHandle(),
                         Expanded(
                           child: ListView(
-                            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l),
+                            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l),
                             children: [
                               Row(
                                 children: [
@@ -162,7 +162,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                   TextButton(
                                     onPressed: () => P11FareDetailsSheet.show(context),
                                     style: TextButton.styleFrom(
-                                      foregroundColor: RidoColors.coral600,
+                                      foregroundColor: TtColors.coral600,
                                       minimumSize: const Size(48, 48),
                                     ),
                                     child: Row(
@@ -170,7 +170,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                       children: [
                                         Text(
                                           'Fare details',
-                                          style: t.bodySemibold.copyWith(color: RidoColors.coral600),
+                                          style: t.bodySemibold.copyWith(color: TtColors.coral600),
                                         ),
                                         const Icon(Symbols.chevron_right_rounded, size: 20),
                                       ],
@@ -186,7 +186,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                   if (choice != null) flow.setRider(choice.rider);
                                 },
                               ),
-                              const SizedBox(height: RidoSpacing.s),
+                              const SizedBox(height: TtSpacing.s),
                               if (!quotesReady)
                                 _QuotesPending(error: state.quotesError, onRetry: flow.loadQuotes)
                               else
@@ -205,13 +205,13 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                   selected: q.vehicle.kind == state.vehicle,
                                   onTap: () => flow.selectVehicle(q.vehicle.kind),
                                 ),
-                                const SizedBox(height: RidoSpacing.s),
+                                const SizedBox(height: TtSpacing.s),
                               ],
-                              const Divider(height: RidoSpacing.l),
+                              const Divider(height: TtSpacing.l),
                               Row(
                                 children: [
-                                  const Icon(Symbols.payments_rounded, color: RidoColors.navy900),
-                                  const SizedBox(width: RidoSpacing.m),
+                                  const Icon(Symbols.payments_rounded, color: TtColors.navy900),
+                                  const SizedBox(width: TtSpacing.m),
                                   Flexible(
                                     child: Text(
                                       'Cash / UPI to driver',
@@ -220,31 +220,31 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  const SizedBox(width: RidoSpacing.s),
+                                  const SizedBox(width: TtSpacing.s),
                                   Flexible(
                                     child: Material(
-                                      color: RidoColors.inputBg,
+                                      color: TtColors.inputBg,
                                       shape: const StadiumBorder(),
                                       clipBehavior: Clip.antiAlias,
                                       child: InkWell(
-                                        onTap: () => showRidoSnack(
+                                        onTap: () => showTtSnack(
                                           context,
-                                          'Pay your driver by cash or UPI when the ride ends. Rido takes 0% of it.',
+                                          'Pay your driver by cash or UPI when the ride ends. Tamil Taxi takes 0% of it.',
                                         ),
                                         child: Container(
                                           constraints: const BoxConstraints(minHeight: 40),
-                                          padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m),
+                                          padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              const Icon(Symbols.info_rounded, size: 18, color: RidoColors.navy700),
+                                              const Icon(Symbols.info_rounded, size: 18, color: TtColors.navy700),
                                               const SizedBox(width: 6),
                                               Flexible(
                                                 child: Text(
                                                   'Pay your driver directly',
                                                   maxLines: 1,
                                                   overflow: TextOverflow.ellipsis,
-                                                  style: t.bodySmall.copyWith(color: RidoColors.navy700),
+                                                  style: t.bodySmall.copyWith(color: TtColors.navy700),
                                                 ),
                                               ),
                                             ],
@@ -256,21 +256,21 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                 ],
                               ),
                               if (flow.canUseButterfly) ...[
-                                const SizedBox(height: RidoSpacing.m),
+                                const SizedBox(height: TtSpacing.m),
                                 ButterflyCard(value: womenDriver, onChanged: flow.setWomenDriver, riderName: state.rider?.firstName),
                               ],
-                              const SizedBox(height: RidoSpacing.s),
+                              const SizedBox(height: TtSpacing.s),
                             ],
                           ),
                         ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(
-                            RidoSpacing.l,
-                            RidoSpacing.s,
-                            RidoSpacing.l,
-                            RidoSpacing.l,
+                            TtSpacing.l,
+                            TtSpacing.s,
+                            TtSpacing.l,
+                            TtSpacing.l,
                           ),
-                          child: RidoButton(
+                          child: TtButton(
                             label: quotesReady ? 'Book ${quote.vehicle.name} · ${formatInr(quote.total)}' : 'Book',
                             loading: state.busy,
                             onPressed: quotesReady && !state.busy ? _book : null,
@@ -313,30 +313,30 @@ class _RiderRow extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Material(
-        color: r == null ? RidoColors.inputBg : RidoColors.coral50,
+        color: r == null ? TtColors.inputBg : TtColors.coral50,
         shape: const StadiumBorder(),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Container(
             constraints: const BoxConstraints(minHeight: 40),
-            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m),
+            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(r == null ? Symbols.person_rounded : Symbols.group_rounded,
-                    size: 18, color: r == null ? RidoColors.navy700 : RidoColors.coral600, fill: 1),
+                    size: 18, color: r == null ? TtColors.navy700 : TtColors.coral600, fill: 1),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     r == null ? 'Riding: Me' : 'Riding: ${r.firstName}',
-                    style: t.bodySmallMedium.copyWith(color: r == null ? RidoColors.navy700 : RidoColors.coral700),
+                    style: t.bodySmallMedium.copyWith(color: r == null ? TtColors.navy700 : TtColors.coral700),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (r?.isWoman ?? false) ...[const SizedBox(width: 4), const ButterflyMark(size: 16)],
-                const Icon(Symbols.expand_more_rounded, size: 18, color: RidoColors.navy500),
+                const Icon(Symbols.expand_more_rounded, size: 18, color: TtColors.navy500),
               ],
             ),
           ),
@@ -361,11 +361,11 @@ class ButterflyCard extends StatelessWidget {
     final on = value.isOn;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.all(RidoSpacing.m),
+      padding: const EdgeInsets.all(TtSpacing.m),
       decoration: BoxDecoration(
-        color: on ? RidoColors.butterfly50 : RidoColors.surface,
-        borderRadius: RidoRadii.cardRadius,
-        border: Border.all(color: on ? RidoColors.butterfly100 : RidoColors.divider, width: on ? 1.5 : 1),
+        color: on ? TtColors.butterfly50 : TtColors.surface,
+        borderRadius: TtRadii.cardRadius,
+        border: Border.all(color: on ? TtColors.butterfly100 : TtColors.divider, width: on ? 1.5 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -376,27 +376,27 @@ class ButterflyCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: on ? RidoColors.surface : RidoColors.butterfly50,
-                  borderRadius: RidoRadii.cardRadius,
+                  color: on ? TtColors.surface : TtColors.butterfly50,
+                  borderRadius: TtRadii.cardRadius,
                 ),
                 alignment: Alignment.center,
                 child: const ButterflyMark(size: 36),
               ),
-              const SizedBox(width: RidoSpacing.m),
+              const SizedBox(width: TtSpacing.m),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Butterfly', style: t.bodySemibold.copyWith(color: RidoColors.butterfly600, fontSize: 17)),
+                    Text('Butterfly', style: t.bodySemibold.copyWith(color: TtColors.butterfly600, fontSize: 17)),
                     Text(riderName != null ? 'For $riderName: a woman driver' : 'For women riders: ride with a woman driver',
-                        style: t.bodySmall.copyWith(color: RidoColors.navy700)),
+                        style: t.bodySmall.copyWith(color: TtColors.navy700)),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: RidoSpacing.m),
-          RidoSegmented<WomenDriverPref>(
+          const SizedBox(height: TtSpacing.m),
+          TtSegmented<WomenDriverPref>(
             options: WomenDriverPref.values,
             selected: value,
             labelOf: (v) => switch (v) {
@@ -407,12 +407,12 @@ class ButterflyCard extends StatelessWidget {
             onChanged: onChanged,
           ),
           if (on) ...[
-            const SizedBox(height: RidoSpacing.s),
+            const SizedBox(height: TtSpacing.s),
             Text(
               value == WomenDriverPref.only
                   ? 'Only women drivers get your request. It can take a little longer to find one.'
                   : 'We ask women drivers first. If none is near, the nearest driver can take it.',
-              style: t.bodySmall.copyWith(color: RidoColors.navy700),
+              style: t.bodySmall.copyWith(color: TtColors.navy700),
             ),
           ],
         ],
@@ -421,7 +421,7 @@ class ButterflyCard extends StatelessWidget {
   }
 }
 
-/// Live API: fares are loading, or failed with [error] (e.g. "Rido isn't in this area yet") and a Retry.
+/// Live API: fares are loading, or failed with [error] (e.g. "Tamil Taxi isn't in this area yet") and a Retry.
 class _QuotesPending extends StatelessWidget {
   const _QuotesPending({required this.error, required this.onRetry});
   final String? error;
@@ -437,19 +437,19 @@ class _QuotesPending extends StatelessWidget {
           children: [
             for (var i = 0; i < 3; i++) ...const [
               SkeletonBox(height: 72),
-              SizedBox(height: RidoSpacing.s),
+              SizedBox(height: TtSpacing.s),
             ],
           ],
         ),
       );
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: RidoSpacing.l),
+      padding: const EdgeInsets.symmetric(vertical: TtSpacing.l),
       child: Column(
         children: [
-          Text(message, style: t.body.copyWith(color: RidoColors.navy700), textAlign: TextAlign.center),
-          const SizedBox(height: RidoSpacing.s),
-          RidoButton.text(label: 'Try again', onPressed: onRetry),
+          Text(message, style: t.body.copyWith(color: TtColors.navy700), textAlign: TextAlign.center),
+          const SizedBox(height: TtSpacing.s),
+          TtButton.text(label: 'Try again', onPressed: onRetry),
         ],
       ),
     );

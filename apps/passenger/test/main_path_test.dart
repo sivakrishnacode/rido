@@ -3,16 +3,16 @@
 // ride starts → arrived → rate → back Home, and the ride is in Activity.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_passenger/features/ride/p13_driver_assigned_screen.dart';
-import 'package:rido_passenger/features/ride/p15_driver_arrived_screen.dart';
-import 'package:rido_passenger/features/ride/p16_ride_in_progress_screen.dart';
-import 'package:rido_passenger/features/ride/p19_ride_completed_screen.dart';
-import 'package:rido_passenger/features/ride/p20_rate_driver_screen.dart';
-import 'package:rido_passenger/router/routes.dart';
-import 'package:rido_passenger/state/passenger_session.dart';
-import 'package:rido_passenger/state/ride_flow.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/ride/p13_driver_assigned_screen.dart';
+import 'package:tamiltaxi_passenger/features/ride/p15_driver_arrived_screen.dart';
+import 'package:tamiltaxi_passenger/features/ride/p16_ride_in_progress_screen.dart';
+import 'package:tamiltaxi_passenger/features/ride/p19_ride_completed_screen.dart';
+import 'package:tamiltaxi_passenger/features/ride/p20_rate_driver_screen.dart';
+import 'package:tamiltaxi_passenger/router/routes.dart';
+import 'package:tamiltaxi_passenger/state/passenger_session.dart';
+import 'package:tamiltaxi_passenger/state/ride_flow.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 

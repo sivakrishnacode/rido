@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// The driver's booking preferences. Live: loaded from and saved to the API (dispatch filters on the server).

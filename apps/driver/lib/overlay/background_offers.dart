@@ -4,14 +4,14 @@ import 'dart:ui';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import '../state/driver_session.dart';
 import '../state/live_helpers.dart';
 import 'offer_alerts.dart';
 import 'overlay_protocol.dart';
 
-/// Live API, app in the background: the floating Rido bubble while online, the full-screen request card
+/// Live API, app in the background: the floating Tamil Taxi bubble while online, the full-screen request card
 /// (overlay) with a ringing notification when an offer arrives, and the full-screen-intent notification when "Display over
 /// other apps" is off. Accept / Decline / timeout from the overlay go through the same session calls as the
 /// in-app card; the overlay isolate never calls the API.
@@ -204,8 +204,8 @@ class BackgroundOffers {
         alignment: OverlayAlignment.topLeft,
         enableDrag: true,
         positionGravity: PositionGravity.auto,
-        overlayTitle: 'Rido bubble is on',
-        overlayContent: 'Tap the bubble to return to Rido',
+        overlayTitle: 'Tamil Taxi bubble is on',
+        overlayContent: 'Tap the bubble to return to Tamil Taxi',
         visibility: NotificationVisibility.visibilitySecret,
       ).timeout(_callTimeout);
     } catch (e) {

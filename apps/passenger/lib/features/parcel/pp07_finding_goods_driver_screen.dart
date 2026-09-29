@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/phone.dart';
 import '../../common/trip_routes.dart';
@@ -47,7 +47,7 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
     final error = await ref.read(parcelFlowProvider.notifier).cancel();
     if (!mounted) return;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
       return;
     }
     context.go(Routes.parcel);
@@ -58,7 +58,7 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
     final error = await ref.read(parcelFlowProvider.notifier).book();
     if (!mounted) return;
     if (error != null) {
-      showRidoSnack(context, error);
+      showTtSnack(context, error);
       return;
     }
     _progress.forward(from: 0);
@@ -82,12 +82,12 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
         if (!didPop) context.go(Routes.parcel);
       },
       child: Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: Stack(
           children: [
             Positioned.fill(
               bottom: height * 0.4,
-              child: RidoMap(
+              child: TtMap(
                 center: s.pickup.location,
                 zoom: 15,
                 pickup: s.pickup.location,
@@ -125,7 +125,7 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Finding a nearby ${s.vehicle.label}…', style: t.h1),
-                  Text('Usually 1–2 minutes', style: t.body.copyWith(color: RidoColors.navy700)),
+                  Text('Usually 1–2 minutes', style: t.body.copyWith(color: TtColors.navy700)),
                 ],
               ),
             ),
@@ -135,12 +135,12 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
         AnimatedBuilder(
           animation: _progress,
           builder: (context, _) => ClipRRect(
-            borderRadius: RidoRadii.pillRadius,
+            borderRadius: TtRadii.pillRadius,
             child: LinearProgressIndicator(
               value: 0.08 + 0.9 * _progress.value,
               minHeight: 6,
-              color: RidoColors.coral500,
-              backgroundColor: RidoColors.coral50,
+              color: TtColors.coral500,
+              backgroundColor: TtColors.coral50,
             ),
           ),
         ),
@@ -154,9 +154,9 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
         ),
         const SizedBox(height: 16),
         Center(
-          child: RidoButton(
+          child: TtButton(
             label: 'Cancel',
-            variant: RidoButtonVariant.dangerText,
+            variant: TtButtonVariant.dangerText,
             expand: false,
             onPressed: _cancel,
           ),
@@ -177,7 +177,7 @@ class _SummaryCard extends StatelessWidget {
     final sender = d.senderName.split(' ').first;
     final pickupSub = d.pickupNote.isEmpty ? sender : '$sender · ${d.pickupNote}';
     final dropSub = '${d.receiverName} · ${displayPhone(d.receiverPhone)}';
-    return RidoCard(
+    return TtCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -193,10 +193,10 @@ class _SummaryCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   d.payer == ParcelPayer.sender ? 'You pay · Cash / UPI' : 'Receiver pays · Cash / UPI',
-                  style: t.bodySmall.copyWith(color: RidoColors.navy500),
+                  style: t.bodySmall.copyWith(color: TtColors.navy500),
                 ),
               ),
-              Text(formatInr(state.quote.total), style: RidoTextStyles.tabular(t.h1)),
+              Text(formatInr(state.quote.total), style: TtTextStyles.tabular(t.h1)),
             ],
           ),
         ],
@@ -217,16 +217,16 @@ class _NoDrivers extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const RidoIllustration(IllustrationKind.noDrivers, width: 160, height: 120),
+        const TtIllustration(IllustrationKind.noDrivers, width: 160, height: 120),
         const SizedBox(height: 12),
         Text('No ${state.vehicle.label}s nearby right now', style: t.h1, textAlign: TextAlign.center),
         const SizedBox(height: 6),
         Text('All nearby drivers are busy. Try again in a minute, or pick a bigger vehicle.',
-            style: t.body.copyWith(color: RidoColors.navy700), textAlign: TextAlign.center),
+            style: t.body.copyWith(color: TtColors.navy700), textAlign: TextAlign.center),
         const SizedBox(height: 20),
-        RidoButton(label: 'Retry', icon: Symbols.refresh_rounded, onPressed: onRetry),
+        TtButton(label: 'Retry', icon: Symbols.refresh_rounded, onPressed: onRetry),
         const SizedBox(height: 4),
-        RidoButton(label: 'Cancel', variant: RidoButtonVariant.dangerText, onPressed: onCancel),
+        TtButton(label: 'Cancel', variant: TtButtonVariant.dangerText, onPressed: onCancel),
       ],
     );
   }

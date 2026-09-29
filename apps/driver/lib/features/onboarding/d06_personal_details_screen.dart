@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -102,7 +102,7 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
       context: context,
       initialDate: _dob,
       firstDate: DateTime(1950),
-      lastDate: DateTime(RidoClock.today.year - 18, RidoClock.today.month, RidoClock.today.day),
+      lastDate: DateTime(TtClock.today.year - 18, TtClock.today.month, TtClock.today.day),
       helpText: 'Date of birth',
     );
     if (picked != null && mounted) setState(() => _dob = picked);
@@ -133,7 +133,7 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      showRidoSnack(context, userMessage(e));
+      showTtSnack(context, userMessage(e));
       return;
     }
     if (!mounted) return;
@@ -145,7 +145,7 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
   Widget build(BuildContext context) {
     final t = context.type;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       appBar: SignupAppBar(title: 'Personal details', step: 3, onBack: backOr(context, Routes.chooseVehicle)),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -153,16 +153,16 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
           Expanded(
             child: SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.l, RidoSpacing.l, RidoSpacing.l),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.l, TtSpacing.l, TtSpacing.l),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Live: the real profile photo is taken on D-07, after the identity check (it must match the selfie).
                   if (!ref.watch(isLiveApiProvider)) ...[
                     _photoRow(t),
-                    const SizedBox(height: RidoSpacing.l),
+                    const SizedBox(height: TtSpacing.l),
                   ],
-                  RidoTextField(
+                  TtTextField(
                     label: 'Full name (as on licence)',
                     controller: _name,
                     textCapitalization: TextCapitalization.words,
@@ -170,12 +170,12 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                     onChanged: (_) => setState(() {}),
                     errorText: _showErrors && _name.text.trim().length < 2 ? 'Enter your name as on your licence' : null,
                   ),
-                  const SizedBox(height: RidoSpacing.l),
+                  const SizedBox(height: TtSpacing.l),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: RidoTextField(
+                        child: TtTextField(
                           key: ValueKey(_dob),
                           label: 'Date of birth',
                           initialValue: '${_two(_dob.day)}/${_two(_dob.month)}/${_dob.year}',
@@ -183,24 +183,24 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                           onTap: _pickDob,
                           suffix: IconButton(
                             tooltip: 'Pick date of birth',
-                            icon: const Icon(Symbols.calendar_month_rounded, color: RidoColors.navy500),
+                            icon: const Icon(Symbols.calendar_month_rounded, color: TtColors.navy500),
                             onPressed: _pickDob,
                           ),
                         ),
                       ),
-                      const SizedBox(width: RidoSpacing.m),
+                      const SizedBox(width: TtSpacing.m),
                       const Expanded(
-                        child: RidoTextField(
+                        child: TtTextField(
                           label: 'City',
                           initialValue: 'Coimbatore',
                           enabled: false,
-                          suffix: Icon(Symbols.lock_rounded, color: RidoColors.navy500, semanticLabel: 'Locked'),
+                          suffix: Icon(Symbols.lock_rounded, color: TtColors.navy500, semanticLabel: 'Locked'),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: RidoSpacing.l),
-                  RidoTextField(
+                  const SizedBox(height: TtSpacing.l),
+                  TtTextField(
                     label: 'Vehicle model',
                     hint: _draft.vehicle.isGoods ? 'Bajaj Maxima Cargo' : 'Honda Activa',
                     controller: _model,
@@ -209,12 +209,12 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                     onChanged: (_) => setState(() {}),
                     errorText: _showErrors && !_modelValid ? 'Enter the vehicle model' : null,
                   ),
-                  const SizedBox(height: RidoSpacing.l),
+                  const SizedBox(height: TtSpacing.l),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: RidoTextField(
+                        child: TtTextField(
                           label: 'Number plate',
                           hint: 'TN 37 AB 4521',
                           controller: _plate,
@@ -224,9 +224,9 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                           errorText: _showErrors && !_plateValid ? 'Like TN 37 AB 4521' : null,
                         ),
                       ),
-                      const SizedBox(width: RidoSpacing.m),
+                      const SizedBox(width: TtSpacing.m),
                       Expanded(
-                        child: RidoTextField(
+                        child: TtTextField(
                           label: 'Colour',
                           controller: _color,
                           textCapitalization: TextCapitalization.words,
@@ -235,8 +235,8 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                       ),
                     ],
                   ),
-                  const SizedBox(height: RidoSpacing.l),
-                  Text('Gender', style: t.bodySmallMedium.copyWith(color: RidoColors.navy700)),
+                  const SizedBox(height: TtSpacing.l),
+                  Text('Gender', style: t.bodySmallMedium.copyWith(color: TtColors.navy700)),
                   const SizedBox(height: 6),
                   ChoiceChips<Gender>(
                     options: const [Gender.male, Gender.female, Gender.preferNotToSay],
@@ -248,15 +248,15 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                     selected: {_gender},
                     onChanged: (g) => setState(() => _gender = g),
                   ),
-                  const SizedBox(height: RidoSpacing.l),
+                  const SizedBox(height: TtSpacing.l),
                   PhoneInput(
                     label: 'Emergency contact',
                     controller: _emergency,
                     onChanged: (_) => setState(() {}),
                     errorText: !_showErrors || PhoneInput.digitsOf(_emergency.text).length == 10 ? null : 'Enter a 10-digit number',
                   ),
-                  const SizedBox(height: RidoSpacing.l),
-                  RidoTextField(
+                  const SizedBox(height: TtSpacing.l),
+                  TtTextField(
                     label: 'UPI ID for receiving fares',
                     controller: _upi,
                     keyboardType: TextInputType.emailAddress,
@@ -265,13 +265,13 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                     errorText: !_showErrors || _upiValid ? null : 'Enter a valid UPI ID, like name@bank',
                     suffix: _upiValid
                         ? const Icon(Symbols.check_circle_rounded,
-                            color: RidoColors.success, fill: 1, semanticLabel: 'Valid UPI ID')
+                            color: TtColors.success, fill: 1, semanticLabel: 'Valid UPI ID')
                         : null,
                   ),
                   if (_upiValid && !_live) ...[
                     const SizedBox(height: 6),
                     Text('Verified · ${_name.text.trim().toUpperCase()}',
-                        style: t.caption.copyWith(color: RidoColors.successText, fontWeight: FontWeight.w600)),
+                        style: t.caption.copyWith(color: TtColors.successText, fontWeight: FontWeight.w600)),
                   ],
                 ],
               ),
@@ -279,7 +279,7 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
           ),
           BottomActions(
             children: [
-              RidoButton(label: 'Save and continue', loading: _saving, onPressed: _valid || _live ? _save : null),
+              TtButton(label: 'Save and continue', loading: _saving, onPressed: _valid || _live ? _save : null),
             ],
           ),
         ],
@@ -287,16 +287,16 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
     );
   }
 
-  Widget _photoRow(RidoTextStyles t) {
+  Widget _photoRow(TtTextStyles t) {
     return Semantics(
       button: true,
       label: _hasPhoto ? 'Remove profile photo' : 'Add profile photo',
       excludeSemantics: true,
       child: InkWell(
-        borderRadius: RidoRadii.cardRadius,
+        borderRadius: TtRadii.cardRadius,
         onTap: () => setState(() => _hasPhoto = !_hasPhoto),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: RidoSpacing.xs),
+          padding: const EdgeInsets.symmetric(vertical: TtSpacing.xs),
           child: Row(
             children: [
               SizedBox(
@@ -305,19 +305,19 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                 child: Stack(
                   children: [
                     if (_hasPhoto)
-                      RidoAvatar(initials: _initials, size: 84, tone: AvatarTone.dark)
+                      TtAvatar(initials: _initials, size: 84, tone: AvatarTone.dark)
                     else
                       Container(
                         width: 84,
                         height: 84,
-                        decoration: const BoxDecoration(color: RidoColors.coral50, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(color: TtColors.coral50, shape: BoxShape.circle),
                         child: const DashedRing(
                           size: 84,
-                          color: RidoColors.coral100,
+                          color: TtColors.coral100,
                           strokeWidth: 2,
                           dash: 6,
                           gap: 5,
-                          child: Icon(Symbols.person_rounded, color: RidoColors.coral600, size: 36),
+                          child: Icon(Symbols.person_rounded, color: TtColors.coral600, size: 36),
                         ),
                       ),
                     Positioned(
@@ -327,7 +327,7 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: RidoColors.coral600,
+                          color: TtColors.coral600,
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
@@ -338,14 +338,14 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                   ],
                 ),
               ),
-              const SizedBox(width: RidoSpacing.l),
+              const SizedBox(width: TtSpacing.l),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(_hasPhoto ? 'Profile photo added' : 'Add profile photo', style: t.bodySemibold),
                     Text(_hasPhoto ? 'Tap to remove or retake.' : 'Riders see this. Clear face, no sunglasses.',
-                        style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                        style: t.bodySmall.copyWith(color: TtColors.navy500)),
                   ],
                 ),
               ),

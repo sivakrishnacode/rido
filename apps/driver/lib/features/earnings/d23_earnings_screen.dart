@@ -1,8 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/driver_session.dart';
 import '../states/s15_empty_earnings_view.dart';
@@ -34,9 +34,9 @@ class _D23EarningsScreenState extends ConsumerState<D23EarningsScreen> {
     if (async.hasError && summary == null) {
       body = Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(RidoSpacing.gutter),
+          padding: const EdgeInsets.all(TtSpacing.gutter),
           child: EmptyState(
-            illustration: const RidoIllustration(IllustrationKind.offline, height: 160),
+            illustration: const TtIllustration(IllustrationKind.offline, height: 160),
             title: "You're offline",
             message: 'Check your internet connection and try again.',
             actionLabel: 'Retry',
@@ -50,21 +50,21 @@ class _D23EarningsScreenState extends ConsumerState<D23EarningsScreen> {
       body = S15EmptyEarningsView(period: _period);
     } else {
       body = RefreshIndicator(
-        color: RidoColors.coral600,
+        color: TtColors.coral600,
         onRefresh: () => ref.refresh(earningsProvider(_period).future),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, RidoSpacing.xl),
+          padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.xl),
           children: [
             _ChartCard(bars: summary.bars),
-            const SizedBox(height: RidoSpacing.m),
+            const SizedBox(height: TtSpacing.m),
             Row(children: [
               Expanded(child: _StatTile(value: formatCount(summary.rides), label: 'rides')),
-              const SizedBox(width: RidoSpacing.s),
+              const SizedBox(width: TtSpacing.s),
               Expanded(child: _StatTile(value: '${summary.onlineHours}h', label: 'online')),
-              const SizedBox(width: RidoSpacing.s),
+              const SizedBox(width: TtSpacing.s),
               Expanded(child: _StatTile(value: summary.rating.toStringAsFixed(1), label: 'rating', star: true)),
             ]),
-            const SizedBox(height: RidoSpacing.m),
+            const SizedBox(height: TtSpacing.m),
             _TripList(trips: summary.trips),
           ],
         ),
@@ -72,7 +72,7 @@ class _D23EarningsScreenState extends ConsumerState<D23EarningsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: RidoColors.background,
+      backgroundColor: TtColors.background,
       body: Column(children: [
         EarningsHeader(
           period: _period,
@@ -102,8 +102,8 @@ class _ChartCard extends StatelessWidget {
     if (bars.isEmpty) return const SizedBox.shrink();
     final maxV = bars.map((b) => b.amount).reduce((a, b) => a > b ? a : b);
     final maxIndex = bars.indexWhere((b) => b.amount == maxV);
-    return RidoCard(
-      padding: const EdgeInsets.fromLTRB(RidoSpacing.m, RidoSpacing.xl, RidoSpacing.m, RidoSpacing.s),
+    return TtCard(
+      padding: const EdgeInsets.fromLTRB(TtSpacing.m, TtSpacing.xl, TtSpacing.m, TtSpacing.s),
       child: SizedBox(
         height: 190,
         child: Semantics(
@@ -123,7 +123,7 @@ class _ChartCard extends StatelessWidget {
                   tooltipMargin: 4,
                   getTooltipItem: (group, _, rod, _) => BarTooltipItem(
                     _short(rod.toY.round()),
-                    RidoTextStyles.tabular(t.caption.copyWith(color: RidoColors.navy700, fontWeight: FontWeight.w600)),
+                    TtTextStyles.tabular(t.caption.copyWith(color: TtColors.navy700, fontWeight: FontWeight.w600)),
                   ),
                 ),
               ),
@@ -137,7 +137,7 @@ class _ChartCard extends StatelessWidget {
                     reservedSize: 28,
                     getTitlesWidget: (v, meta) => SideTitleWidget(
                       meta: meta,
-                      child: Text(bars[v.toInt()].label, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+                      child: Text(bars[v.toInt()].label, style: t.bodySmall.copyWith(color: TtColors.navy500)),
                     ),
                   ),
                 ),
@@ -151,7 +151,7 @@ class _ChartCard extends StatelessWidget {
                       BarChartRodData(
                         toY: bars[i].amount.toDouble(),
                         width: bars.length > 5 ? 32 : 44,
-                        color: i == maxIndex ? RidoColors.coral500 : RidoColors.coral100,
+                        color: i == maxIndex ? TtColors.coral500 : TtColors.coral100,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                       ),
                     ],
@@ -174,17 +174,17 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return RidoCard(
-      padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: RidoSpacing.m),
+    return TtCard(
+      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: TtSpacing.m),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Flexible(child: FittedBox(child: Text(value, style: RidoTextStyles.tabular(t.h1)))),
+          Flexible(child: FittedBox(child: Text(value, style: TtTextStyles.tabular(t.h1)))),
           if (star) ...[
             const SizedBox(width: 4),
-            const Icon(Symbols.star_rounded, fill: 1, color: RidoColors.warning, size: 22),
+            const Icon(Symbols.star_rounded, fill: 1, color: TtColors.warning, size: 22),
           ],
         ]),
-        Text(label, style: t.bodySmall.copyWith(color: RidoColors.navy500)),
+        Text(label, style: t.bodySmall.copyWith(color: TtColors.navy500)),
       ]),
     );
   }
@@ -197,7 +197,7 @@ class _TripList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return RidoCard(
+    return TtCard(
       padding: EdgeInsets.zero,
       child: Column(children: [
         for (var i = 0; i < trips.length; i++) ...[
@@ -205,26 +205,26 @@ class _TripList extends StatelessWidget {
           InkWell(
             onTap: () => D23bTripDetailSheet.show(context, trips[i]),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l, vertical: RidoSpacing.l),
+              padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.l),
               child: Row(children: [
                 SizedBox(
                   width: 72,
                   child: Text(formatTime(trips[i].time),
-                      style: RidoTextStyles.tabular(t.bodySmall.copyWith(color: RidoColors.navy500))),
+                      style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500))),
                 ),
                 Expanded(
                   child: Text('${trips[i].from} → ${trips[i].to}',
                       style: t.body, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
-                const SizedBox(width: RidoSpacing.s),
+                const SizedBox(width: TtSpacing.s),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.s, vertical: 3),
-                  decoration: BoxDecoration(color: RidoColors.inputBg, borderRadius: BorderRadius.circular(6)),
+                  padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s, vertical: 3),
+                  decoration: BoxDecoration(color: TtColors.inputBg, borderRadius: BorderRadius.circular(6)),
                   child: Text(trips[i].paymentMode == PaymentMode.upi ? 'UPI' : 'Cash',
-                      style: t.caption.copyWith(color: RidoColors.navy700, fontWeight: FontWeight.w600)),
+                      style: t.caption.copyWith(color: TtColors.navy700, fontWeight: FontWeight.w600)),
                 ),
-                const SizedBox(width: RidoSpacing.m),
-                Text(formatInr(trips[i].fare), style: RidoTextStyles.tabular(t.bodySemibold)),
+                const SizedBox(width: TtSpacing.m),
+                Text(formatInr(trips[i].fare), style: TtTextStyles.tabular(t.bodySemibold)),
               ]),
             ),
           ),
@@ -241,21 +241,21 @@ class _EarningsSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => SkeletonShimmer(
         child: ListView(
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, RidoSpacing.l),
+          padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.l),
           children: [
-            const SkeletonBox(height: 220, radius: RidoRadii.card),
-            const SizedBox(height: RidoSpacing.m),
+            const SkeletonBox(height: 220, radius: TtRadii.card),
+            const SizedBox(height: TtSpacing.m),
             Row(children: const [
-              Expanded(child: SkeletonBox(height: 84, radius: RidoRadii.card)),
-              SizedBox(width: RidoSpacing.s),
-              Expanded(child: SkeletonBox(height: 84, radius: RidoRadii.card)),
-              SizedBox(width: RidoSpacing.s),
-              Expanded(child: SkeletonBox(height: 84, radius: RidoRadii.card)),
+              Expanded(child: SkeletonBox(height: 84, radius: TtRadii.card)),
+              SizedBox(width: TtSpacing.s),
+              Expanded(child: SkeletonBox(height: 84, radius: TtRadii.card)),
+              SizedBox(width: TtSpacing.s),
+              Expanded(child: SkeletonBox(height: 84, radius: TtRadii.card)),
             ]),
-            const SizedBox(height: RidoSpacing.m),
+            const SizedBox(height: TtSpacing.m),
             for (var i = 0; i < 4; i++) ...[
-              const SkeletonBox(height: 56, radius: RidoRadii.card),
-              const SizedBox(height: RidoSpacing.s),
+              const SkeletonBox(height: 56, radius: TtRadii.card),
+              const SizedBox(height: TtSpacing.s),
             ],
           ],
         ),

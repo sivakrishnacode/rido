@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { DashedOutlines, FitCells, FlyTo } from "@/components/map/google/map-helpers";
 import { HeatLayer, type HeatHover } from "@/components/map/google/heat-layer";
 import { HexLayer } from "@/components/map/google/hex-layer";
-import { RidoMap, type MapType } from "@/components/map/google/rido-map";
+import { TtMap, type MapType } from "@/components/map/google/tamiltaxi-map";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -294,7 +294,7 @@ export function HeatmapView({ initial, cities }: { initial: Heatmap; cities: Hea
           {error && <p className="text-xs text-error">{error}</p>}
         </Card>
 
-        <RidoMap
+        <TtMap
           center={cities[0] ? { lat: cities[0].centerLat, lng: cities[0].centerLng } : { lat: 11.0168, lng: 76.9658 }}
           mapType={mapType}
           className="h-[calc(100vh-19rem)] min-h-[560px] border"
@@ -360,7 +360,7 @@ export function HeatmapView({ initial, cities }: { initial: Heatmap; cities: Hea
           <DashedOutlines cells={outsideUnmet} />
           <FitCells cells={heat.cells.length ? heat.cells.map((c) => c.cell) : allService} />
           <FlyTo target={focus} />
-        </RidoMap>
+        </TtMap>
       </div>
 
       <div className="grid content-start gap-4">

@@ -129,21 +129,21 @@ export class AdminOpsController {
 
   @Get('export/trips.csv')
   @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename="rido-trips.csv"')
+  @Header('Content-Disposition', 'attachment; filename="tamiltaxi-trips.csv"')
   exportTrips(): Promise<string> {
     return this.ops.exportCsv('trips');
   }
 
   @Get('export/drivers.csv')
   @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename="rido-drivers.csv"')
+  @Header('Content-Disposition', 'attachment; filename="tamiltaxi-drivers.csv"')
   exportDrivers(): Promise<string> {
     return this.ops.exportCsv('drivers');
   }
 
   @Get('export/payments.csv')
   @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename="rido-payments.csv"')
+  @Header('Content-Disposition', 'attachment; filename="tamiltaxi-payments.csv"')
   exportPayments(): Promise<string> {
     return this.ops.exportCsv('payments');
   }

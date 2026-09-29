@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 import 'package:permission_handler/permission_handler.dart' as perm;
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 /// Why the driver can't share a location yet. [message] is shown as is.
 class LocationProblem implements Exception {
@@ -106,13 +106,13 @@ class DriverLocator {
       case geo.LocationPermission.whileInUse || geo.LocationPermission.always:
         if (!await _precise(ask: true)) {
           throw const LocationProblem(
-              'Turn on "Use precise location" for Rido Driver. With approximate location riders can\'t follow you.',
+              'Turn on "Use precise location" for Tamil Taxi Driver. With approximate location riders can\'t follow you.',
               fix: LocationFix.appSettings);
         }
       case geo.LocationPermission.denied:
         throw const LocationProblem('Allow location access so riders can find you');
       case geo.LocationPermission.deniedForever:
-        throw const LocationProblem('Location access is off for Rido Driver. Allow it in Settings to go online.',
+        throw const LocationProblem('Location access is off for Tamil Taxi Driver. Allow it in Settings to go online.',
             fix: LocationFix.appSettings);
       case geo.LocationPermission.unableToDetermine:
         return;
@@ -213,7 +213,7 @@ class DriverLocator {
         accuracy: geo.LocationAccuracy.high,
         intervalDuration: const Duration(seconds: 5),
         foregroundNotificationConfig: const geo.ForegroundNotificationConfig(
-          notificationTitle: "You're online on Rido Driver",
+          notificationTitle: "You're online on Tamil Taxi Driver",
           notificationText: 'Sharing your location for ride requests and live tracking',
           notificationChannelName: 'Online status',
           notificationIcon: geo.AndroidResource(name: 'ic_notification', defType: 'drawable'),

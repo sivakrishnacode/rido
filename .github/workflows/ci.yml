@@ -34,19 +34,19 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: rido
-          POSTGRES_PASSWORD: rido
-          POSTGRES_DB: rido
+          POSTGRES_USER: tamiltaxi
+          POSTGRES_PASSWORD: tamiltaxi
+          POSTGRES_DB: tamiltaxi
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U rido" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U tamiltaxi" --health-interval 5s --health-timeout 5s --health-retries 10
       redis:
         image: redis:7-alpine
         ports: ["6379:6379"]
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql://rido:rido@localhost:5432/rido?schema=public
+      DATABASE_URL: postgresql://tamiltaxi:tamiltaxi@localhost:5432/tamiltaxi?schema=public
       REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-only-secret-not-used-anywhere-else
     steps:
@@ -56,5 +56,5 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run get -w @rido/api
-      - run: npm run test:e2e -w @rido/api
+      - run: npm run get -w @tamiltaxi/api
+      - run: npm run test:e2e -w @tamiltaxi/api

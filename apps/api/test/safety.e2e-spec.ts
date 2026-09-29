@@ -29,7 +29,7 @@ function phone(): string {
   return `9${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`;
 }
 
-describe('Rido safety (e2e)', () => {
+describe('Tamil Taxi safety (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let redis: RedisService;

@@ -25,7 +25,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             Review KYC, watch trips live, tune daily, weekly and monthly plans, and close support tickets.
           </p>
         </div>
-        <p className="text-xs text-navy-300">Rido admin panel</p>
+        <p className="text-xs text-navy-300">Tamil Taxi admin panel</p>
         <div aria-hidden className="absolute -right-24 -bottom-24 size-80 rounded-full bg-coral-600/20" />
         <div aria-hidden className="absolute -right-8 -bottom-8 size-40 rounded-full bg-coral-500/30" />
       </section>
@@ -35,7 +35,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <div className="space-y-2">
             <Wordmark className="text-3xl lg:hidden" />
             <h2 className="text-2xl font-semibold text-navy-900">Sign in</h2>
-            <p className="text-sm text-muted-foreground">Use the mobile number registered as a Rido admin.</p>
+            <p className="text-sm text-muted-foreground">Use the mobile number registered as a Tamil Taxi admin.</p>
           </div>
           {isExpired && (
             <p role="status" className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning-text">

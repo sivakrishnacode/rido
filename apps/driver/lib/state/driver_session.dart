@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import 'driver_location.dart';
 import 'live_helpers.dart';
@@ -556,7 +556,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       unawaited(_recoverOffer());
       return;
     }
-    final now = RidoClock.now();
+    final now = TtClock.now();
     await ref.read(driverRepositoryProvider).recordCompletedJob(EarningsTrip(
           id: 'e${now.millisecondsSinceEpoch}',
           time: now,

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -43,7 +43,7 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
     setState(() => _busy = true);
     if (!widget.showcase) await ref.read(driverSessionProvider.notifier).collectPayment(mode);
     if (!mounted) return;
-    showRidoSnack(context, '${formatInr(_job.fare)} added. You keep 100%.', success: true);
+    showTtSnack(context, '${formatInr(_job.fare)} added. You keep 100%.', success: true);
     context.go(Routes.home);
   }
 
@@ -65,18 +65,18 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
         if (!didPop) confirmLeaveJob(context, delivery: _isDelivery);
       },
       child: Scaffold(
-        backgroundColor: RidoColors.surface,
+        backgroundColor: TtColors.surface,
         body: Column(
           children: [
             NavyHeader(
-              padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, RidoSpacing.xl),
+              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.xl),
               child: SizedBox(
                 width: double.infinity,
                 child: Column(children: [
                   if (_isDelivery)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: 6),
-                      decoration: const BoxDecoration(color: RidoColors.success, borderRadius: RidoRadii.pillRadius),
+                      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: 6),
+                      decoration: const BoxDecoration(color: TtColors.success, borderRadius: TtRadii.pillRadius),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
                         const Icon(Symbols.verified_rounded, fill: 1, color: Colors.white, size: 18),
                         const SizedBox(width: 6),
@@ -85,7 +85,7 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
                     )
                   else
                     Text('Ride complete · ${_job.customerName}', style: t.body.copyWith(color: Colors.white70)),
-                  const SizedBox(height: RidoSpacing.xs),
+                  const SizedBox(height: TtSpacing.xs),
                   FittedBox(
                     child: Text('Collect ${formatInr(_job.fare)}', style: t.heroSmall.copyWith(color: Colors.white)),
                   ),
@@ -98,15 +98,15 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(RidoSpacing.gutter, RidoSpacing.l, RidoSpacing.gutter, RidoSpacing.l),
+                padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.l),
                 child: Column(children: [
                   Container(
-                    padding: const EdgeInsets.all(RidoSpacing.m),
+                    padding: const EdgeInsets.all(TtSpacing.m),
                     decoration: BoxDecoration(
-                      color: RidoColors.surface,
+                      color: TtColors.surface,
                       borderRadius: const BorderRadius.all(Radius.circular(20)),
-                      border: Border.all(color: RidoColors.divider),
-                      boxShadow: RidoShadows.soft,
+                      border: Border.all(color: TtColors.divider),
+                      boxShadow: TtShadows.soft,
                     ),
                     child: Stack(alignment: Alignment.center, children: [
                       QrImageView(
@@ -115,46 +115,46 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
                         padding: EdgeInsets.zero,
                         errorCorrectionLevel: QrErrorCorrectLevel.H,
                         semanticsLabel: 'UPI QR code for $upi',
-                        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: RidoColors.navy900),
+                        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: TtColors.navy900),
                         dataModuleStyle:
-                            const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: RidoColors.navy900),
+                            const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: TtColors.navy900),
                       ),
                       Container(
                         width: 44,
                         height: 44,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: RidoColors.coral500,
-                          borderRadius: RidoRadii.cardRadius,
-                          border: Border.all(color: RidoColors.surface, width: 3),
+                          color: TtColors.coral500,
+                          borderRadius: TtRadii.cardRadius,
+                          border: Border.all(color: TtColors.surface, width: 3),
                         ),
                         child: Text('r', style: t.h1.copyWith(color: Colors.white, fontWeight: FontWeight.w700, height: 1)),
                       ),
                     ]),
                   ),
-                  const SizedBox(height: RidoSpacing.m),
+                  const SizedBox(height: TtSpacing.m),
                   Text(upi, style: t.bodySemibold),
-                  const SizedBox(height: RidoSpacing.s),
+                  const SizedBox(height: TtSpacing.s),
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.s, vertical: 2),
-                      decoration: const BoxDecoration(color: RidoColors.coral50, borderRadius: RidoRadii.pillRadius),
+                      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s, vertical: 2),
+                      decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.pillRadius),
                       child: Text('0%',
-                          style: t.caption.copyWith(color: RidoColors.coral600, fontWeight: FontWeight.w700)),
+                          style: t.caption.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w700)),
                     ),
-                    const SizedBox(width: RidoSpacing.s),
+                    const SizedBox(width: TtSpacing.s),
                     Flexible(
-                      child: Text('You keep 100% of this fare', style: t.body.copyWith(color: RidoColors.navy700)),
+                      child: Text('You keep 100% of this fare', style: t.body.copyWith(color: TtColors.navy700)),
                     ),
                   ]),
-                  const SizedBox(height: RidoSpacing.xl),
+                  const SizedBox(height: TtSpacing.xl),
                   LayoutBuilder(builder: (context, c) {
-                    final cash = RidoButton.secondary(
+                    final cash = TtButton.secondary(
                       label: 'Received cash',
                       icon: Symbols.payments_rounded,
                       onPressed: _busy ? null : () => _received(PaymentMode.cash),
                     );
-                    final upiButton = RidoButton(
+                    final upiButton = TtButton(
                       label: 'Received on UPI',
                       icon: Symbols.qr_code_2_rounded,
                       loading: _busy,
@@ -164,13 +164,13 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
                     if (c.maxWidth >= 400) {
                       return Row(children: [
                         Expanded(child: cash),
-                        const SizedBox(width: RidoSpacing.m),
+                        const SizedBox(width: TtSpacing.m),
                         Expanded(child: upiButton),
                       ]);
                     }
-                    return Column(children: [upiButton, const SizedBox(height: RidoSpacing.m), cash]);
+                    return Column(children: [upiButton, const SizedBox(height: TtSpacing.m), cash]);
                   }),
-                  const SizedBox(height: RidoSpacing.l),
+                  const SizedBox(height: TtSpacing.l),
                   Text('Tap once the money is with you. Then rate ${_rateName.split(' ').first}.',
                       textAlign: TextAlign.center, style: t.caption),
                 ]),

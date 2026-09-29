@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/passenger_session.dart';
 
@@ -16,7 +16,7 @@ class P24bAddContactSheet extends ConsumerStatefulWidget {
 
   /// Opens the sheet. Returns the added contact, or null when closed.
   static Future<EmergencyContact?> show(BuildContext context) =>
-      showRidoSheet<EmergencyContact>(context, builder: (_) => const P24bAddContactSheet());
+      showTtSheet<EmergencyContact>(context, builder: (_) => const P24bAddContactSheet());
 
   @override
   ConsumerState<P24bAddContactSheet> createState() => _P24bAddContactSheetState();
@@ -56,7 +56,7 @@ class _P24bAddContactSheetState extends ConsumerState<P24bAddContactSheet> {
     }
     if (widget.showcase) {
       setState(() => _saving = false);
-      showRidoSnack(context, '${contact.name} added', success: true);
+      showTtSnack(context, '${contact.name} added', success: true);
     } else {
       Navigator.of(context).pop(contact);
     }
@@ -88,7 +88,7 @@ class _P24bAddContactSheetState extends ConsumerState<P24bAddContactSheet> {
           ],
         ),
         const SizedBox(height: 16),
-        RidoTextField(
+        TtTextField(
           label: 'Name',
           hint: 'Full name',
           controller: _name,
@@ -100,7 +100,7 @@ class _P24bAddContactSheetState extends ConsumerState<P24bAddContactSheet> {
         const SizedBox(height: 16),
         PhoneInput(controller: _phone, onChanged: (_) => setState(() {})),
         const SizedBox(height: 16),
-        Text('Relation', style: t.bodySmallMedium.copyWith(color: RidoColors.navy700)),
+        Text('Relation', style: t.bodySmallMedium.copyWith(color: TtColors.navy700)),
         const SizedBox(height: 8),
         ChoiceChips<String>(
           options: P24bAddContactSheet.relations,
@@ -109,14 +109,14 @@ class _P24bAddContactSheetState extends ConsumerState<P24bAddContactSheet> {
           onChanged: (x) => setState(() => _relation = x),
         ),
         const SizedBox(height: 24),
-        RidoButton(
+        TtButton(
           label: 'Add contact',
           loading: _saving,
           onPressed: _valid && count < 3 ? _save : null,
         ),
         const SizedBox(height: 8),
         Text(count >= 3 ? "You've already added 3 contacts" : note,
-            style: t.bodySmall.copyWith(color: RidoColors.navy500), textAlign: TextAlign.center),
+            style: t.bodySmall.copyWith(color: TtColors.navy500), textAlign: TextAlign.center),
       ],
     );
   }

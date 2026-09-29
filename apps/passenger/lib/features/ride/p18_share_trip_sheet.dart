@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
 import '../../state/passenger_session.dart';
@@ -20,7 +20,7 @@ class P18ShareTripSheet extends ConsumerWidget {
 
   /// Opens the share sheet over the current screen.
   static Future<void> show(BuildContext context) =>
-      showRidoSheet<void>(context, builder: (_) => const P18ShareTripSheet());
+      showTtSheet<void>(context, builder: (_) => const P18ShareTripSheet());
 
   /// Short live-tracking code for a trip ("K8Q2ZP" for the demo trip).
   static String codeFor(String tripId) {
@@ -44,7 +44,7 @@ class P18ShareTripSheet extends ConsumerWidget {
   }
 
   void _done(BuildContext context, String message) {
-    showRidoSnack(context, message);
+    showTtSnack(context, message);
     if (!showcase) Navigator.of(context).maybePop();
   }
 
@@ -57,7 +57,7 @@ class P18ShareTripSheet extends ConsumerWidget {
     final fix = showcase ? null : ref.read(rideFlowProvider.notifier).vehicle.value;
     final inTrip = ride.phase == RidePhase.inProgress;
     final vehiclePos = fix?.position ?? pointAlong(route, 0.62);
-    final arrival = showcase ? DateTime(2026, 9, 24, 15, 42) : RidoClock.now().add(Duration(minutes: ride.etaMin));
+    final arrival = showcase ? DateTime(2026, 9, 24, 15, 42) : TtClock.now().add(Duration(minutes: ride.etaMin));
     final live = !showcase && ref.watch(isLiveApiProvider);
     // Live API: the trip's live-tracking page (signed link from the API). Until it has loaded, or if it couldn't be
     // made, share where the vehicle is now (a Google Maps link).
@@ -67,7 +67,7 @@ class P18ShareTripSheet extends ConsumerWidget {
         ? shareLink.url.replaceFirst(RegExp('^https?://'), '')
         : live
             ? 'maps.google.com/?q=${at.latitude.toStringAsFixed(5)},${at.longitude.toStringAsFixed(5)}'
-            : 'rido.in/t/${codeFor(ride.tripId)}';
+            : 'tamiltaxi.co.in/t/${codeFor(ride.tripId)}';
     final linkUrl = shareLink?.url ?? 'https://$link';
     final status = showcase || inTrip
         ? 'arriving ${formatTime(arrival)}'
@@ -100,9 +100,9 @@ class P18ShareTripSheet extends ConsumerWidget {
         const SizedBox(height: 16),
         Container(
           decoration: BoxDecoration(
-            color: RidoColors.surface,
-            borderRadius: RidoRadii.cardRadius,
-            border: Border.all(color: RidoColors.divider),
+            color: TtColors.surface,
+            borderRadius: TtRadii.cardRadius,
+            border: Border.all(color: TtColors.divider),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -114,7 +114,7 @@ class P18ShareTripSheet extends ConsumerWidget {
                   children: [
                     Positioned.fill(
                       child: IgnorePointer(
-                        child: RidoMap(
+                        child: TtMap(
                           interactive: false,
                           showAttribution: false,
                           drop: ride.drop.location,
@@ -130,7 +130,7 @@ class P18ShareTripSheet extends ConsumerWidget {
                       top: 12,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: const BoxDecoration(color: RidoColors.sos, borderRadius: RidoRadii.pillRadius),
+                        decoration: const BoxDecoration(color: TtColors.sos, borderRadius: TtRadii.pillRadius),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           Container(
                             width: 7,
@@ -154,13 +154,13 @@ class P18ShareTripSheet extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${ride.vehicle.label} · ${ride.driver.name} · ${ride.driver.plate} · $status',
-                      style: t.bodySmall.copyWith(color: RidoColors.navy700),
+                      style: t.bodySmall.copyWith(color: TtColors.navy700),
                     ),
                     const SizedBox(height: 8),
                     Text(link,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: t.bodySmallMedium.copyWith(color: RidoColors.coral600)),
+                        style: t.bodySmallMedium.copyWith(color: TtColors.coral600)),
                   ],
                 ),
               ),
@@ -174,8 +174,8 @@ class P18ShareTripSheet extends ConsumerWidget {
             _ShareOption(
               icon: Symbols.chat_rounded,
               label: 'WhatsApp',
-              background: RidoColors.successTint,
-              foreground: RidoColors.successText,
+              background: TtColors.successTint,
+              foreground: TtColors.successText,
               onTap: () => _open(context, openWhatsApp(context, text)),
             ),
             _ShareOption(icon: Symbols.sms_rounded, label: 'SMS', onTap: () => _open(context, openSms(context, text))),
@@ -190,22 +190,22 @@ class P18ShareTripSheet extends ConsumerWidget {
             _ShareOption(
               icon: Symbols.share_rounded,
               label: 'More',
-              onTap: () => _open(context, shareText(context, text, subject: 'My Rido trip')),
+              onTap: () => _open(context, shareText(context, text, subject: 'My Tamil Taxi trip')),
             ),
           ],
         ),
         const SizedBox(height: 20),
         Container(
           padding: const EdgeInsets.all(14),
-          decoration: const BoxDecoration(color: RidoColors.inputBg, borderRadius: RidoRadii.cardRadius),
+          decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.cardRadius),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Symbols.visibility_rounded, color: RidoColors.navy700),
+              const Icon(Symbols.visibility_rounded, color: TtColors.navy700),
               const SizedBox(width: 12),
               Expanded(
                 child: Text('They can see your live location until the ride ends.',
-                    style: t.body.copyWith(color: RidoColors.navy700)),
+                    style: t.body.copyWith(color: TtColors.navy700)),
               ),
             ],
           ),
@@ -220,8 +220,8 @@ class _ShareOption extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.background = RidoColors.inputBg,
-    this.foreground = RidoColors.navy900,
+    this.background = TtColors.inputBg,
+    this.foreground = TtColors.navy900,
   });
 
   final IconData icon;
@@ -237,7 +237,7 @@ class _ShareOption extends StatelessWidget {
         excludeSemantics: true,
         child: InkWell(
           onTap: onTap,
-          borderRadius: RidoRadii.cardRadius,
+          borderRadius: TtRadii.cardRadius,
           child: Padding(
             padding: const EdgeInsets.all(4),
             child: Column(

@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'features/ride/p18_share_trip_sheet.dart';
 import 'features/ride/safety_check_sheet.dart';
@@ -15,15 +15,15 @@ import 'state/session_actions.dart';
 import 'state/trip_safety.dart';
 
 /// The passenger app root. [router] is injectable for tests.
-class RidoPassengerApp extends ConsumerStatefulWidget {
-  const RidoPassengerApp({super.key, this.router});
+class TtPassengerApp extends ConsumerStatefulWidget {
+  const TtPassengerApp({super.key, this.router});
   final GoRouter? router;
 
   @override
-  ConsumerState<RidoPassengerApp> createState() => _RidoPassengerAppState();
+  ConsumerState<TtPassengerApp> createState() => _TtPassengerAppState();
 }
 
-class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
+class _TtPassengerAppState extends ConsumerState<TtPassengerApp> {
   late final GoRouter _router = widget.router ?? createPassengerRouter();
   StreamSubscription<void>? _unauthorized;
   StreamSubscription<PushData>? _pushTaps;
@@ -109,7 +109,7 @@ class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
     final goTo = notice.goTo;
     if (goTo != null) _router.go(goTo);
     final context = rootNavigatorKey.currentContext;
-    if (context != null) showRidoSnack(context, notice.message);
+    if (context != null) showTtSnack(context, notice.message);
   }
 
   @override
@@ -119,9 +119,9 @@ class _RidoPassengerAppState extends ConsumerState<RidoPassengerApp> {
       if (next != null) _showNotice(next);
     });
     return MaterialApp.router(
-      title: 'Rido',
+      title: 'Tamil Taxi',
       debugShowCheckedModeBanner: false,
-      theme: RidoTheme.light(),
+      theme: TtTheme.light(),
       themeMode: ThemeMode.light,
       routerConfig: _router,
     );

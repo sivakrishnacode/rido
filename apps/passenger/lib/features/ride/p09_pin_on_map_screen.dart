@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rido_data/rido_data.dart';
-import 'package:rido_ui/rido_ui.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
@@ -29,7 +29,7 @@ class P09PinOnMapScreen extends ConsumerStatefulWidget {
 
 class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
   static const double _zoom = 16;
-  final _map = RidoMapController();
+  final _map = TtMapController();
   late final Place _initial = widget.showcase
       ? Seed.brookefields
       : widget.forPickup
@@ -48,7 +48,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
     super.dispose();
   }
 
-  void _onMove(RidoCamera camera, bool hasGesture) {
+  void _onMove(TtCamera camera, bool hasGesture) {
     _centre = camera.center;
     _debounce?.cancel();
     if (!_locating) setState(() => _locating = true);
@@ -89,7 +89,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
     }
     if (widget.forPickup) {
       ref.read(rideFlowProvider.notifier).setPickup(_place);
-      showRidoSnack(context, 'Pickup set to ${_place.name}');
+      showTtSnack(context, 'Pickup set to ${_place.name}');
       context.pop();
       return;
     }
@@ -109,14 +109,14 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
   Widget build(BuildContext context) {
     final t = context.type;
     return Scaffold(
-      backgroundColor: RidoColors.surface,
+      backgroundColor: TtColors.surface,
       body: Column(
         children: [
           Expanded(
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: RidoMap(controller: _map, center: _initial.location, zoom: _zoom, onPositionChanged: _onMove),
+                  child: TtMap(controller: _map, center: _initial.location, zoom: _zoom, onPositionChanged: _onMove),
                 ),
                 // Fixed centre pin: its tip sits exactly on the map centre.
                 IgnorePointer(
@@ -129,14 +129,14 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.m, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: 6),
                               decoration: const BoxDecoration(
-                                color: RidoColors.navy900,
-                                borderRadius: RidoRadii.pillRadius,
+                                color: TtColors.navy900,
+                                borderRadius: TtRadii.pillRadius,
                               ),
                               child: Text(
                                 widget.forPickup ? 'Pickup here' : 'Drop here',
-                                style: t.bodySmallMedium.copyWith(color: RidoColors.surface),
+                                style: t.bodySmallMedium.copyWith(color: TtColors.surface),
                               ),
                             ),
                             const DropPin(size: 56),
@@ -148,24 +148,24 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                 ),
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(RidoSpacing.l, RidoSpacing.m, RidoSpacing.l, 0),
+                    padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, 0),
                     child: Row(
                       children: [
                         MapCircleButton(icon: Symbols.arrow_back_rounded, tooltip: 'Back', onPressed: _change),
-                        const SizedBox(width: RidoSpacing.s),
+                        const SizedBox(width: TtSpacing.s),
                         Expanded(
                           child: Container(
                             height: 44,
-                            padding: const EdgeInsets.symmetric(horizontal: RidoSpacing.l),
+                            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l),
                             decoration: const BoxDecoration(
-                              color: RidoColors.navy900,
-                              borderRadius: RidoRadii.pillRadius,
+                              color: TtColors.navy900,
+                              borderRadius: TtRadii.pillRadius,
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Symbols.pan_tool_rounded, size: 20, color: RidoColors.surface),
-                                const SizedBox(width: RidoSpacing.s),
+                                const Icon(Symbols.pan_tool_rounded, size: 20, color: TtColors.surface),
+                                const SizedBox(width: TtSpacing.s),
                                 Flexible(
                                   child: Text(
                                     widget.forPickup
@@ -173,7 +173,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                                         : 'Move the map to set your drop',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: t.bodySmallMedium.copyWith(color: RidoColors.surface),
+                                    style: t.bodySmallMedium.copyWith(color: TtColors.surface),
                                   ),
                                 ),
                               ],
@@ -185,8 +185,8 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                   ),
                 ),
                 Positioned(
-                  right: RidoSpacing.l,
-                  bottom: RidoSpacing.xl,
+                  right: TtSpacing.l,
+                  bottom: TtSpacing.xl,
                   child: MapCircleButton(
                     icon: Symbols.my_location_rounded,
                     tooltip: 'Recentre map',
@@ -204,7 +204,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Padding(padding: EdgeInsets.only(top: 2), child: DropPin(size: 26)),
-                    const SizedBox(width: RidoSpacing.m),
+                    const SizedBox(width: TtSpacing.m),
                     Expanded(
                       child: _locating
                           ? const SkeletonShimmer(
@@ -213,7 +213,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                                 children: [
                                   SizedBox(height: 4),
                                   FractionallySizedBox(widthFactor: 0.7, child: SkeletonBox(height: 16)),
-                                  SizedBox(height: RidoSpacing.s),
+                                  SizedBox(height: TtSpacing.s),
                                   FractionallySizedBox(widthFactor: 0.9, child: SkeletonBox(height: 12)),
                                   SizedBox(height: 22),
                                 ],
@@ -228,13 +228,13 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 2),
                                     child: Row(children: [
-                                      const Icon(Symbols.location_on_rounded, size: 16, color: RidoColors.coral600, fill: 1),
+                                      const Icon(Symbols.location_on_rounded, size: 16, color: TtColors.coral600, fill: 1),
                                       const SizedBox(width: 4),
                                       Expanded(
                                         child: Text(
                                           _place.landmark!,
                                           key: const ValueKey('pin-landmark'),
-                                          style: t.bodySemibold.copyWith(color: RidoColors.coral600),
+                                          style: t.bodySemibold.copyWith(color: TtColors.coral600),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -244,7 +244,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   '${_place.address}, Coimbatore',
-                                  style: t.bodySmall.copyWith(color: RidoColors.navy700),
+                                  style: t.bodySmall.copyWith(color: TtColors.navy700),
                                   maxLines: 2,
                                 ),
                               ],
@@ -253,15 +253,15 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                     TextButton(
                       onPressed: _change,
                       style: TextButton.styleFrom(
-                        foregroundColor: RidoColors.coral600,
+                        foregroundColor: TtColors.coral600,
                         minimumSize: const Size(48, 48),
                       ),
-                      child: Text('Change', style: t.bodySemibold.copyWith(color: RidoColors.coral600)),
+                      child: Text('Change', style: t.bodySemibold.copyWith(color: TtColors.coral600)),
                     ),
                   ],
                 ),
-                const SizedBox(height: RidoSpacing.l),
-                RidoButton(
+                const SizedBox(height: TtSpacing.l),
+                TtButton(
                   label: widget.forPickup ? 'Confirm pickup' : 'Confirm drop',
                   onPressed: _locating ? null : _confirm,
                 ),

@@ -40,7 +40,7 @@ export default async function DriversPage({ searchParams }: PageProps<"/drivers"
           <EmptyState
             icon={IdCardIcon}
             title={isFiltered ? "No drivers match" : "No drivers yet"}
-            description={isFiltered ? "Try another name, phone number or status." : "Drivers appear here once they register in the Rido Driver app."}
+            description={isFiltered ? "Try another name, phone number or status." : "Drivers appear here once they register in the Tamil Taxi Driver app."}
           />
         ) : (
           <Table>

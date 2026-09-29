@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rido_data/rido_data.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import '../router/routes.dart';
 import 'app_notice.dart';
@@ -332,7 +332,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
   Future<String?> book() async {
     if (_live) return _bookLive();
     _sim.cancelAll();
-    final now = RidoClock.now();
+    final now = TtClock.now();
     state = state.copyWith(
       phase: ParcelPhase.searching,
       tripId: 'PC-${now.millisecondsSinceEpoch % 100000000}',
@@ -378,7 +378,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
         final eta = (total * (1 - p)).ceil();
         if (eta != state.etaMin) state = state.copyWith(etaMin: eta);
       },
-      onDone: () => state = state.copyWith(phase: ParcelPhase.delivered, etaMin: 0, deliveredAt: RidoClock.now()),
+      onDone: () => state = state.copyWith(phase: ParcelPhase.delivered, etaMin: 0, deliveredAt: TtClock.now()),
     );
   }
 
@@ -511,7 +511,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
         );
         if (entering && _lastPoint != null) _track(_lastPoint!);
       case ParcelPhase.delivered:
-        state = state.copyWith(phase: ParcelPhase.delivered, driver: driver, etaMin: 0, deliveredAt: RidoClock.now());
+        state = state.copyWith(phase: ParcelPhase.delivered, driver: driver, etaMin: 0, deliveredAt: TtClock.now());
         ref.invalidate(tripHistoryProvider);
     }
   }
@@ -555,7 +555,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
 
   Future<void> _sendLive(String text) async {
     final id = state.tripId;
-    final now = RidoClock.now();
+    final now = TtClock.now();
     final local = ChatMessage(id: 'local-${now.microsecondsSinceEpoch}', text: text, fromMe: true, sentAt: now);
     state = state.copyWith(chat: [...state.chat, local]);
     try {
@@ -640,7 +640,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
             fare: q.total,
             quote: q,
             status: TripStatus.delivered,
-            startedAt: state.bookedAt ?? RidoClock.now(),
+            startedAt: state.bookedAt ?? TtClock.now(),
             driver: state.driver,
             distanceKm: q.distanceKm,
             durationMin: q.durationMin,
