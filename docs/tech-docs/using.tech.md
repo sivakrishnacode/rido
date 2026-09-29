@@ -13,8 +13,9 @@ The project was called **Rido** until 29 Sep 2026. In code the prefix is now `Tt
 `@tamiltaxi/*` and `tamiltaxi_ui` / `tamiltaxi_data`, dart-defines are `TT_*` (was `RIDO_*`), Android app IDs are
 `com.tamiltaxi.passenger` / `com.tamiltaxi.driver`, and Postgres uses database, user and password `tamiltaxi`.
 Existing external resources keep their old names because they can't be renamed: the SSH key `rido-key.pem`, the
-security group `rido-sg`, the EC2 tag `rido-server`, the Google Cloud project `rido-prod` and its API keys
-(`rido-android-maps`, `rido-server`, `rido-app-services`).
+security group `rido-sg`, the EC2 tag `rido-server`, the AWS CLI profile `rido`, IAM user `rido-deployer`, instance role
+`rido-ec2-uploads`, S3 bucket `rido-uploads-786020471552`, the Firebase project `rido-93cd3`, the Google Cloud project
+`rido-prod` and its API keys (`rido-android-maps`, `rido-server`, `rido-app-services`).
 
 After the rename, outside the repo:
 - **Firebase:** add Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver` to the Firebase project and put
@@ -257,7 +258,7 @@ Never commit real `.env` files.
   - `GET` / `PUT /drivers/me/booking-preferences` (`{maxPickupKm 0.5–10, minTripKm 1–50, maxTripKm 1–100, goTo {lat,
     lng, name}}`, null clears one; stored in `Driver.bookingPrefs` JSON, see §7c8).
   - `POST /drivers/me/documents/:type` is **multipart** (`file`: JPG/PNG/WebP/PDF ≤ 8 MB) → **S3**
-    `s3://tamiltaxi-uploads-786020471552/kyc/<uuid>.<ext>` when `S3_BUCKET` is set (production), else local disk
+    `s3://rido-uploads-786020471552/kyc/<uuid>.<ext>` when `S3_BUCKET` is set (production), else local disk
     (`UPLOAD_DIR`, Docker volume `uploads`, dev) → `KycDocument.fileUrl` = file name. Admins read it via
     `GET /v1/admin/files/:name` (streams from S3; files saved on disk before the switch are still found), proxied by
     the admin panel at `/files/:name` (never public). `FileStorageService` in `core/storage`.
@@ -990,8 +991,8 @@ suggestion's name.
 
 ## 7c. Push notifications (FCM)
 
-- **Firebase project `tamiltaxi-93cd3`** (Spark, free). Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver`; their
-  `android/app/google-services.json` is per machine and git-ignored (originals in `~/tamiltaxi-secrets/`). Without the file
+- **Firebase project `rido-93cd3`** (Spark, free). Android apps `com.tamiltaxi.passenger` and `com.tamiltaxi.driver`; their
+  `android/app/google-services.json` is per machine and git-ignored (originals in `~/rido-secrets/`). Without the file
   the apps build and run without push (the Google Services Gradle plugin is only applied when it exists).
 - **API:** `NotificationsModule` (global). `PushService` = firebase-admin (HTTP v1) with the service account from
   `FIREBASE_SERVICE_ACCOUNT_B64` (base64 JSON in the server's `.env`, mode 600; empty = push off, logged). Device
@@ -1155,13 +1156,13 @@ webhook URL. Plain `http://65.0.233.253:3000` / `:3001` still work until those p
 
 | Item | Value |
 |---|---|
-| Account / region | `786020471552` / ap-south-1 (Mumbai), AWS CLI profile `tamiltaxi` (IAM user `tamiltaxi-deployer`, `AmazonEC2FullAccess` only) |
+| Account / region | `786020471552` / ap-south-1 (Mumbai), AWS CLI profile `rido` (IAM user `rido-deployer`, `AmazonEC2FullAccess` only) |
 | Instance | `i-0f90806819ce574cd` (`rido-server`), t3.small (free-tier eligible), Ubuntu 24.04, 20 GB gp3, 2 GB swap |
 | Public IP | Elastic IP **65.0.233.253**: API `http://65.0.233.253:3000/v1`, admin `http://65.0.233.253:3001` |
 | Security group | `sg-0f4edf3e881efde00` (`rido-sg`): 22 from the owner's IP only, 80 + 443 public (Caddy), 3000–3001 public (old plain-HTTP URLs; close once every app build uses HTTPS); Postgres/Redis not published |
 | SSH | `ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253` |
 | On server | `/opt/tamiltaxi`: `docker-compose.yml`, `docker-compose.prod.yml` (removes DB/Redis host ports), `.env` (generated JWT secret + DB password, `S3_BUCKET`, mode 600) |
-| Uploads (S3) | Bucket `tamiltaxi-uploads-786020471552` (ap-south-1): all public access blocked, SSE-S3 default encryption, ACLs off. The instance role `tamiltaxi-ec2-uploads` may only Put/Get `kyc/*` and List with prefix `kyc/` (no keys on the server). IMDSv2 required, hop limit 2 (so the API container can reach instance credentials) |
+| Uploads (S3) | Bucket `rido-uploads-786020471552` (ap-south-1): all public access blocked, SSE-S3 default encryption, ACLs off. The instance role `rido-ec2-uploads` may only Put/Get `kyc/*` and List with prefix `kyc/` (no keys on the server). IMDSv2 required, hop limit 2 (so the API container can reach instance credentials) |
 
 **Seed prod** (the image has no TS sources, so seeders run locally through an SSH tunnel; ids `demo_…`, removable with `--clear`):
 
@@ -1229,7 +1230,7 @@ ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'cd /opt/tamiltaxi && docker comp
 ```
 
 **HTTPS one-time setup:** open 80 and 443 in `rido-sg`
-(`aws ec2 authorize-security-group-ingress --profile tamiltaxi --group-id sg-0f4edf3e881efde00 --ip-permissions
+(`aws ec2 authorize-security-group-ingress --profile rido --group-id sg-0f4edf3e881efde00 --ip-permissions
 'IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]' 'IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]'`),
 add `DIDIT_*` and `ADMIN_COOKIE_SECURE=true` (admin login then needs the HTTPS URL) to `/opt/tamiltaxi/.env`, and run the
 redeploy with `--profile https`. Caddy's certificates live in the `caddy_data` volume.
