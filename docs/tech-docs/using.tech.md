@@ -3,7 +3,7 @@
 Single technical reference for the Tamil Taxi monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 30 Sep 2026 (rider adds extra (+₹10/20/30) to a search nobody took, shown to drivers as "₹50 + ₹20"; parcel on bike: bike drivers also get goods-bike parcels unless they switch it off; Stay In and saved areas in driver booking preferences; kolam app icons + matching native/Flutter splash, overlay notification icon fix; 29 Sep: renamed Rido → Tamil Taxi: packages, app IDs `com.tamiltaxi.*`, `Tt*` widgets, `TT_*` defines, database `tamiltaxi`; new logo in `TtWordmark`; open-source repo: AGPL-3.0, contributor docs, CI, COST_AND_SCALING.md; DEV_OTP_CODE for dev-mode sign-in; bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 30 Sep 2026 (driver Home: Go To / Stay In row and sheet with saved areas, Parcels too switch, mixed ride/parcel request stacks; rider adds extra (+₹10/20/30) to a search nobody took, shown to drivers as "₹50 + ₹20"; parcel on bike: bike drivers also get goods-bike parcels unless they switch it off; Stay In and saved areas in driver booking preferences; kolam app icons + matching native/Flutter splash, overlay notification icon fix; 29 Sep: renamed Rido → Tamil Taxi: packages, app IDs `com.tamiltaxi.*`, `Tt*` widgets, `TT_*` defines, database `tamiltaxi`; new logo in `TtWordmark`; open-source repo: AGPL-3.0, contributor docs, CI, COST_AND_SCALING.md; DEV_OTP_CODE for dev-mode sign-in; bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -1045,8 +1045,10 @@ suggestion's name.
 
 - **What:** like Namma Yatri's Booking Preferences. Account › Booking preferences
   (`/account/booking-preferences`, `BookingPreferencesScreen`): read requests aloud + language (phone only, §7c9),
-  **Go home** (only trips towards the Home spot saved on the phone, for 2 hours), **farthest pickup** (Any, 1–10 km,
-  straight line), **trip length** (longer than / shorter than, 2–50 km). Save → `PUT /drivers/me/booking-preferences`.
+  **Go To / Stay In** (a row that opens the same sheet as Home, saved at once), **Parcels too** (bike drivers only,
+  on by default), **farthest pickup** (Any, 1–10 km, straight line), **trip length** (longer than / shorter than,
+  2–50 km). Save → `PUT /drivers/me/booking-preferences` with the stored Go To / Stay In and areas kept. Until 30 Sep
+  2026 the go-to place was a "Home" saved on the phone only (`goto_home_lat/lng` in shared_preferences, now unused).
 - **Dispatch:** `booking-prefs.ts` `fitsPrefs()` runs on each search's candidates after the declined / paused filter
   (one `driver.findMany` for those with prefs): pickup km ≤ max, trip km within min–max, and while `goTo.until` is in
   the future the drop must be within 3 km of the go-to or leave at most half of the driver's current distance to it.
@@ -1061,7 +1063,16 @@ suggestion's name.
   as before when absent).
 - **Home:** online with filters on, a "Filters on · pickup ≤ 2 km · trips over 5 km   Edit" row, so fewer requests
   don't look like a broken app. Account shows the same summary.
-- **Not yet:** a limit on go-home uses per day, and picking a go-to place other than the saved Home.
+- **Go To / Stay In on Home (30 Sep 2026, own design; Rapido has the idea):** online, under "You're online",
+  `DirectionRow` (`features/home/widgets/direction_panel.dart`) shows two pill buttons **Go To** / **Stay In**, or
+  what is on as a tinted strip ("Going to Home · Only trips towards it · till 4:30 PM", green; "Staying in RS Puram ·
+  Only trips within 5 km", navy) with **Change** and ✕ (off). The sheet ("Where do you want trips?") has a Go To /
+  Stay In switch, the saved areas (distance from the driver, radio pick, bin to remove), **Add area** (search, "Set
+  Home to where I am", "Use where I am" → reverse geocode) and for Stay In the radius chips 3 / 5 / 8 / 12 km; "Turn
+  on" / "Update" / "Turn off" save at once (`BookingPrefsController.change`, `saveArea`, `removeArea`). Turning one on
+  says the other turns off. Request cards then carry a green tag "Towards Home" / "Inside RS Puram" (`directionTag`).
+  A bike driver with parcels on sees "Looking for rides and parcels...".
+- **Not yet:** a limit on Go To uses per day, and switching Go To off when the driver reaches the place.
 
 ## 7c9. Driver request screen (D-15 / D-20)
 
@@ -1081,11 +1092,14 @@ suggestion's name.
   first); `GET /v1/trips/offer` still returns the oldest for older apps.
   App: `DriverSessionState.queued` (`QueuedOffer`) behind `incoming`. D-15 / D-20 always show `RequestStackView`
   (like Namma Yatri's; the coral single-request takeover is gone, 29 Sep 2026): with two or more a left rail of
-  countdown rings with each fare (tap to jump); with one a single full-width card. A card per request, soonest to close on top, with rating / vehicle / parcel tags,
-  fare and ₹/km, pickup distance · min and address, trip km · min and drop address, a ✕ inside its own ring with
+  countdown rings with each fare (tap to jump); with one a single full-width card. A card per request, soonest to close on top, with rating / vehicle / parcel / Go To tags,
+  fare and ₹/km (the rider's extra as "₹50 + ₹20" in green plus a "Rider added ₹20 extra" line; the rail shows
+  "₹50" and "+₹20"; voice: "50 rupees plus 20 extra"), pickup distance · min and address, trip km · min and drop address, a ✕ inside its own ring with
   the seconds left under it (red for the last 5), and
   its own "Swipe to accept" (`acceptOffer` / `declineOffer`; the others lock while one is being accepted). Each new
-  request is read aloud. Decline, timeout, a failed accept or `trip.offer_closed` drop that card; none left → Home. Home pushes the card only when a request appears from none. In the background the
+  request is read aloud. A bike driver's stack can mix rides and parcels: the title says "2 requests" and accepting
+  goes to D-16 or D-21 by the accepted request (`acceptedRoute`). A `trip.offer` for a trip already on screen (the
+  rider added extra) updates that card's fare and keeps its countdown; the overlay re-sends when a fare changes. Decline, timeout, a failed accept or `trip.offer_closed` drop that card; none left → Home. Home pushes the card only when a request appears from none. In the background the
   overlay shows the same list: the app sends `{cmd: offer, offer, others}` whenever the stack changes, and the
   overlay answers `accept | decline | timeout` with the trip id (`acceptOffer` / `declineOffer`). Overlay cards hide
   the voice toggle (the overlay isolate has no ProviderScope; the toggle drew a grey error screen there). Every open

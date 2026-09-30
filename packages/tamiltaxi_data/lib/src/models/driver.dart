@@ -264,12 +264,18 @@ class RideRequest {
     this.bookedBy,
     this.parcel,
     this.otp = '4829',
+    this.extra = 0,
   });
 
   final String id;
   final TripKind kind;
   final VehicleKind vehicle;
+
+  /// What the driver collects, the rider's [extra] included.
   final int fare;
+
+  /// Part of [fare] the rider added while nobody had taken the trip: the card shows "₹50 + ₹20".
+  final int extra;
   final Place pickup;
   final Place drop;
   final double pickupDistanceKm;
@@ -314,6 +320,7 @@ class RideRequest {
     String? bookedBy,
     ParcelDetails? parcel,
     String? otp,
+    int? extra,
   }) =>
       RideRequest(
         id: id ?? this.id,
@@ -334,5 +341,6 @@ class RideRequest {
         bookedBy: bookedBy ?? this.bookedBy,
         parcel: parcel ?? this.parcel,
         otp: otp ?? this.otp,
+        extra: extra ?? this.extra,
       );
 }

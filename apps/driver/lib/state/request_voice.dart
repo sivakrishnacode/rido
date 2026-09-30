@@ -110,10 +110,13 @@ abstract final class RequestSpeech {
   static String of(RideRequest r, VoiceLanguage language) {
     final pickupKm = r.pickupDistanceKm.toStringAsFixed(1);
     final tripKm = r.tripKm.toStringAsFixed(1);
+    final base = r.fare - r.extra;
     return switch (language) {
-      VoiceLanguage.english => '${r.isDelivery ? 'New delivery' : 'New ride'}. ${r.fare} rupees. '
+      VoiceLanguage.english => '${r.isDelivery ? 'New delivery' : 'New ride'}. '
+          '${r.extra > 0 ? '$base rupees plus ${r.extra} extra' : '${r.fare} rupees'}. '
           'Pickup $pickupKm kilometres, ${r.pickup.name}. Trip $tripKm kilometres.',
-      VoiceLanguage.tamil => '${r.isDelivery ? 'புதிய டெலிவரி' : 'புதிய சவாரி'}. ${r.fare} ரூபாய். '
+      VoiceLanguage.tamil => '${r.isDelivery ? 'புதிய டெலிவரி' : 'புதிய சவாரி'}. '
+          '${r.extra > 0 ? '$base ரூபாய், கூடுதல் ${r.extra} ரூபாய்' : '${r.fare} ரூபாய்'}. '
           'பிக்கப் $pickupKm கிலோமீட்டர், ${r.pickup.name}. பயணம் $tripKm கிலோமீட்டர்.',
     };
   }

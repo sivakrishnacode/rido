@@ -51,6 +51,14 @@ void main() {
       expect(o.expiresAtMs, expires.millisecondsSinceEpoch);
     });
 
+    test("carries the rider's extra", () {
+      final boosted = OverlayOffer.fromRequest(r.copyWith(fare: 90, extra: 30), expires);
+      final back = OverlayOffer.fromJson(jsonDecode(jsonEncode(boosted.toJson())))!;
+      expect(back.extra, 30);
+      expect(back.toRequest().extra, 30);
+      expect(OverlayOffer.fromJson(jsonDecode(jsonEncode(OverlayOffer.fromRequest(r, expires).toJson())))!.extra, 0);
+    });
+
     test('countdown from the server expiry, never negative', () {
       final o = OverlayOffer.fromRequest(r, expires);
       expect(o.remaining(DateTime(2026, 9, 26, 10, 0, 5)), const Duration(seconds: 10));

@@ -48,6 +48,7 @@ class OverlayOffer {
     this.rating = 4.8,
     this.isVerified = false,
     this.isWomenOnly = false,
+    this.extra = 0,
   });
 
   factory OverlayOffer.fromRequest(RideRequest r, DateTime expiresAt) => OverlayOffer(
@@ -70,6 +71,7 @@ class OverlayOffer {
         rating: r.customerRating,
         isVerified: r.isCustomerVerified,
         isWomenOnly: r.isWomenOnly,
+        extra: r.extra,
       );
 
   /// Null when [json] isn't an offer (e.g. a message from an older build).
@@ -99,6 +101,7 @@ class OverlayOffer {
       rating: json['rating'] is num ? (json['rating'] as num).toDouble() : 4.8,
       isVerified: json['isVerified'] == true,
       isWomenOnly: json['isWomenOnly'] == true,
+      extra: n('extra').round(),
     );
   }
 
@@ -108,6 +111,9 @@ class OverlayOffer {
   final double rating;
   final bool isVerified;
   final bool isWomenOnly;
+
+  /// Part of [fare] the rider added ("₹50 + ₹20").
+  final int extra;
 
   /// Back to a [RideRequest] for the shared card widgets (no coordinates: the overlay draws no map).
   RideRequest toRequest() => RideRequest(
@@ -125,6 +131,7 @@ class OverlayOffer {
         customerRating: rating,
         isCustomerVerified: isVerified,
         isWomenOnly: isWomenOnly,
+        extra: extra,
       );
 
   DateTime get expiresAt => DateTime.fromMillisecondsSinceEpoch(expiresAtMs);
@@ -168,6 +175,7 @@ class OverlayOffer {
         'dropAddress': dropAddress,
         'pickupLandmark': ?pickupLandmark,
         'rating': rating,
+        'extra': extra,
         'isVerified': isVerified,
         'isWomenOnly': isWomenOnly,
       };

@@ -144,8 +144,8 @@ class BackgroundOffers {
       _overlayShown = active;
     }
     if (surface == BackgroundSurface.requestOverlay && incoming != null) {
-      // Re-sent when the request in focus or the stack behind it changes.
-      final sig = [incoming.id, for (final q in s.queued) q.request.id].join(',');
+      // Re-sent when the request in focus or the stack behind it changes (a fare too: the rider added extra).
+      final sig = ['${incoming.id}:${incoming.fare}', for (final q in s.queued) '${q.request.id}:${q.request.fare}'].join(',');
       if (_offerOnOverlay != sig) {
         _offerOnOverlay = sig;
         await _sendOffer(incoming, s.incomingExpiresAt);

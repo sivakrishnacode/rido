@@ -31,6 +31,12 @@ void main() {
     expect(RequestSpeech.of(r, VoiceLanguage.tamil), startsWith('புதிய சவாரி. ${r.fare} ரூபாய்.'));
   });
 
+  test("the rider's extra is read after the fare", () {
+    final r = Seed.rideRequest.copyWith(fare: 70, extra: 20);
+    expect(RequestSpeech.of(r, VoiceLanguage.english), startsWith('New ride. 50 rupees plus 20 extra.'));
+    expect(RequestSpeech.of(r, VoiceLanguage.tamil), startsWith('புதிய சவாரி. 50 ரூபாய், கூடுதல் 20 ரூபாய்.'));
+  });
+
   test('announces only while voice is on, in the chosen language, and remembers the choice', () async {
     final speaker = _FakeSpeaker();
     final container = ProviderContainer(overrides: [requestSpeakerProvider.overrideWithValue(speaker)]);

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_driver/features/account/booking_preferences_screen.dart';
+import 'package:tamiltaxi_driver/features/home/widgets/direction_panel.dart';
 import 'package:tamiltaxi_driver/state/booking_prefs.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/harness.dart';
@@ -10,10 +13,26 @@ import 'support/harness.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  const home = SavedArea(name: 'Home', location: LatLng(11.08, 77));
+
+  /// Scrolls [f] to the middle (the Save bar and snacks cover the bottom edge) before a tap.
+  Future<void> center(WidgetTester tester, Finder f) async {
+    await Scrollable.ensureVisible(tester.element(f), alignment: 0.5);
+    await tester.pump();
+  }
+
   test('summary and JSON of the preferences', () {
     const none = BookingPrefs();
     expect(none.hasFilters, isFalse);
-    expect(none.toJson(), {'maxPickupKm': null, 'minTripKm': null, 'maxTripKm': null, 'goTo': null});
+    expect(none.toJson(), {
+      'maxPickupKm': null,
+      'minTripKm': null,
+      'maxTripKm': null,
+      'goTo': null,
+      'stayIn': null,
+      'parcels': true,
+      'areas': <Object>[],
+    });
 
     const prefs = BookingPrefs(
       maxPickupKm: 2,
@@ -22,6 +41,7 @@ void main() {
       goTo: GoToDestination(location: LatLng(11.08, 77), name: 'Home'),
     );
     expect(prefs.summary, 'going to Home · pickup ≤ 2 km · trips 5–15 km');
+    expect(prefs.tripFilterSummary, 'pickup ≤ 2 km · trips 5–15 km');
     expect(const BookingPrefs(minTripKm: 5).summary, 'trips over 5 km');
     expect(const BookingPrefs(maxTripKm: 2.5).summary, 'trips under 2.5 km');
 
@@ -30,21 +50,50 @@ void main() {
       'minTripKm': null,
       'maxTripKm': 15,
       'goTo': {'lat': 11.08, 'lng': 77, 'name': 'Home', 'until': '2026-09-29T12:00:00Z'},
+      'parcels': false,
+      'areas': [
+        {'name': 'Home', 'lat': 11.08, 'lng': 77},
+        {'name': 'Broken'},
+      ],
     });
     expect(back.maxPickupKm, 2);
     expect(back.minTripKm, isNull);
     expect(back.goTo!.until, isNotNull);
+    expect(back.parcels, isFalse);
+    expect(back.areas, [home]);
+    // An older server: no parcels field means parcels on.
+    expect(BookingPrefs.fromJson(const {}).parcels, isTrue);
   });
 
-  testWidgets('set the farthest pickup and a minimum trip length, then save', (tester) async {
+  test('Go To and Stay In are never on together', () {
+    final stay = const BookingPrefs().stayingIn(home, radiusKm: 8);
+    expect(stay.stayIn?.radiusKm, 8);
+    expect(stay.hasDirection, isTrue);
+    expect(stay.toJson()['stayIn'], {'lat': 11.08, 'lng': 77.0, 'name': 'Home', 'radiusKm': 8.0});
+    final go = stay.goingTo(home);
+    expect(go.goTo?.name, 'Home');
+    expect(go.stayIn, isNull);
+    expect(go.goingTo(null).hasDirection, isFalse);
+    expect(StayInArea.fromJson({'lat': 11, 'lng': 77, 'name': 'X', 'radiusKm': 5, 'until': '2026-09-29T20:00:00Z'})!.until, isNotNull);
+  });
+
+  test('the request card tag follows what is on, until its time is up', () {
+    final now = DateTime(2026, 9, 30, 10);
+    final going = BookingPrefs(goTo: GoToDestination(location: home.location, name: 'Home', until: now.add(const Duration(hours: 1))));
+    expect(directionTag(going, now), 'Towards Home');
+    expect(directionTag(going, now.add(const Duration(hours: 2))), isNull);
+    final staying = BookingPrefs(stayIn: StayInArea(location: home.location, name: 'RS Puram', radiusKm: 5));
+    expect(directionTag(staying, now), 'Inside RS Puram');
+    expect(directionTag(const BookingPrefs(), now), isNull);
+  });
+
+  testWidgets('set the farthest pickup, a minimum trip length and parcels off, then save', (tester) async {
     final container = await pumpRoute(tester, '/account/booking-preferences');
     expect(find.byType(BookingPreferencesScreen), findsOneWidget);
     expect(find.text('Any distance'), findsOneWidget);
-    expect(find.text('Save my location as Home'), findsOneWidget);
-
-    // Go home needs a saved Home: its switch is off and disabled.
-    final goHome = tester.widgetList<Switch>(find.byType(Switch)).last;
-    expect(goHome.onChanged, isNull);
+    expect(find.text('Go To / Stay In'), findsOneWidget);
+    // The demo driver rides a bike: parcels too, on by default.
+    expect(find.text('Parcels too'), findsOneWidget);
 
     await tester.tap(find.byTooltip('More').first);
     await tester.pump();
@@ -53,31 +102,94 @@ void main() {
     await tester.pump();
     expect(find.text('1.5 km max'), findsOneWidget);
 
+    await center(tester, find.byType(Checkbox).first);
     await tester.tap(find.byType(Checkbox).first);
     await tester.pump();
     expect(find.text('5.0 km'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Save'));
+    await center(tester, find.text('Parcels too'));
+    await tester.tap(find.byType(Switch).last);
+    await tester.pump();
+
+    await center(tester, find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pump(const Duration(milliseconds: 300));
     final saved = container.read(bookingPrefsProvider).value!;
     expect(saved.maxPickupKm, 1.5);
     expect(saved.minTripKm, 5);
     expect(saved.maxTripKm, isNull);
+    expect(saved.parcels, isFalse);
     await tester.pump(const Duration(seconds: 5)); // snack
   });
 
-  testWidgets('with a saved Home, Go home can be switched on', (tester) async {
-    SharedPreferences.setMockInitialValues({'goto_home_lat': 11.08, 'goto_home_lng': 77.0});
+  testWidgets('add an area, turn Go To on, then Stay In there within 8 km (Go To goes off)', (tester) async {
     final container = await pumpRoute(tester, '/account/booking-preferences');
+    await tester.tap(find.text('Go To / Stay In'));
+    await tester.pumpAndSettle();
+    expect(find.text('Where do you want trips?'), findsOneWidget);
+    expect(find.text('Save a place you often go to, like Home or your stand.'), findsOneWidget);
+    // Nothing picked yet: nothing to turn on.
+    expect(tester.widget<TtButton>(find.widgetWithText(TtButton, 'Turn on Go To')).onPressed, isNull);
+
+    await tester.tap(find.text('Add area'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Brookefields');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Brookefields Mall').first);
+    await tester.pumpAndSettle();
+
+    // Back on the sheet: the new area is saved and picked.
+    expect(container.read(bookingPrefsProvider).value!.areas.map((a) => a.name), ['Brookefields Mall']);
+    await center(tester, find.widgetWithText(TtButton, 'Turn on Go To'));
+    await tester.tap(find.widgetWithText(TtButton, 'Turn on Go To'));
+    await tester.pumpAndSettle();
+    expect(container.read(bookingPrefsProvider).value!.goTo?.name, 'Brookefields Mall');
+    expect(find.text('Going to Brookefields Mall'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5)); // the snack goes
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Go To / Stay In'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Stay In').first);
     await tester.pump();
-    expect(find.text('Update Home to my location'), findsOneWidget);
-    await tester.tap(find.byType(Switch).last);
+    await tester.tap(find.text('Brookefields Mall').last);
+    await center(tester, find.text('8 km'));
+    await tester.tap(find.text('8 km'));
     await tester.pump();
-    await tester.ensureVisible(find.text('Save'));
-    await tester.tap(find.text('Save'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(container.read(bookingPrefsProvider).value!.goTo?.name, 'Home');
+    expect(find.text('Go To (Brookefields Mall) turns off.'), findsOneWidget);
+    await center(tester, find.widgetWithText(TtButton, 'Turn on Stay In'));
+    await tester.tap(find.widgetWithText(TtButton, 'Turn on Stay In'));
+    await tester.pumpAndSettle();
+    final prefs = container.read(bookingPrefsProvider).value!;
+    expect(prefs.goTo, isNull);
+    expect(prefs.stayIn?.radiusKm, 8);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('Home strip: what is on, and ✕ turns it off', (tester) async {
+    await loadTestFonts();
+    usePhone(tester);
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await container.read(bookingPrefsProvider.future);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(theme: TtTheme.light(), home: const Scaffold(body: Center(child: DirectionRow()))),
+    ));
+    await tester.pump();
+    expect(find.text('Go To'), findsOneWidget);
+    expect(find.text('Stay In'), findsOneWidget);
+
+    await container.read(bookingPrefsProvider.notifier).save(const BookingPrefs().stayingIn(home, radiusKm: 3));
+    await tester.pump();
+    expect(find.text('Staying in Home'), findsOneWidget);
+    expect(find.text('Only trips within 3 km'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Turn Stay In off'));
+    await tester.pump();
+    expect(container.read(bookingPrefsProvider).value!.hasDirection, isFalse);
+    expect(find.text('Go To'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
 }

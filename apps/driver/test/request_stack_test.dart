@@ -12,7 +12,7 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   Future<void> pump(WidgetTester tester, List<StackEntry> entries,
-      {ValueChanged<String>? onAccept, ValueChanged<String>? onDecline, String? acceptingId}) async {
+      {ValueChanged<String>? onAccept, ValueChanged<String>? onDecline, String? acceptingId, String? direction}) async {
     await loadTestFonts();
     usePhone(tester);
     await tester.pumpWidget(ProviderScope(
@@ -21,6 +21,7 @@ void main() {
         home: RequestStackView(
           entries: entries,
           acceptingId: acceptingId,
+          direction: direction,
           onAccept: onAccept ?? (_) {},
           onDecline: onDecline ?? (_) {},
           onExpired: (_) {},
@@ -51,6 +52,31 @@ void main() {
     final soonY = tester.getTopLeft(find.byKey(const ValueKey('card-soon'))).dy;
     final lateY = tester.getTopLeft(find.byKey(const ValueKey('card-late'))).dy;
     expect(soonY, lessThan(lateY));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets("the rider's extra shows as ₹50 + ₹20 with its own line; Go To tags every card", (tester) async {
+    final now = DateTime.now();
+    await pump(tester, [
+      (request: Seed.rideRequest.copyWith(id: 'boosted', fare: 70, extra: 20, tripKm: 5), expiresAt: now.add(const Duration(seconds: 9))),
+    ], direction: 'Towards Home');
+    expect(find.text('₹50 + ₹20'), findsOneWidget);
+    expect(find.text('Rider added ₹20 extra'), findsOneWidget);
+    expect(find.text('₹14/km'), findsOneWidget); // 70 / 5: on what the driver collects
+    expect(find.text('Towards Home'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a bike driver\'s stack of rides and parcels is titled by both', (tester) async {
+    final now = DateTime.now();
+    await pump(tester, [
+      (request: Seed.rideRequest.copyWith(id: 'ride'), expiresAt: now.add(const Duration(seconds: 9))),
+      (request: Seed.deliveryRequest.copyWith(id: 'parcel', extra: 10), expiresAt: now.add(const Duration(seconds: 12))),
+    ]);
+    expect(find.text('2 requests'), findsOneWidget);
+    expect(find.text('Sender added ₹10 extra'), findsOneWidget);
+    // The rail shows the fare without the extra and the extra under it.
+    expect(find.text('+₹10'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 

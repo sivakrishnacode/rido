@@ -96,6 +96,7 @@ FareQuote quoteFromJson(Json j) => FareQuote(
           : vehicleTypeFor(vehicleKindFromApi(j['vehicleKind'])).fareRule.waitPerMin,
       waitMaxCharge: _i(j['waitMaxCharge'], FareEngine.waitMaxCharge),
       previousCancellationFee: _i(j['previousCancellationFee']),
+      extra: _i(j['extra']),
     );
 
 /// A driver (`Driver` with its `user`).
@@ -220,6 +221,7 @@ RideRequest rideRequestFromOffer(Json offer) {
     bookedBy: passenger['bookedBy'] is String ? passenger['bookedBy'] as String : null,
     parcel: trip.parcel,
     otp: '',
+    extra: trip.quote?.extra ?? 0,
   );
 }
 
@@ -247,6 +249,7 @@ RideRequest rideRequestFromTrip(Json j) {
     bookedBy: j['riderName'] is String ? _s(passenger['name'], 'Tamil Taxi customer') : null,
     parcel: trip.parcel,
     otp: '',
+    extra: trip.quote?.extra ?? 0,
   );
 }
 

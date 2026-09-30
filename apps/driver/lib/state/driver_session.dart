@@ -877,12 +877,22 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     }
   }
 
-  /// A new request: in focus when none is, else stacked behind it (a driver can hold a few at once).
+  /// A new request: in focus when none is, else stacked behind it (a driver can hold a few at once). One already on
+  /// screen coming again (the rider added extra) updates its card, keeping its countdown.
   void _onOffer(LiveOffer offer) {
     if (!ref.mounted) return;
     final id = offer.request.id;
-    if (!state.online || state.onJob || _closedOffers.contains(id) || state.incoming?.id == id) return;
-    if (state.queued.any((q) => q.request.id == id)) return;
+    if (!state.online || state.onJob || _closedOffers.contains(id)) return;
+    if (state.incoming?.id == id) {
+      if (state.incoming!.fare != offer.request.fare) state = state.copyWith(incoming: offer.request);
+      return;
+    }
+    if (state.queued.any((q) => q.request.id == id)) {
+      state = state.copyWith(queued: [
+        for (final q in state.queued) q.request.id == id ? QueuedOffer(offer.request, q.expiresAt) : q,
+      ]);
+      return;
+    }
     final expiresAt = DateTime.now().add(Duration(seconds: offer.expiresInSeconds));
     if (state.incoming == null) {
       state = state.copyWith(incoming: offer.request, incomingExpiresAt: expiresAt, missedRequest: false);

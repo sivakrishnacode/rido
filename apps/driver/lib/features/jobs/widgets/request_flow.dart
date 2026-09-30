@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../../common/job_routes.dart';
+import '../../../state/booking_prefs.dart';
 import '../../../state/driver_session.dart';
 import '../../../state/live_helpers.dart';
 import '../../../state/request_voice.dart';
@@ -12,17 +14,14 @@ import 'job_common.dart';
 import 'request_stack_view.dart';
 
 /// Shared D-15 / D-20 logic: the request in focus follows the session (a declined, timed-out or withdrawn request
-/// makes way for the next stacked one without leaving the screen), Accept → [acceptRoute], and the card closes
-/// only when nothing is left.
+/// makes way for the next stacked one without leaving the screen), Accept → D-16 or D-21 by the accepted request
+/// ([acceptedRoute]), and the card closes only when nothing is left.
 mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
   /// Opened on its own from the Design gallery: seed state, no timers.
   bool get showcase;
 
   /// Shown in the gallery / after the last request closes.
   RideRequest get seed;
-
-  /// Where Accept goes (D-16 / D-21).
-  String get acceptRoute;
 
   late final RequestSpeaker _speaker;
   late RideRequest _last = ref.read(driverSessionProvider).incoming ?? seed;
@@ -104,7 +103,7 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
   Future<void> accept() async {
     if (_handledId == _last.id) return;
     if (showcase) {
-      context.push(acceptRoute);
+      context.push(acceptedRoute(seed));
       return;
     }
     _handledId = _last.id;
@@ -120,7 +119,7 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
     }
     if (!mounted) return;
     _closed = true;
-    context.pushReplacement(acceptRoute);
+    context.pushReplacement(acceptedRoute(_last));
   }
 
   void decline() {
@@ -176,6 +175,7 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
     final incoming = s.incoming;
     return RequestStackView(
       delivery: delivery,
+      direction: directionTag(ref.watch(bookingPrefsProvider).value, DateTime.now()),
       entries: [
         if (incoming != null) (request: incoming, expiresAt: s.incomingExpiresAt ?? DateTime.now().add(countdown)),
         // Closing (nothing left): the last card stays until the screen leaves.

@@ -343,6 +343,26 @@ void main() {
     expect(state().queued, isEmpty);
   });
 
+  test('the rider adds extra: the request on screen and the one stacked behind get the new fare, same countdown', () async {
+    await session().goOnline();
+    jobs.offersCtl
+      ..add(_offer('t1'))
+      ..add(_offer('t2'));
+    await pumpEventQueue();
+    final focusEnds = state().incomingExpiresAt;
+    final stackedEnds = state().queued.single.expiresAt;
+    final fare = Seed.rideRequest.fare;
+    jobs.offersCtl
+      ..add(LiveOffer(_offer('t1').request.copyWith(fare: fare + 20, extra: 20), 4))
+      ..add(LiveOffer(_offer('t2').request.copyWith(fare: fare + 10, extra: 10), 4));
+    await pumpEventQueue();
+    expect(state().incoming?.fare, fare + 20);
+    expect(state().incoming?.extra, 20);
+    expect(state().incomingExpiresAt, focusEnds);
+    expect(state().queued.single.request.extra, 10);
+    expect(state().queued.single.expiresAt, stackedEnds);
+  });
+
   test('going offline declines every open request; a resume recovers all of them', () async {
     await session().goOnline();
     jobs.openOffers.addAll([_offer('t1'), _offer('t2')]);

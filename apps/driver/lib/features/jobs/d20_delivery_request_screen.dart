@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
-import '../../router/routes.dart';
 import 'widgets/request_flow.dart';
 
 /// D-20 Incoming delivery request: the same cards as D-15 for goods, with the parcel type, weight and who pays.n/// Swipe to accept → D-21.
@@ -23,8 +22,6 @@ class _D20DeliveryRequestScreenState extends ConsumerState<D20DeliveryRequestScr
   @override
   RideRequest get seed => Seed.deliveryRequest;
 
-  @override
-  String get acceptRoute => Routes.delivery;
 
   @override
   Widget build(BuildContext context) {

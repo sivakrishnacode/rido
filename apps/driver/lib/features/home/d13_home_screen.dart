@@ -22,6 +22,7 @@ import '../states/s11_missed_request_banner.dart';
 import '../states/s16_gps_weak_banner.dart';
 import 'widgets/demand_chip.dart';
 import 'widgets/demand_layer.dart';
+import 'widgets/direction_panel.dart';
 import 'widgets/home_parts.dart';
 import 'widgets/navy_header.dart';
 
@@ -235,6 +236,8 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         : _v == HomeVariant.missedRequest && !_missedDismissed;
     final quiet = _v == HomeVariant.quiet;
     final delivery = _live ? (_api ? profile.vehicleKind.isGoods : demo.workType == WorkType.deliveries) : false;
+    // A bike driver gets goods-bike parcels too unless they turned it off.
+    final parcelsToo = !delivery && profile.vehicleKind == VehicleKind.bike && (prefs?.parcels ?? true);
     final earnings = _v == HomeVariant.offline ? 0 : (_live ? session.todayEarnings : Seed.todayEarnings);
     final rides = _v == HomeVariant.offline ? 0 : (_live ? session.todayRides : Seed.todayRides);
     final eta = _live ? session.etaMin : 9;
@@ -255,7 +258,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     } else if (quiet) {
       subtitle = 'Online for 18 min';
     } else if (online) {
-      subtitle = delivery ? 'Looking for deliveries...' : 'Looking for rides...';
+      subtitle = delivery ? 'Looking for deliveries...' : (parcelsToo ? 'Looking for rides and parcels...' : 'Looking for rides...');
     } else {
       subtitle = _greeting();
     }
@@ -431,10 +434,15 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
               ? 'Keep the app open and volume up.'
               : (_api ? 'Keep the app open. Requests pop up here.' : 'Move towards Gandhipuram for faster requests.'),
         ),
-        // Filters on: say so, or a quiet evening looks like the app is broken.
-        if (prefs != null && prefs.hasFilters) ...[
+        // Go To / Stay In: two buttons, or the one that is on (with Change / Off).
+        if (!_showcase) ...[
           const SizedBox(height: TtSpacing.m),
-          FiltersOnRow(summary: prefs.summary, onEdit: () => context.push(Routes.bookingPreferences)),
+          const DirectionRow(),
+        ],
+        // Filters on: say so, or a quiet evening looks like the app is broken.
+        if (prefs != null && prefs.hasTripFilters) ...[
+          const SizedBox(height: TtSpacing.m),
+          FiltersOnRow(summary: prefs.tripFilterSummary, onEdit: () => context.push(Routes.bookingPreferences)),
         ],
         const SizedBox(height: TtSpacing.l),
         TtButton.secondary(label: 'Go offline', onPressed: _goOfflineOrShowcase),

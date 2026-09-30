@@ -44,6 +44,12 @@ abstract final class FareEngine {
   static const int freeWaitMin = 3;
   static const int waitMaxCharge = 30;
 
+  /// "Add extra" while nobody has taken the trip: the steps offered (same as apps/api extra-fare.ts).
+  static const List<int> extraSteps = [10, 20, 30];
+
+  /// The most a rider can add in all on a quote of [quoteTotal]: half of it (to ₹10), at least ₹100.
+  static int maxExtra(int quoteTotal) => math.max(100, (quoteTotal / 20).round() * 10);
+
   static const double _eps = 1e-9;
 
   /// Measured road distances for the demo routes, so seed screens match the designs.

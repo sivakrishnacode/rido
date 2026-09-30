@@ -160,6 +160,10 @@ class LiveTrips {
   Future<LiveTripUpdate> addVehicle(String tripId, VehicleKind vehicle) async =>
       _update(_map(await api.post('/trips/$tripId/also', {'vehicleKind': enumToApi(vehicle)})));
 
+  /// While searching: the rider's extra in all on top of the quote ("+₹20"); drivers see "₹50 + ₹20".
+  Future<LiveTripUpdate> addExtra(String tripId, int amount) async =>
+      _update(_map(await api.post('/trips/$tripId/extra', {'amount': amount})));
+
   Future<void> rate(String tripId, int rating) => api.post('/trips/$tripId/rate', {'rating': rating});
 
   static LiveTripUpdate _update(Json j) => LiveTripUpdate(tripFromJson(j), apiStatusOf(j), j);
@@ -204,10 +208,11 @@ class LiveJobs {
 
   Future<void> goOffline() => api.post('/drivers/me/offline');
 
-  /// Booking preferences (pickup distance, trip length, go-to destination); dispatch only offers trips that fit.
+  /// Booking preferences (pickup distance, trip length, Go To / Stay In, parcels, saved areas); dispatch only offers
+  /// trips that fit.
   Future<BookingPrefs> bookingPrefs() async => BookingPrefs.fromJson(_map(await api.get('/drivers/me/booking-preferences')));
 
-  /// Replaces them; returns what the server saved (a go-to comes back with when it switches off).
+  /// Replaces them; returns what the server saved (a go-to / stay-in comes back with when it switches off).
   Future<BookingPrefs> setBookingPrefs(BookingPrefs prefs) async =>
       BookingPrefs.fromJson(_map(await api.put('/drivers/me/booking-preferences', prefs.toJson())));
 

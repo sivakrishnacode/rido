@@ -25,7 +25,11 @@ class RequestStackView extends StatefulWidget {
     this.showVoiceToggle = true,
     this.topRight,
     this.running = true,
+    this.direction,
   });
+
+  /// Go To / Stay In is on: "Towards Home" / "Inside RS Puram" on every card (dispatch only sends trips that fit).
+  final String? direction;
 
   /// False freezes the rings (design gallery).
   final bool running;
@@ -45,6 +49,8 @@ class RequestStackView extends StatefulWidget {
 
   /// The request whose accept call is in flight.
   final String? acceptingId;
+
+  /// The screen was opened for a delivery (a bike driver's stack can mix rides and parcels: the title follows them).
   final bool delivery;
 
   @override
@@ -83,11 +89,7 @@ class _RequestStackViewState extends State<RequestStackView> {
                 const Icon(Symbols.notifications_active_rounded, color: TtColors.coral600, fill: 1, size: 26),
                 const SizedBox(width: TtSpacing.s),
                 Expanded(
-                  child: Text(
-                      entries.length == 1
-                          ? 'New ${widget.delivery ? 'delivery' : 'ride'} request'
-                          : '${entries.length} ${widget.delivery ? 'delivery' : 'ride'} requests',
-                      style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: Text(_title(entries), style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
                 if (widget.showVoiceToggle) const RequestVoiceToggle(dark: false),
                 ?widget.topRight,
@@ -125,6 +127,7 @@ class _RequestStackViewState extends State<RequestStackView> {
                           child: _RequestCard(
                             key: ValueKey('card-${e.request.id}'),
                             request: e.request,
+                            direction: widget.direction,
                             left: left(e),
                             accepting: widget.acceptingId == e.request.id,
                             locked: widget.acceptingId != null,
@@ -144,6 +147,19 @@ class _RequestStackViewState extends State<RequestStackView> {
       ),
     );
   }
+
+  /// "New ride request", "2 delivery requests", or "3 requests" when rides and parcels are mixed.
+  String _title(List<StackEntry> entries) {
+    final deliveries = entries.where((e) => e.request.isDelivery).length;
+    final kind = entries.isEmpty
+        ? (widget.delivery ? 'delivery ' : 'ride ')
+        : deliveries == entries.length
+            ? 'delivery '
+            : deliveries == 0
+                ? 'ride '
+                : '';
+    return entries.length <= 1 ? 'New ${kind}request' : '${entries.length} ${kind}requests';
+  }
 }
 
 class _RailItem extends StatelessWidget {
@@ -158,7 +174,8 @@ class _RailItem extends StatelessWidget {
     final t = context.type;
     return Semantics(
       button: true,
-      label: '${formatInr(request.fare)} request, pickup ${formatKm(request.pickupDistanceKm)} away. Show it',
+      label: '${formatInr(request.fare)} request${request.extra > 0 ? ' with ${formatInr(request.extra)} extra' : ''}, '
+          'pickup ${formatKm(request.pickupDistanceKm)} away. Show it',
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
@@ -180,7 +197,10 @@ class _RailItem extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(formatInr(request.fare), style: TtTextStyles.tabular(t.bodySemibold)),
+            Text(formatInr(request.fare - request.extra), style: TtTextStyles.tabular(t.bodySemibold)),
+            if (request.extra > 0)
+              Text('+${formatInr(request.extra)}',
+                  style: TtTextStyles.tabular(t.caption.copyWith(color: TtColors.successText, fontWeight: FontWeight.w700))),
           ]),
         ),
       ),
@@ -199,12 +219,14 @@ class _RequestCard extends StatelessWidget {
     required this.onDecline,
     required this.onExpired,
     this.running = true,
+    this.direction,
   });
 
   final RideRequest request;
   final Duration left;
   final bool accepting;
   final bool running;
+  final String? direction;
 
   /// Another request is being accepted: no actions here meanwhile.
   final bool locked;
@@ -234,6 +256,8 @@ class _RequestCard extends StatelessWidget {
               _Tag(icon: r.vehicle.icon, label: r.vehicle.label, bg: TtColors.infoTint, fg: TtColors.navy900),
               if (r.isCustomerVerified)
                 const _Tag(icon: Symbols.verified_rounded, label: 'Verified', bg: TtColors.successTint, fg: TtColors.successText),
+              if (direction != null)
+                _Tag(icon: Symbols.near_me_rounded, label: direction!, bg: TtColors.successTint, fg: TtColors.successText),
               if (r.isWomenOnly)
                 const _Tag(icon: Symbols.female_rounded, label: 'Butterfly', bg: TtColors.butterfly50, fg: TtColors.butterfly600),
               if (parcel != null) ...[
@@ -273,13 +297,36 @@ class _RequestCard extends StatelessWidget {
           ]),
         ]),
         const SizedBox(height: TtSpacing.s),
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-          Text(formatInr(r.fare), style: TtTextStyles.tabular(t.display)),
-          if (perKm != null) ...[
-            const SizedBox(width: TtSpacing.s),
-            Text('₹$perKm/km', style: t.bodySmall.copyWith(color: TtColors.navy500)),
-          ],
+        // "₹50 + ₹20": the rider's extra in green after the fare (₹/km is on the whole amount).
+        Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: TtSpacing.s, children: [
+          Text.rich(
+            TextSpan(children: [
+              TextSpan(text: formatInr(r.fare - r.extra)),
+              if (r.extra > 0) TextSpan(text: ' + ${formatInr(r.extra)}', style: const TextStyle(color: TtColors.success)),
+            ]),
+            style: TtTextStyles.tabular(t.display),
+          ),
+          if (perKm != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text('₹$perKm/km', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+            ),
         ]),
+        if (r.extra > 0) ...[
+          const SizedBox(height: TtSpacing.xs),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s, vertical: 6),
+            decoration: const BoxDecoration(color: TtColors.successTint, borderRadius: TtRadii.cardRadius),
+            child: Row(children: [
+              const Icon(Symbols.add_circle_rounded, size: 18, color: TtColors.successText, fill: 1),
+              const SizedBox(width: TtSpacing.s),
+              Expanded(
+                child: Text('${r.isDelivery ? 'Sender' : 'Rider'} added ${formatInr(r.extra)} extra',
+                    style: t.bodySmallMedium.copyWith(color: TtColors.successText, fontWeight: FontWeight.w600)),
+              ),
+            ]),
+          ),
+        ],
         const SizedBox(height: TtSpacing.m),
         _Stop(
           dot: TtColors.success,

@@ -25,3 +25,7 @@ String? routeForJob(JobPhase phase, {required bool delivery}) {
 
 /// Route for an incoming request.
 String requestRoute(RideRequest r) => r.isDelivery ? Routes.deliveryRequest : Routes.request;
+
+/// Where accepting [r] goes (D-16 / D-21): by the request itself, since a bike driver's stack can mix rides and
+/// parcels.
+String acceptedRoute(RideRequest r) => r.isDelivery ? Routes.delivery : Routes.pickup;

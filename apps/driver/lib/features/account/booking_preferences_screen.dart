@@ -5,14 +5,15 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/booking_prefs.dart';
-import '../../state/driver_session.dart';
+import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
 import '../../state/request_voice.dart';
+import '../home/widgets/direction_panel.dart';
 import 'widgets/edit_form_scaffold.dart';
 
-/// Account › Booking preferences (like Namma Yatri's): read requests aloud (and in which language), go home (only
-/// trips towards the saved Home spot, for two hours), the farthest pickup, and trip length limits. Saved to the
-/// API; dispatch only offers trips that fit. Voice is saved on the phone at once.
+/// Account › Booking preferences (like Namma Yatri's): read requests aloud (and in which language), Go To / Stay In
+/// (the same sheet as Home, saved at once), parcels too (bike drivers), the farthest pickup, and trip length limits.
+/// Saved to the API; dispatch only offers trips that fit. Voice is saved on the phone at once.
 class BookingPreferencesScreen extends ConsumerStatefulWidget {
   const BookingPreferencesScreen({super.key});
 
@@ -39,7 +40,13 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
     }
     setState(() => _saving = true);
     try {
-      await ref.read(bookingPrefsProvider.notifier).save(draft);
+      // Go To / Stay In and the areas are saved from their sheet: keep what is stored now.
+      await ref.read(bookingPrefsProvider.notifier).change((stored) => stored.copyWith(
+            maxPickupKm: () => draft.maxPickupKm,
+            minTripKm: () => draft.minTripKm,
+            maxTripKm: () => draft.maxTripKm,
+            parcels: draft.parcels,
+          ));
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -47,20 +54,10 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
       return;
     }
     if (!mounted) return;
-    showTtSnack(context, draft.hasFilters ? 'Saved. You only get requests that fit' : 'Saved. You get every request',
+    final saved = ref.read(bookingPrefsProvider).value ?? draft;
+    showTtSnack(context, saved.hasFilters ? 'Saved. You only get requests that fit' : 'Saved. You get every request',
         success: true);
     context.pop();
-  }
-
-  /// "Save my location as Home" from the latest GPS fix.
-  Future<void> _saveHereAsHome() async {
-    final here = ref.read(driverSessionProvider.notifier).position ?? ref.read(driverSessionProvider.notifier).vehicle.value?.position;
-    if (here == null) {
-      showTtSnack(context, 'Waiting for your location. Try again in a moment');
-      return;
-    }
-    await ref.read(savedHomeProvider.notifier).set(here);
-    if (mounted) showTtSnack(context, 'Home saved', success: true);
   }
 
   @override
@@ -70,7 +67,9 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
     final draft = _draft ?? loaded.value;
     if (_draft == null && loaded.hasValue) _draft = loaded.value;
     final voice = ref.watch(requestVoiceProvider);
-    final home = ref.watch(savedHomeProvider);
+    // Go To / Stay In come from the stored preferences (their sheet saves at once).
+    final stored = loaded.value;
+    final isBike = ref.watch(driverProfileProvider).value?.vehicleKind == VehicleKind.bike;
 
     void update(BookingPrefs next) => setState(() => _draft = next);
 
@@ -105,27 +104,29 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
               ]),
               const SizedBox(height: TtSpacing.m),
               _Card(children: [
-                _SwitchRow(
-                  icon: Symbols.home_pin_rounded,
-                  title: 'Go home',
-                  subtitle: draft.goTo?.until != null
-                      ? 'Only trips towards Home · on till ${formatTime(draft.goTo!.until!)}'
-                      : home == null
-                          ? 'Save your Home first'
-                          : 'Only trips towards Home, for 2 hours',
-                  value: draft.goTo != null,
-                  onChanged: home == null
-                      ? null
-                      : (v) => update(draft.copyWith(goTo: () => v ? GoToDestination(location: home, name: 'Home') : null)),
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TtButton.text(
-                    label: home == null ? 'Save my location as Home' : 'Update Home to my location',
-                    onPressed: _saveHereAsHome,
-                  ),
+                _NavRow(
+                  icon: Symbols.near_me_rounded,
+                  title: 'Go To / Stay In',
+                  subtitle: stored?.goTo != null
+                      ? 'Going to ${stored!.goTo!.name}${_till(stored.goTo!.until)}'
+                      : stored?.stayIn != null
+                          ? 'Staying in ${stored!.stayIn!.name}${_till(stored.stayIn!.until)}'
+                          : 'Trips towards a place, or inside an area',
+                  onTap: () => showDirectionSheet(context),
                 ),
               ]),
+              if (isBike) ...[
+                const SizedBox(height: TtSpacing.m),
+                _Card(children: [
+                  _SwitchRow(
+                    icon: Symbols.package_2_rounded,
+                    title: 'Parcels too',
+                    subtitle: 'Small parcel deliveries on your bike, as well as rides',
+                    value: draft.parcels,
+                    onChanged: (v) => update(draft.copyWith(parcels: v)),
+                  ),
+                ]),
+              ],
               const SizedBox(height: TtSpacing.m),
               _Card(children: [
                 _RowTitle(icon: Symbols.near_me_rounded, title: 'Farthest pickup'),
@@ -161,6 +162,35 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
             ],
     );
   }
+}
+
+/// " · till 4:30 PM" for a running Go To / Stay In.
+String _till(DateTime? until) => until == null ? '' : ' · till ${formatTime(until)}';
+
+/// A tappable row with an icon, title, subtitle and a chevron.
+class _NavRow extends StatelessWidget {
+  const _NavRow({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: TtRadii.cardRadius,
+        child: Row(children: [
+          Icon(icon, color: TtColors.coral600, size: 24),
+          const SizedBox(width: TtSpacing.m),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: context.type.bodySemibold),
+              Text(subtitle, style: context.type.bodySmall.copyWith(color: TtColors.navy500)),
+            ]),
+          ),
+          const Icon(Symbols.chevron_right_rounded, color: TtColors.navy500),
+        ]),
+      );
 }
 
 class _Card extends StatelessWidget {

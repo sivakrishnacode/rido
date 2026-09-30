@@ -51,7 +51,7 @@ class D26AccountScreen extends ConsumerWidget {
     final contact = ref.watch(driverEmergencyContactProvider).value;
     final verified = kyc?.where((d) => d.status == KycStatus.verified).length;
     final prefs = ref.watch(bookingPrefsProvider).value;
-    final prefsSub = prefs == null || !prefs.hasFilters ? 'Every request · voice, go home, distance' : _cap(prefs.summary);
+    final prefsSub = prefs == null || !prefs.hasFilters ? 'Every request · voice, Go To, Stay In, parcels' : _cap(prefs.summary);
     final docsSub = kyc == null
         ? 'Driving licence, RC, insurance…'
         : verified == kyc.length
