@@ -1,6 +1,10 @@
 # Tamil Taxi · design export
 
 Phone frames: 390 × 844, exported at 2x (780 × 1688). Design system sections: 1x.
+
+> These frames predate the rename to Tamil Taxi (29 Sep 2026): DS-00, DS-01, P-01, D-01 and D-02 still show the
+> original "rido" wordmark and "ri" launcher icons. The current logo and app icons are in the live design gallery
+> (Account › Design gallery) and described in `docs/tech-docs/using.tech.md`.
 Icons: Material Symbols Rounded — use the `material_symbols_icons` package with the same names. Maps in the PNGs are stylised stand-ins; use CARTO light tiles in Flutter.
 
 | Frame ID | Screen name | File |
