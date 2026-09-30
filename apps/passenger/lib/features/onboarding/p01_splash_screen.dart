@@ -10,7 +10,8 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../router/routes.dart';
 import '../../state/session_actions.dart';
 
-/// P-01 Splash: coral background, white "tamiltaxi" wordmark and the tagline.
+/// P-01 Splash: coral background, the white "தமிழ் / Taxi" name (same art and place as the native
+/// splash, so the hand-off is seamless) and the tagline.
 /// After [SimTimings.splash] it routes to onboarding, sign-in or Home.
 class P01SplashScreen extends ConsumerStatefulWidget {
   const P01SplashScreen({super.key, this.showcase = false});
@@ -80,24 +81,27 @@ class _P01SplashScreenState extends ConsumerState<P01SplashScreen> {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: TtColors.coral500,
-        body: SafeArea(
-          child: Stack(
-            children: [
-              const Center(
-                child: TtWordmark(size: 84, color: TtColors.surface),
+        body: Stack(
+          children: [
+            // Centred on the whole window, like the native splash (drawable-nodpi/splash_logo.png, 130 dp wide).
+            const Center(child: TtAppName(width: 122, color: TtColors.surface)),
+            SafeArea(
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: TtSpacing.xl,
+                    right: TtSpacing.xl,
+                    bottom: TtSpacing.xxl,
+                    child: Text(
+                      'Fair rides. Full fare to your driver.',
+                      textAlign: TextAlign.center,
+                      style: t.body.copyWith(color: TtColors.surface),
+                    ),
+                  ),
+                ],
               ),
-              Positioned(
-                left: TtSpacing.xl,
-                right: TtSpacing.xl,
-                bottom: TtSpacing.xxl,
-                child: Text(
-                  'Fair rides. Full fare to your driver.',
-                  textAlign: TextAlign.center,
-                  style: t.body.copyWith(color: TtColors.surface),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

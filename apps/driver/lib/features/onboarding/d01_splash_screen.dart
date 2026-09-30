@@ -11,7 +11,8 @@ import '../../common/start_route.dart';
 import '../../router/routes.dart';
 import 'widgets/signup_widgets.dart';
 
-/// D-01 Splash: navy background, white wordmark and a coral "DRIVER" tag.
+/// D-01 Splash: navy background, the white "தமிழ் / Taxi" name (same art and place as the native splash)
+/// and a coral "DRIVER" tag under it.
 /// After 1.5 s: signed in → Home, otherwise → D-02 Welcome. With the live API a signed-in driver goes
 /// where their application stands: Home (approved), D-07 (documents missing), D-10 (under review) or
 /// S-09 (a document was rejected).
@@ -66,30 +67,39 @@ class _D01SplashScreenState extends ConsumerState<D01SplashScreen> {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: TtColors.navy900,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(),
-              Semantics(
-                label: 'Tamil Taxi Driver',
-                child: const Column(
-                  children: [
-                    DriverWordmark(size: 84),
-                    SizedBox(height: TtSpacing.l),
-                    DriverTag(large: true),
-                  ],
+        body: Stack(
+          children: [
+            // The name sits exactly where the native splash drew it (window centre); the tag hangs below it.
+            Semantics(
+              label: 'Tamil Taxi Driver',
+              child: const Column(
+                children: [
+                  Expanded(child: SizedBox.shrink()),
+                  TtAppName(width: 122),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: EdgeInsets.only(top: TtSpacing.l),
+                        child: DriverTag(large: true),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: TtSpacing.xxl + TtSpacing.s),
+                  child: Text('0% commission · Coimbatore',
+                      textAlign: TextAlign.center,
+                      style: context.type.body.copyWith(color: TtColors.navy300)),
                 ),
               ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(bottom: TtSpacing.xxl + TtSpacing.s),
-                child: Text('0% commission · Coimbatore',
-                    textAlign: TextAlign.center,
-                    style: context.type.body.copyWith(color: TtColors.navy300)),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
