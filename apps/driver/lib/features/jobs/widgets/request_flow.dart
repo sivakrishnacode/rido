@@ -71,6 +71,9 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
       if (!mounted) return;
       final incoming = ref.read(driverSessionProvider).incoming;
       if (next == null || incoming == null) {
+        // Being accepted: accept() replaces this screen with the pickup (closing it here first made that replace
+        // Home, leaving the job screens with nothing to go back to); a failed accept closes it if nothing is left.
+        if (accepting) return;
         // Closed from elsewhere (went offline, withdrawn, nothing left): leave the card.
         if (_handledId != _last.id || prev != null) _close();
         return;

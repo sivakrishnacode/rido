@@ -1,6 +1,6 @@
 // Main driver path, end to end with fast mode and fake time:
 // Home → GO ONLINE → daily selfie → ride request → swipe to accept → Arrived at pickup →
-// OTP 4829 → Start ride → Swipe to end ride → Received cash → rate → Home, with today's
+// (back asks "Leave this screen?") → OTP 4829 → Start ride → Swipe to end ride → Received cash → rate → Home, with today's
 // earnings and rides up by the fare.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -69,6 +69,14 @@ void main() {
 
     // Let earlier snackbars expire so they don't cover the button.
     await advance(tester, const Duration(seconds: 5));
+
+    // Back works on D-17: Home is still underneath the job screens, and leaving asks first.
+    await tester.tap(find.byTooltip('Back').hitTestable().first);
+    await advance(tester, const Duration(milliseconds: 500));
+    expect(find.text('Leave this screen?'), findsOneWidget);
+    await tester.tap(find.text('Stay here').hitTestable().first);
+    await advance(tester, const Duration(milliseconds: 500));
+    expect(find.byType(D17RideOtpScreen), findsOneWidget);
 
     // Wrong OTP first: stays on D-17.
     await tester.enterText(find.byKey(const ValueKey('otp-field')), '1111');

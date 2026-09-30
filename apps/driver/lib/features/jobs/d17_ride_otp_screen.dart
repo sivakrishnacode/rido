@@ -145,6 +145,7 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
   Widget build(BuildContext context) {
     final t = context.type;
     return OtpStepScaffold(
+      onJob: !widget.showcase && ref.watch(driverSessionProvider.select((s) => s.job != null)),
       appBarTitle: 'Start ride',
       title: 'Ask ${_job.customerName} for the 4-digit OTP',
       subtitle: _job.bookedBy != null

@@ -86,6 +86,8 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen>
     final receiver = _job.parcel?.receiverName ?? _job.customerName;
     final phone = _job.parcel?.receiverPhone ?? _job.customerPhone;
     return OtpStepScaffold(
+      onJob: !widget.showcase && ref.watch(driverSessionProvider.select((s) => s.job != null)),
+      delivery: true,
       appBarTitle: 'Complete delivery',
       title: 'Ask ${receiver.split(' ').first} for the delivery OTP',
       subtitle: _api ? 'The sender sees it in their Tamil Taxi app and shares it with them.' : 'It was sent to $phone by SMS.',

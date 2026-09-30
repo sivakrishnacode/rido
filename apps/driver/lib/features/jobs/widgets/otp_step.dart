@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import 'job_common.dart';
+
 /// Too many wrong OTPs: the API answers 429 `OTP_LOCKED` and refuses the OTP for `details.retryInSeconds`.
 /// The screen keeps its button off (and the message up) until then.
 mixin OtpLockout<T extends StatefulWidget> on State<T> {
@@ -30,7 +32,8 @@ mixin OtpLockout<T extends StatefulWidget> on State<T> {
 }
 
 /// Shared D-17 / D-22a body: navy app bar, big title, 4-box OTP with error state,
-/// extra content and a bottom primary button.
+/// extra content and a bottom primary button. With [onJob], back (the app bar's or the phone's) asks "Leave this
+/// screen?" and goes Home like the other job screens, where the banner reopens the job.
 class OtpStepScaffold extends StatelessWidget {
   const OtpStepScaffold({
     super.key,
@@ -43,7 +46,13 @@ class OtpStepScaffold extends StatelessWidget {
     required this.buttonLabel,
     required this.onSubmit,
     this.busy = false,
+    this.onJob = false,
+    this.delivery = false,
   });
+
+  /// A live job: back confirms and goes Home instead of just popping.
+  final bool onJob;
+  final bool delivery;
 
   final String appBarTitle;
   final String title;
@@ -58,44 +67,50 @@ class OtpStepScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return Scaffold(
-      backgroundColor: TtColors.surface,
-      appBar: TtAppBar.driver(title: appBarTitle, showBack: true),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.xxl, TtSpacing.gutter, TtSpacing.l),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Text(title, style: t.display),
-                const SizedBox(height: TtSpacing.s),
-                Text(subtitle, style: t.body.copyWith(color: TtColors.navy700)),
-                const SizedBox(height: TtSpacing.xl),
-                otp,
-                if (error != null) ...[
-                  const SizedBox(height: TtSpacing.m),
-                  Semantics(
-                    liveRegion: true,
-                    child: Row(children: [
-                      const Icon(Symbols.error_rounded, color: TtColors.error, fill: 1, size: 20),
-                      const SizedBox(width: TtSpacing.s),
-                      Expanded(child: Text(error!, style: t.bodySmallMedium.copyWith(color: TtColors.error))),
-                    ]),
-                  ),
-                ],
-                const SizedBox(height: TtSpacing.xl),
-                extra,
-              ]),
+    return PopScope(
+      canPop: !onJob,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) confirmLeaveJob(context, delivery: delivery);
+      },
+      child: Scaffold(
+        backgroundColor: TtColors.surface,
+        appBar: TtAppBar.driver(title: appBarTitle, showBack: true),
+        body: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.xxl, TtSpacing.gutter, TtSpacing.l),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text(title, style: t.display),
+                  const SizedBox(height: TtSpacing.s),
+                  Text(subtitle, style: t.body.copyWith(color: TtColors.navy700)),
+                  const SizedBox(height: TtSpacing.xl),
+                  otp,
+                  if (error != null) ...[
+                    const SizedBox(height: TtSpacing.m),
+                    Semantics(
+                      liveRegion: true,
+                      child: Row(children: [
+                        const Icon(Symbols.error_rounded, color: TtColors.error, fill: 1, size: 20),
+                        const SizedBox(width: TtSpacing.s),
+                        Expanded(child: Text(error!, style: t.bodySmallMedium.copyWith(color: TtColors.error))),
+                      ]),
+                    ),
+                  ],
+                  const SizedBox(height: TtSpacing.xl),
+                  extra,
+                ]),
+              ),
             ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.gutter, TtSpacing.l),
-              child: TtButton(label: buttonLabel, loading: busy, onPressed: onSubmit),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.gutter, TtSpacing.l),
+                child: TtButton(label: buttonLabel, loading: busy, onPressed: onSubmit),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
