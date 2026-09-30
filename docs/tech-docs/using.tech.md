@@ -1141,13 +1141,15 @@ suggestion's name.
 - Impeller runs on **OpenGL ES** (`io.flutter.embedding.android.ImpellerBackend=opengles` in both manifests): the
   Vulkan backend lagged frames on MediaTek/Mali devices (bottom sheet looked stuck).
 - Permissions: INTERNET, ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION (passenger).
-- Launcher icons and native splash (29 Sep 2026, new logo): "தமிழ்" (Anek Tamil ExtraBold) over "Taxi" (road x).
-  Rider = white on coral; driver = white with a coral road on navy, plus a full-width coral DRIVER band. `res/mipmap-*` hold `ic_launcher` (legacy, rounded), `ic_launcher_foreground` (adaptive,
-  name inside the 66 dp safe zone) and `ic_launcher_monochrome` (Android 13 themed icon); ≤ 96 px sizes use a cut
-  without lane dashes. `drawable-*/ic_notification.png` (and the driver's `notification_icon.png`) is the white road x;
-  `drawable-nodpi/splash_logo.png` is the same தமிழ் / Taxi lockup (130×113 dp in `launch_background.xml`); the driver bubble
-  (`assets/brand/tt_icon.png`) is the road x on coral. All are rendered from the logo masters in the separate
-  `tamiltaxi-logo` kit (`tools/icons_final.py`, then `tools/install_android_icons.py`), not drawn by hand.
+- Launcher icons and native splash (30 Sep 2026, "kolam" set, the winner of a judged 8-concept round): "தமிழ்"
+  (Anek Tamil 800) over "Taxi" (Anek Latin 635, road x, pulli-shaped i dot) inside a pulli-kolam ring. Rider: coral
+  disc; driver: navy disc with a yellow DRIVER band. Adaptive icons use an image background layer
+  (`mipmap-*/ic_launcher_bg.png`: ring, colours, band) under `ic_launcher_foreground` (the name, plus DRIVER on the
+  driver) and `ic_launcher_monochrome` (Android 13 themed); legacy `ic_launcher.png` sizes up to 96 px use a bolder
+  dotted ring. `drawable-nodpi/splash_logo.png` is the white name (130×113 dp in `launch_background.xml`); Android 12+
+  shows the foreground on `@color/ic_launcher_background`. `ic_notification` stays the white road x and the driver
+  bubble (`assets/brand/tt_icon.png`) the road x on coral. Rendered from the separate `tamiltaxi-logo` kit
+  (`round9-creative/final-kolam`, installed with `tools/install_kolam_icons.py`), not drawn by hand.
 - Release signing is not configured yet (uses debug keys). Add `android/key.properties` (git-ignored) before store release.
 
 ---
