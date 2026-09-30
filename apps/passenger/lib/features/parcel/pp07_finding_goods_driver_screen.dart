@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/add_extra_card.dart';
 import '../../common/phone.dart';
 import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
@@ -11,7 +14,8 @@ import '../../state/parcel_flow.dart';
 import 'widgets/parcel_widgets.dart';
 
 /// PP-07 Finding a goods driver: pulse on the pickup, progress, booking summary, Cancel.
-/// Shows an inline "no drivers" state with Retry when the search fails.
+/// Shows an inline "no drivers" state with Retry when the search fails. Live, after [_offerExtraAfter] the sender can
+/// add a little extra ([AddExtraCard]).
 class PP07FindingGoodsDriverScreen extends ConsumerStatefulWidget {
   const PP07FindingGoodsDriverScreen({super.key, this.showcase = false});
 
@@ -22,9 +26,15 @@ class PP07FindingGoodsDriverScreen extends ConsumerStatefulWidget {
   ConsumerState<PP07FindingGoodsDriverScreen> createState() => _PP07FindingGoodsDriverScreenState();
 }
 
+const _offerExtraAfter = Duration(seconds: 20);
+
 class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsDriverScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _progress;
+  Timer? _extraTimer;
+
+  /// "No driver yet? Add a little extra" is on screen.
+  late bool _offerExtra = widget.showcase;
 
   @override
   void initState() {
@@ -35,12 +45,29 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
     } else {
       _progress.forward();
     }
+    if (!widget.showcase && ref.read(isLiveApiProvider)) {
+      _extraTimer = Timer(_offerExtraAfter, () {
+        if (mounted) setState(() => _offerExtra = true);
+      });
+    }
   }
 
   @override
   void dispose() {
+    _extraTimer?.cancel();
     _progress.dispose();
     super.dispose();
+  }
+
+  Future<void> _addExtra(int amount) async {
+    if (widget.showcase) {
+      showTtSnack(context, 'Drivers now see your extra');
+      return;
+    }
+    final error = await ref.read(parcelFlowProvider.notifier).addExtra(amount);
+    if (!mounted) return;
+    showTtSnack(context, error ?? 'Added. Drivers now see ${formatInr(ref.read(parcelFlowProvider).quote.total)}',
+        success: error == null);
   }
 
   Future<void> _cancel() async {
@@ -144,6 +171,10 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
             ),
           ),
         ),
+        if (_offerExtra) ...[
+          const SizedBox(height: 16),
+          AddExtraCard(total: s.quote.total, extra: s.quote.extra, busy: s.busy, onAdd: _addExtra),
+        ],
         const SizedBox(height: 16),
         _SummaryCard(state: s),
         const SizedBox(height: 12),

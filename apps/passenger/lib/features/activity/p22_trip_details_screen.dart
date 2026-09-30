@@ -31,13 +31,13 @@ class P22TripDetailsScreen extends ConsumerWidget {
     if (diff == 0) return q;
     // Put the difference on the distance line (the part that varies with the real route);
     // if that would go negative, the rest comes off the peak line.
-    // Waiting and an earlier cancellation fee are their own lines and never move.
+    // Waiting, an earlier cancellation fee and the rider's extra are their own lines and never move.
     final distance = (q.distanceCharge + diff).clamp(0, 1 << 30);
     final subtotal = q.base + distance + q.timeCharge + q.minFareTopUp;
     return q.copyWith(
       distanceCharge: distance,
       subtotal: subtotal,
-      peakCharge: trip.fare - subtotal - q.waitingCharge - q.previousCancellationFee,
+      peakCharge: trip.fare - subtotal - q.waitingCharge - q.previousCancellationFee - q.extra,
       total: trip.fare,
     );
   }
@@ -88,7 +88,8 @@ class _Details extends StatelessWidget {
             '${q.minFareTopUp > 0 ? ' · Minimum fare ${formatInr(q.minFareTopUp)}' : ''}'
             '${q.hasPeak ? ' · Peak ${formatInr(q.peakCharge)}' : ''}'
             '${q.hasWaiting ? ' · Waiting ${formatInr(q.waitingCharge)}' : ''}'
-            '${q.hasCancellationFee ? ' · Previous cancellation fee ${formatInr(q.previousCancellationFee)}' : ''}',
+            '${q.hasCancellationFee ? ' · Previous cancellation fee ${formatInr(q.previousCancellationFee)}' : ''}'
+            '${q.hasExtra ? ' · Extra you added ${formatInr(q.extra)}' : ''}',
         'Total: ${formatInr(trip.fare)} (paid to the driver, ${trip.paymentMode == PaymentMode.upi ? 'UPI' : 'cash'})',
       ].join('\n');
 
@@ -327,6 +328,7 @@ class _FareTable extends StatelessWidget {
         if (quote.hasWaiting)
           row('Waiting charge · after ${quote.freeWaitMin} free min', formatInrSigned(quote.waitingCharge)),
         if (quote.hasCancellationFee) row('Previous cancellation fee', formatInrSigned(quote.previousCancellationFee)),
+        if (quote.hasExtra) row('Extra you added', formatInrSigned(quote.extra)),
         row('Tamil Taxi commission', formatInr(0),
             tag: pill('0%', TtColors.coral50, TtColors.coral600), amountColor: TtColors.success),
         const Divider(height: 20),

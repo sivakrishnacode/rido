@@ -489,7 +489,13 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
         }
         _liveFix.value = null;
         _lastPoint = null;
-        state = state.copyWith(phase: ParcelPhase.searching, approach: const [], details: details);
+        state = state.copyWith(
+          phase: ParcelPhase.searching,
+          approach: const [],
+          details: details,
+          // The fare can change while searching (the sender added extra).
+          tripQuote: u.trip.quote ?? state.tripQuote,
+        );
       case ParcelPhase.assigned:
         final fresh = state.phase != ParcelPhase.assigned;
         state = state.copyWith(
@@ -572,6 +578,20 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
       if (state.tripId != id) return;
       state = state.copyWith(chat: state.chat.where((m) => m.id != local.id).toList());
       ref.read(appNoticeProvider.notifier).show('Message not sent. ${apiErrorMessage(e)}');
+    }
+  }
+
+  /// Live, while searching: the sender's extra in all becomes [amount]. Returns an error to show, or null.
+  Future<String?> addExtra(int amount) async {
+    if (!_live || state.phase != ParcelPhase.searching || state.busy) return null;
+    state = state.copyWith(busy: true);
+    try {
+      final update = await ref.read(liveTripsProvider).addExtra(state.tripId, amount);
+      state = state.copyWith(busy: false, tripQuote: update.trip.quote ?? state.tripQuote);
+      return null;
+    } catch (e) {
+      state = state.copyWith(busy: false);
+      return apiErrorMessage(e);
     }
   }
 

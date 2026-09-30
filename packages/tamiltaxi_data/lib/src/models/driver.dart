@@ -152,6 +152,7 @@ class EarningsTrip {
     this.isDelivery = false,
     this.waitingCharge = 0,
     this.previousCancellationFee = 0,
+    this.extra = 0,
   });
 
   final String id;
@@ -165,6 +166,9 @@ class EarningsTrip {
 
   /// Part of [fare] that was the passenger's earlier cancellation fee (collected here, owed to another driver).
   final int previousCancellationFee;
+
+  /// Part of [fare] the rider added while nobody had taken the trip.
+  final int extra;
   final PaymentMode paymentMode;
   final double distanceKm;
   final int durationMin;
@@ -184,6 +188,7 @@ class EarningsTrip {
     bool? isDelivery,
     int? waitingCharge,
     int? previousCancellationFee,
+    int? extra,
   }) =>
       EarningsTrip(
         id: id ?? this.id,
@@ -198,6 +203,7 @@ class EarningsTrip {
         isDelivery: isDelivery ?? this.isDelivery,
         waitingCharge: waitingCharge ?? this.waitingCharge,
         previousCancellationFee: previousCancellationFee ?? this.previousCancellationFee,
+        extra: extra ?? this.extra,
       );
 }
 

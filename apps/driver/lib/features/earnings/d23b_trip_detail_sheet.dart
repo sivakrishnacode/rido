@@ -43,7 +43,7 @@ class D23bTripDetailSheet extends ConsumerWidget {
     final quote = trip.distanceKm > 0
         ? FareEngine.quote(vehicle, RouteEstimate(distanceKm: trip.distanceKm, durationMin: trip.durationMin))
         : null;
-    final extras = trip.waitingCharge + trip.previousCancellationFee;
+    final extras = trip.waitingCharge + trip.previousCancellationFee + trip.extra;
     final useQuote = quote != null && quote.total + extras == trip.fare;
     final kindLabel = trip.isDelivery ? 'Delivery' : '${vehicle.kind.label} ride';
     final paid = trip.paymentMode == PaymentMode.upi ? 'paid on UPI' : 'paid in cash';
@@ -100,6 +100,7 @@ class D23bTripDetailSheet extends ConsumerWidget {
           // Collected for the driver the passenger kept waiting on an earlier, cancelled trip.
           if (trip.previousCancellationFee > 0)
             _line(context, 'Previous cancellation fee', formatInrSigned(trip.previousCancellationFee)),
+          if (trip.extra > 0) _line(context, 'Extra from the rider', formatInrSigned(trip.extra)),
           const Divider(height: TtSpacing.l),
           Row(children: [
             Expanded(child: Text('Fare · $paid', style: t.bodySemibold)),

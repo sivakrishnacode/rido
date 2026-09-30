@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/add_extra_card.dart';
 import '../../common/map_insets.dart';
 import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
@@ -15,7 +16,8 @@ import '../../state/ride_flow.dart';
 /// "Cancel request". The ride controller's timer moves to P-13 (or S-01 when no drivers).
 ///
 /// Live, "Book any" (like Namma Yatra): after [_offerAlternativesAfter] of searching, other vehicles with drivers in
-/// range are offered with their fare; adding one lets its drivers take the ride too.
+/// range are offered with their fare; adding one lets its drivers take the ride too. After [_offerExtraAfter] the
+/// rider can also add a little extra ([AddExtraCard], like Rapido's).
 class P12FindingDriverScreen extends ConsumerStatefulWidget {
   const P12FindingDriverScreen({super.key, this.showcase = false});
 
@@ -28,9 +30,14 @@ class P12FindingDriverScreen extends ConsumerStatefulWidget {
 
 const _offerAlternativesAfter = Duration(seconds: 15);
 const _refreshAlternativesEvery = Duration(seconds: 10);
+const _offerExtraAfter = Duration(seconds: 20);
 
 class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen> {
   Timer? _alternatives;
+  Timer? _extraTimer;
+
+  /// "No driver yet? Add a little extra" is on screen.
+  late bool _offerExtra = widget.showcase;
 
   @override
   void initState() {
@@ -42,6 +49,9 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
         flow.loadAlternatives();
         _alternatives = Timer.periodic(_refreshAlternativesEvery, (_) => flow.loadAlternatives());
       });
+      _extraTimer = Timer(_offerExtraAfter, () {
+        if (mounted) setState(() => _offerExtra = true);
+      });
     }
     // Opened after the search already finished (e.g. from the Home banner).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -52,7 +62,19 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
   @override
   void dispose() {
     _alternatives?.cancel();
+    _extraTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _addExtra(int amount) async {
+    if (widget.showcase) {
+      showTtSnack(context, 'Drivers now see your extra');
+      return;
+    }
+    final error = await ref.read(rideFlowProvider.notifier).addExtra(amount);
+    if (!mounted) return;
+    showTtSnack(context, error ?? 'Added. Drivers now see ${formatInr(ref.read(rideFlowProvider).quote.total)}',
+        success: error == null);
   }
 
   Future<void> _add(VehicleKind v) async {
@@ -93,6 +115,93 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
       MapVehicle(position: offsetPoint(pickup, 300, 150), type: MapVehicleType.bike, heading: 120),
     ];
 
+    final sheet = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: const BoxDecoration(
+                color: TtColors.coral50,
+                borderRadius: TtRadii.cardRadius,
+              ),
+              child: Icon(q.vehicle.kind.icon, color: TtColors.coral500, fill: 1, size: 28),
+            ),
+            const SizedBox(width: TtSpacing.m),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Finding a nearby ${_vehicleNames([state.vehicle, ...state.alsoVehicles])}…',
+                    style: t.h1,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    state.alsoVehicles.isEmpty
+                        ? 'Usually takes under a minute'
+                        : 'The first to accept takes it, at their fare',
+                    style: t.bodySmall.copyWith(color: TtColors.navy700),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: TtSpacing.l),
+        const ClipRRect(
+          borderRadius: TtRadii.pillRadius,
+          child: LinearProgressIndicator(
+            minHeight: 6,
+            color: TtColors.coral500,
+            backgroundColor: TtColors.coral50,
+          ),
+        ),
+        if (_offerExtra) ...[
+          const SizedBox(height: TtSpacing.l),
+          AddExtraCard(total: q.total, extra: q.extra, busy: state.busy, onAdd: _addExtra),
+        ],
+        if (state.alternatives.isNotEmpty) ...[
+          const SizedBox(height: TtSpacing.l),
+          _BookAnyCard(alternatives: state.alternatives, busy: state.busy, onAdd: _add),
+        ],
+        const SizedBox(height: TtSpacing.l),
+        TtCard(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: PickupDropConnector(
+                  pickupTitle: state.pickup.name.split(' ').first,
+                  pickupSubtitle: 'Current location',
+                  dropTitle: state.drop.name,
+                  dropSubtitle: state.drop.address,
+                ),
+              ),
+              const SizedBox(width: TtSpacing.s),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(formatInr(q.total), style: TtTextStyles.tabular(t.h1)),
+                  Text('Cash / UPI', style: t.caption),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: TtSpacing.s),
+        TtButton(
+          label: 'Cancel request',
+          variant: TtButtonVariant.dangerText,
+          loading: state.busy,
+          onPressed: _cancel,
+        ),
+      ],
+    );
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -126,89 +235,10 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
             ),
             Align(
               alignment: Alignment.bottomCenter,
-              child: FixedBottomSheet(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: const BoxDecoration(
-                            color: TtColors.coral50,
-                            borderRadius: TtRadii.cardRadius,
-                          ),
-                          child: Icon(q.vehicle.kind.icon, color: TtColors.coral500, fill: 1, size: 28),
-                        ),
-                        const SizedBox(width: TtSpacing.m),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Finding a nearby ${_vehicleNames([state.vehicle, ...state.alsoVehicles])}…',
-                                style: t.h1,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                state.alsoVehicles.isEmpty
-                                    ? 'Usually takes under a minute'
-                                    : 'The first to accept takes it, at their fare',
-                                style: t.bodySmall.copyWith(color: TtColors.navy700),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: TtSpacing.l),
-                    const ClipRRect(
-                      borderRadius: TtRadii.pillRadius,
-                      child: LinearProgressIndicator(
-                        minHeight: 6,
-                        color: TtColors.coral500,
-                        backgroundColor: TtColors.coral50,
-                      ),
-                    ),
-                    if (state.alternatives.isNotEmpty) ...[
-                      const SizedBox(height: TtSpacing.l),
-                      _BookAnyCard(alternatives: state.alternatives, busy: state.busy, onAdd: _add),
-                    ],
-                    const SizedBox(height: TtSpacing.l),
-                    TtCard(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: PickupDropConnector(
-                              pickupTitle: state.pickup.name.split(' ').first,
-                              pickupSubtitle: 'Current location',
-                              dropTitle: state.drop.name,
-                              dropSubtitle: state.drop.address,
-                            ),
-                          ),
-                          const SizedBox(width: TtSpacing.s),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(formatInr(q.total), style: TtTextStyles.tabular(t.h1)),
-                              Text('Cash / UPI', style: t.caption),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: TtSpacing.s),
-                    TtButton(
-                      label: 'Cancel request',
-                      variant: TtButtonVariant.dangerText,
-                      loading: state.busy,
-                      onPressed: _cancel,
-                    ),
-                  ],
-                ),
+              // The "Book any" and extra cards can make it tall: it scrolls rather than covering the whole map.
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.75),
+                child: FixedBottomSheet(child: Flexible(child: SingleChildScrollView(child: sheet))),
               ),
             ),
           ],

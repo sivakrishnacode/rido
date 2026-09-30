@@ -365,6 +365,7 @@ EarningsSummary earningsFromJson(Json j) => EarningsSummary(
             fare: _i(t['fare']),
             waitingCharge: _i(t['waitingCharge']),
             previousCancellationFee: _i(t['previousCancellationFee']),
+            extra: _i(t['extra']),
             paymentMode: enumFromApi(PaymentMode.values, t['paymentMode'], PaymentMode.cash),
             distanceKm: _d(t['distanceKm']),
             durationMin: _i(t['durationMin']),

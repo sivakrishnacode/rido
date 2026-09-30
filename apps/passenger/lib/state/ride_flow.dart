@@ -541,7 +541,14 @@ class RideFlowController extends Notifier<RideFlowState> {
         _stopFollowing();
         state = state.copyWith(phase: RidePhase.noDrivers, busy: false);
       case RidePhase.searching:
-        state = state.copyWith(phase: RidePhase.searching, otp: otp, alsoVehicles: u.alsoVehicles, arrivedAt: null);
+        // The fare can change while searching (the rider added extra, maybe from another phone).
+        state = state.copyWith(
+          phase: RidePhase.searching,
+          otp: otp,
+          alsoVehicles: u.alsoVehicles,
+          arrivedAt: null,
+          tripQuote: u.trip.quote ?? state.tripQuote,
+        );
       case RidePhase.driverCancelled:
         _liveFix.value = null;
         _lastPoint = null;
@@ -709,6 +716,21 @@ class RideFlowController extends Notifier<RideFlowState> {
         alsoVehicles: update.alsoVehicles,
         alternatives: [for (final a in state.alternatives) if (a.vehicle != v) a],
       );
+      return null;
+    } catch (e) {
+      state = state.copyWith(busy: false);
+      return apiErrorMessage(e);
+    }
+  }
+
+  /// Live, while searching: the rider's extra in all becomes [amount] ("+₹10", then "+₹20" more → ₹30). Returns an
+  /// error to show, or null.
+  Future<String?> addExtra(int amount) async {
+    if (!_live || state.phase != RidePhase.searching || state.busy) return null;
+    state = state.copyWith(busy: true);
+    try {
+      final update = await ref.read(liveTripsProvider).addExtra(state.tripId, amount);
+      state = state.copyWith(busy: false, tripQuote: update.trip.quote ?? state.tripQuote);
       return null;
     } catch (e) {
       state = state.copyWith(busy: false);

@@ -222,6 +222,13 @@ Never commit real `.env` files.
   is cleared (drivers who said no are offered it again), the driver holding the offer gets `trip.offer` again with the
   new fare and the time left, and the search restarts with its full time ([widen]). Driver push title: "New ride
   request · ₹50 + ₹20". Admin trip page: "Extra from the rider" line.
+  Apps: P-12 (rides) and PP-07 (parcels), live, after 20 s without a driver show `AddExtraCard`
+  (`apps/passenger/lib/common/add_extra_card.dart`): "No driver yet? Add a little extra", chips +₹10 / +₹20 / +₹30
+  (only steps within the cap, `FareEngine.maxExtra`), then "Add ₹20 · ₹70 in all" sends it (two taps, never one);
+  afterwards "₹20 extra added · Drivers now see ₹50 + ₹20. Add more?". P-12's sheet is capped at 75 % of the screen
+  and scrolls. The fare on screen follows the trip's fare (`addExtra` response and SEARCHING socket updates). Fare
+  breakdowns show "Extra you added" (P-11 / P-19 via `FareBreakdown`, P-22 and its receipt); drivers see it on the
+  request card (§7c9) and as "Extra from the rider" in D-23b (earnings trips carry `extra`).
 - **Settings (`AppSetting`):** currentMultiplier, maxMultiplier, searchRadiusKm, maxSearchRadiusKm, searchExpandSeconds,
   offerSeconds, maxCandidates, maxReassigns, notMovingMinMin, notMovingEtaFactor, notMovingMinProgressM,
   notMovingRecheckMin, noShowWaitMin, freeWaitMin, waitMaxCharge, cancellationFeeEnabled, cancellationFee,

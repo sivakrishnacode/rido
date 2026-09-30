@@ -106,6 +106,17 @@ class _FakeTrips extends LiveTrips {
     return update('SEARCHING', also: [enumToApi(vehicle)]);
   }
 
+  /// Next addExtra refusal (the search ended meanwhile).
+  ApiException? extraError;
+
+  @override
+  Future<LiveTripUpdate> addExtra(String tripId, int amount) async {
+    calls.add('extra:$amount');
+    if (extraError != null) throw extraError!;
+    final base = last.trip.quote ?? _quote;
+    return update('SEARCHING', quote: base.copyWith(extra: amount, total: base.total - base.extra + amount));
+  }
+
   void push(LiveTripUpdate u) => _updates.add(u);
   void locate(LatLng p) => _locations.add(LiveLocation('trip-1', p, DateTime.now()));
   void message(ChatMessage m) => _messages.add(m);
@@ -381,6 +392,23 @@ void main() {
     expect(ride().quote.total, 93, reason: 'the fare of the vehicle that came');
   });
 
+  test('add extra while searching: the fare goes up by it; a refusal says why and changes nothing', () async {
+    await flow().book();
+    expect(await flow().addExtra(20), isNull);
+    expect(trips.calls.last, 'extra:20');
+    expect(ride().quote.total, 69);
+    expect(ride().quote.extra, 20);
+    trips.extraError = const ApiException(409, 'The search has already ended, or the fare just changed');
+    expect(await flow().addExtra(30), 'The search has already ended, or the fare just changed');
+    expect(ride().quote.total, 69);
+    expect(ride().busy, isFalse);
+
+    // A socket update while searching (the extra added from another phone) moves the fare too.
+    trips.push(trips.update('SEARCHING', quote: _quote.copyWith(extra: 30, total: 79)));
+    await _settle();
+    expect(ride().quote.total, 79);
+  });
+
   test('no drivers ends the search', () async {
     await flow().book();
     trips.push(trips.update('NO_DRIVERS'));
@@ -423,6 +451,17 @@ void main() {
     trips.message(ChatMessage(id: 'srv-99', text: 'Coming', fromMe: false, sentAt: DateTime.now()));
     await _settle();
     expect(ride().chat.map((m) => m.text), ['I am at the gate', 'Coming']);
+  });
+
+  test('a sender adds extra while searching for a goods driver', () async {
+    trips.kind = TripKind.parcel;
+    final parcel = container.read(parcelFlowProvider.notifier);
+    parcel.updateDetails(kEmptyParcelDetails.copyWith(receiverName: 'Meena', senderName: 'Priya'));
+    parcel.setDrop(Seed.raceCourse);
+    expect(await parcel.book(), isNull);
+    expect(await parcel.addExtra(10), isNull);
+    expect(trips.calls.last, 'extra:10');
+    expect(container.read(parcelFlowProvider).quote.extra, 10);
   });
 
   test('a parcel books with its details and shows the server delivery OTP', () async {
