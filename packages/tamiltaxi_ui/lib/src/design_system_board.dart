@@ -140,14 +140,14 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
             ],
           ),
         );
-    Widget launcher(String label, Color bg) => Column(
+    // The real launcher icons (kolam set), copied from the apps' mipmap-xxxhdpi/ic_launcher.png.
+    Widget launcher(String label, String asset) => Column(
           children: [
             Container(
               width: 64,
               height: 64,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16), boxShadow: TtShadows.soft),
-              child: TtWordmark(size: 19, color: Colors.white, roadColor: bg == TtColors.navy900 ? TtColors.coral500 : null),
+              decoration: const BoxDecoration(shape: BoxShape.circle, boxShadow: TtShadows.soft),
+              child: ClipOval(child: Image.asset(asset, package: 'tamiltaxi_ui', width: 64, height: 64)),
             ),
             const SizedBox(height: 6),
             SizedBox(
@@ -197,13 +197,13 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                launcher('Tamil Taxi', TtColors.coral500),
+                launcher('Tamil Taxi', 'assets/brand/launcher_rider.png'),
                 const SizedBox(width: TtSpacing.xl),
-                launcher('Tamil Taxi Driver', TtColors.navy900),
+                launcher('Tamil Taxi Driver', 'assets/brand/launcher_driver.png'),
               ],
             ),
             const SizedBox(height: TtSpacing.m),
-            Text('Launcher icons · adaptive, 108dp safe zone', style: t.caption.copyWith(color: TtColors.navy700)),
+            Text('Launcher icons · தமிழ் / Taxi in a pulli-kolam ring', style: t.caption.copyWith(color: TtColors.navy700)),
           ],
         ),
       ),

@@ -30,3 +30,5 @@ flutter:
   # Poppins + Inter bundled so google_fonts never needs the network (offline-safe).
   assets:
     - assets/google_fonts/
+    # Launcher icons as shipped (copies of each app's mipmap-xxxhdpi/ic_launcher.png) for the design gallery.
+    - assets/brand/

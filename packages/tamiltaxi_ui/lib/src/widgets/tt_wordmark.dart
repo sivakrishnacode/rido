@@ -53,3 +53,41 @@ class _LogoPainter extends CustomPainter {
   bool shouldRepaint(_LogoPainter old) =>
       old.scale != scale || old.color != color || old.road != road || old.stacked != stacked;
 }
+
+/// The app name as it appears on the launcher icons and the native splash: "தமிழ்" (Anek Tamil) over "Taxi"
+/// (Anek Latin, road x, pulli-shaped i dot), one colour. Used where the app continues the native splash, so the
+/// first Flutter frame matches it. [width] is the width of the name; the height follows [TtLogoPaths.appNameAspect].
+class TtAppName extends StatelessWidget {
+  const TtAppName({super.key, this.width = 122, this.color = Colors.white});
+
+  final double width;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Tamil Taxi',
+      excludeSemantics: true,
+      child: CustomPaint(
+        size: Size(width, width * TtLogoPaths.appNameAspect),
+        painter: _AppNamePainter(width, color),
+      ),
+    );
+  }
+}
+
+class _AppNamePainter extends CustomPainter {
+  _AppNamePainter(this.width, this.color);
+
+  final double width;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = TtLogoPaths.appName().transform(Matrix4.diagonal3Values(width, width, 1).storage);
+    canvas.drawPath(path, Paint()..color = color..isAntiAlias = true);
+  }
+
+  @override
+  bool shouldRepaint(_AppNamePainter old) => old.width != width || old.color != color;
+}
