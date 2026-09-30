@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Logo } from "./logo";
+import { Wordmark } from "./logo";
 
 const nav = [
   { href: "/#ride", label: "Ride" },
@@ -13,7 +13,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-divider bg-white/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-4 sm:px-6">
         <Link href="/" aria-label="Tamil Taxi home">
-          <Logo />
+          <Wordmark className="text-[26px]" />
         </Link>
         <nav aria-label="Main" className="flex items-center gap-1 sm:gap-2">
           {nav.map((item) => (

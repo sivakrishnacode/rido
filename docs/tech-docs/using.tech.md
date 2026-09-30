@@ -914,6 +914,9 @@ loaded, or if it can't be made, it falls back to a Google Maps link to the vehic
   Every privacy claim must match the code (checked against `schema.prisma`, the Android manifests and
   `dispatch.service.ts` on 30 Sep 2026). Screenshots in `public/screens/` are design frames P-10, P-16, D-15 and D-23b
   resized to 560 px WebP with sharp; app icons in `public/brand/` come from `packages/tamiltaxi_ui/assets/brand`.
+  Logo: the one-line wordmark (`src/components/logo-paths.ts`, a copy of the admin's generated paths). Favicon
+  (`src/app/icon.png`, same in the admin) is the rider launcher icon. Never use the x from the wordmark on its own:
+  alone it reads as the X (Twitter) logo.
 - **Google Play:** the Play Console needs the privacy policy URL (`https://tamiltaxi.co.in/privacy/`) and an account
   deletion URL (`https://tamiltaxi.co.in/delete-account/`) for both apps. The download buttons say "Coming soon to
   Google Play" until `site.onPlayStore` is set to `true`; then they link to `com.tamiltaxi.passenger` /
@@ -1232,10 +1235,11 @@ suggestion's name.
   (130×113 dp in `launch_background.xml`); Android 12+ `drawable-xxxhdpi/splash_icon.png` (288 dp at 4x) on
   `@color/ic_launcher_background`, set in `values-v31` and `values-night-v31` (night outranks the API level, so
   dark mode needs its own copy); then the Flutter splash (P-01 / D-01) draws the same name with `TtAppName`
-  (vector, `TtLogoPaths.appName`) at the window centre, so the hand-off doesn't jump. `ic_notification` stays the
-  white road x (also used by the overlay's foreground-service notification, flutter_overlay_window patch 10) and
-  the driver bubble (`assets/brand/tt_icon.png`) the road x on coral. The in-app logo elsewhere stays the English
-  `TtWordmark`. Rendered from the separate `tamiltaxi-logo` kit (`round9-creative/final-kolam`, installed with
+  (vector, `TtLogoPaths.appName`) at the window centre, so the hand-off doesn't jump. `ic_notification` is the
+  name alone as a white silhouette (from the rider `ic_launcher_foreground`; also the overlay's foreground-service
+  notification, flutter_overlay_window patch 10) and the driver bubble (`assets/brand/tt_icon.png`) is the driver
+  launcher icon (30 Sep 2026: the road x alone read as the X / Twitter logo, so it is used nowhere on its own).
+  The in-app logo elsewhere stays the English `TtWordmark`. Rendered from the separate `tamiltaxi-logo` kit (`round9-creative/final-kolam`, installed with
   `tools/install_kolam_icons.py`), not drawn by hand.
 - Release signing is not configured yet (uses debug keys). Add `android/key.properties` (git-ignored) before store release.
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { site } from "@/lib/site";
 
-import { Logo } from "./logo";
+import { Wordmark } from "./logo";
 
 const links = [
   { href: "/privacy/", label: "Privacy policy" },
@@ -15,7 +15,7 @@ export function SiteFooter() {
     <footer className="border-t border-divider bg-page">
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 md:flex-row md:justify-between">
         <div className="max-w-xs space-y-3">
-          <Logo />
+          <Wordmark className="text-[26px]" />
           <p className="text-sm text-navy-500">
             Rides and parcels for {site.city}. 0% commission, no subscription.
           </p>

@@ -1,20 +1,23 @@
-/** The app-icon mark (same as src/app/icon.svg) and the wordmark. */
-export function LogoMark({ className = "size-8" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
-      <rect width="64" height="64" rx="14" fill="#F4511E" />
-      <g transform="translate(14.00 14.07) scale(0.1401)" fill="#FFFFFF">
-        <path d="M76.3 149.2 0 256H74.5L113.5 201.4L76.3 149.2ZM182.9 0 143.9 54.6 181.1 106.8 257.4 0Z M0 0H74.5L257.4 256H182.9Z" />
-      </g>
-    </svg>
-  );
-}
+import { LOGO_PATHS } from "./logo-paths";
 
-export function Logo() {
+/**
+ * The Tamil Taxi logo, as in the apps (TtWordmark) and the admin panel (Wordmark): "Tamil Taxi" whose x is a flyover
+ * road. Drawn from outline paths (logo-paths.ts, a copy of apps/admin/src/components/common/logo-paths.ts), so it
+ * never depends on a font. Sized by font size: the letters are set at 1em.
+ */
+export function Wordmark({ className = "" }: { className?: string }) {
+  const logo = LOGO_PATHS.oneLine;
   return (
-    <span className="flex items-center gap-2.5">
-      <LogoMark />
-      <span className="font-heading text-lg font-semibold tracking-tight">Tamil Taxi</span>
+    <span role="img" aria-label="Tamil Taxi" className={`inline-block leading-none text-navy-900 select-none ${className}`}>
+      <svg
+        viewBox={`0 0 ${logo.width} ${logo.height}`}
+        style={{ height: `${logo.height / 100}em`, width: `${logo.width / 100}em` }}
+        className="block"
+        aria-hidden="true"
+      >
+        <path d={logo.fg} fill="currentColor" />
+        <path d={logo.road} fill="#F4511E" />
+      </svg>
     </span>
   );
 }
