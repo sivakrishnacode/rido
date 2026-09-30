@@ -18,3 +18,5 @@ Used by `apps/driver` via `dependency_overrides`. Patches (search for "Tamil Tax
    engine only clears its own: the FCM background engine used to take it over, so the request card's Accept went to a
    headless engine.
 9. `resizeOverlay` treats height -1 / -1999 as MATCH_PARENT (the condition was always true).
+10. The overlay's foreground-service notification uses the app's `@drawable/ic_notification` (white road x) as its
+    status-bar icon. It used `@mipmap/ic_launcher`, whose opaque adaptive background turned into a white blob.

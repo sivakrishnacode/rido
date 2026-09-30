@@ -350,7 +350,9 @@ public class OverlayService extends Service implements View.OnTouchListener {
         }
         PendingIntent pendingIntent = PendingIntent.getActivity(this,
                 0, notificationIntent, pendingFlags);
-        final int notifyIcon = getDrawableResourceId("mipmap", "launcher");
+        // Tamil Taxi patch 10: the status-bar icon must be a white silhouette. The app's @drawable/ic_notification
+        // (white road x) is used; the launcher mipmap (opaque adaptive icon) showed as a white blob.
+        final int notifyIcon = getDrawableResourceId("drawable", "notification");
         Notification notification = new NotificationCompat.Builder(this, OverlayConstants.CHANNEL_ID)
                 .setContentTitle(WindowSetup.overlayTitle)
                 .setContentText(WindowSetup.overlayContent)

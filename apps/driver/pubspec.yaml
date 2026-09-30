@@ -42,7 +42,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    # The floating bubble over other apps (same art as the launcher icon).
+    # The floating bubble over other apps: the road x on coral (the launcher icon is the kolam set).
     - assets/brand/tt_icon.png
 
 # Patched copy of flutter_overlay_window (see packages/flutter_overlay_window/TT_PATCHES.md).
