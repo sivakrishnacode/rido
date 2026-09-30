@@ -72,9 +72,18 @@ def call(method, path, body=None, token=None):
 
 def on_server(cmd):
     key = os.path.expanduser("~/.ssh/rido-key.pem")
-    run = subprocess.run(["ssh", "-4", "-i", key, SERVER, cmd], capture_output=True, text=True, timeout=30)
+    # ConnectTimeout: a blocked port 22 fails in 10 s with the hint below instead of hanging into a traceback.
+    ssh = ["ssh", "-4", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes", "-i", key, SERVER, cmd]
+    try:
+        run = subprocess.run(ssh, capture_output=True, text=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        sys.exit("The server took over 60 s to answer over SSH")
     if run.returncode == 255:
-        sys.exit(f"Can't reach the server over SSH: {run.stderr.strip()} (is your IP allowed in rido-sg?)")
+        sys.exit(
+            f"Can't reach the server over SSH: {run.stderr.strip()}\n"
+            "Port 22 in rido-sg only allows known IPs; on mobile data the carrier's IP changes (and may differ from "
+            "checkip). See 'SSH from a mobile network' in docs/tech-docs/using.tech.md."
+        )
     return run.stdout.strip()
 
 
