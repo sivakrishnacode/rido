@@ -10,10 +10,60 @@ import 'request_layout.dart';
 /// One open request in the comparison list, with when it closes.
 typedef StackEntry = ({RideRequest request, DateTime expiresAt});
 
+/// What sets a request apart from the others open with it. The rail shows the first that applies (else the vehicle);
+/// the card carries a tag with the same icon, so the rail can be read at a glance.
+enum RequestPerk {
+  /// A parcel among rides (a bike driver's mixed list).
+  parcel('Parcel', Symbols.package_2_rounded, TtColors.coral700, TtColors.coral50),
+
+  /// The highest ₹/km on the cards, when only one has it.
+  bestRate('Best ₹/km', Symbols.trending_up_rounded, TtColors.successText, TtColors.successTint),
+
+  /// The shortest ride to the pickup, when only one has it.
+  closest('Closest pickup', Symbols.my_location_rounded, TtColors.navy900, TtColors.infoTint),
+  womenOnly('Butterfly', Symbols.female_rounded, TtColors.butterfly600, TtColors.butterfly50),
+  verified('Verified', Symbols.verified_rounded, TtColors.successText, TtColors.successTint);
+
+  const RequestPerk(this.label, this.icon, this.fg, this.bg);
+  final String label;
+  final IconData icon;
+  final Color fg;
+  final Color bg;
+
+  /// Only makes sense next to the others (the card has no other tag for it).
+  bool get comparative => this == bestRate || this == closest;
+}
+
+/// Each request's [RequestPerk]s by id, most telling first. Best ₹/km and closest pickup go to one request only, by
+/// the numbers the cards show (a tie gives neither), and only when there are two or more to compare.
+Map<String, List<RequestPerk>> requestPerks(List<RideRequest> requests) {
+  String? only(num? Function(RideRequest) of, {required bool highest}) {
+    final scored = [for (final r in requests) if (of(r) case final v?) (id: r.id, v: v)];
+    if (scored.length < 2) return null;
+    scored.sort((a, b) => highest ? b.v.compareTo(a.v) : a.v.compareTo(b.v));
+    return scored[0].v != scored[1].v ? scored[0].id : null;
+  }
+
+  final mixed = requests.any((r) => r.isDelivery) && requests.any((r) => !r.isDelivery);
+  final bestRate = only((r) => r.tripKm > 0 ? (r.fare / r.tripKm).round() : null, highest: true);
+  final closest = only((r) => (r.pickupDistanceKm * 10).round(), highest: false);
+  return {
+    for (final r in requests)
+      r.id: [
+        if (mixed && r.isDelivery) RequestPerk.parcel,
+        if (r.id == bestRate) RequestPerk.bestRate,
+        if (r.id == closest) RequestPerk.closest,
+        if (r.isWomenOnly) RequestPerk.womenOnly,
+        if (r.isCustomerVerified) RequestPerk.verified,
+      ],
+  };
+}
+
 /// D-15 / D-20 request screen (like Namma Yatri's): a card per open request to compare fare, ₹/km, pickup and trip
 /// side by side, each with its own "Swipe to accept" and a ✕ to decline, soonest to close on top. With two or more a
-/// rail of countdown rings with each fare sits on the left (tap to jump); with one the card has the full width.
-/// [directionBar] (Go To / Stay In) sits under the title.
+/// rail of countdown rings with each fare sits on the left (tap to jump), each ring showing what sets that request
+/// apart ([RequestPerk]); with one the card has the full width. The whole card also swipes: right accepts, left
+/// declines. [directionBar] (Go To / Stay In) sits under the title.
 class RequestStackView extends StatefulWidget {
   const RequestStackView({
     super.key,
@@ -73,6 +123,7 @@ class _RequestStackViewState extends State<RequestStackView> {
   Widget build(BuildContext context) {
     final t = context.type;
     final entries = [...widget.entries]..sort((a, b) => a.expiresAt.compareTo(b.expiresAt));
+    final perks = requestPerks([for (final e in entries) e.request]);
     final now = DateTime.now();
     Duration left(StackEntry e) {
       final d = e.expiresAt.difference(now);
@@ -116,6 +167,7 @@ class _RequestStackViewState extends State<RequestStackView> {
                         _RailItem(
                           key: ValueKey('rail-${e.request.id}'),
                           request: e.request,
+                          perk: perks[e.request.id]?.firstOrNull,
                           left: left(e),
                           running: widget.running,
                           onTap: () => _jumpTo(e.request.id),
@@ -132,16 +184,22 @@ class _RequestStackViewState extends State<RequestStackView> {
                         Padding(
                           key: _keyFor(e.request.id),
                           padding: const EdgeInsets.only(bottom: TtSpacing.m),
-                          child: _RequestCard(
-                            key: ValueKey('card-${e.request.id}'),
-                            request: e.request,
-                            left: left(e),
-                            accepting: widget.acceptingId == e.request.id,
-                            locked: widget.acceptingId != null,
-                            running: widget.running,
+                          child: _SwipeableCard(
+                            enabled: widget.acceptingId == null,
                             onAccept: () => widget.onAccept(e.request.id),
                             onDecline: () => widget.onDecline(e.request.id),
-                            onExpired: () => widget.onExpired(e.request.id),
+                            child: _RequestCard(
+                              key: ValueKey('card-${e.request.id}'),
+                              request: e.request,
+                              perks: [...?perks[e.request.id]],
+                              left: left(e),
+                              accepting: widget.acceptingId == e.request.id,
+                              locked: widget.acceptingId != null,
+                              running: widget.running,
+                              onAccept: () => widget.onAccept(e.request.id),
+                              onDecline: () => widget.onDecline(e.request.id),
+                              onExpired: () => widget.onExpired(e.request.id),
+                            ),
                           ),
                         ),
                     ]),
@@ -170,8 +228,18 @@ class _RequestStackViewState extends State<RequestStackView> {
 }
 
 class _RailItem extends StatelessWidget {
-  const _RailItem({super.key, required this.request, required this.left, required this.onTap, this.running = true});
+  const _RailItem({
+    super.key,
+    required this.request,
+    required this.left,
+    required this.onTap,
+    this.perk,
+    this.running = true,
+  });
   final RideRequest request;
+
+  /// Shown in the ring instead of the vehicle.
+  final RequestPerk? perk;
   final Duration left;
   final bool running;
   final VoidCallback onTap;
@@ -182,7 +250,7 @@ class _RailItem extends StatelessWidget {
     return Semantics(
       button: true,
       label: '${formatInr(request.fare)} request${request.extra > 0 ? ' with ${formatInr(request.extra)} extra' : ''}, '
-          'pickup ${formatKm(request.pickupDistanceKm)} away. Show it',
+          '${perk == null ? '' : '${perk!.label}, '}pickup ${formatKm(request.pickupDistanceKm)} away. Show it',
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
@@ -200,7 +268,7 @@ class _RailItem extends StatelessWidget {
                 running: running,
                 color: TtColors.coral600,
                 trackColor: TtColors.coral50,
-                child: Icon(request.vehicle.icon, color: TtColors.coral600, size: 22, fill: 1),
+                child: Icon(perk?.icon ?? request.vehicle.icon, color: perk?.fg ?? TtColors.coral600, size: 22, fill: 1),
               ),
             ),
             const SizedBox(height: 4),
@@ -225,10 +293,14 @@ class _RequestCard extends StatelessWidget {
     required this.onAccept,
     required this.onDecline,
     required this.onExpired,
+    this.perks = const [],
     this.running = true,
   });
 
   final RideRequest request;
+
+  /// Its tags for best ₹/km and closest pickup (the rail's icons).
+  final List<RequestPerk> perks;
   final Duration left;
   final bool accepting;
   final bool running;
@@ -259,6 +331,8 @@ class _RequestCard extends StatelessWidget {
             child: Wrap(spacing: 6, runSpacing: 6, children: [
               _Tag(icon: Symbols.star_rounded, label: r.customerRating.toStringAsFixed(1), bg: TtColors.warningTint, fg: TtColors.warningText),
               _Tag(icon: r.vehicle.icon, label: r.vehicle.label, bg: TtColors.infoTint, fg: TtColors.navy900),
+              for (final p in perks)
+                if (p.comparative) _Tag(icon: p.icon, label: p.label, bg: p.bg, fg: p.fg),
               if (r.isCustomerVerified)
                 const _Tag(icon: Symbols.verified_rounded, label: 'Verified', bg: TtColors.successTint, fg: TtColors.successText),
               if (r.isWomenOnly)
@@ -368,6 +442,124 @@ class _RequestCard extends StatelessWidget {
                   onConfirmed: onAccept,
                 ),
         ),
+      ]),
+    );
+  }
+}
+
+/// The whole card follows a sideways drag (like other ride apps): let go past a third of its width and right accepts,
+/// left declines; short of that it springs back. "Accept" (green) or "Decline" (red) shows behind it, turning solid
+/// with a tick of haptics once letting go would count. An accept springs back into place (the card then shows
+/// "Accepting", and stays if the offer went to someone else); a decline slides the card out.
+class _SwipeableCard extends StatefulWidget {
+  const _SwipeableCard({required this.enabled, required this.onAccept, required this.onDecline, required this.child});
+  final bool enabled;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+  final Widget child;
+
+  @override
+  State<_SwipeableCard> createState() => _SwipeableCardState();
+}
+
+class _SwipeableCardState extends State<_SwipeableCard> with SingleTickerProviderStateMixin {
+  /// Share of the card's width to drag before letting go counts.
+  static const _threshold = 0.35;
+
+  /// The card's sideways offset (px).
+  late final _dx = AnimationController.unbounded(vsync: this);
+  double _width = 1;
+  bool _armed = false;
+  Timer? _comeBack;
+
+  @override
+  void dispose() {
+    _comeBack?.cancel();
+    _dx.dispose();
+    super.dispose();
+  }
+
+  bool _past(double dx) => dx.abs() >= _width * _threshold;
+
+  void _onUpdate(DragUpdateDetails d) {
+    if (!widget.enabled) return;
+    _dx.value += d.primaryDelta ?? 0;
+    final armed = _past(_dx.value);
+    if (armed != _armed) {
+      _armed = armed;
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  Future<void> _onEnd(DragEndDetails _) async {
+    final dx = _dx.value;
+    _armed = false;
+    const back = Duration(milliseconds: 200);
+    if (!widget.enabled || !_past(dx)) {
+      await _dx.animateTo(0, duration: back, curve: Curves.easeOut);
+    } else if (dx > 0) {
+      HapticFeedback.mediumImpact();
+      widget.onAccept();
+      await _dx.animateTo(0, duration: back, curve: Curves.easeOut);
+    } else {
+      await _dx.animateTo(-_width * 1.1, duration: const Duration(milliseconds: 180), curve: Curves.easeIn);
+      if (!mounted) return;
+      widget.onDecline();
+      // Normally the card is gone by now; if the decline didn't take, bring it back.
+      _comeBack = Timer(const Duration(seconds: 1), () {
+        if (mounted) _dx.animateTo(0, duration: back, curve: Curves.easeOut);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
+        _width = box.maxWidth;
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragUpdate: widget.enabled ? _onUpdate : null,
+          onHorizontalDragEnd: widget.enabled ? _onEnd : null,
+          onHorizontalDragCancel: () => _dx.animateTo(0, duration: const Duration(milliseconds: 200)),
+          child: AnimatedBuilder(
+            animation: _dx,
+            builder: (context, child) {
+              final dx = _dx.value;
+              // Always two children, so the card (its countdown rings) is never rebuilt from scratch.
+              return Stack(children: [
+                Positioned.fill(
+                  child: dx == 0 ? const SizedBox.shrink() : _SwipeBackdrop(accept: dx > 0, armed: _past(dx)),
+                ),
+                Transform.translate(offset: Offset(dx, 0), child: child),
+              ]);
+            },
+            child: widget.child,
+          ),
+        );
+      });
+}
+
+/// What letting go does, behind the moving card: "Accept" on the left (dragging right), "Decline" on the right.
+class _SwipeBackdrop extends StatelessWidget {
+  const _SwipeBackdrop({required this.accept, required this.armed});
+  final bool accept;
+  final bool armed;
+
+  @override
+  Widget build(BuildContext context) {
+    final solid = accept ? TtColors.success : TtColors.error;
+    final fg = armed ? TtColors.surface : (accept ? TtColors.successText : TtColors.error);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.xl),
+      alignment: accept ? Alignment.centerLeft : Alignment.centerRight,
+      decoration: BoxDecoration(
+        color: armed ? solid : (accept ? TtColors.successTint : TtColors.errorTint),
+        borderRadius: const BorderRadius.all(Radius.circular(TtRadii.sheet)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(accept ? Symbols.check_circle_rounded : Symbols.cancel_rounded, color: fg, fill: 1, size: 32),
+        const SizedBox(height: TtSpacing.xs),
+        Text(accept ? 'Accept' : 'Decline', style: context.type.bodySemibold.copyWith(color: fg)),
       ]),
     );
   }

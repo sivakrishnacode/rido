@@ -94,11 +94,90 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  test('perks: best ₹/km and closest pickup go to one request only, parcels stand out among rides', () {
+    final r = Seed.rideRequest;
+    final perks = requestPerks([
+      r.copyWith(id: 'a', fare: 200, tripKm: 10, pickupDistanceKm: 0.6), // ₹20/km, closest
+      r.copyWith(id: 'b', fare: 150, tripKm: 5, pickupDistanceKm: 1.3, isCustomerVerified: true), // ₹30/km
+      Seed.deliveryRequest.copyWith(id: 'c', fare: 100, tripKm: 4, pickupDistanceKm: 2), // ₹25/km
+    ]);
+    expect(perks['a'], [RequestPerk.closest]);
+    expect(perks['b'], [RequestPerk.bestRate, RequestPerk.verified]);
+    expect(perks['c'], [RequestPerk.parcel]);
+    // A tie on what the cards show gives neither; one request alone has nothing to compare with.
+    final tie = requestPerks([
+      r.copyWith(id: 'a', fare: 200, tripKm: 10, pickupDistanceKm: 1.02),
+      r.copyWith(id: 'b', fare: 201, tripKm: 10, pickupDistanceKm: 0.98),
+    ]);
+    expect(tie['a'], isEmpty);
+    expect(tie['b'], isEmpty);
+    expect(requestPerks([r.copyWith(id: 'a')])['a'], isEmpty);
+  });
+
+  testWidgets('the rail shows what sets each request apart, the card the same tag', (tester) async {
+    final now = DateTime.now();
+    final r = Seed.rideRequest;
+    await pump(tester, [
+      (request: r.copyWith(id: 'near', fare: 95, tripKm: 11.7, pickupDistanceKm: 0.6), expiresAt: now.add(const Duration(seconds: 9))),
+      (request: r.copyWith(id: 'rate', fare: 90, tripKm: 9.7, pickupDistanceKm: 1.3), expiresAt: now.add(const Duration(seconds: 12))),
+    ]);
+    Finder inRail(String id, IconData icon) =>
+        find.descendant(of: find.byKey(ValueKey('rail-$id')), matching: find.byIcon(icon));
+    expect(inRail('near', Symbols.my_location_rounded), findsOneWidget);
+    expect(inRail('rate', Symbols.trending_up_rounded), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('card-near')), matching: find.text('Closest pickup')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('card-rate')), matching: find.text('Best ₹/km')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Best ₹/km, pickup 1.3 km away')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the whole card swipes: right accepts, left declines, a short drag springs back', (tester) async {
+    String? accepted;
+    String? declined;
+    await pump(tester, three(), onAccept: (id) => accepted = id, onDecline: (id) => declined = id);
+    final mid = find.byKey(const ValueKey('card-mid'));
+    final x = tester.getTopLeft(mid).dx;
+    // Frames for the spring-back / slide-out (the rings keep animating, so no pumpAndSettle).
+    Future<void> settle() async {
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    await tester.drag(mid, const Offset(40, 0));
+    await settle();
+    expect(accepted, isNull);
+    expect(declined, isNull);
+    expect(tester.getTopLeft(mid).dx, x);
+
+    // Mid-drag the backdrop says what letting go does.
+    final gesture = await tester.startGesture(tester.getCenter(mid));
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-170, 0));
+    await tester.pump();
+    expect(find.text('Decline'), findsOneWidget);
+    await gesture.up();
+    await settle();
+    expect(declined, 'mid');
+
+    await tester.drag(find.byKey(const ValueKey('card-soon')), const Offset(200, 0));
+    await settle();
+    expect(accepted, 'soon');
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('while one is being accepted the others are locked', (tester) async {
     await pump(tester, three(), acceptingId: 'soon');
     expect(find.text('Accepting'), findsOneWidget);
     final swipes = tester.widgetList<SwipeToConfirm>(find.byType(SwipeToConfirm));
     expect(swipes.every((s) => !s.enabled), isTrue);
+    // No card swipes either.
+    final mid = find.byKey(const ValueKey('card-mid'));
+    final x = tester.getTopLeft(mid).dx;
+    await tester.drag(mid, const Offset(200, 0));
+    await tester.pump();
+    expect(tester.getTopLeft(mid).dx, x);
     await tester.pumpWidget(const SizedBox());
   });
 
