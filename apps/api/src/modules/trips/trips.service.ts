@@ -7,6 +7,7 @@ import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
 import { CancelCode, CancelFault, CancelledBy, DueStatus, Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
+import { TripDriversService } from '../drivers/trip-drivers.service.js';
 import { MAX_RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
 import { type FareQuote, haversineMeters, waitingCharge, waitingTerms, withWaitingCharge } from '../fares/fare-engine.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
@@ -104,6 +105,7 @@ export class TripsService {
     private readonly blocks: DriverBlocksService,
     private readonly safety: SafetyMonitorService,
     private readonly maps: MapsService,
+    private readonly tripDrivers: TripDriversService,
   ) {}
 
   /** Quotes, stores and starts dispatching a trip. */
@@ -262,7 +264,7 @@ export class TripsService {
     const radiusKm = Math.max(s.searchRadiusKm, s.maxSearchRadiusKm);
     const found = await Promise.all(
       kinds.map(async (vehicleKind): Promise<VehicleAlternative | null> => {
-        const drivers = await this.location.nearby({ kind: vehicleKind, ...pickup, radiusKm, limit: 5 });
+        const drivers = await this.tripDrivers.nearby({ kind: vehicleKind, ...pickup, radiusKm, limit: 5 });
         if (drivers.length === 0) return null;
         // Same route as the booking, so the fares compare like the vehicle list did.
         const quote = await this.fares.quoteOnRoute({ pickup, route, vehicleKind });

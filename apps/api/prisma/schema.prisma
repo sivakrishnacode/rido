@@ -349,7 +349,8 @@ model Driver {
   /// Temporarily paused until then (too many cancellations, [DriverBlock]); can't go online, dispatch skips them.
   blockedUntil      DateTime?
   /// Booking preferences the driver set (booking-prefs.ts): maxPickupKm, minTripKm, maxTripKm, goTo {lat, lng, name,
-  /// until}. Dispatch only offers trips that fit. Null = no filters.
+  /// until}, stayIn {lat, lng, name, radiusKm, until}, parcels (bikes: goods-bike parcels too), areas (saved places).
+  /// Dispatch only offers trips that fit. Null = no filters.
   bookingPrefs      Json?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt

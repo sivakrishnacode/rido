@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { TripKind, VehicleKind } from '../../generated/prisma/enums.js';
-import { DriverLocationService } from '../drivers/driver-location.service.js';
+import { TripDriversService } from '../drivers/trip-drivers.service.js';
 import { womenAmong } from '../drivers/women-drivers.js';
 import { GeoService } from '../geo/geo.service.js';
 import { EtaService, etasByMode } from '../maps/eta.service.js';
@@ -33,7 +33,7 @@ export class FaresService {
   constructor(
     private readonly maps: MapsService,
     private readonly geo: GeoService,
-    private readonly location: DriverLocationService,
+    private readonly drivers: TripDriversService,
     private readonly eta: EtaService,
     private readonly settings: SettingsService,
     private readonly prisma: PrismaService,
@@ -49,7 +49,8 @@ export class FaresService {
     const radiusKm = Math.max(s.searchRadiusKm, s.maxSearchRadiusKm);
     const nearestPer = await Promise.all(
       quotes.map(async (q) => {
-        let drivers = await this.location.nearby({ kind: q.vehicleKind, ...pickup, radiusKm, limit: ETA_SAMPLE * 2 });
+        // Bike drivers count for a goods bike (they take parcels too).
+        let drivers = await this.drivers.nearby({ kind: q.vehicleKind, ...pickup, radiusKm, limit: ETA_SAMPLE * 2 });
         if (opts.womenOnly) {
           const women = await womenAmong(this.prisma, drivers.map((d) => d.driverId));
           drivers = drivers.filter((d) => women.has(d.driverId));

@@ -7,12 +7,13 @@ import { DriverEarningsService } from './driver-earnings.service.js';
 import { DriverLocationService } from './driver-location.service.js';
 import { DriversController } from './drivers.controller.js';
 import { DriversService } from './drivers.service.js';
+import { TripDriversService } from './trip-drivers.service.js';
 
 /** Driver registration, profile, KYC uploads, online status, earnings and live locations. */
 @Module({
   imports: [AuthModule, SubscriptionsModule, KycModule],
   controllers: [DriversController],
-  providers: [DriversService, DriverLocationService, DriverEarningsService],
-  exports: [DriversService, DriverLocationService, DriverEarningsService],
+  providers: [DriversService, DriverLocationService, DriverEarningsService, TripDriversService],
+  exports: [DriversService, DriverLocationService, DriverEarningsService, TripDriversService],
 })
 export class DriversModule {}

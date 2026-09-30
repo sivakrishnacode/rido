@@ -7,6 +7,8 @@ import { Prisma, type Trip } from '../../generated/prisma/client.js';
 import { CancelCode, CancelledBy, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { fitsPrefs, readPrefs } from '../drivers/booking-prefs.js';
+import { tripVehicleFor } from '../drivers/parcel-bikes.js';
+import { TripDriversService } from '../drivers/trip-drivers.service.js';
 import { applyWomenPref, womenAmong } from '../drivers/women-drivers.js';
 import { roadKm } from '../geo/eta-model.js';
 import { NotifierService } from '../notifications/notifier.service.js';
@@ -48,7 +50,8 @@ const SWEEP_EVERY_MS = 15_000;
  * Uber-style dispatch:
  * 1. Bookings wait in a short batch window (`batchWindowMs`, default 2 s).
  * 2. For each booking, drivers are found by H3 rings around the pickup (pickup hexagon, then neighbours…), for the
- *    booked vehicle and any the passenger added ("Book any", [widen]). The radius grows from `searchRadiusKm` to
+ *    booked vehicle and any the passenger added ("Book any", [widen]); bike drivers take goods-bike parcels too
+ *    (parcel-bikes.ts). The radius grows from `searchRadiusKm` to
  *    `maxSearchRadiusKm` over `searchExpandSeconds` (see search-radius.ts).
  * 3. Candidates are ranked by road ETA (cached per hex pair), not straight-line distance, adjusted for how reliably
  *    each driver took offers over 7 days and how long they have waited (driver-rank.ts; ETA stays dominant).
@@ -81,6 +84,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     private readonly notifier: NotifierService,
     private readonly jobs: JobsService,
     private readonly offerStats: DriverOfferStatsService,
+    private readonly tripDrivers: TripDriversService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -257,11 +261,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     const radiusKm = searchRadiusAt(Date.now() - trip.createdAt.getTime(), s);
     const kinds: VehicleKind[] = [trip.vehicleKind, ...trip.alsoKinds.filter((k) => k !== trip.vehicleKind)];
     const [perKind, declined] = await Promise.all([
-      Promise.all(
-        kinds.map(async (kind) =>
-          (await this.location.nearby({ kind, ...pickup, radiusKm, limit: s.maxCandidates * 2 })).map((d) => ({ ...d, kind })),
-        ),
-      ),
+      Promise.all(kinds.map((kind) => this.tripDrivers.nearby({ kind, ...pickup, radiusKm, limit: s.maxCandidates * 2 }))),
       this.redis.smembers(`dispatch:${trip.id}:declined`),
     ]);
     // Paused drivers (too many cancellations) are offline anyway; this covers an index entry left behind.
@@ -424,10 +424,12 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
 }
 
 /**
- * [trip] as matched with a driver of [kind]: an added vehicle ("Book any") takes its own quote from `alsoFares`;
- * the booked vehicle (or an unknown one) leaves the trip as it is.
+ * [trip] as matched with a driver of [driverKind]: an added vehicle ("Book any") takes its own quote from
+ * `alsoFares` (a bike driver on a parcel takes it as a goods bike); the booked vehicle (or an unknown one) leaves the
+ * trip as it is.
  */
-export function asVehicle(trip: Trip, kind: VehicleKind | undefined): Trip {
+export function asVehicle(trip: Trip, driverKind: VehicleKind | undefined): Trip {
+  const kind = driverKind && tripVehicleFor(driverKind, trip.kind);
   if (!kind || kind === trip.vehicleKind || !trip.alsoKinds.includes(kind)) return trip;
   const quote = (trip.alsoFares as Record<string, { total: number }> | null)?.[kind];
   if (!quote) return trip;

@@ -275,6 +275,59 @@ describe('Tamil Taxi API (e2e)', () => {
     for (const d of [picky, other]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
   });
 
+  it('Stay In: only trips inside the area; one of Go To / Stay In at a time; saved areas stay', async () => {
+    const staying = await onlineDriver('AUTO', { lat: 11.0184, lng: 76.9726 });
+    const other = await onlineDriver('AUTO', { lat: 11.0196, lng: 76.9739 });
+    const auth = { Authorization: `Bearer ${staying}` };
+    const home = { name: 'Home', lat: 11.0797, lng: 76.9997 };
+    const saravanampatti = { ...home, name: 'Saravanampatti', radiusKm: 5 };
+    await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ goTo: home, stayIn: saravanampatti }).expect(400);
+    const saved = (await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ stayIn: saravanampatti, areas: [home] }).expect(200)).body;
+    expect(saved).toMatchObject({ goTo: null, stayIn: { name: 'Saravanampatti', radiusKm: 5 }, parcels: true, areas: [home] });
+    expect(new Date(saved.stayIn.until).getTime() - Date.now()).toBeGreaterThan(11.9 * 3_600_000);
+
+    // Gandhipuram → Brookefields is outside Saravanampatti: the closer driver staying there never gets it.
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'AUTO', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+    expect((await acceptWhenOffered(trip.id, other)).status).toBe(200);
+    expect((await http.post(`/v1/trips/${trip.id}/accept`).set(auth)).status).not.toBe(200);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+
+    // An app that doesn't send them keeps the stay-in and areas; turning Go To on turns Stay In off.
+    expect((await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ minTripKm: 3 }).expect(200)).body).toMatchObject({ stayIn: { name: 'Saravanampatti' }, areas: [home] });
+    const goTo = (await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ goTo: home }).expect(200)).body;
+    expect(goTo).toMatchObject({ goTo: { name: 'Home' }, stayIn: null, areas: [home] });
+    await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ areas: null }).expect(200);
+    for (const d of [staying, other]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
+  });
+
+  it('parcel on bike: a bike driver takes a goods-bike parcel at its fare; one who turned parcels off is skipped', async () => {
+    const bike = await onlineDriver('BIKE', { lat: 11.0184, lng: 76.9726 });
+    const farther = await onlineDriver('BIKE', { lat: 11.0196, lng: 76.9739 });
+    const auth = { Authorization: `Bearer ${bike}` };
+    // Only bikes are online: the goods bike still has a pickup ETA on the parcel vehicle list.
+    const quotes = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS, kind: 'PARCEL' }).expect(200)).body.quotes;
+    const goodsBike = quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'GOODS_BIKE');
+    expect(typeof goodsBike.pickupEtaMin).toBe('number');
+
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const parcel = { kind: 'PARCEL', vehicleKind: 'GOODS_BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS };
+    const trip = (await http.post('/v1/trips').set(pax).send(parcel).expect(201)).body;
+    const accepted = await acceptWhenOffered(trip.id, bike);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body).toMatchObject({ kind: 'PARCEL', vehicleKind: 'GOODS_BIKE', fareTotal: goodsBike.total });
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+
+    // Parcels off: the closer bike driver is skipped, the other one takes it.
+    expect((await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ parcels: false }).expect(200)).body.parcels).toBe(false);
+    const next = (await http.post('/v1/trips').set(pax).send(parcel).expect(201)).body;
+    expect((await acceptWhenOffered(next.id, farther)).status).toBe(200);
+    expect((await http.post(`/v1/trips/${next.id}/accept`).set(auth)).status).not.toBe(200);
+    await http.post(`/v1/trips/${next.id}/cancel`).set(pax).send({}).expect(200);
+    await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ parcels: true }).expect(200);
+    for (const d of [bike, farther]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
+  });
+
   it('"Who\'s riding?": a father books Butterfly for his daughter; the driver sees her; reports switch it off', async () => {
     const woman = await onlineDriver('AUTO', { lat: 11.0186, lng: 76.9728 }, 'FEMALE');
     const father = await login(); // no gender set

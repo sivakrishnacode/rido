@@ -3,7 +3,7 @@
 Single technical reference for the Tamil Taxi monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 30 Sep 2026 (kolam app icons + matching native/Flutter splash, overlay notification icon fix; 29 Sep: renamed Rido → Tamil Taxi: packages, app IDs `com.tamiltaxi.*`, `Tt*` widgets, `TT_*` defines, database `tamiltaxi`; new logo in `TtWordmark`; open-source repo: AGPL-3.0, contributor docs, CI, COST_AND_SCALING.md; DEV_OTP_CODE for dev-mode sign-in; bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 30 Sep 2026 (parcel on bike: bike drivers also get goods-bike parcels unless they switch it off; Stay In and saved areas in driver booking preferences; kolam app icons + matching native/Flutter splash, overlay notification icon fix; 29 Sep: renamed Rido → Tamil Taxi: packages, app IDs `com.tamiltaxi.*`, `Tt*` widgets, `TT_*` defines, database `tamiltaxi`; new logo in `TtWordmark`; open-source repo: AGPL-3.0, contributor docs, CI, COST_AND_SCALING.md; DEV_OTP_CODE for dev-mode sign-in; bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -256,7 +256,8 @@ Never commit real `.env` files.
     (today in 2-hour buckets, 7 days, 4 weeks; commission saved = 30 % of fares; online hours from Redis
     `driver:online_since:<id>` / `driver:online_secs:<id>:<IST day>`, 40 days).
   - `GET` / `PUT /drivers/me/booking-preferences` (`{maxPickupKm 0.5–10, minTripKm 1–50, maxTripKm 1–100, goTo {lat,
-    lng, name}}`, null clears one; stored in `Driver.bookingPrefs` JSON, see §7c8).
+    lng, name}, stayIn {lat, lng, name, radiusKm 1–20}, parcels, areas [{name, lat, lng}] ≤ 6}`, null clears one;
+    stored in `Driver.bookingPrefs` JSON, see §7c8).
   - `POST /drivers/me/documents/:type` is **multipart** (`file`: JPG/PNG/WebP/PDF ≤ 8 MB) → **S3**
     `s3://rido-uploads-786020471552/kyc/<uuid>.<ext>` when `S3_BUCKET` is set (production), else local disk
     (`UPLOAD_DIR`, Docker volume `uploads`, dev) → `KycDocument.fileUrl` = file name. Admins read it via
@@ -455,6 +456,10 @@ Never commit real `.env` files.
      enough drivers are found; busy and stale drivers are skipped. **Widening radius (27 Sep 2026):** the radius
      starts at `searchRadiusKm` (5 km) and grows linearly to `maxSearchRadiusKm` (15 km) over `searchExpandSeconds`
      (45 s) while nobody accepts (`search-radius.ts`), for the booked vehicle and any added ones ("Book any").
+     **Parcel on bike (30 Sep 2026, like Rapido):** a goods-bike parcel also searches the `BIKE` index; bike drivers
+     who set `parcels: false` in their booking preferences are left out (`parcel-bikes.ts`, `TripDriversService`,
+     which the vehicle list's pickup ETAs and "Book any" use too). The bike driver takes it as a goods bike
+     (`tripVehicleFor`, `asVehicle`) at the goods-bike fare; a goods-bike driver never gets passengers.
   4. Candidates are ranked by **road ETA**, not straight-line distance (`EtaService`: Google Routes when
      `useRoadEta` and a key are set, else a 20 km/h × 1.3 estimate), cached per H3 cell pair for 10 min so all
      drivers in one hexagon share one lookup. All candidates go through `EtaService.minutesMany` together: learned
@@ -1037,6 +1042,14 @@ suggestion's name.
   (one `driver.findMany` for those with prefs): pickup km ≤ max, trip km within min–max, and while `goTo.until` is in
   the future the drop must be within 3 km of the go-to or leave at most half of the driver's current distance to it.
   The server sets `until` = now + 2 h (resending the same place keeps the running timer). Filters never change fares.
+- **Stay In (30 Sep 2026, like Rapido):** `stayIn {lat, lng, name, radiusKm}`: only trips whose pickup **and** drop are
+  within `radiusKm` of the place, for 12 h (`STAY_IN_HOURS`; same place and radius resent = timer kept). One of Go To /
+  Stay In at a time: both in one save → 400; saving a go-to turns a stored stay-in off.
+- **Saved areas:** `areas` (≤ 6 `{name, lat, lng}`, e.g. Home, the stand) for switching Go To / Stay In on with one
+  tap; stored on the server so they survive a new phone.
+- **Parcels (bike drivers):** `parcels` (default on): goods-bike parcel requests too (see Dispatch in §6).
+- **Older apps:** a save without `stayIn`, `parcels` or `areas` keeps the stored ones (the other filters are cleared
+  as before when absent).
 - **Home:** online with filters on, a "Filters on · pickup ≤ 2 km · trips over 5 km   Edit" row, so fewer requests
   don't look like a broken app. Account shows the same summary.
 - **Not yet:** a limit on go-home uses per day, and picking a go-to place other than the saved Home.

@@ -3,7 +3,7 @@ import { FileStorageService, type UploadedBlob } from '../../core/storage/file-s
 import { DriverEarningsService } from './driver-earnings.service.js';
 import type { UpdateDriverDto } from './dto/update-driver.dto.js';
 import type { BookingPrefsDto } from './dto/booking-prefs.dto.js';
-import { type BookingPrefs, GO_TO_HOURS, readPrefs } from './booking-prefs.js';
+import { type Area, type BookingPrefs, type GoTo, GO_TO_HOURS, readPrefs, type StayIn, STAY_IN_HOURS } from './booking-prefs.js';
 
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
@@ -78,21 +78,40 @@ export class DriversService {
     return readPrefs(d.bookingPrefs, new Date());
   }
 
-  /** Replaces the preferences. A go-to switches itself off after [GO_TO_HOURS]. */
+  /**
+   * Replaces the preferences. A go-to switches itself off after [GO_TO_HOURS], a stay-in after [STAY_IN_HOURS]; one
+   * of the two at a time (turning one on turns off the other one stored).
+   */
   async setBookingPrefs(driverId: string, dto: BookingPrefsDto): Promise<BookingPrefs> {
     if (dto.minTripKm && dto.maxTripKm && dto.minTripKm > dto.maxTripKm) {
       throw new BadRequestException('Shortest trip must be less than the longest trip');
     }
+    if (dto.goTo && dto.stayIn) throw new BadRequestException('Turn off Go To to use Stay In');
     const now = new Date();
+    const current = await this.bookingPrefs(driverId);
+    const until = (hours: number): string => new Date(now.getTime() + hours * 3_600_000).toISOString();
+    const place = (a: Area): Area => ({ name: a.name, lat: a.lat, lng: a.lng });
+    const same = (a: Area, b: Area): boolean => a.lat === b.lat && a.lng === b.lng;
+    // A go-to / stay-in already running stays as it is when the app sends the same place back (its timer goes on).
+    let goTo: GoTo | null = null;
+    if (dto.goTo) goTo = current.goTo && same(current.goTo, dto.goTo) ? current.goTo : { ...place(dto.goTo), until: until(GO_TO_HOURS) };
+    let stayIn: StayIn | null = null;
+    if (dto.stayIn) {
+      const kept = current.stayIn && same(current.stayIn, dto.stayIn) && current.stayIn.radiusKm === dto.stayIn.radiusKm;
+      stayIn = kept ? current.stayIn! : { ...place(dto.stayIn), radiusKm: dto.stayIn.radiusKm, until: until(STAY_IN_HOURS) };
+    } else if (dto.stayIn === undefined && !goTo) {
+      // Not sent (an older app): the stored one stays, unless this save turns a go-to on.
+      stayIn = current.stayIn ?? null;
+    }
     const prefs: BookingPrefs = {
       maxPickupKm: dto.maxPickupKm ?? null,
       minTripKm: dto.minTripKm ?? null,
       maxTripKm: dto.maxTripKm ?? null,
-      goTo: dto.goTo ? { ...dto.goTo, until: new Date(now.getTime() + GO_TO_HOURS * 3_600_000).toISOString() } : null,
+      goTo,
+      stayIn,
+      parcels: dto.parcels ?? current.parcels ?? true,
+      areas: dto.areas === undefined ? (current.areas ?? []) : (dto.areas ?? []).map(place),
     };
-    // Keep a go-to already running when the app sends the same place back (don't restart its timer).
-    const current = await this.bookingPrefs(driverId);
-    if (dto.goTo && current.goTo && current.goTo.lat === dto.goTo.lat && current.goTo.lng === dto.goTo.lng) prefs.goTo = current.goTo;
     await this.prisma.driver.update({ where: { id: driverId }, data: { bookingPrefs: prefs as Prisma.InputJsonValue } });
     return prefs;
   }
