@@ -1248,6 +1248,17 @@ scp -i ~/.ssh/rido-key.pem apps/api/prisma/seed-test-drivers.ts ubuntu@65.0.233.
 ssh -i ~/.ssh/rido-key.pem ubuntu@65.0.233.253 'docker cp /tmp/seed-test-drivers.ts tamiltaxi-api-1:/repo/apps/api/prisma/ && docker exec -w /repo/apps/api tamiltaxi-api-1 npx tsx prisma/seed-test-drivers.ts --photo test-driver-avatar.png'
 ```
 
+**Test trips on staging** (`scripts/book_test_trip.py`): test riders book up to 4 rides or parcels around a driver so
+the requests arrive and stack in the driver app; `--mix` (bike: rides and parcels), `--extra 20` (rider's extra),
+`--women [preferred|only]` (Butterfly, from women test riders whose profile it sets to FEMALE; rides only; sign in as
+a woman test driver: 9100000102 Priya (cab), 9100000602 Divya (bike)); `cancel` cancels what they booked. It reads
+the sign-in code and the driver over SSH, which fails in 10 s with a hint when port 22 doesn't allow your IP.
+
+```bash
+python3 scripts/book_test_trip.py book --driver 9100000102 --women preferred --count 3   # at Priya's live GPS
+python3 scripts/book_test_trip.py cancel
+```
+
 Seeded 26 Sep 2026: 2,000 demo trips + demo people.
 
 **Deployed 27 Sep 2026:** Didit identity checks (migrations `identity_verification`, `identity_documents`), Caddy on

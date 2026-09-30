@@ -2,8 +2,9 @@
 """Books up to 4 test trips (rides or parcels) from test riders near a driver on staging, to watch requests arrive
 and stack in the driver app.
 
-  python3 scripts/book_test_trips.py book [LAT LNG] [--driver PHONE|ID] [--vehicle KIND] [--parcel | --mix]
-                                          [--gap SECONDS] [--count N] [--extra RUPEES] [--extra-after SECONDS]
+  python3 scripts/book_test_trip.py book [LAT LNG] [--driver PHONE|ID] [--vehicle KIND] [--parcel | --mix]
+                                         [--gap SECONDS] [--count N] [--extra RUPEES] [--extra-after SECONDS]
+                                         [--women [preferred|only]]
       --driver   whose requests to test (default Arun 9100000101, a cab); the trip type follows that driver's
                  vehicle: goods drivers get parcels, bike / auto / cab drivers get rides
       --vehicle  book this vehicle instead (BIKE, AUTO, CAB, GOODS_BIKE, THREE_WHEELER, MINI_TRUCK, PICKUP, TRUCK)
@@ -13,7 +14,10 @@ and stack in the driver app.
       --gap      one trip every SECONDS (default 5; 0 = all at once); --count N trips (default 4, max 4)
       --extra    then the rider adds this much extra to each trip still searching (e.g. 20), after
                  --extra-after SECONDS (default 8)
-  python3 scripts/book_test_trips.py cancel     # cancels every searching / assigned trip of these riders
+      --women    Butterfly rides from women test riders: "preferred" (default) offers them to women drivers
+                 first, "only" to women drivers only. Rides only (parcels in a --mix stay normal). Test it with a
+                 woman driver, e.g. --driver 9100000102 (Priya, cab) or 9100000602 (Divya, bike)
+  python3 scripts/book_test_trip.py cancel     # cancels every searching / assigned trip of these riders
 
 Needs the staging SSH key (~/.ssh/rido-key.pem): the sign-in code (DEV_OTP_CODE) and the driver's position are read
 on the server. TT_OTP=<code> skips reading the code.
@@ -36,6 +40,14 @@ RIDERS = [
     ("+919200000003", "Test Rider Ravi"),
     ("+919200000004", "Test Rider Lakshmi"),
 ]
+# Butterfly (--women): the API only takes it from a rider whose profile says FEMALE; login() sets that.
+WOMEN_RIDERS = [
+    ("+919200000002", "Test Rider Kavya"),
+    ("+919200000004", "Test Rider Lakshmi"),
+    ("+919200000005", "Test Rider Anitha"),
+    ("+919200000006", "Test Rider Nandhini"),
+]
+WOMEN_PREFS = {"preferred": "PREFERRED", "only": "ONLY"}
 DROPS = [
     (11.0183, 76.9725, "Gandhipuram Central Bus Stand"),
     (11.0250, 77.0020, "Peelamedu"),
@@ -101,15 +113,16 @@ def otp_code():
 
 
 def find_driver(ref):
-    """(driver id, name, vehicle kind) for a phone number (any format) or a driver id."""
+    """(driver id, name, vehicle kind, gender) for a phone number (any format) or a driver id."""
     digits = "".join(ch for ch in ref if ch.isdigit())
     where = f"u.phone = '+91{digits[-10:]}'" if len(digits) >= 10 else f"d.id = '{ref}'"
-    sql = f'select d.id, u.name, d."vehicleKind" from "Driver" d join "User" u on u.id = d."userId" where {where}'
+    sql = (f'select d.id, u.name, d."vehicleKind", coalesce(u.gender::text, \'\') from "Driver" d '
+           f'join "User" u on u.id = d."userId" where {where}')
     row = on_server("docker exec tamiltaxi-postgres-1 psql -U tamiltaxi -d tamiltaxi -tAc " + shlex.quote(sql))
     if not row:
         sys.exit(f"No driver found for {ref}")
-    driver_id, name, kind = row.split("|")
-    return driver_id, name, kind
+    driver_id, name, kind, gender = row.split("|")
+    return driver_id, name, kind, gender
 
 
 def driver_position(driver_id):
@@ -121,23 +134,24 @@ def driver_position(driver_id):
     return float(lat), float(lng)
 
 
-def login(phone, name):
+def login(phone, name, woman=False):
     call("POST", "/auth/otp", {"phone": phone})
     status, res = call("POST", "/auth/verify", {"phone": phone, "code": otp_code()})
     if status != 200:
         sys.exit(f"Sign-in for {name} failed: {status} {res.get('message') if res else ''}")
     token = res["accessToken"]
-    call("PATCH", "/me", {"name": name}, token)
+    call("PATCH", "/me", {"name": name, **({"gender": "FEMALE"} if woman else {})}, token)
     return token
 
 
-def trip_body(i, lat, lng, vehicle, rider):
+def trip_body(i, lat, lng, vehicle, rider, women=None):
     dlat, dlng = OFFSETS[i]
     pickup = {"lat": lat + dlat, "lng": lng + dlng, "name": f"Test pickup {i + 1}"}
     d = DROPS[i]
     drop = {"lat": d[0], "lng": d[1], "name": d[2]}
     if vehicle in RIDE_KINDS:
-        return {"kind": "RIDE", "vehicleKind": vehicle, "pickup": pickup, "drop": drop}
+        ride = {"kind": "RIDE", "vehicleKind": vehicle, "pickup": pickup, "drop": drop}
+        return {**ride, "womenDriver": women} if women else ride
     category, weight = PARCELS[vehicle][i]
     receiver, receiver_phone = RECEIVERS[i]
     parcel = {
@@ -154,13 +168,13 @@ def trip_body(i, lat, lng, vehicle, rider):
     return {"kind": "PARCEL", "vehicleKind": vehicle, "pickup": pickup, "drop": drop, "parcel": parcel, "payer": "SENDER"}
 
 
-def book(lat, lng, vehicles, gap=5.0, extra=0, extra_after=8.0):
-    riders = RIDERS[: len(vehicles)]
-    tokens = [login(p, n) for p, n in riders]
+def book(lat, lng, vehicles, gap=5.0, extra=0, extra_after=8.0, women=None):
+    riders = (WOMEN_RIDERS if women else RIDERS)[: len(vehicles)]
+    tokens = [login(p, n, woman=bool(women)) for p, n in riders]
     results = [None] * len(riders)
 
     def one(i):
-        results[i] = call("POST", "/trips", trip_body(i, lat, lng, vehicles[i], riders[i]), tokens[i])
+        results[i] = call("POST", "/trips", trip_body(i, lat, lng, vehicles[i], riders[i], women), tokens[i])
 
     def report(i):
         name = riders[i][1]
@@ -168,6 +182,8 @@ def book(lat, lng, vehicles, gap=5.0, extra=0, extra_after=8.0):
         stamp = time.strftime("%H:%M:%S")
         if status == 201:
             what = "parcel" if body["kind"] == "PARCEL" else "ride"
+            if body.get("womenDriver", "NONE") != "NONE":
+                what += f" (Butterfly, women {body['womenDriver'].lower()})"
             print(f"{stamp}  {name}: {vehicles[i]} {what} {body['id']} · ₹{body['fareTotal']} · "
                   f"{body['distanceKm']:.1f} km → {body['dropName']}", flush=True)
         else:
@@ -204,7 +220,7 @@ def book(lat, lng, vehicles, gap=5.0, extra=0, extra_after=8.0):
 
 
 def cancel():
-    for phone, name in RIDERS:
+    for phone, name in dict.fromkeys(RIDERS + WOMEN_RIDERS):
         token = login(phone, name)
         _, trips = call("GET", "/trips", token=token)
         for t in trips or []:
@@ -239,13 +255,26 @@ if __name__ == "__main__":
         def opt(flag, default):
             return args[args.index(flag) + 1] if flag in args else default
 
-        driver_id, name, kind = find_driver(opt("--driver", "9100000101"))
+        driver_id, name, kind, gender = find_driver(opt("--driver", "9100000101"))
         count = min(4, max(1, int(opt("--count", 4))))
         vehicles = vehicles_for(kind, args, count)
+        women = None
+        if "--women" in args:
+            nxt = args[args.index("--women") + 1: args.index("--women") + 2]
+            choice = nxt[0].lower() if nxt and not nxt[0].startswith("--") else "preferred"
+            if choice not in WOMEN_PREFS:
+                sys.exit(f"--women takes preferred or only, not {choice}")
+            women = WOMEN_PREFS[choice]
+            if all(v in GOODS_KINDS for v in vehicles):
+                sys.exit("Butterfly is for rides only: pick a cab, auto or bike driver (or --vehicle)")
+            if gender != "FEMALE":
+                note = "they won't get these (women only)" if women == "ONLY" else "a woman nearby is offered them first"
+                print(f"Note: {name} is not a woman driver, so {note}. Women drivers: 9100000102 (Priya, cab), "
+                      "9100000602 (Divya, bike)", flush=True)
         nums = [a for a in args[1:3] if not a.startswith("--")]
         lat, lng = (float(nums[0]), float(nums[1])) if len(nums) == 2 else driver_position(driver_id)
         print(f"{' / '.join(dict.fromkeys(vehicles))} trips for {name} ({kind}) around {lat:.5f}, {lng:.5f}", flush=True)
         book(lat, lng, vehicles, gap=float(opt("--gap", 5.0)), extra=int(opt("--extra", 0)),
-             extra_after=float(opt("--extra-after", 8.0)))
+             extra_after=float(opt("--extra-after", 8.0)), women=women)
     else:
         sys.exit(__doc__)
