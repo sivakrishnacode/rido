@@ -326,13 +326,14 @@ class _RequestCard extends StatelessWidget {
     final perKm = r.tripKm > 0 ? (r.fare / r.tripKm).round() : null;
     final parcel = r.parcel;
     final butterfly = r.isButterfly;
+    const radius = BorderRadius.all(Radius.circular(TtRadii.sheet));
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: TtColors.surface,
-        borderRadius: const BorderRadius.all(Radius.circular(TtRadii.sheet)),
+      decoration: const BoxDecoration(color: TtColors.surface, borderRadius: radius, boxShadow: TtShadows.soft),
+      // The border goes on top: drawn under the content, the clipped Butterfly band covered it along the top edge.
+      foregroundDecoration: BoxDecoration(
+        borderRadius: radius,
         border: Border.all(color: butterfly ? TtColors.butterfly400 : TtColors.divider, width: butterfly ? 1.5 : 1),
-        boxShadow: TtShadows.soft,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (butterfly) _ButterflyBand(womenOnly: r.isWomenOnly),
