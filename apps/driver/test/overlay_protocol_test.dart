@@ -59,6 +59,14 @@ void main() {
       expect(OverlayOffer.fromJson(jsonDecode(jsonEncode(OverlayOffer.fromRequest(r, expires).toJson())))!.extra, 0);
     });
 
+    test('carries the Butterfly choice, so the bubble shows the pink band too', () {
+      OverlayOffer roundTrip(RideRequest req) =>
+          OverlayOffer.fromJson(jsonDecode(jsonEncode(OverlayOffer.fromRequest(req, expires).toJson())))!;
+      expect(roundTrip(r.copyWith(womenDriver: WomenDriverPref.preferred)).toRequest().womenDriver, WomenDriverPref.preferred);
+      expect(roundTrip(r.copyWith(womenDriver: WomenDriverPref.only)).toRequest().isWomenOnly, isTrue);
+      expect(roundTrip(r).toRequest().isButterfly, isFalse);
+    });
+
     test('countdown from the server expiry, never negative', () {
       final o = OverlayOffer.fromRequest(r, expires);
       expect(o.remaining(DateTime(2026, 9, 26, 10, 0, 5)), const Duration(seconds: 10));

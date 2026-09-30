@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'people.dart';
 import 'place.dart';
 import 'trip.dart';
 import 'vehicle.dart';
@@ -266,7 +267,7 @@ class RideRequest {
     required this.customerRating,
     this.customerPhone = '',
     this.isCustomerVerified = false,
-    this.isWomenOnly = false,
+    this.womenDriver = WomenDriverPref.none,
     this.bookedBy,
     this.parcel,
     this.otp = '4829',
@@ -297,8 +298,15 @@ class RideRequest {
   /// The rider passed the optional identity check (Didit): a "Verified" badge on the request card.
   final bool isCustomerVerified;
 
-  /// Butterfly "women only": a woman rider asked for women drivers only (a butterfly on the request card).
-  final bool isWomenOnly;
+  /// Butterfly: a woman rider asked for a woman driver first ([WomenDriverPref.preferred]) or only
+  /// ([WomenDriverPref.only]). The request card gets the pink Butterfly band.
+  final WomenDriverPref womenDriver;
+
+  /// Any Butterfly ride: the rider is a woman (the driver may cancel, with no penalty, if she isn't).
+  bool get isButterfly => womenDriver.isOn;
+
+  /// Butterfly for women drivers only.
+  bool get isWomenOnly => womenDriver == WomenDriverPref.only;
 
   /// Booked for someone else: the account holder's name ([customerName] / [customerPhone] are the rider's).
   final String? bookedBy;
@@ -322,7 +330,7 @@ class RideRequest {
     double? customerRating,
     String? customerPhone,
     bool? isCustomerVerified,
-    bool? isWomenOnly,
+    WomenDriverPref? womenDriver,
     String? bookedBy,
     ParcelDetails? parcel,
     String? otp,
@@ -343,7 +351,7 @@ class RideRequest {
         customerRating: customerRating ?? this.customerRating,
         customerPhone: customerPhone ?? this.customerPhone,
         isCustomerVerified: isCustomerVerified ?? this.isCustomerVerified,
-        isWomenOnly: isWomenOnly ?? this.isWomenOnly,
+        womenDriver: womenDriver ?? this.womenDriver,
         bookedBy: bookedBy ?? this.bookedBy,
         parcel: parcel ?? this.parcel,
         otp: otp ?? this.otp,

@@ -47,7 +47,7 @@ class OverlayOffer {
     this.pickupLandmark,
     this.rating = 4.8,
     this.isVerified = false,
-    this.isWomenOnly = false,
+    this.womenDriver = WomenDriverPref.none,
     this.extra = 0,
   });
 
@@ -70,7 +70,7 @@ class OverlayOffer {
         pickupLandmark: r.pickup.landmark,
         rating: r.customerRating,
         isVerified: r.isCustomerVerified,
-        isWomenOnly: r.isWomenOnly,
+        womenDriver: r.womenDriver,
         extra: r.extra,
       );
 
@@ -100,7 +100,8 @@ class OverlayOffer {
       pickupLandmark: s('pickupLandmark').isEmpty ? null : s('pickupLandmark'),
       rating: json['rating'] is num ? (json['rating'] as num).toDouble() : 4.8,
       isVerified: json['isVerified'] == true,
-      isWomenOnly: json['isWomenOnly'] == true,
+      womenDriver: WomenDriverPref.values.asNameMap()[json['womenDriver']] ??
+          (json['isWomenOnly'] == true ? WomenDriverPref.only : WomenDriverPref.none),
       extra: n('extra').round(),
     );
   }
@@ -110,7 +111,7 @@ class OverlayOffer {
   final String? pickupLandmark;
   final double rating;
   final bool isVerified;
-  final bool isWomenOnly;
+  final WomenDriverPref womenDriver;
 
   /// Part of [fare] the rider added ("₹50 + ₹20").
   final int extra;
@@ -130,7 +131,7 @@ class OverlayOffer {
         customerName: customerName,
         customerRating: rating,
         isCustomerVerified: isVerified,
-        isWomenOnly: isWomenOnly,
+        womenDriver: womenDriver,
         extra: extra,
       );
 
@@ -177,7 +178,7 @@ class OverlayOffer {
         'rating': rating,
         'extra': extra,
         'isVerified': isVerified,
-        'isWomenOnly': isWomenOnly,
+        'womenDriver': womenDriver.name,
       };
 }
 

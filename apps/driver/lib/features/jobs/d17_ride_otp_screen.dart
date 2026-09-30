@@ -92,7 +92,7 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
       context: context,
       builder: (context) => TtDialog(
         title: 'Cancel this Butterfly ride?',
-        message: "This ride is for women only. If the rider isn't a woman you can cancel. It won't count against you.",
+        message: "Butterfly rides are for women riders. If the rider isn't a woman you can cancel. It won't count against you.",
         icon: Symbols.cancel_rounded,
         destructive: true,
         actions: [
@@ -195,8 +195,8 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
             onCancel: _cancelNoShow,
           ),
         ],
-        // Butterfly (women only): the driver may cancel, with no penalty, if the rider is not a woman.
-        if (_job.isWomenOnly && !widget.showcase) ...[
+        // Butterfly (women riders): the driver may cancel, with no penalty, if the rider is not a woman.
+        if (_job.isButterfly && !widget.showcase) ...[
           const SizedBox(height: TtSpacing.s),
           TtButton.text(label: "Rider isn't a woman? Cancel ride", onPressed: _busy ? null : _cancelNotWoman),
         ],

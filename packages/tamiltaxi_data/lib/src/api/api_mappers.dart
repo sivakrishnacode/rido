@@ -39,6 +39,9 @@ VehicleType vehicleTypeFor(VehicleKind kind) => Seed.allVehicles.firstWhere((v) 
 
 Gender genderFromApi(Object? raw) => enumFromApi(Gender.values, raw, Gender.preferNotToSay);
 
+/// A trip's Butterfly choice (`womenDriver`: NONE / PREFERRED / ONLY).
+WomenDriverPref womenDriverFromApi(Object? raw) => enumFromApi(WomenDriverPref.values, raw, WomenDriverPref.none);
+
 /// A point for request bodies (`PointDto`).
 Json pointJson(Place p) => {
       'lat': p.location.latitude,
@@ -217,7 +220,7 @@ RideRequest rideRequestFromOffer(Json offer) {
     customerRating: 4.8,
     customerPhone: _s(passenger['phone']),
     isCustomerVerified: passenger['isVerified'] == true,
-    isWomenOnly: (offer['trip'] as Map)['womenDriver'] == 'ONLY',
+    womenDriver: womenDriverFromApi((offer['trip'] as Map)['womenDriver']),
     bookedBy: passenger['bookedBy'] is String ? passenger['bookedBy'] as String : null,
     parcel: trip.parcel,
     otp: '',
@@ -245,7 +248,7 @@ RideRequest rideRequestFromTrip(Json j) {
     customerRating: 4.8,
     customerPhone: j['riderPhone'] is String ? j['riderPhone'] as String : _s(passenger['phone']),
     isCustomerVerified: j['riderName'] is! String && passenger['identityStatus'] == 'APPROVED',
-    isWomenOnly: j['womenDriver'] == 'ONLY',
+    womenDriver: womenDriverFromApi(j['womenDriver']),
     bookedBy: j['riderName'] is String ? _s(passenger['name'], 'Tamil Taxi customer') : null,
     parcel: trip.parcel,
     otp: '',

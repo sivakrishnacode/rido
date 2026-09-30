@@ -13,6 +13,9 @@ typedef StackEntry = ({RideRequest request, DateTime expiresAt});
 /// What sets a request apart from the others open with it. The rail shows the first that applies (else the vehicle);
 /// the card carries a tag with the same icon, so the rail can be read at a glance.
 enum RequestPerk {
+  /// Butterfly: a woman rider asked for a woman driver (first or only). The rail shows the butterfly on pink.
+  butterfly('Butterfly', Symbols.female_rounded, TtColors.butterfly600, TtColors.butterfly50),
+
   /// A parcel among rides (a bike driver's mixed list).
   parcel('Parcel', Symbols.package_2_rounded, TtColors.coral700, TtColors.coral50),
 
@@ -21,7 +24,6 @@ enum RequestPerk {
 
   /// The shortest ride to the pickup, when only one has it.
   closest('Closest pickup', Symbols.my_location_rounded, TtColors.navy900, TtColors.infoTint),
-  womenOnly('Butterfly', Symbols.female_rounded, TtColors.butterfly600, TtColors.butterfly50),
   verified('Verified', Symbols.verified_rounded, TtColors.successText, TtColors.successTint);
 
   const RequestPerk(this.label, this.icon, this.fg, this.bg);
@@ -50,10 +52,10 @@ Map<String, List<RequestPerk>> requestPerks(List<RideRequest> requests) {
   return {
     for (final r in requests)
       r.id: [
+        if (r.isButterfly) RequestPerk.butterfly,
         if (mixed && r.isDelivery) RequestPerk.parcel,
         if (r.id == bestRate) RequestPerk.bestRate,
         if (r.id == closest) RequestPerk.closest,
-        if (r.isWomenOnly) RequestPerk.womenOnly,
         if (r.isCustomerVerified) RequestPerk.verified,
       ],
   };
@@ -259,7 +261,11 @@ class _RailItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: TtSpacing.s),
           child: Column(children: [
             DecoratedBox(
-              decoration: const BoxDecoration(color: TtColors.surface, shape: BoxShape.circle, boxShadow: TtShadows.soft),
+              decoration: BoxDecoration(
+                color: perk == RequestPerk.butterfly ? TtColors.butterfly50 : TtColors.surface,
+                shape: BoxShape.circle,
+                boxShadow: TtShadows.soft,
+              ),
               child: CountdownRing(
                 duration: left,
                 size: 52,
@@ -268,7 +274,9 @@ class _RailItem extends StatelessWidget {
                 running: running,
                 color: TtColors.coral600,
                 trackColor: TtColors.coral50,
-                child: Icon(perk?.icon ?? request.vehicle.icon, color: perk?.fg ?? TtColors.coral600, size: 22, fill: 1),
+                child: perk == RequestPerk.butterfly
+                    ? const ButterflyMark(size: 26)
+                    : Icon(perk?.icon ?? request.vehicle.icon, color: perk?.fg ?? TtColors.coral600, size: 22, fill: 1),
               ),
             ),
             const SizedBox(height: 4),
@@ -317,130 +325,171 @@ class _RequestCard extends StatelessWidget {
     final r = request;
     final perKm = r.tripKm > 0 ? (r.fare / r.tripKm).round() : null;
     final parcel = r.parcel;
+    final butterfly = r.isButterfly;
     return Container(
-      padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.s, TtSpacing.l),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: TtColors.surface,
         borderRadius: const BorderRadius.all(Radius.circular(TtRadii.sheet)),
-        border: Border.all(color: TtColors.divider),
+        border: Border.all(color: butterfly ? TtColors.butterfly400 : TtColors.divider, width: butterfly ? 1.5 : 1),
         boxShadow: TtShadows.soft,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: Wrap(spacing: 6, runSpacing: 6, children: [
-              _Tag(icon: Symbols.star_rounded, label: r.customerRating.toStringAsFixed(1), bg: TtColors.warningTint, fg: TtColors.warningText),
-              _Tag(icon: r.vehicle.icon, label: r.vehicle.label, bg: TtColors.infoTint, fg: TtColors.navy900),
-              for (final p in perks)
-                if (p.comparative) _Tag(icon: p.icon, label: p.label, bg: p.bg, fg: p.fg),
-              if (r.isCustomerVerified)
-                const _Tag(icon: Symbols.verified_rounded, label: 'Verified', bg: TtColors.successTint, fg: TtColors.successText),
-              if (r.isWomenOnly)
-                const _Tag(icon: Symbols.female_rounded, label: 'Butterfly', bg: TtColors.butterfly50, fg: TtColors.butterfly600),
-              if (parcel != null) ...[
-                _Tag(icon: Symbols.package_2_rounded, label: '${parcel.category.label} · ${parcel.weight.label}', bg: TtColors.coral50, fg: TtColors.coral700),
-                _Tag(
-                  icon: Symbols.person_pin_circle_rounded,
-                  label: 'Paid by ${parcel.payer == ParcelPayer.receiver ? 'receiver' : 'sender'}',
-                  bg: TtColors.inputBg,
-                  fg: TtColors.navy900,
-                ),
-              ],
-            ]),
-          ),
-          // ✕ inside this request's ring, the seconds left under it.
-          Column(mainAxisSize: MainAxisSize.min, children: [
-          Semantics(
-            button: true,
-            label: 'Decline ${formatInr(r.fare)} request',
-            excludeSemantics: true,
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: locked ? null : onDecline,
-              child: CountdownRing(
-                duration: left,
-                size: 44,
-                strokeWidth: 3,
-                showBadge: false,
-                running: running && !locked,
-                onFinished: onExpired,
-                color: TtColors.coral600,
-                trackColor: TtColors.divider,
-                child: const Icon(Symbols.close_rounded, color: TtColors.navy700, size: 22),
-              ),
-            ),
-          ),
-          SecondsLeft(left: left, running: running && !locked),
-          ]),
-        ]),
-        const SizedBox(height: TtSpacing.s),
-        // "₹50 + ₹20": the rider's extra in green after the fare (₹/km is on the whole amount).
-        Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: TtSpacing.s, children: [
-          Text.rich(
-            TextSpan(children: [
-              TextSpan(text: formatInr(r.fare - r.extra)),
-              if (r.extra > 0) TextSpan(text: ' + ${formatInr(r.extra)}', style: const TextStyle(color: TtColors.success)),
-            ]),
-            style: TtTextStyles.tabular(t.display),
-          ),
-          if (perKm != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text('₹$perKm/km', style: t.bodySmall.copyWith(color: TtColors.navy500)),
-            ),
-        ]),
-        if (r.extra > 0) ...[
-          const SizedBox(height: TtSpacing.xs),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s, vertical: 6),
-            decoration: const BoxDecoration(color: TtColors.successTint, borderRadius: TtRadii.cardRadius),
-            child: Row(children: [
-              const Icon(Symbols.add_circle_rounded, size: 18, color: TtColors.successText, fill: 1),
-              const SizedBox(width: TtSpacing.s),
-              Expanded(
-                child: Text('${r.isDelivery ? 'Sender' : 'Rider'} added ${formatInr(r.extra)} extra',
-                    style: t.bodySmallMedium.copyWith(color: TtColors.successText, fontWeight: FontWeight.w600)),
-              ),
-            ]),
-          ),
-        ],
-        const SizedBox(height: TtSpacing.m),
-        _Stop(
-          dot: TtColors.success,
-          headline: [
-            '${formatKm(r.pickupDistanceKm)} away · ${r.pickupEtaMin} min',
-            ?r.pickup.landmark,
-          ].join(' · '),
-          name: r.pickup.name,
-          address: r.pickup.address,
-          line: true,
-        ),
-        _Stop(
-          dot: TtColors.coral600,
-          headline: '${formatKm(r.tripKm)} trip · ~${r.tripMin} min',
-          name: r.drop.name,
-          address: r.drop.address,
-        ),
-        const SizedBox(height: TtSpacing.s),
-        Text(
-          [r.customerName, if (r.bookedBy != null) 'booked by ${r.bookedBy}', 'Cash / UPI to you'].join(' · '),
-          style: t.caption.copyWith(color: TtColors.navy500),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: TtSpacing.m),
+        if (butterfly) _ButterflyBand(womenOnly: r.isWomenOnly),
         Padding(
-          padding: const EdgeInsets.only(right: TtSpacing.s),
-          child: accepting
-              ? const TtButton(label: 'Accepting', height: 52, loading: true, onPressed: null)
-              : SwipeToConfirm(
-                  label: 'Swipe to accept',
-                  height: 52,
-                  enabled: !locked,
-                  color: TtColors.success,
-                  knobColor: TtColors.successText,
-                  onConfirmed: onAccept,
+          padding: EdgeInsets.fromLTRB(TtSpacing.l, butterfly ? TtSpacing.s : TtSpacing.m, TtSpacing.s, TtSpacing.l),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                child: Wrap(spacing: 6, runSpacing: 6, children: [
+                  _Tag(icon: Symbols.star_rounded, label: r.customerRating.toStringAsFixed(1), bg: TtColors.warningTint, fg: TtColors.warningText),
+                  _Tag(icon: r.vehicle.icon, label: r.vehicle.label, bg: TtColors.infoTint, fg: TtColors.navy900),
+                  for (final p in perks)
+                    if (p.comparative) _Tag(icon: p.icon, label: p.label, bg: p.bg, fg: p.fg),
+                  if (r.isCustomerVerified)
+                    const _Tag(icon: Symbols.verified_rounded, label: 'Verified', bg: TtColors.successTint, fg: TtColors.successText),
+                  if (parcel != null) ...[
+                    _Tag(icon: Symbols.package_2_rounded, label: '${parcel.category.label} · ${parcel.weight.label}', bg: TtColors.coral50, fg: TtColors.coral700),
+                    _Tag(
+                      icon: Symbols.person_pin_circle_rounded,
+                      label: 'Paid by ${parcel.payer == ParcelPayer.receiver ? 'receiver' : 'sender'}',
+                      bg: TtColors.inputBg,
+                      fg: TtColors.navy900,
+                    ),
+                  ],
+                ]),
+              ),
+              // ✕ inside this request's ring, the seconds left under it.
+              Column(mainAxisSize: MainAxisSize.min, children: [
+              Semantics(
+                button: true,
+                label: 'Decline ${formatInr(r.fare)} request',
+                excludeSemantics: true,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: locked ? null : onDecline,
+                  child: CountdownRing(
+                    duration: left,
+                    size: 44,
+                    strokeWidth: 3,
+                    showBadge: false,
+                    running: running && !locked,
+                    onFinished: onExpired,
+                    color: TtColors.coral600,
+                    trackColor: TtColors.divider,
+                    child: const Icon(Symbols.close_rounded, color: TtColors.navy700, size: 22),
+                  ),
                 ),
+              ),
+              SecondsLeft(left: left, running: running && !locked),
+              ]),
+            ]),
+            const SizedBox(height: TtSpacing.s),
+            // "₹50 + ₹20": the rider's extra in green after the fare (₹/km is on the whole amount).
+            Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: TtSpacing.s, children: [
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: formatInr(r.fare - r.extra)),
+                  if (r.extra > 0) TextSpan(text: ' + ${formatInr(r.extra)}', style: const TextStyle(color: TtColors.success)),
+                ]),
+                style: TtTextStyles.tabular(t.display),
+              ),
+              if (perKm != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text('₹$perKm/km', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+                ),
+            ]),
+            if (r.extra > 0) ...[
+              const SizedBox(height: TtSpacing.xs),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s, vertical: 6),
+                decoration: const BoxDecoration(color: TtColors.successTint, borderRadius: TtRadii.cardRadius),
+                child: Row(children: [
+                  const Icon(Symbols.add_circle_rounded, size: 18, color: TtColors.successText, fill: 1),
+                  const SizedBox(width: TtSpacing.s),
+                  Expanded(
+                    child: Text('${r.isDelivery ? 'Sender' : 'Rider'} added ${formatInr(r.extra)} extra',
+                        style: t.bodySmallMedium.copyWith(color: TtColors.successText, fontWeight: FontWeight.w600)),
+                  ),
+                ]),
+              ),
+            ],
+            const SizedBox(height: TtSpacing.m),
+            _Stop(
+              dot: TtColors.success,
+              headline: [
+                '${formatKm(r.pickupDistanceKm)} away · ${r.pickupEtaMin} min',
+                ?r.pickup.landmark,
+              ].join(' · '),
+              name: r.pickup.name,
+              address: r.pickup.address,
+              line: true,
+            ),
+            _Stop(
+              dot: TtColors.coral600,
+              headline: '${formatKm(r.tripKm)} trip · ~${r.tripMin} min',
+              name: r.drop.name,
+              address: r.drop.address,
+            ),
+            const SizedBox(height: TtSpacing.s),
+            Text(
+              [r.customerName, if (r.bookedBy != null) 'booked by ${r.bookedBy}', 'Cash / UPI to you'].join(' · '),
+              style: t.caption.copyWith(color: TtColors.navy500),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: TtSpacing.m),
+            Padding(
+              padding: const EdgeInsets.only(right: TtSpacing.s),
+              child: accepting
+                  ? const TtButton(label: 'Accepting', height: 52, loading: true, onPressed: null)
+                  : SwipeToConfirm(
+                      label: 'Swipe to accept',
+                      height: 52,
+                      enabled: !locked,
+                      color: TtColors.success,
+                      knobColor: TtColors.successText,
+                      onConfirmed: onAccept,
+                    ),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Butterfly: a pink band across the top of the card (a filled "Butterfly" badge and what the rider asked for), so a
+/// women-rider request stands out in the list.
+class _ButterflyBand extends StatelessWidget {
+  const _ButterflyBand({required this.womenOnly});
+  final bool womenOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Container(
+      color: TtColors.butterfly50,
+      padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.m, TtSpacing.s),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(6, 3, 10, 3),
+          decoration: const BoxDecoration(color: TtColors.butterfly600, borderRadius: TtRadii.pillRadius),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const ButterflyMark(size: 18, color: TtColors.surface, accent: TtColors.butterfly100),
+            const SizedBox(width: 4),
+            Text('Butterfly', style: t.caption.copyWith(color: TtColors.surface, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+        const SizedBox(width: TtSpacing.s),
+        Expanded(
+          child: Text(
+            womenOnly ? 'Women drivers only' : 'Women drivers first',
+            style: t.bodySmallMedium.copyWith(color: TtColors.butterfly600, fontWeight: FontWeight.w600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ]),
     );

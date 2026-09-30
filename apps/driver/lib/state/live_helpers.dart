@@ -103,7 +103,9 @@ RideRequest rideRequestFromUpdate(LiveTripUpdate update, {RideRequest? offer}) {
     customerName: name ?? offer?.customerName ?? 'Tamil Taxi customer',
     customerRating: offer?.customerRating ?? 4.8,
     customerPhone: phone ?? offer?.customerPhone ?? '',
-    isWomenOnly: update.json['womenDriver'] == 'ONLY' || (offer?.isWomenOnly ?? false),
+    womenDriver: update.json.containsKey('womenDriver')
+        ? womenDriverFromApi(update.json['womenDriver'])
+        : (offer?.womenDriver ?? WomenDriverPref.none),
     bookedBy: riderName != null ? (account ?? offer?.bookedBy) : offer?.bookedBy,
     parcel: trip.parcel ?? offer?.parcel,
     // The driver never sees the ride OTP: the passenger reads it out and the API checks it.

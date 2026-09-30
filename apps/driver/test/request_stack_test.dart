@@ -131,6 +131,25 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('Butterfly requests get the pink band and the butterfly on the rail', (tester) async {
+    final now = DateTime.now();
+    final r = Seed.rideRequest;
+    await pump(tester, [
+      (request: r.copyWith(id: 'only', womenDriver: WomenDriverPref.only), expiresAt: now.add(const Duration(seconds: 9))),
+      (request: r.copyWith(id: 'pref', womenDriver: WomenDriverPref.preferred), expiresAt: now.add(const Duration(seconds: 12))),
+      (request: r.copyWith(id: 'plain'), expiresAt: now.add(const Duration(seconds: 15))),
+    ]);
+    Finder inCard(String id, Finder f) => find.descendant(of: find.byKey(ValueKey('card-$id')), matching: f);
+    expect(inCard('only', find.text('Women drivers only')), findsOneWidget);
+    expect(inCard('pref', find.text('Women drivers first')), findsOneWidget);
+    expect(inCard('plain', find.text('Butterfly')), findsNothing);
+    expect(find.descendant(of: find.byKey(const ValueKey('rail-only')), matching: find.byType(ButterflyMark)), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('rail-pref')), matching: find.byType(ButterflyMark)), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey('rail-plain')), matching: find.byType(ButterflyMark)), findsNothing);
+    expect(requestPerks([r.copyWith(id: 'a', womenDriver: WomenDriverPref.preferred)])['a'], [RequestPerk.butterfly]);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('the whole card swipes: right accepts, left declines, a short drag springs back', (tester) async {
     String? accepted;
     String? declined;

@@ -95,6 +95,12 @@ void main() {
     final butterfly = rideRequestFromOffer({'trip': {..._trip, 'womenDriver': 'ONLY'}, 'passenger': const {}});
     expect(butterfly.isWomenOnly, isTrue);
     expect(butterfly.copyWith(pickupEtaMin: 5).isWomenOnly, isTrue);
+    expect(butterfly.womenDriver, WomenDriverPref.only);
+    // Women driver preferred: Butterfly too (the pink band), but men may take it.
+    final preferred = rideRequestFromOffer({'trip': {..._trip, 'womenDriver': 'PREFERRED'}, 'passenger': const {}});
+    expect(preferred.isButterfly, isTrue);
+    expect(preferred.isWomenOnly, isFalse);
+    expect(r.isButterfly, isFalse);
   });
 
   test('vehicle quotes carry the pickup ETA; null means nobody is near', () {

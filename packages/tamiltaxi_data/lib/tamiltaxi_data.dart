@@ -5,7 +5,8 @@ export 'package:latlong2/latlong.dart' show LatLng;
 
 export 'src/api/api_client.dart';
 export 'src/api/api_config.dart';
-export 'src/api/api_mappers.dart' show apiPhone, enumToApi, rideRequestFromOffer, rideRequestFromTrip, tripFromJson, vehicleKindFromApi;
+export 'src/api/api_mappers.dart'
+    show apiPhone, enumToApi, rideRequestFromOffer, rideRequestFromTrip, tripFromJson, vehicleKindFromApi, womenDriverFromApi;
 export 'src/api/api_repositories.dart';
 export 'src/api/app_config.dart';
 export 'src/api/demand_map.dart';
