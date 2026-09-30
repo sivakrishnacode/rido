@@ -3,7 +3,7 @@
 Single technical reference for the Tamil Taxi monorepo. Keep it current: update this file whenever the stack, services,
 environment variables, commands or infrastructure change.
 
-Last updated: 30 Sep 2026 (pink Butterfly band on driver request cards for women-preferred and women-only trips; back fixed on the driver OTP screens; driver request cards swipe right to accept / left to decline, rail icons for best ₹/km, closest pickup, parcel, Butterfly, Verified; Go To / Stay In bar on the driver request screen; driver Home: Go To / Stay In row and sheet with saved areas, Parcels too switch, mixed ride/parcel request stacks; rider adds extra (+₹10/20/30) to a search nobody took, shown to drivers as "₹50 + ₹20"; parcel on bike: bike drivers also get goods-bike parcels unless they switch it off; Stay In and saved areas in driver booking preferences; kolam app icons + matching native/Flutter splash, overlay notification icon fix; 29 Sep: renamed Rido → Tamil Taxi: packages, app IDs `com.tamiltaxi.*`, `Tt*` widgets, `TT_*` defines, database `tamiltaxi`; new logo in `TtWordmark`; open-source repo: AGPL-3.0, contributor docs, CI, COST_AND_SCALING.md; DEV_OTP_CODE for dev-mode sign-in; bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
+Last updated: 30 Sep 2026 (public website `apps/web`: static Next.js export with home, privacy policy, terms and account deletion pages for Google Play; pink Butterfly band on driver request cards for women-preferred and women-only trips; back fixed on the driver OTP screens; driver request cards swipe right to accept / left to decline, rail icons for best ₹/km, closest pickup, parcel, Butterfly, Verified; Go To / Stay In bar on the driver request screen; driver Home: Go To / Stay In row and sheet with saved areas, Parcels too switch, mixed ride/parcel request stacks; rider adds extra (+₹10/20/30) to a search nobody took, shown to drivers as "₹50 + ₹20"; parcel on bike: bike drivers also get goods-bike parcels unless they switch it off; Stay In and saved areas in driver booking preferences; kolam app icons + matching native/Flutter splash, overlay notification icon fix; 29 Sep: renamed Rido → Tamil Taxi: packages, app IDs `com.tamiltaxi.*`, `Tt*` widgets, `TT_*` defines, database `tamiltaxi`; new logo in `TtWordmark`; open-source repo: AGPL-3.0, contributor docs, CI, COST_AND_SCALING.md; DEV_OTP_CODE for dev-mode sign-in; bike taxi and auto test drivers; stacked requests shown as a comparison list with a ring rail; stacked driver requests: up to 3 open at once, chips to switch, accepting one releases the rest; driver booking preferences: go home, farthest pickup, trip length, filtered in dispatch; driver requests: swipe to accept and read aloud in English / Tamil; D-07 per-document cards + Help button; nearest high-demand area on driver Home with area names and directions; test drivers seeder for cab, goods bike, truck, mini truck and pickup; driver ETAs for P-10 and dispatch in one Route Matrix call; place search restricted to the service area with each suggestion's distance from the pickup; "Near KG Hospital" pickup landmarks from Google address descriptors, stored as `Trip.pickupLandmark` for the driver; traffic-aware travel time on P-10 / PP-06 (`travelMin`, fare unchanged); fare routes use the shortest of Google's alternatives; routes snap pickup / drop to a road a vehicle can stop on (vehicleStopover), fare screen reloads when a stop changes; "Did you reach safely?" after night rides; route deviation + night checks on the quoted route; stop detection during rides with an "Is everything OK?" check; server SOS + admin SOS page; live trip share links + public /track page; dispatch ranks drivers by 7-day offer record and idle time; driver cancellation-rate nudge and temporary pause; cancellation fee, off by default; cancellation fault verdict from signals; waiting charge after the free minutes at the pickup; fare sanity flags at completion + admin "Mark reviewed" and GPS path map; trip GPS breadcrumbs and actual distance; driver state cached in Redis for the GPS path; rich driver GPS fixes + offline buffer with batch upload; trip timeout jobs: not moving, no-show wait, stuck trips; driver cancel finds another driver; OTP out of driver step responses; structured cancellations with codes; durable Redis job runner for dispatch timers; trip race / OTP / rating / GPS-trust fixes; no default peak markup, surge before the minimum fare, notifier never crashes the API)
 
 ---
 
@@ -57,7 +57,8 @@ Notes from the owner. Each item gets a status and a plan once reviewed.
 | Admin panel | Next.js (App Router, Turbopack, `output: 'standalone'`), React, TypeScript | Next 16.3, React 19.3, TS 5.9 | `apps/admin` |
 | Admin UI | shadcn/ui (radix-nova style, Radix UI), Tailwind CSS v4, lucide-react, sonner toasts, Recharts (shadcn chart) | shadcn 4.21, radix-ui 1.6, Tailwind 4.3, Recharts 3.8 | `apps/admin/src/components/ui` |
 | Admin maps | Google Maps JavaScript API via `@vis.gl/react-google-maps` (JSON-styled roadmap + satellite), H3 hexagons on `google.maps.Data` layers with h3-js | react-google-maps 1.10, h3-js 4.5 | `apps/admin/src/components/map`, `src/lib/hex.ts` |
-| Tests | Flutter test (widget + flow), Vitest 4 (API unit + e2e, admin unit) | | `apps/*/test`, `packages/*/test` |
+| Website | Next.js static export (`output: 'export'`, `trailingSlash`), Tailwind CSS v4, lucide-react | Next 16.3 | `apps/web` |
+| Tests | Flutter test (widget + flow), Vitest 4 (API unit + e2e, admin unit, website) | | `apps/*/test`, `packages/*/test` |
 | Lint | `flutter analyze` (flutter_lints), oxlint + `tsc --noEmit` (API), ESLint 9 (`eslint-config-next`) + `tsc --noEmit` (admin) | | per package |
 | Containers | Docker, Docker Compose | Docker 29, Compose 5 | `docker-compose.yml`, `apps/api/Dockerfile`, `apps/admin/Dockerfile` |
 
@@ -69,6 +70,7 @@ Notes from the owner. Each item gets a status and a plan once reviewed.
 apps/
   api/                @tamiltaxi/api        NestJS backend (Prisma, Redis, Socket.IO)
   admin/              @tamiltaxi/admin      Next.js admin panel (shadcn/ui, Google Maps + H3 editor, heatmap), port 3001
+  web/                @tamiltaxi/web        public website, static Next.js export → out/ (home, privacy, terms, delete account), port 3002
   passenger/          @tamiltaxi/passenger  Flutter passenger app (com.tamiltaxi.passenger)
   driver/             @tamiltaxi/driver     Flutter driver app (com.tamiltaxi.driver)
 packages/
@@ -112,6 +114,8 @@ turbo.json            task pipeline
 | `npm run prisma:seed -w @tamiltaxi/api` | Seed places and plan prices (idempotent) |
 | `npm run dev -w @tamiltaxi/admin` | Admin panel on http://localhost:3001 (needs the API; `API_URL` defaults to `http://localhost:3000/v1`) |
 | `npm run build -w @tamiltaxi/admin` / `npm run start -w @tamiltaxi/admin` | Production build / serve on :3001 |
+| `npm run dev -w @tamiltaxi/web` | Website on http://localhost:3002 (no API needed) |
+| `npm run build -w @tamiltaxi/web` | Static website → `apps/web/out/` (plain HTML/CSS/JS, serve from any static host) |
 | `npm run test -w @tamiltaxi/admin` | Admin unit tests (formatters, paging URLs, API helpers, JWT check, fare preview, H3 helpers, settings validation) |
 | `docker compose up -d` | Postgres + Redis + API + admin panel |
 | `docker compose up -d --build admin` | Rebuild and restart only the admin panel |
@@ -897,6 +901,26 @@ loaded, or if it can't be made, it falls back to a Google Maps link to the vehic
 
 ---
 
+## 6e. Website (apps/web)
+
+- **What:** the public site for `tamiltaxi.co.in` (the domain the apps already use for trip share links). Pages: `/`
+  (riders, drivers, why it's free, get the app), `/privacy/`, `/terms/`, `/delete-account/`, plus `sitemap.xml` and
+  `robots.txt`. No API calls, no cookies, no analytics.
+- **Stack:** Next.js 16 App Router with `output: 'export'`, so `npm run build -w @tamiltaxi/web` writes plain files to
+  `apps/web/out/`. `trailingSlash: true` (`/privacy` → `out/privacy/index.html`) so static hosts need no rewrites;
+  `images.unoptimized` (the default loader needs a server). Tailwind v4 with the `TtColors` palette in
+  `src/app/globals.css`, Poppins + Inter via `next/font`, lucide icons (plus a drawn auto-rickshaw icon). Light only.
+- **Content:** links and names in `src/lib/site.ts`; privacy policy, terms and deletion lists in `src/lib/legal.ts`.
+  Every privacy claim must match the code (checked against `schema.prisma`, the Android manifests and
+  `dispatch.service.ts` on 30 Sep 2026). Screenshots in `public/screens/` are design frames P-10, P-16, D-15 and D-23b
+  resized to 560 px WebP with sharp; app icons in `public/brand/` come from `packages/tamiltaxi_ui/assets/brand`.
+- **Google Play:** the Play Console needs the privacy policy URL (`https://tamiltaxi.co.in/privacy/`) and an account
+  deletion URL (`https://tamiltaxi.co.in/delete-account/`) for both apps. The download buttons say "Coming soon to
+  Google Play" until `site.onPlayStore` is set to `true`; then they link to `com.tamiltaxi.passenger` /
+  `com.tamiltaxi.driver` (a test checks these match each app's `applicationId`).
+- **Hosting (not deployed yet):** any static host. Cheapest options: a Caddy `file_server` block on the existing EC2
+  (copy `out/` to the server), or GitHub / Cloudflare Pages (free).
+
 ## 7. Maps and location
 
 | Need | Service | Called from | When |
@@ -1187,6 +1211,7 @@ suggestion's name.
 | tamiltaxi_ui | formatter tests |
 | passenger / driver | every Design gallery frame at 360 and 430 px, main-path flow tests (fast mode, fake time) |
 | api | unit (fare engine incl. the shared `fare_cases.json`, transitions, subscriptions, maps service, polyline) + e2e (full ride lifecycle, fallbacks) |
+| web | Vitest: Play Store links match each app's `applicationId`, every sitemap page exists, legal docs are dated with a contact, privacy links to account deletion |
 | admin | Vitest unit: ₹ Indian formatting, IST dates, paging/URL builder, API URL + error helpers, safe post-login redirect, JWT role/expiry check, fare preview = API engine (₹38 demo trip at 1.1x), H3 circle fill/undo, settings validation |
 
 `npm run check` must pass with zero analyzer issues before merging.
@@ -1375,6 +1400,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Two-wheeler routing | **Changed (28 Sep 2026)**: the backend routes every vehicle as DRIVE. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3× Essentials, 7k free); bike fares are priced on the car route so the booked fare matches P-10. Google Routes billing: `vehicleStopover` (fare routes) bills at Pro; ETAs stay Essentials |
 | Google search in pickers | **Done**: saved-place editor and parcel picker search through the API |
 | Google Maps improvements | **Done (28 Sep 2026)**: shortest-route fares (`computeAlternativeRoutes`), traffic-aware travel time for display (`travelMin`, fare unchanged), "Near X" pickup landmarks (address descriptors → `Trip.pickupLandmark`), service-area-restricted search with distances, and one Route Matrix call for driver ETAs. Billing table in 7. Later: a phone check of P-09 / D-16 with real landmarks. Plus-code addresses not typed `plus_code` ("X2JR+9H, ELGI Nagar") are skipped or trimmed: **Done (28 Sep 2026)** |
+| Website | **Built (30 Sep 2026)**, see 6e; not deployed. Before Play submission: register `tamiltaxi.co.in` and host `out/`, create the `support@tamiltaxi.co.in` mailbox (the site and driver app publish it), set `site.onPlayStore` once live. The passenger app's in-app privacy text says calls use a masked number, but drivers get the rider's real number (`dispatch.service.ts`): fix the text or add masking. Account deletion is manual (support ticket or email); Play also expects a clear in-app path, so a self-serve "Delete account" in both apps is still to do |
 | H3 | See plan below |
 
 ---

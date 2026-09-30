@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+/* Tamil Taxi palette (packages/tamiltaxi_ui/lib/src/theme/tt_colors.dart). */
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-poppins), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme {
+  --color-coral-50: #fff1ec;
+  --color-coral-100: #ffdccf;
+  --color-coral-500: #f4511e;
+  --color-coral-600: #d84315;
+  --color-coral-700: #a8330e;
+  --color-navy-300: #cbd5e1;
+  --color-navy-500: #64748b;
+  --color-navy-700: #334155;
+  --color-navy-900: #1e293b;
+  --color-page: #f8fafc;
+  --color-divider: #e2e8f0;
+  --color-butterfly-50: #fdf0f6;
+  --color-butterfly-600: #c2185b;
+}
+
+html {
+  scroll-padding-top: 5rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+body {
+  background: #ffffff;
+  color: var(--color-navy-900);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-coral-600);
+  outline-offset: 2px;
+}

@@ -44,6 +44,7 @@ Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 | `fix` | bug fix | | `admin` | `apps/admin` |
 | `refactor` | no behaviour change | | `passenger` | `apps/passenger` |
 | `perf` | performance | | `driver` | `apps/driver` |
+| | | | `web` | `apps/web` |
 | `test` | tests only | | `ui` | `packages/tamiltaxi_ui` |
 | `docs` | docs / CLAUDE.md | | `data` | `packages/tamiltaxi_data` |
 | `chore` | deps, config, tooling | | `infra` | docker, scripts, AWS |
@@ -67,6 +68,7 @@ Examples: `feat(driver): show H3 demand hexes on home map`, `fix(api): await Pri
 | Flutter (`apps/passenger`, `apps/driver`, `packages/*`) | `npm run analyze` and `npm test` (or `npx turbo run analyze test --filter=@tamiltaxi/driver`) |
 | API | `npm run analyze -w @tamiltaxi/api && npm test -w @tamiltaxi/api`; flows/DB: `npm run test:e2e -w @tamiltaxi/api` |
 | Admin | `npm run analyze -w @tamiltaxi/admin && npm test -w @tamiltaxi/admin` |
+| Website | `npm run analyze -w @tamiltaxi/web && npm test -w @tamiltaxi/web && npm run build -w @tamiltaxi/web` |
 | Everything | `npm run check`. It must pass with **zero analyzer issues** before merging |
 
 ### 1.4 Preferences
@@ -85,6 +87,7 @@ apps/
   api/          @tamiltaxi/api        NestJS 12 (ESM) + Prisma 7 (Postgres 17) + Redis 7 + Socket.IO (/rt)
                                  src/core (auth, config, prisma, redis, storage), src/modules/* (one per domain)
   admin/        @tamiltaxi/admin      Next.js 16 App Router + shadcn/ui + Tailwind v4, port 3001, server-side API calls only
+  web/          @tamiltaxi/web        public website: Next.js 16 static export (out/), home + privacy/terms/delete-account, port 3002
   passenger/    @tamiltaxi/passenger  Flutter app "Tamil Taxi"         (com.tamiltaxi.passenger)
   driver/       @tamiltaxi/driver     Flutter app "Tamil Taxi Driver"  (com.tamiltaxi.driver); lib/overlay = background bubble
 packages/
@@ -121,6 +124,7 @@ docker compose up -d                  # full backend stack: API :3000, admin :30
 docker compose up -d postgres redis   # DBs only, then:
 npm run start:dev -w @tamiltaxi/api
 npm run dev -w @tamiltaxi/admin
+npm run dev -w @tamiltaxi/web          # website on :3002; build → apps/web/out/ (static)
 
 npm run prisma:migrate -w @tamiltaxi/api   # new migration (dev)
 npm run prisma:seed -w @tamiltaxi/api      # idempotent seed
@@ -160,4 +164,5 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
 | 26 Sep 2026 | Created: working rules (commit every change, docs, checks), repo map, commands, key facts |
 | 26 Sep 2026 | Free app: intro updated (no subscription, contributions), `app-config` module added to the map |
 | 29 Sep 2026 | Open source (AGPL-3.0): contributor note, `DEV_OTP_CODE`, new docs and folders in the map |
+| 30 Sep 2026 | Website `apps/web` (static Next.js): `web` scope, checks row, repo map, dev command |
 | 29 Sep 2026 | Renamed Rido → Tamil Taxi: `@tamiltaxi/*`, `tamiltaxi_ui` / `tamiltaxi_data`, `Tt*` classes, `com.tamiltaxi.*`, DB `tamiltaxi` |

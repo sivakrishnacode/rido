@@ -39,6 +39,10 @@ improve it, or run it in their own city.
 - Guarded trip state machine, GPS breadcrumbs, route-deviation and stop checks, cancellation fault rules
 - FCM push notifications, Google Maps with an aggressive cache (plus an offline fallback), Didit identity checks
 
+**Website (Next.js 16, static)**
+- Home page for riders and drivers, plus the privacy policy, terms and account deletion pages Google Play asks for
+- Builds to plain HTML in `apps/web/out/`, so it can be hosted anywhere for free
+
 **Admin panel (Next.js 16, shadcn/ui)**
 - Live map, heatmaps and a zone editor
 - KYC queue, trips, drivers, riders, SOS handling
@@ -111,6 +115,7 @@ Maps work without any keys: CARTO tiles, seeded places and straight-line distanc
 apps/
   api/          NestJS 12 + Prisma 7 + Redis + Socket.IO          @tamiltaxi/api
   admin/        Next.js 16 admin panel, port 3001                 @tamiltaxi/admin
+  web/          Public website, static Next.js export, port 3002  @tamiltaxi/web
   passenger/    Flutter rider app "Tamil Taxi" (com.tamiltaxi.passenger)     @tamiltaxi/passenger
   driver/       Flutter driver app "Tamil Taxi Driver" (com.tamiltaxi.driver)@tamiltaxi/driver
 packages/
@@ -136,6 +141,7 @@ the Flutter tasks in dependency order and caches them.
 | `npm run test:e2e -w @tamiltaxi/api` | Full ride lifecycle against a real Postgres and Redis |
 | `npm run start:dev -w @tamiltaxi/api` | API with hot reload (databases: `docker compose up -d postgres redis`) |
 | `npm run dev -w @tamiltaxi/admin` | Admin panel with hot reload |
+| `npm run dev -w @tamiltaxi/web` | Website with hot reload; `npm run build -w @tamiltaxi/web` writes the static site to `apps/web/out/` |
 | `./scripts/build_apks.sh` | Release APKs → `dist/` |
 
 ## Documentation
