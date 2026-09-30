@@ -302,16 +302,18 @@ describe('Tamil Taxi API (e2e)', () => {
   });
 
   it('parcel on bike: a bike driver takes a goods-bike parcel at its fare; one who turned parcels off is skipped', async () => {
-    const bike = await onlineDriver('BIKE', { lat: 11.0184, lng: 76.9726 });
-    const farther = await onlineDriver('BIKE', { lat: 11.0196, lng: 76.9739 });
+    // In Peelamedu, well away from the first test's bike driver (still online at Gandhipuram).
+    const PEELAMEDU = { lat: 11.0247, lng: 77.0028, name: 'Peelamedu' };
+    const bike = await onlineDriver('BIKE', { lat: 11.0248, lng: 77.0029 });
+    const farther = await onlineDriver('BIKE', { lat: 11.026, lng: 77.004 });
     const auth = { Authorization: `Bearer ${bike}` };
     // Only bikes are online: the goods bike still has a pickup ETA on the parcel vehicle list.
-    const quotes = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS, kind: 'PARCEL' }).expect(200)).body.quotes;
+    const quotes = (await http.post('/v1/fares/quote').send({ pickup: PEELAMEDU, drop: BROOKEFIELDS, kind: 'PARCEL' }).expect(200)).body.quotes;
     const goodsBike = quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'GOODS_BIKE');
     expect(typeof goodsBike.pickupEtaMin).toBe('number');
 
     const pax = { Authorization: `Bearer ${await login()}` };
-    const parcel = { kind: 'PARCEL', vehicleKind: 'GOODS_BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS };
+    const parcel = { kind: 'PARCEL', vehicleKind: 'GOODS_BIKE', pickup: PEELAMEDU, drop: BROOKEFIELDS };
     const trip = (await http.post('/v1/trips').set(pax).send(parcel).expect(201)).body;
     const accepted = await acceptWhenOffered(trip.id, bike);
     expect(accepted.status).toBe(200);
@@ -363,6 +365,34 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(plain.womenDriver).toBe('NONE');
     await http.post(`/v1/trips/${plain.id}/cancel`).set(pax).send({}).expect(200);
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${woman}`);
+  });
+
+  it('add extra: the driver who said no gets the ride again at the higher fare', async () => {
+    const cab = await onlineDriver('CAB', { lat: 11.0184, lng: 76.9726 });
+    const auth = { Authorization: `Bearer ${cab}` };
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'CAB', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+    let offered = false;
+    for (let i = 0; i < 40 && !offered; i++) {
+      offered = (await http.get('/v1/trips/offer').set(auth)).body?.trip?.id === trip.id;
+      if (!offered) await new Promise((r) => setTimeout(r, 250));
+    }
+    expect(offered).toBe(true);
+    await http.post(`/v1/trips/${trip.id}/decline`).set(auth).expect(204);
+
+    // Only more than before, within the cap; the fare shows the extra as its own line.
+    const boosted = (await http.post(`/v1/trips/${trip.id}/extra`).set(pax).send({ amount: 20 }).expect(200)).body;
+    expect(boosted).toMatchObject({ fareTotal: trip.fareTotal + 20, fare: { extra: 20, total: trip.fareTotal + 20 } });
+    await http.post(`/v1/trips/${trip.id}/extra`).set(pax).send({ amount: 10 }).expect(400);
+    await http.post(`/v1/trips/${trip.id}/extra`).set(pax).send({ amount: 500 }).expect(400);
+
+    // The driver who declined is offered it again, at the new fare.
+    const accepted = await acceptWhenOffered(trip.id, cab);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.fareTotal).toBe(trip.fareTotal + 20);
+    await http.post(`/v1/trips/${trip.id}/extra`).set(pax).send({ amount: 30 }).expect(409);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+    await http.post('/v1/drivers/me/offline').set(auth);
   });
 
   it('"Book any": a slow cab search adds Auto, and the auto driver takes it at the auto fare', async () => {

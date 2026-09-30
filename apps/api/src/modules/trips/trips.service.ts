@@ -26,6 +26,7 @@ import type { CancelTripDto } from './dto/cancel-trip.dto.js';
 import { resolveCancel } from './cancel-codes.js';
 import { cancelSignals, type CancelSignals, faultVerdict, type FaultVerdict } from './cancel-fault.js';
 import { cancellationDueAmount, withCancellationFee } from './cancellation-dues.js';
+import { extraOf, extraProblem, withExtra } from './extra-fare.js';
 import { SAFETY_CHECK_EVENT, SafetyMonitorService, safetyCheckPayload } from '../safety/safety-monitor.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { PositionCheckDto } from './dto/position-check.dto.js';
@@ -266,13 +267,35 @@ export class TripsService {
       kinds.map(async (vehicleKind): Promise<VehicleAlternative | null> => {
         const drivers = await this.tripDrivers.nearby({ kind: vehicleKind, ...pickup, radiusKm, limit: 5 });
         if (drivers.length === 0) return null;
-        // Same route as the booking, so the fares compare like the vehicle list did.
-        const quote = await this.fares.quoteOnRoute({ pickup, route, vehicleKind });
+        // Same route as the booking, so the fares compare like the vehicle list did; the rider's extra comes on top.
+        const quote = withExtra(await this.fares.quoteOnRoute({ pickup, route, vehicleKind }), extraOf(trip.fare));
         const nearestKm = Math.round(Math.min(...drivers.map((d) => d.distanceKm)) * 10) / 10;
         return { vehicleKind, quote, driversNearby: drivers.length, nearestKm };
       }),
     );
     return found.filter((a): a is VehicleAlternative => a !== null).sort((a, b) => a.quote.total - b.quote.total);
+  }
+
+  /**
+   * The rider adds extra to a trip nobody has taken yet (like Rapido's "+₹10"): [amount] is the extra in all, more
+   * than before and up to [maxExtra]. Every vehicle's fare goes up by it; drivers who said no get the request again,
+   * the one looking at it sees the new fare, and the search time starts over.
+   */
+  async addExtra(passengerId: string, tripId: string, amount: number): Promise<Trip> {
+    const trip = await this.searchingTrip(passengerId, tripId);
+    const was = extraOf(trip.fare);
+    const problem = extraProblem({ amount, was, quoteTotal: trip.fareTotal - was });
+    if (problem) throw new BadRequestException(problem);
+    const fare = (trip.fare ?? {}) as { total?: number; extra?: number };
+    const next = withExtra({ ...fare, total: fare.total ?? trip.fareTotal }, amount);
+    // Guarded on the fare it was checked with, so two quick taps can't both add on the old total.
+    const { count } = await this.prisma.trip.updateMany({
+      where: { id: tripId, status: TripStatus.SEARCHING, fareTotal: trip.fareTotal },
+      data: { fare: next as Prisma.InputJsonValue, fareTotal: trip.fareTotal - was + amount },
+    });
+    if (count === 0) throw new ConflictException('The search has already ended, or the fare just changed');
+    await this.dispatch.boosted(tripId);
+    return this.publish(tripId, 'PASSENGER');
   }
 
   /** Adds [vehicleKind] to a searching trip ("Book any"): its drivers get the offer too, at that vehicle's fare. */

@@ -20,6 +20,7 @@ import { searchRadiusAt, searchWindowMs } from './search-radius.js';
 import { DriverBlocksService } from './driver-blocks.service.js';
 import { DriverOfferStatsService } from './driver-offer-stats.service.js';
 import { EMPTY_STATS, rankScore } from './driver-rank.js';
+import { extraOf, withExtra } from './extra-fare.js';
 
 const PENDING_KEY = 'dispatch:pending';
 const LOCK_KEY = 'dispatch:lock';
@@ -217,6 +218,22 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     }
     await this.jobs.cancel(RESEARCH_JOB, tripId);
     await this.redis.sadd(PENDING_KEY, tripId);
+  }
+
+  /**
+   * The passenger added extra to a searching trip ([TripsService.addExtra]): drivers who said no may take it now, so
+   * they can be offered it again; whoever holds the offer gets it again at the new fare (same time left), and the
+   * search runs again with its full time from here ([widen]).
+   */
+  async boosted(tripId: string): Promise<void> {
+    await this.redis.del(`dispatch:${tripId}:declined`);
+    const driverId = await this.offeredTo(tripId);
+    const trip = driverId ? await this.prisma.trip.findUnique({ where: { id: tripId } }) : null;
+    const left = (await this.redis.ttl(`dispatch:${tripId}:offer`)) - OFFER_GRACE_S;
+    if (driverId && trip && left > 0) {
+      this.events.toDriver(driverId, 'trip.offer', { ...(await this.offerDetails(trip, driverId)), expiresInSeconds: left });
+    }
+    await this.widen(tripId);
   }
 
   /** Runs one batch: takes all pending bookings, ranks candidates by ETA, assigns across the batch. */
@@ -433,7 +450,9 @@ export function asVehicle(trip: Trip, driverKind: VehicleKind | undefined): Trip
   if (!kind || kind === trip.vehicleKind || !trip.alsoKinds.includes(kind)) return trip;
   const quote = (trip.alsoFares as Record<string, { total: number }> | null)?.[kind];
   if (!quote) return trip;
-  return { ...trip, vehicleKind: kind, fare: quote, fareTotal: quote.total };
+  // The rider's extra ("+₹20") is on top of whichever vehicle takes it.
+  const fare = withExtra(quote, extraOf(trip.fare));
+  return { ...trip, vehicleKind: kind, fare, fareTotal: fare.total };
 }
 
 export interface OfferDetails {

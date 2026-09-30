@@ -5,6 +5,7 @@ import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Roles } from '../../core/auth/roles.decorator.js';
 import type { Trip } from '../../generated/prisma/client.js';
 import { Role } from '../../generated/prisma/enums.js';
+import { AddExtraDto } from './dto/add-extra.dto.js';
 import { AddVehicleDto } from './dto/add-vehicle.dto.js';
 import { BookTripDto } from './dto/book-trip.dto.js';
 import { CancelTripDto } from './dto/cancel-trip.dto.js';
@@ -69,6 +70,14 @@ export class TripsController {
   @HttpCode(200)
   addVehicle(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: AddVehicleDto): Promise<Trip> {
     return this.trips.addVehicle(user.userId, id, body.vehicleKind);
+  }
+
+  /** Passenger, while searching: the extra in all on top of the quote (+₹10, +₹20…); drivers see "₹50 + ₹20". */
+  @Roles(Role.PASSENGER)
+  @Post(':id/extra')
+  @HttpCode(200)
+  addExtra(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() body: AddExtraDto): Promise<Trip> {
+    return this.trips.addExtra(user.userId, id, body.amount);
   }
 
   @Get(':id')

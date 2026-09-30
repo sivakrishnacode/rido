@@ -274,6 +274,8 @@ export interface FareBreakdown {
   readonly waitMaxCharge?: number;
   /** The passenger's earlier cancellation fee, added to this completed ride (collected by its driver). */
   readonly previousCancellationFee?: number;
+  /** What the rider added while nobody had taken the trip ("+₹20"); goes to the driver. */
+  readonly extra?: number;
   readonly total: number;
   readonly distanceKm?: number;
   readonly durationMin?: number;

@@ -5,6 +5,7 @@ import type { Announcement, Trip } from '../../generated/prisma/client.js';
 import { AnnouncementAudience, AppKind, Role, TripKind, TripStatus } from '../../generated/prisma/enums.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { CANCEL_CODE_LABEL } from '../trips/cancel-codes.js';
+import { extraOf } from '../trips/extra-fare.js';
 import { PUSH_TOPICS, PushService } from './push.service.js';
 
 type Party = { name: string | null; phone?: string | null };
@@ -137,8 +138,11 @@ export class NotifierService {
       if (!driver) return;
       const t = params.trip;
       const eta = params.pickupEtaMin ? ` · ${params.pickupEtaMin} min away` : '';
+      // The rider's extra shows as "₹50 + ₹20", like the request card.
+      const extra = extraOf(t.fare);
+      const fare = extra > 0 ? `₹${t.fareTotal - extra} + ₹${extra}` : `₹${t.fareTotal}`;
       this.push.toUser(driver.userId, AppKind.DRIVER, {
-        title: `New ${t.kind === TripKind.PARCEL ? 'delivery' : 'ride'} request · ₹${t.fareTotal}`,
+        title: `New ${t.kind === TripKind.PARCEL ? 'delivery' : 'ride'} request · ${fare}`,
         body: `${t.pickupName} → ${t.dropName}${eta}`,
         channel: 'ride_requests',
         data: { type: 'offer', tripId: t.id },
