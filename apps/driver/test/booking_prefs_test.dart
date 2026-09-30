@@ -167,6 +167,30 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
   });
 
+  testWidgets('request screen bar: Set when nothing is on, what is on with Change, both open the sheet', (tester) async {
+    await loadTestFonts();
+    usePhone(tester);
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await container.read(bookingPrefsProvider.future);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(theme: TtTheme.light(), home: const Scaffold(body: Center(child: RequestDirectionBar()))),
+    ));
+    await tester.pump();
+    expect(find.text('Go To or Stay In'), findsOneWidget);
+    expect(find.text('Set'), findsOneWidget);
+
+    await container.read(bookingPrefsProvider.notifier).save(const BookingPrefs().stayingIn(home, radiusKm: 5));
+    await tester.pump();
+    expect(find.text('Inside Home'), findsOneWidget);
+    expect(find.text('Change'), findsOneWidget);
+    await tester.tap(find.byType(RequestDirectionBar));
+    await tester.pumpAndSettle();
+    expect(find.text('Where do you want trips?'), findsOneWidget);
+    expect(find.widgetWithText(TtButton, 'Turn Stay In off'), findsOneWidget);
+  });
+
   testWidgets('Home strip: what is on, and ✕ turns it off', (tester) async {
     await loadTestFonts();
     usePhone(tester);

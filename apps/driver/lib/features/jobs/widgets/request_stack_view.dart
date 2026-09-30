@@ -13,6 +13,7 @@ typedef StackEntry = ({RideRequest request, DateTime expiresAt});
 /// D-15 / D-20 request screen (like Namma Yatri's): a card per open request to compare fare, ₹/km, pickup and trip
 /// side by side, each with its own "Swipe to accept" and a ✕ to decline, soonest to close on top. With two or more a
 /// rail of countdown rings with each fare sits on the left (tap to jump); with one the card has the full width.
+/// [directionBar] (Go To / Stay In) sits under the title.
 class RequestStackView extends StatefulWidget {
   const RequestStackView({
     super.key,
@@ -25,11 +26,12 @@ class RequestStackView extends StatefulWidget {
     this.showVoiceToggle = true,
     this.topRight,
     this.running = true,
-    this.direction,
+    this.directionBar,
   });
 
-  /// Go To / Stay In is on: "Towards Home" / "Inside RS Puram" on every card (dispatch only sends trips that fit).
-  final String? direction;
+  /// The Go To / Stay In bar: what is on and a way to change it without leaving the requests. Null in the
+  /// background overlay (no app state there) and the Design gallery.
+  final Widget? directionBar;
 
   /// False freezes the rings (design gallery).
   final bool running;
@@ -95,6 +97,12 @@ class _RequestStackViewState extends State<RequestStackView> {
                 ?widget.topRight,
               ]),
             ),
+            if (widget.directionBar case final bar?)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, 0, TtSpacing.gutter, TtSpacing.s),
+                // Not while an accept is in flight: the screen is about to move on.
+                child: IgnorePointer(ignoring: widget.acceptingId != null, child: bar),
+              ),
             Expanded(
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 // Rail: one ring per request, fare under it (only when there is something to compare).
@@ -127,7 +135,6 @@ class _RequestStackViewState extends State<RequestStackView> {
                           child: _RequestCard(
                             key: ValueKey('card-${e.request.id}'),
                             request: e.request,
-                            direction: widget.direction,
                             left: left(e),
                             accepting: widget.acceptingId == e.request.id,
                             locked: widget.acceptingId != null,
@@ -219,14 +226,12 @@ class _RequestCard extends StatelessWidget {
     required this.onDecline,
     required this.onExpired,
     this.running = true,
-    this.direction,
   });
 
   final RideRequest request;
   final Duration left;
   final bool accepting;
   final bool running;
-  final String? direction;
 
   /// Another request is being accepted: no actions here meanwhile.
   final bool locked;
@@ -256,8 +261,6 @@ class _RequestCard extends StatelessWidget {
               _Tag(icon: r.vehicle.icon, label: r.vehicle.label, bg: TtColors.infoTint, fg: TtColors.navy900),
               if (r.isCustomerVerified)
                 const _Tag(icon: Symbols.verified_rounded, label: 'Verified', bg: TtColors.successTint, fg: TtColors.successText),
-              if (direction != null)
-                _Tag(icon: Symbols.near_me_rounded, label: direction!, bg: TtColors.successTint, fg: TtColors.successText),
               if (r.isWomenOnly)
                 const _Tag(icon: Symbols.female_rounded, label: 'Butterfly', bg: TtColors.butterfly50, fg: TtColors.butterfly600),
               if (parcel != null) ...[

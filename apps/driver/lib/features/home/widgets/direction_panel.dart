@@ -158,6 +158,72 @@ class _DirectionStrip extends StatelessWidget {
   }
 }
 
+/// The request screen's one-line bar: what is on ("Towards Home · till 4:30 PM", Change) or "Go To or Stay In" (Set),
+/// opening the same sheet as Home. A change reaches the next requests; the open ones stay.
+class RequestDirectionBar extends ConsumerWidget {
+  const RequestDirectionBar({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final prefs = ref.watch(bookingPrefsProvider).value;
+    if (prefs == null) return const SizedBox.shrink();
+    final now = DateTime.now();
+    final on = _activeArea(prefs, TripDirection.goTo, now) != null
+        ? TripDirection.goTo
+        : _activeArea(prefs, TripDirection.stayIn, now) != null
+            ? TripDirection.stayIn
+            : null;
+    final until = switch (on) {
+      TripDirection.goTo => prefs.goTo!.until,
+      TripDirection.stayIn => prefs.stayIn!.until,
+      null => null,
+    };
+    final title = directionTag(prefs, now) ?? 'Go To or Stay In';
+    final action = on == null ? 'Set' : 'Change';
+    final fg = on == TripDirection.goTo ? TtColors.successText : TtColors.navy900;
+    final t = context.type;
+    return Semantics(
+      button: true,
+      label: [title, if (until != null) 'till ${formatTime(until)}', '$action where you want trips'].join(', '),
+      excludeSemantics: true,
+      child: Material(
+        color: switch (on) {
+          TripDirection.goTo => TtColors.successTint,
+          TripDirection.stayIn => TtColors.infoTint,
+          null => TtColors.inputBg,
+        },
+        borderRadius: TtRadii.cardRadius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => showDirectionSheet(context),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: TtSpacing.xs),
+              child: Row(children: [
+                Icon((on ?? TripDirection.goTo).icon, size: 20, color: fg, fill: 1),
+                const SizedBox(width: TtSpacing.s),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(children: [
+                      TextSpan(text: title, style: t.bodySemibold.copyWith(color: fg)),
+                      if (until != null) TextSpan(text: ' · till ${formatTime(until)}', style: t.bodySmall.copyWith(color: fg)),
+                    ]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: TtSpacing.s),
+                Text(action, style: t.bodySemibold.copyWith(color: TtColors.coral600)),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The Go To / Stay In sheet: pick a saved area (or add one), the Stay In radius, and turn it on, change or off.
 Future<void> showDirectionSheet(BuildContext context, {TripDirection? initial}) =>
     showTtSheet<void>(context, builder: (_) => _DirectionSheet(initial: initial));

@@ -122,6 +122,11 @@ class FakeJobs extends LiveJobs {
   Stream<String> closedOffers() => closedCtl.stream;
   @override
   Future<List<LiveOffer>> currentOffers() async => openOffers;
+  BookingPrefs prefs = const BookingPrefs();
+  @override
+  Future<BookingPrefs> bookingPrefs() async => prefs;
+  @override
+  Future<BookingPrefs> setBookingPrefs(BookingPrefs next) async => prefs = next;
   @override
   Stream<LiveTripUpdate> updates(String tripId) => updatesCtl.stream.where((u) => u.trip.id == tripId);
 
@@ -635,6 +640,47 @@ void main() {
     expect(find.text('2 ride requests'), findsOneWidget);
     expect(identical(tester.state(find.byType(D15RideRequestScreen)), screen), isTrue);
     expect(jobs.calls, contains('decline'));
+
+    await tester.runAsync(() => session().goOffline());
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 40));
+  });
+
+  testWidgets('Go To / Stay In can be changed on the request screen; the sheet closes with the requests', (tester) async {
+    final m = tester.binding.defaultBinaryMessenger;
+    m.setMockMethodCallHandler(const MethodChannel('x-slayer/overlay_channel'), (_) async => null);
+    m.setMockMessageHandler('x-slayer/overlay_messenger', (_) async => null);
+    const home = SavedArea(name: 'Home', location: LatLng(11.08, 77));
+    jobs.prefs = const BookingPrefs(areas: [home]).goingTo(home);
+    final router = GoRouter(initialLocation: '/home', routes: [
+      GoRoute(path: '/home', builder: (_, _) => const Text('Home screen')),
+      GoRoute(path: '/driver/request', builder: (_, _) => const D15RideRequestScreen()),
+    ]);
+    await tester.pumpWidget(UncontrolledProviderScope(container: container, child: TtDriverApp(router: router)));
+    await tester.runAsync(() async {
+      await session().goOnline();
+      jobs.offersCtl.add(_offer('t1'));
+      await pumpEventQueue();
+    });
+    router.push('/driver/request');
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    // What is on is at the top of the requests, and opens the Go To / Stay In sheet.
+    expect(find.text('Change'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel(RegExp('^Towards Home')));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Where do you want trips?'), findsOneWidget);
+
+    // The request is withdrawn while the sheet is up: sheet and request screen both go.
+    jobs.closedCtl.add('t1');
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Where do you want trips?'), findsNothing);
+    expect(find.text('Home screen'), findsOneWidget);
 
     await tester.runAsync(() => session().goOffline());
     await tester.pumpWidget(const SizedBox());

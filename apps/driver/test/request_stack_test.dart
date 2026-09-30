@@ -12,7 +12,7 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   Future<void> pump(WidgetTester tester, List<StackEntry> entries,
-      {ValueChanged<String>? onAccept, ValueChanged<String>? onDecline, String? acceptingId, String? direction}) async {
+      {ValueChanged<String>? onAccept, ValueChanged<String>? onDecline, String? acceptingId, Widget? directionBar}) async {
     await loadTestFonts();
     usePhone(tester);
     await tester.pumpWidget(ProviderScope(
@@ -21,7 +21,7 @@ void main() {
         home: RequestStackView(
           entries: entries,
           acceptingId: acceptingId,
-          direction: direction,
+          directionBar: directionBar,
           onAccept: onAccept ?? (_) {},
           onDecline: onDecline ?? (_) {},
           onExpired: (_) {},
@@ -55,15 +55,17 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets("the rider's extra shows as ₹50 + ₹20 with its own line; Go To tags every card", (tester) async {
+  testWidgets("the rider's extra shows as ₹50 + ₹20 with its own line; the Go To bar sits above the cards", (tester) async {
     final now = DateTime.now();
     await pump(tester, [
       (request: Seed.rideRequest.copyWith(id: 'boosted', fare: 70, extra: 20, tripKm: 5), expiresAt: now.add(const Duration(seconds: 9))),
-    ], direction: 'Towards Home');
+    ], directionBar: const Text('Towards Home'));
     expect(find.text('₹50 + ₹20'), findsOneWidget);
     expect(find.text('Rider added ₹20 extra'), findsOneWidget);
     expect(find.text('₹14/km'), findsOneWidget); // 70 / 5: on what the driver collects
     expect(find.text('Towards Home'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Towards Home')).dy,
+        lessThan(tester.getTopLeft(find.byKey(const ValueKey('card-boosted'))).dy));
     await tester.pumpWidget(const SizedBox());
   });
 

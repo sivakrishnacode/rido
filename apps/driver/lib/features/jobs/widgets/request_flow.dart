@@ -6,7 +6,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../common/job_routes.dart';
-import '../../../state/booking_prefs.dart';
+import '../../home/widgets/direction_panel.dart';
 import '../../../state/driver_session.dart';
 import '../../../state/live_helpers.dart';
 import '../../../state/request_voice.dart';
@@ -91,6 +91,9 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
   void _close() {
     if (_closed || !mounted) return;
     _closed = true;
+    // The Go To / Stay In sheet may be open over the requests: it goes with them.
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) Navigator.of(context).popUntil((r) => r == route);
     popOrHome(context);
   }
 
@@ -175,7 +178,7 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
     final incoming = s.incoming;
     return RequestStackView(
       delivery: delivery,
-      direction: directionTag(ref.watch(bookingPrefsProvider).value, DateTime.now()),
+      directionBar: const RequestDirectionBar(),
       entries: [
         if (incoming != null) (request: incoming, expiresAt: s.incomingExpiresAt ?? DateTime.now().add(countdown)),
         // Closing (nothing left): the last card stays until the screen leaves.
