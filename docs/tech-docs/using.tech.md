@@ -1272,6 +1272,23 @@ Checked live: `/health` 200, admin sign-in page, app-config. Rollback: the old `
 dump are kept; delete them once the new stack has run for a week (`docker volume rm rido_postgres-data rido_redis-data
 rido_uploads rido_caddy_data rido_caddy_config`).
 
+**Deployed 30 Sep 2026:** parcel on bike, Go To / Stay In with saved areas, the rider's extra (`94ad380..e6a91bf`,
+no migrations). Checked live: `/health` 200, admin login 200, `POST /trips/:id/extra` exists (401 without a token), and
+for the bike test driver `+919100000601` Stay In saves with a 12 h timer, `parcels: false` saves, Go To + Stay In
+together is refused (400) and Go To turns Stay In off (prefs restored after). The previous images are kept as
+`tamiltaxi-api:prev` / `tamiltaxi-admin:prev` (rollback: tag them back to `:local` and `up -d --no-build`). Apps need
+new APKs for the features.
+
+- **Slow upload (mobile data, ~100 KB/s):** when no `package.json`, `package-lock.json`, Dockerfile or migration changed
+  since the deployed build, ship only the build outputs (~3 MB instead of ~450 MB): copy `apps/api/dist`,
+  `apps/api/prisma` and `apps/api/src/generated` out of the new API image and `/app/apps/admin` out of the new admin
+  image, then on the server build `FROM tamiltaxi-api:prev` / `FROM tamiltaxi-admin:prev` with those folders
+  replaced, tag the result `:local` and `up -d --no-build`. Used on 30 Sep 2026.
+- **SSH from a mobile network:** carrier NAT can show one IP to `checkip.amazonaws.com` and use another towards AWS,
+  so a rule for the first still times out. Find the one the server sees in `$SSH_CLIENT` (open 22 briefly, connect,
+  allow that /32, close the wide rule again). `rido-sg` now allows `122.178.167.96` (home) and `157.51.64.100`
+  (mobile, may change).
+
 **Capacity (measured 26 Sep 2026, t3.small):** cached fare quotes at 50 concurrent connections: ~890 req/s average
 (peak 1,340), p50 43 ms, p99 ~200 ms, no errors; the API process used both vCPUs while Postgres/Redis stayed idle.
 Planning figures with headroom: ~300–400 req/s sustained, ~1,500–2,500 concurrent app users, ~300–500 online
