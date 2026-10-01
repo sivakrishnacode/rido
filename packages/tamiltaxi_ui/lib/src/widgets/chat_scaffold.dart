@@ -96,9 +96,10 @@ class _ChatScaffoldState extends State<ChatScaffold> {
                 children: [
                   Text(widget.peerName, style: t.h2, overflow: TextOverflow.ellipsis),
                   Row(children: [
-                    const Icon(Symbols.lock_rounded, size: 14, color: TtColors.navy500),
+                    const Icon(Symbols.chat_rounded, size: 14, color: TtColors.navy500),
                     const SizedBox(width: 4),
-                    Flexible(child: Text('Number hidden for privacy', style: t.caption, overflow: TextOverflow.ellipsis)),
+                    // Not "Number hidden": calls use real numbers (see the privacy policy).
+                    Flexible(child: Text('Chat for this trip', style: t.caption, overflow: TextOverflow.ellipsis)),
                   ]),
                 ],
               ),

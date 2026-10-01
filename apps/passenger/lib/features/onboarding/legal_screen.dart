@@ -62,8 +62,9 @@ const _privacy = [
   ),
   _Section(
     'What drivers see',
-    'Your first name, pickup and drop. Calls go through a masked number, so drivers never see your real '
-        'phone number. Your gender is only used for the "Prefer women driver" option and is never shown.',
+    'Your name, phone number, pickup and drop, and whether you are verified. Numbers are shared so you and your '
+        'driver can call each other about the current trip. Your gender is never shown; if you ask for a woman '
+        'driver (Butterfly), your driver sees that it is a Butterfly ride.',
   ),
   _Section(
     'Sharing',
@@ -105,7 +106,7 @@ class LegalScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.l, TtSpacing.xxl),
           children: [
-            Text('Last updated 1 Sep 2026', style: t.caption),
+            Text('Last updated 1 Oct 2026', style: t.caption),
             const SizedBox(height: TtSpacing.m),
             Text(
               isPrivacy
