@@ -47,7 +47,8 @@ class S08ServiceUnavailableView extends ConsumerWidget {
                 center: Seed.cityCentre,
                 zoom: 10,
                 fitPoints: [pin, southEdge],
-                fitPadding: const EdgeInsets.fromLTRB(32, 72, 32, 56),
+                // The pin's label draws ~70 px above its point: leave room for it below the status bar.
+                fitPadding: EdgeInsets.fromLTRB(32, MediaQuery.paddingOf(context).top + 96, 32, 56),
                 zones: const [MapZone(centre: Seed.cityCentre, radiusM: Seed.serviceRadiusKm * 1000)],
                 extraMarkers: [
                   Marker(

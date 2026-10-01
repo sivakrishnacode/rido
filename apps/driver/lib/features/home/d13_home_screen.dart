@@ -258,7 +258,8 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     } else if (quiet) {
       subtitle = 'Online for 18 min';
     } else if (online) {
-      subtitle = delivery ? 'Looking for deliveries...' : (parcelsToo ? 'Looking for rides and parcels...' : 'Looking for rides...');
+      // Short: the subtitle shares the header with the status pills ("Looking for rides and parcels..." was cut).
+      subtitle = delivery ? 'Finding deliveries…' : (parcelsToo ? 'Finding rides, parcels' : 'Finding rides…');
     } else {
       subtitle = _greeting();
     }
@@ -711,7 +712,8 @@ String _jobBannerTitle(RideRequest job, JobPhase phase, int eta) {
     JobPhase.atPickup => 'At pickup',
     JobPhase.atDrop => 'At drop',
     JobPhase.collect => 'Collect payment',
-    JobPhase.toDrop || JobPhase.none => '$kind in progress$minutes',
+    // "Ride in progress · 9 min" was cut beside Return; with an ETA, "To drop · 9 min" says the same.
+    JobPhase.toDrop || JobPhase.none => eta > 0 ? 'To drop$minutes' : '$kind in progress',
   };
 }
 

@@ -196,6 +196,8 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              // Top-aligned: a label that wraps to two lines must not lift its icon above the other.
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 launcher('Tamil Taxi', 'assets/brand/launcher_rider.png'),
                 const SizedBox(width: TtSpacing.xl),

@@ -7,6 +7,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/add_extra_card.dart';
+import '../../common/map_insets.dart';
 import '../../common/phone.dart';
 import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
@@ -112,14 +113,18 @@ class _PP07FindingGoodsDriverScreenState extends ConsumerState<PP07FindingGoodsD
         backgroundColor: TtColors.surface,
         body: Stack(
           children: [
+            // The sheet can cover up to 70% of the screen: the pickup sits in the strip above it (Google: inside
+            // the padded area; flutter_map: the centre moved south). It used to sit on the sheet's top edge.
             Positioned.fill(
-              bottom: height * 0.4,
               child: TtMap(
-                center: s.pickup.location,
+                center: TtMap.usesGoogle ? s.pickup.location : offsetPoint(s.pickup.location, 1300, 180),
+                mapPadding: sheetMapPadding(height * 0.7),
                 zoom: 15,
                 pickup: s.pickup.location,
                 pulseAt: noDrivers ? null : s.pickup.location,
                 interactive: false,
+                attributionAlignment: Alignment.topRight,
+                attributionPadding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
               ),
             ),
             Align(

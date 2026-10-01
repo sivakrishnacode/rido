@@ -193,7 +193,7 @@ class _SupportHomeViewState extends State<SupportHomeView> {
             child: Row(children: [
               Expanded(
                 child: TtButton.secondary(
-                  label: 'Chat on WhatsApp',
+                  label: 'WhatsApp', // "Chat on WhatsApp" was cut to "Chat on W…" beside Raise a ticket
                   icon: Symbols.chat_rounded,
                   onPressed: widget.onWhatsApp,
                 ),

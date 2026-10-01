@@ -69,6 +69,7 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
           fitPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).fit,
           mapPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).map,
           attributionAlignment: Alignment.topRight,
+          attributionPadding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
         ),
         sheet: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

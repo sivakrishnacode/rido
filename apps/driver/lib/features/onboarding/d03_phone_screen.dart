@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,9 @@ class D03PhoneScreen extends ConsumerStatefulWidget {
 
 class _D03PhoneScreenState extends ConsumerState<D03PhoneScreen> {
   late final TextEditingController _phone = TextEditingController(text: widget.showcase ? '98940 56721' : '');
+  late final TapGestureRecognizer _terms = TapGestureRecognizer()..onTap = () => context.push(Routes.legal('terms'));
+  late final TapGestureRecognizer _privacy = TapGestureRecognizer()
+    ..onTap = () => context.push(Routes.legal('privacy'));
   bool _sending = false;
 
   String get _digits => PhoneInput.digitsOf(_phone.text);
@@ -31,6 +35,8 @@ class _D03PhoneScreenState extends ConsumerState<D03PhoneScreen> {
   @override
   void dispose() {
     _phone.dispose();
+    _terms.dispose();
+    _privacy.dispose();
     super.dispose();
   }
 
@@ -97,15 +103,21 @@ class _D03PhoneScreenState extends ConsumerState<D03PhoneScreen> {
                 onPressed: _digits.length == 10 ? _send : null,
               ),
               const SizedBox(height: TtSpacing.xs),
-              Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text('By continuing, you agree to the ', style: t.caption.copyWith(color: TtColors.navy500)),
-                  _Link(label: 'Driver Terms', onTap: () => context.push(Routes.legal('terms'))),
-                  Text(' & ', style: t.caption.copyWith(color: TtColors.navy500)),
-                  _Link(label: 'Privacy Policy', onTap: () => context.push(Routes.legal('privacy'))),
-                ],
+              // Inline links (as on P-03): 48 px link boxes in a Wrap left a big gap when "Privacy Policy" wrapped.
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: TtSpacing.s),
+                child: Text.rich(
+                  TextSpan(
+                    style: t.caption.copyWith(color: TtColors.navy500),
+                    children: [
+                      const TextSpan(text: 'By continuing, you agree to the '),
+                      TextSpan(text: 'Driver Terms', recognizer: _terms, style: _linkStyle),
+                      const TextSpan(text: ' & '),
+                      TextSpan(text: 'Privacy Policy', recognizer: _privacy, style: _linkStyle),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ],
           ),
@@ -115,24 +127,4 @@ class _D03PhoneScreenState extends ConsumerState<D03PhoneScreen> {
   }
 }
 
-class _Link extends StatelessWidget {
-  const _Link({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-        link: true,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
-            child: Center(
-              widthFactor: 1,
-              child: Text(label,
-                  style: context.type.caption.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w600)),
-            ),
-          ),
-        ),
-      );
-}
+const _linkStyle = TextStyle(color: TtColors.coral600, fontWeight: FontWeight.w600);

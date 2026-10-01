@@ -76,6 +76,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
             fitPadding: insets.fit,
             mapPadding: insets.map,
             attributionAlignment: Alignment.topCenter,
+            attributionPadding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
           );
         },
         overlays: [TripMapTopBar(onBack: _back, onSos: () => context.push(Routes.sos))],

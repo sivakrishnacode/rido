@@ -212,42 +212,40 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                                 children: [
                                   const Icon(Symbols.payments_rounded, color: TtColors.navy900),
                                   const SizedBox(width: TtSpacing.m),
-                                  Flexible(
-                                    child: Text(
-                                      'Cash / UPI to driver',
-                                      style: t.bodyMedium,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
+                                  // Short and not flexible: two Flexibles split the row in half, which cut the chip to
+                                  // "Pay your driv…" on a 390 px phone.
+                                  Text('Cash / UPI', style: t.bodyMedium),
                                   const SizedBox(width: TtSpacing.s),
-                                  Flexible(
-                                    child: Material(
-                                      color: TtColors.inputBg,
-                                      shape: const StadiumBorder(),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: InkWell(
-                                        onTap: () => showTtSnack(
-                                          context,
-                                          'Pay your driver by cash or UPI when the ride ends. Tamil Taxi takes 0% of it.',
-                                        ),
-                                        child: Container(
-                                          constraints: const BoxConstraints(minHeight: 40),
-                                          padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Symbols.info_rounded, size: 18, color: TtColors.navy700),
-                                              const SizedBox(width: 6),
-                                              Flexible(
-                                                child: Text(
-                                                  'Pay your driver directly',
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                  style: t.bodySmall.copyWith(color: TtColors.navy700),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Material(
+                                        color: TtColors.inputBg,
+                                        shape: const StadiumBorder(),
+                                        clipBehavior: Clip.antiAlias,
+                                        child: InkWell(
+                                          onTap: () => showTtSnack(
+                                            context,
+                                            'Pay your driver by cash or UPI when the ride ends. Tamil Taxi takes 0% of it.',
+                                          ),
+                                          child: Container(
+                                            constraints: const BoxConstraints(minHeight: 40),
+                                            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Symbols.info_rounded, size: 18, color: TtColors.navy700),
+                                                const SizedBox(width: 6),
+                                                Flexible(
+                                                  child: Text(
+                                                    'Pay driver directly',
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: t.bodySmall.copyWith(color: TtColors.navy700),
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),

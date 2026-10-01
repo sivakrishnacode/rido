@@ -84,6 +84,7 @@ class P13DriverAssignedScreen extends ConsumerWidget {
                 fitPadding: insets.fit,
                 mapPadding: insets.map,
                 attributionAlignment: Alignment.topCenter,
+                attributionPadding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
               );
             }
             return TtMap(
@@ -101,6 +102,7 @@ class P13DriverAssignedScreen extends ConsumerWidget {
               fitPadding: insets.fit,
               mapPadding: insets.map,
               attributionAlignment: Alignment.topCenter,
+              attributionPadding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
               extraMarkers: [
                 Marker(
                   point: ride.pickup.location,

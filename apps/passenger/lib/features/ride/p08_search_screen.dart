@@ -230,8 +230,9 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: 6),
                       decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.pillRadius),
+                      // "Soon", not "Coming soon": the longer badge ran off the edge of a 390 px phone.
                       child: Text(
-                        'Coming soon',
+                        'Soon',
                         style: t.caption.copyWith(color: TtColors.navy700, fontWeight: FontWeight.w600),
                       ),
                     ),

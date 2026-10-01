@@ -126,6 +126,7 @@ class TtMap extends StatelessWidget {
     this.extraMarkers = const [],
     this.showAttribution = true,
     this.attributionAlignment = Alignment.bottomLeft,
+    this.attributionPadding = EdgeInsets.zero,
     this.mapPadding = EdgeInsets.zero,
     this.polygons = const [],
   });
@@ -162,6 +163,10 @@ class TtMap extends StatelessWidget {
   final List<Marker> extraMarkers;
   final bool showAttribution;
   final Alignment attributionAlignment;
+
+  /// flutter_map engine: keeps the CARTO / OSM attribution clear of what covers the map (a bottom sheet, a
+  /// header). The Google engine places its logo with [mapPadding] instead.
+  final EdgeInsets attributionPadding;
 
   /// Google engine: insets for the logo / attribution and controls (`GoogleMap.padding`). Screens with a bottom
   /// sheet over the map pass the sheet height so the Google logo stays visible (required by the Maps terms).
@@ -269,7 +274,7 @@ class TtMap extends StatelessWidget {
             Align(
               alignment: attributionAlignment,
               child: Container(
-                margin: const EdgeInsets.all(4),
+                margin: attributionPadding + const EdgeInsets.all(4),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
                 child: Text(

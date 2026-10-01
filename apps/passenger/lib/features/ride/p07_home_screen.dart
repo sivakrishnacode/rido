@@ -199,8 +199,11 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                     vehicles: showNearby
                         ? _nearbyAround(ref.watch(rideFlowProvider.select((r) => r.pickup.location)))
                         : const [],
-                    attributionAlignment: Alignment.topRight,
-                    showAttribution: true,
+                    // Just above the sheet (and the trip banner), like the Google logo: the top of the map is
+                    // under the status bar and the greeting / SOS header.
+                    attributionPadding: EdgeInsets.only(
+                      bottom: c.maxHeight * (padded ?? sheetSize) + (tripActive ? 88 : 0),
+                    ),
                   ),
                 ),
               ),

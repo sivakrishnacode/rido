@@ -83,10 +83,10 @@ class VehicleType {
 
   bool get isGoods => kind.isGoods;
 
-  /// "1 seat", "3 seats", "Up to 500 kg".
+  /// "1 seat", "3 seats", "Up to 500 kg". A non-breaking space keeps "1,500 kg" on one line in narrow tiles.
   String get capacityLabel {
     if (seats != null) return seats == 1 ? '1 seat' : '$seats seats';
-    return 'Up to ${_kg(capacityKg ?? 0)} kg';
+    return 'Up to ${_kg(capacityKg ?? 0)}\u00A0kg';
   }
 
   static String _kg(int kg) {
