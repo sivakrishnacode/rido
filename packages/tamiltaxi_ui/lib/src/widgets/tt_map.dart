@@ -145,7 +145,7 @@ class TtMap extends StatelessWidget {
   final LatLng? pulseAt;
   final Color pulseColor;
 
-  /// When set, the camera fits these points on first build.
+  /// When set, the camera fits these points on first build, and again whenever they (or the paddings) change.
   final List<LatLng>? fitPoints;
   final EdgeInsets fitPadding;
   final bool interactive;
@@ -169,33 +169,92 @@ class TtMap extends StatelessWidget {
   final List<MapPolygon> polygons;
 
   @override
+  Widget build(BuildContext context) => usesGoogle ? _GoogleTtMap(map: this) : _FlutterTtMap(map: this);
+}
+
+/// What the camera fit depends on: the bounds of [TtMap.fitPoints] (to about a metre) and both paddings. Equal keys
+/// mean the same view, so a rebuild with a fresh but equal list doesn't move the camera.
+Object? _fitKey(TtMap m) {
+  final pts = m.fitPoints;
+  if (pts == null || pts.length < 2) return null;
+  var minLat = 90.0, maxLat = -90.0, minLng = 180.0, maxLng = -180.0;
+  for (final p in pts) {
+    minLat = math.min(minLat, p.latitude);
+    maxLat = math.max(maxLat, p.latitude);
+    minLng = math.min(minLng, p.longitude);
+    maxLng = math.max(maxLng, p.longitude);
+  }
+  int r(double v) => (v * 1e5).round();
+  return (r(minLat), r(maxLat), r(minLng), r(maxLng), m.fitPadding, m.mapPadding);
+}
+
+/// flutter_map engine (tests, no Google key): CARTO tiles. Re-fits the camera when [TtMap.fitPoints] change, like
+/// the Google engine.
+class _FlutterTtMap extends StatefulWidget {
+  const _FlutterTtMap({required this.map});
+  final TtMap map;
+
+  @override
+  State<_FlutterTtMap> createState() => _FlutterTtMapState();
+}
+
+class _FlutterTtMapState extends State<_FlutterTtMap> {
+  MapController? _own;
+
+  TtMap get m => widget.map;
+  MapController get _mapController => m.controller?._flutterMap ?? (_own ??= MapController());
+
+  @override
+  void didUpdateWidget(covariant _FlutterTtMap old) {
+    super.didUpdateWidget(old);
+    if (_fitKey(m) != _fitKey(old.map)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final fit = m.fitPoints;
+        if (fit == null || fit.length < 2) return;
+        try {
+          _mapController.fitCamera(CameraFit.coordinates(coordinates: fit, padding: m.fitPadding, maxZoom: 16));
+        } catch (_) {
+          // Map not laid out yet.
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _own?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (usesGoogle) return _GoogleTtMap(map: this);
-    final fit = fitPoints != null && fitPoints!.length >= 2
-        ? CameraFit.coordinates(coordinates: fitPoints!, padding: fitPadding, maxZoom: 16)
+    final m = this.m;
+    final fit = m.fitPoints != null && m.fitPoints!.length >= 2
+        ? CameraFit.coordinates(coordinates: m.fitPoints!, padding: m.fitPadding, maxZoom: 16)
         : null;
     return ClipRect(
       child: FlutterMap(
-        mapController: controller?._flutterMap,
+        mapController: _mapController,
         options: MapOptions(
-          initialCenter: center ?? pickup ?? const LatLng(11.0168, 76.9658),
-          initialZoom: zoom,
+          initialCenter: m.center ?? m.pickup ?? const LatLng(11.0168, 76.9658),
+          initialZoom: m.zoom,
           initialCameraFit: fit,
           backgroundColor: TtColors.inputBg,
           minZoom: 10,
           maxZoom: 18,
-          onPositionChanged: onPositionChanged == null
+          onPositionChanged: m.onPositionChanged == null
               ? null
               : (camera, hasGesture) =>
-                  onPositionChanged!(TtCamera(center: camera.center, zoom: camera.zoom), hasGesture),
+                  m.onPositionChanged!(TtCamera(center: camera.center, zoom: camera.zoom), hasGesture),
           interactionOptions: InteractionOptions(
-            flags: interactive ? InteractiveFlag.all & ~InteractiveFlag.rotate : InteractiveFlag.none,
+            flags: m.interactive ? InteractiveFlag.all & ~InteractiveFlag.rotate : InteractiveFlag.none,
           ),
         ),
         children: [
-          if (tilesEnabled)
+          if (TtMap.tilesEnabled)
             TileLayer(
-              urlTemplate: tileUrl,
+              urlTemplate: TtMap.tileUrl,
               // A real app user-agent: some CDN edges reject the default "flutter_map (unknown)".
               tileProvider: NetworkTileProvider(
                 headers: {'User-Agent': 'TtApp/0.1 (Android; com.tamiltaxi)'},
@@ -208,41 +267,41 @@ class TtMap extends StatelessWidget {
               evictErrorTileStrategy: EvictErrorTileStrategy.dispose,
               errorTileCallback: (tile, error, stack) {},
             ),
-          if (polygons.isNotEmpty) _ZoomedPolygons(polygons: polygons),
-          if (route.length >= 2)
+          if (m.polygons.isNotEmpty) _ZoomedPolygons(polygons: m.polygons),
+          if (m.route.length >= 2)
             PolylineLayer(
               polylines: [
-                Polyline(points: route, color: TtColors.coral500, strokeWidth: 5, strokeCap: StrokeCap.round, strokeJoin: StrokeJoin.round),
+                Polyline(points: m.route, color: TtColors.coral500, strokeWidth: 5, strokeCap: StrokeCap.round, strokeJoin: StrokeJoin.round),
               ],
             ),
           MarkerLayer(
             markers: [
-              if (pulseAt != null)
-                Marker(point: pulseAt!, width: 180, height: 180, child: PulseRing(color: pulseColor)),
-              if (pickup != null) Marker(point: pickup!, width: 28, height: 28, child: const PickupDot()),
-              if (drop != null)
+              if (m.pulseAt != null)
+                Marker(point: m.pulseAt!, width: 180, height: 180, child: PulseRing(color: m.pulseColor)),
+              if (m.pickup != null) Marker(point: m.pickup!, width: 28, height: 28, child: const PickupDot()),
+              if (m.drop != null)
                 Marker(
-                  point: drop!,
+                  point: m.drop!,
                   width: 40,
                   height: 40,
                   alignment: Alignment.topCenter,
                   child: const DropPin(size: 40),
                 ),
-              for (final v in vehicles)
+              for (final v in m.vehicles)
                 Marker(
                   point: v.position,
                   width: v.large ? 56 : 36,
                   height: v.large ? 56 : 36,
                   child: VehicleMarker(type: v.type, heading: v.heading, large: v.large),
                 ),
-              ...extraMarkers,
+              ...m.extraMarkers,
             ],
           ),
-          if (showAttribution)
+          if (m.showAttribution)
             Align(
-              alignment: attributionAlignment,
+              alignment: m.attributionAlignment,
               child: Container(
-                margin: attributionPadding + const EdgeInsets.all(4),
+                margin: m.attributionPadding + const EdgeInsets.all(4),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
                 child: Text(

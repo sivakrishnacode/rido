@@ -152,11 +152,31 @@ class _GoogleTtMapState extends State<_GoogleTtMap> with WidgetsBindingObserver 
       if (old.map.controller?._google == this) old.map.controller!._google = null;
       m.controller?._google = this;
     }
-    // A new [TtMap.center] (e.g. the driver's GPS) moves the camera, keeping the user's zoom. GoogleMap only reads
-    // its initial camera, so without this the map stayed on the first position. Paused for a while after the user
-    // pans / zooms, so following doesn't fight their finger.
+    // New [TtMap.fitPoints] (the road route arrived, the driver's first GPS fix, the next trip phase) or a new
+    // visible area (the sheet grew) re-fits the camera, so the map always shows what the screen is about.
+    // Otherwise a new [TtMap.center] (e.g. the driver's GPS) moves the camera, keeping the user's zoom. GoogleMap
+    // only reads its initial camera, so without this the map stayed on the first view. Both pause for a while
+    // after the user pans / zooms, so the camera doesn't fight their finger.
     final centre = m.center;
-    if (centre != null && centre != old.map.center && !_userMovedRecently) _followTo(centre);
+    if (_fitKey(m) != _fitKey(old.map)) {
+      if (!_userMovedRecently) _refit();
+    } else if (centre != null && centre != old.map.center && !_userMovedRecently) {
+      _followTo(centre);
+    }
+  }
+
+  /// Animates to [TtMap.fitPoints] inside the area left by `mapPadding`.
+  void _refit() {
+    final fit = m.fitPoints;
+    if (fit == null || fit.length < 2 || _size.isEmpty) return;
+    final (centre, zoom) = _Mercator.fit(fit, m.mapPadding.deflateSize(_size), m.fitPadding);
+    final c = _controller;
+    if (c == null) {
+      _pendingMove = (centre, zoom);
+      return;
+    }
+    _programmaticMove = true;
+    unawaited(c.animateCamera(gm.CameraUpdate.newLatLngZoom(_g(centre), zoom)).catchError((Object _) {}));
   }
 
   /// When the user last moved the map by hand, and how many fingers are on it now. GoogleMap also reports camera
@@ -343,7 +363,15 @@ class _GoogleTtMapState extends State<_GoogleTtMap> with WidgetsBindingObserver 
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
-        _size = size.isFinite ? size : const Size(360, 640);
+        final laidOut = size.isFinite ? size : const Size(360, 640);
+        // A new map size (the panel above or below it resized) changes what fits.
+        if (_initial != null && laidOut != _size) {
+          _size = laidOut;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_userMovedRecently) _refit();
+          });
+        }
+        _size = laidOut;
         final initial = _initial ??= _camera = _initialCamera(_size);
         return ClipRect(
           child: ColoredBox(
