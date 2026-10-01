@@ -46,6 +46,13 @@ abstract final class Routes {
   static const parcelChat = '/parcel/chat';
   static const parcelInTransit = '/parcel/in-transit';
   static const parcelDelivered = '/parcel/delivered';
+  static const parcelBooked = '/parcel/booked';
+
+  // House shifting (from the parcel tab), nested so each step's "Change" goes back to it with the steps before.
+  static const shifting = '/parcel/shifting';
+  static const shiftingItems = '/parcel/shifting/items';
+  static const shiftingSchedule = '/parcel/shifting/items/day';
+  static const shiftingReview = '/parcel/shifting/items/day/review';
 
   // Activity tab
   static const activity = '/activity';

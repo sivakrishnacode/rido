@@ -8,6 +8,7 @@ import '../router/routes.dart';
 import 'app_notice.dart';
 import 'live_trip.dart';
 import 'passenger_session.dart';
+import 'ride_flow.dart' show upcomingTripsProvider;
 
 enum ParcelPhase {
   /// PP-01 … PP-06: filling in details.
@@ -81,6 +82,8 @@ class ParcelFlowState {
     this.quotesError,
     this.tripQuote,
     this.busy = false,
+    this.outstation = false,
+    this.leaveAt,
   });
 
   final Place pickup;
@@ -113,6 +116,12 @@ class ParcelFlowState {
   final FareQuote? tripQuote;
   final bool busy;
 
+  /// Goods to another town: the goods trucks one way by the km; the drop may be outside the service area.
+  final bool outstation;
+
+  /// Goods to another town booked for later (null: now).
+  final DateTime? leaveAt;
+
   RouteEstimate get estimate {
     final q = tripQuote ?? (serverQuotes?.isNotEmpty ?? false ? serverQuotes!.first : null);
     return q != null
@@ -120,7 +129,9 @@ class ParcelFlowState {
         : FareEngine.estimate(pickup, drop);
   }
 
-  List<FareQuote> get quotes => serverQuotes ?? FareEngine.quoteAll(Seed.goodsVehicles, estimate);
+  List<FareQuote> get quotes =>
+      serverQuotes ??
+      (outstation ? GoodsModeRates.outstationQuotes(pickup, drop) : FareEngine.quoteAll(Seed.goodsVehicles, estimate));
 
   FareQuote get quote {
     final booked = tripQuote;
@@ -165,6 +176,8 @@ class ParcelFlowState {
     Object? quotesError = _keep,
     Object? tripQuote = _keep,
     bool? busy,
+    bool? outstation,
+    Object? leaveAt = _keep,
   }) => ParcelFlowState(
     pickup: pickup ?? this.pickup,
     drop: drop ?? this.drop,
@@ -185,6 +198,8 @@ class ParcelFlowState {
     quotesError: identical(quotesError, _keep) ? this.quotesError : quotesError as String?,
     tripQuote: identical(tripQuote, _keep) ? this.tripQuote : tripQuote as FareQuote?,
     busy: busy ?? this.busy,
+    outstation: outstation ?? this.outstation,
+    leaveAt: identical(leaveAt, _keep) ? this.leaveAt : leaveAt as DateTime?,
   );
 }
 
@@ -304,6 +319,24 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
 
   void selectVehicle(VehicleKind v) => state = state.copyWith(vehicle: v);
 
+  /// PP-01 "In town" / "To another town". Another town: goods trucks only (no goods bike), the fares reload; back in
+  /// town the later time goes.
+  void setOutstation(bool v) {
+    if (v == state.outstation) return;
+    final hadQuotes = state.serverQuotes != null || state.quotesError != null;
+    state = state.copyWith(
+      outstation: v,
+      serverQuotes: null,
+      quotesError: null,
+      leaveAt: v ? state.leaveAt : null,
+      vehicle: v && !GoodsModeRates.isGoodsTruck(state.vehicle) ? VehicleKind.threeWheeler : null,
+    );
+    if (hadQuotes) unawaited(loadQuotes());
+  }
+
+  /// PP-06 (another town): now (null) or a pickup time up to 7 days ahead.
+  void setLeaveAt(DateTime? at) => state = state.copyWith(leaveAt: at);
+
   void setPayer(ParcelPayer p) => updateDetails(state.details.copyWith(payer: p));
 
   /// Live API: loads the server's goods fares for the current pickup / drop (PP-06). No-op in mock mode.
@@ -312,7 +345,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
     final a = state.pickup, b = state.drop;
     state = state.copyWith(serverQuotes: null, quotesError: null);
     try {
-      final quotes = await ref.read(parcelRepositoryProvider).quotes(a, b);
+      final quotes = await ref.read(parcelRepositoryProvider).quotes(a, b, outstation: state.outstation);
       // The pickup / drop moved meanwhile (e.g. GPS resolved): fetch fares for the new points instead of
       // leaving the screen on the loading skeleton.
       if (!_samePlace(state.pickup, a) || !_samePlace(state.drop, b)) return await loadQuotes();
@@ -395,12 +428,63 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
             pickup: state.pickup,
             drop: state.drop,
             parcel: state.details,
+            mode: state.outstation ? const ModeRequest(mode: RideMode.outstation) : null,
           );
       _startFollowing(update, restoring: false);
       return null;
     } catch (e) {
       state = state.copyWith(busy: false);
       return apiErrorMessage(e);
+    }
+  }
+
+  /// Goods to another town booked for [ParcelFlowState.leaveAt]: it waits as scheduled (Activity › Upcoming) and the
+  /// form resets for the next parcel. Returns the booked trip for P-36, or a user-facing error.
+  Future<({String? error, Trip? trip})> bookForLater() async {
+    final at = state.leaveAt;
+    if (!state.outstation || at == null) return (error: 'Choose a pickup time', trip: null);
+    if (state.busy) return (error: null, trip: null);
+    state = state.copyWith(busy: true);
+    try {
+      Trip trip;
+      if (_live) {
+        final update = await ref.read(liveTripsProvider).book(
+              kind: TripKind.parcel,
+              vehicle: state.vehicle,
+              pickup: state.pickup,
+              drop: state.drop,
+              parcel: state.details,
+              mode: ModeRequest(mode: RideMode.outstation, leaveAt: at),
+            );
+        trip = update.trip;
+      } else {
+        final q = state.quote;
+        trip = Trip(
+          id: 'PC-L${DateTime.now().millisecondsSinceEpoch % 10000000}',
+          kind: TripKind.parcel,
+          vehicle: state.vehicle,
+          pickup: state.pickup,
+          drop: state.drop,
+          fare: q.total,
+          quote: q,
+          status: TripStatus.scheduled,
+          startedAt: DateTime.now(),
+          distanceKm: q.distanceKm,
+          durationMin: q.durationMin,
+          parcel: state.details,
+          rideMode: RideMode.outstation,
+          modeTerms: q.modeTerms,
+          scheduledAt: at,
+        );
+        ref.read(mockDatabaseProvider).upcoming.add(trip);
+      }
+      if (!ref.mounted) return (error: null, trip: trip);
+      state = state.copyWith(busy: false, leaveAt: null);
+      ref.invalidate(upcomingTripsProvider);
+      return (error: null, trip: trip);
+    } catch (e) {
+      if (ref.mounted) state = state.copyWith(busy: false);
+      return (error: apiErrorMessage(e), trip: null);
     }
   }
 

@@ -24,17 +24,21 @@ Future<PlacePick?> showPlaceSearchSheet(
   required String title,
   Place? current,
   bool offerMap = false,
+  bool anywhere = false,
 }) => showTtSheet<PlacePick>(
   context,
-  builder: (_) => _PlaceSearchSheet(title: title, current: current, offerMap: offerMap),
+  builder: (_) => _PlaceSearchSheet(title: title, current: current, offerMap: offerMap, anywhere: anywhere),
 );
 
 class _PlaceSearchSheet extends ConsumerStatefulWidget {
-  const _PlaceSearchSheet({required this.title, this.current, required this.offerMap});
+  const _PlaceSearchSheet({required this.title, this.current, required this.offerMap, this.anywhere = false});
 
   final String title;
   final Place? current;
   final bool offerMap;
+
+  /// Other towns too (goods to another town): no service-area restriction.
+  final bool anywhere;
 
   @override
   ConsumerState<_PlaceSearchSheet> createState() => _PlaceSearchSheetState();
@@ -91,7 +95,7 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
       _error = null;
     });
     try {
-      final results = await ref.read(placesRepositoryProvider).search(q);
+      final results = await ref.read(placesRepositoryProvider).search(q, anywhere: widget.anywhere);
       if (!mounted || id != _request) return;
       setState(() {
         _results = results;
@@ -135,7 +139,12 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
       children: [
         Text(widget.title, style: t.h2),
         const SizedBox(height: 12),
-        SearchField(hint: 'Search for a place', showMic: false, autofocus: true, onChanged: _onChanged),
+        SearchField(
+          hint: widget.anywhere ? 'Search a town, city or place' : 'Search for a place',
+          showMic: false,
+          autofocus: true,
+          onChanged: _onChanged,
+        ),
         const SizedBox(height: 8),
         if (widget.offerMap)
           LocationRow(

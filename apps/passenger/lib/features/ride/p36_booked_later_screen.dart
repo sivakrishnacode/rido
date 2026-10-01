@@ -7,8 +7,9 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../router/routes.dart';
 import 'widgets/upcoming_trip_card.dart';
 
-/// P-36 Booked for later: the rental / outstation trip is booked for its time. What happens next (we find the driver
-/// 30 min before; free to cancel until then), the booking, then Done (Home) or See my trips (Activity).
+/// P-36 Booked for later: the rental / outstation trip, goods to another town or house shift is booked for its time.
+/// What happens next (we find the driver or movers 30 min before; free to cancel until then), the booking, then Done
+/// (Home, or the parcel tab) or See my trips (Activity).
 class P36BookedLaterScreen extends ConsumerWidget {
   const P36BookedLaterScreen({super.key, this.trip, this.showcase = false});
 
@@ -54,14 +55,14 @@ class P36BookedLaterScreen extends ConsumerWidget {
                   Text("You're booked", style: t.display, textAlign: TextAlign.center),
                   const SizedBox(height: TtSpacing.xs),
                   Text(
-                    at == null ? 'for later' : 'for ${formatWhen(at)}',
+                    at == null ? 'for later' : 'for ${whenLabelOf(booked)}',
                     style: t.h2.copyWith(color: TtColors.coral600),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: TtSpacing.xl),
                   UpcomingTripCard(trip: booked, showWhen: false),
                   const SizedBox(height: TtSpacing.l),
-                  const _NextSteps(),
+                  _NextSteps(movers: booked.isShifting),
                 ],
               ),
             ),
@@ -71,7 +72,7 @@ class P36BookedLaterScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TtButton(label: 'Done', onPressed: showcase ? () {} : () => context.go(Routes.ride)),
+                  TtButton(label: 'Done', onPressed: showcase ? () {} : () => context.go(booked.isParcel ? Routes.parcel : Routes.ride)),
                   const SizedBox(height: TtSpacing.s),
                   TtButton.secondary(label: 'See my trips', onPressed: showcase ? () {} : () => context.go(Routes.activity)),
                 ],
@@ -86,16 +87,26 @@ class P36BookedLaterScreen extends ConsumerWidget {
 
 /// What happens before the trip.
 class _NextSteps extends StatelessWidget {
-  const _NextSteps();
+  const _NextSteps({this.movers = false});
+
+  /// A house shift: the movers, their slot, keep the OTP for the new home.
+  final bool movers;
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    const steps = [
-      (Symbols.travel_explore_rounded, 'We start finding your driver 30 minutes before the pickup time.'),
-      (Symbols.notifications_active_rounded, "You get a notification with the driver's name and number plate."),
-      (Symbols.event_busy_rounded, 'Plans changed? Cancel for free from Activity until the search starts.'),
-    ];
+    final steps = movers
+        ? const [
+            (Symbols.travel_explore_rounded, 'We start finding your movers 30 minutes before the slot starts.'),
+            (Symbols.notifications_active_rounded, "You get a notification with the driver's name, vehicle and number plate."),
+            (Symbols.pin_rounded, 'At the new home, give the driver the delivery OTP from the app once everything is in.'),
+            (Symbols.event_busy_rounded, 'Plans changed? Cancel for free from Activity until the search starts.'),
+          ]
+        : const [
+            (Symbols.travel_explore_rounded, 'We start finding your driver 30 minutes before the pickup time.'),
+            (Symbols.notifications_active_rounded, "You get a notification with the driver's name and number plate."),
+            (Symbols.event_busy_rounded, 'Plans changed? Cancel for free from Activity until the search starts.'),
+          ];
     return Container(
       padding: const EdgeInsets.all(TtSpacing.l),
       decoration: const BoxDecoration(color: TtColors.surface, borderRadius: TtRadii.cardRadius),

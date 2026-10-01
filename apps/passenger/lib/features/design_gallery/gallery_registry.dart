@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
@@ -27,6 +28,11 @@ import '../parcel/pp07_finding_goods_driver_screen.dart';
 import '../parcel/pp08_parcel_driver_assigned_screen.dart';
 import '../parcel/pp09_parcel_in_transit_screen.dart';
 import '../parcel/pp10_parcel_delivered_screen.dart';
+import '../../state/shifting_flow.dart';
+import '../shifting/ph01_moving_details_screen.dart';
+import '../shifting/ph02_items_screen.dart';
+import '../shifting/ph03_schedule_screen.dart';
+import '../shifting/ph04_review_screen.dart';
 import '../ride/p07_home_screen.dart';
 import '../ride/p08_search_screen.dart';
 import '../ride/p09_pin_on_map_screen.dart';
@@ -145,6 +151,11 @@ final List<GalleryEntry> galleryEntries = [
   _e('PP-08', 'Driver assigned · picking up', _p4, (_) => const PP08ParcelDriverAssignedScreen(showcase: true)),
   _e('PP-09', 'Parcel in transit', _p4, (_) => const PP09ParcelInTransitScreen(showcase: true)),
   _e('PP-10', 'Parcel delivered', _p4, (_) => const PP10ParcelDeliveredScreen(showcase: true)),
+  _e('PH-01', 'House shifting · moving details', _p4, (_) => const PH01MovingDetailsScreen(showcase: true)),
+  _e('PH-02', 'House shifting · items (typed)', _p4, (_) => const PH02ItemsScreen(showcase: true)),
+  _e('PH-03', 'House shifting · day and extras', _p4, (_) => const PH03ScheduleScreen(showcase: true)),
+  _e('PH-04', 'House shifting · review', _p4, (_) => const PH04ReviewScreen(showcase: true)),
+  _e('PH-05', 'House shifting · booked', _p4, (_) => P36BookedLaterScreen(trip: _sampleShift(), showcase: true)),
   // Part 7
   _e('S-01', 'No drivers nearby', _p7, (_) => const S01NoDriversScreen(showcase: true)),
   _e('S-02', 'Driver cancelled', _p7, (_) => const S02DriverCancelledScreen(showcase: true)),
@@ -206,4 +217,22 @@ class _FrameNotFound extends StatelessWidget {
           onAction: () => context.canPop() ? context.pop() : context.go(Routes.gallery),
         ),
       );
+}
+
+/// The gallery's sample plan, booked.
+Trip _sampleShift() {
+  final s = ShiftingFlowState.sample();
+  final q = s.quote!;
+  return Trip(
+    id: 'HS-SAMPLE',
+    kind: TripKind.parcel,
+    vehicle: q.vehicle,
+    pickup: s.pickup,
+    drop: s.drop!,
+    fare: q.lines.total,
+    status: TripStatus.scheduled,
+    startedAt: DateTime.now(),
+    scheduledAt: s.slot,
+    shifting: s.details.copyWith(lines: q.lines),
+  );
 }

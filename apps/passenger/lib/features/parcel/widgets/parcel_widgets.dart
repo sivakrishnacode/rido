@@ -181,8 +181,8 @@ Future<void> shareParcelWithReceiver(BuildContext context, ParcelFlowState s, La
 
 /// Searches places ([showPlaceSearchSheet]: Google via the API when live, seed places in mock mode) and
 /// returns the picked one with its coordinates resolved.
-Future<Place?> showParcelPlacePicker(BuildContext context, {required String title, Place? current}) async {
-  final pick = await showPlaceSearchSheet(context, title: title, current: current);
+Future<Place?> showParcelPlacePicker(BuildContext context, {required String title, Place? current, bool anywhere = false}) async {
+  final pick = await showPlaceSearchSheet(context, title: title, current: current, anywhere: anywhere);
   return pick?.place;
 }
 
@@ -205,6 +205,7 @@ class ParcelPhoneField extends StatelessWidget {
     this.errorText,
     this.onChanged,
     this.suffix,
+    this.enabled = true,
   });
 
   final String label;
@@ -212,6 +213,7 @@ class ParcelPhoneField extends StatelessWidget {
   final String? errorText;
   final ValueChanged<String>? onChanged;
   final Widget? suffix;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -224,6 +226,7 @@ class ParcelPhoneField extends StatelessWidget {
         const SizedBox(height: 6),
         TextField(
           controller: controller,
+          enabled: enabled,
           keyboardType: TextInputType.phone,
           inputFormatters: [_PhoneFormatter()],
           onChanged: onChanged,

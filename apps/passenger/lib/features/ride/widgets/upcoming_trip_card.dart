@@ -4,9 +4,23 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../state/ride_flow.dart';
+import '../../../state/shifting_flow.dart' show slotLabel;
 
-/// What a trip booked for later is: "Rental · 4 hrs · 40 km", "Outstation · round trip", "Outstation · one way".
-String modeLabelOf(Trip trip) => rideModeLabel(trip.rideMode, trip.modeTerms) ?? 'Ride';
+/// What a trip booked for later is: "Rental · 4 hrs · 40 km", "Outstation · round trip", "House shifting · 1 BHK",
+/// "Goods · another town".
+String modeLabelOf(Trip trip) {
+  if (trip.shifting case final s?) return 'House shifting · ${s.homeSize.label}';
+  if (trip.isParcel) return trip.rideMode == RideMode.outstation ? 'Goods · another town' : 'Parcel';
+  return rideModeLabel(trip.rideMode, trip.modeTerms) ?? 'Ride';
+}
+
+/// When a booking is for: "Tomorrow, 6:00 AM"; a house shift's slot "Sat 3 Oct, 9–11 AM".
+String whenLabelOf(Trip trip) {
+  final at = trip.scheduledAt;
+  if (at == null) return 'Booked for later';
+  if (!trip.isShifting) return formatWhen(at);
+  return '${formatWhen(at).split(', ').first}, ${slotLabel(at.hour)}';
+}
 
 /// A trip booked for later: picture, when, what, from → to, fare and (with [onCancel]) a free Cancel.
 class UpcomingTripCard extends StatelessWidget {
@@ -25,7 +39,6 @@ class UpcomingTripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final at = trip.scheduledAt;
     return Material(
       color: TtColors.surface,
       borderRadius: TtRadii.cardRadius,
@@ -47,7 +60,7 @@ class UpcomingTripCard extends StatelessWidget {
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       const Icon(Symbols.event_rounded, size: 16, color: TtColors.coral600, fill: 1),
                       const SizedBox(width: 4),
-                      Text(at == null ? 'Booked for later' : formatWhen(at),
+                      Text(whenLabelOf(trip),
                           style: t.bodySmallMedium.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w600)),
                     ]),
                   ),
@@ -80,7 +93,7 @@ class UpcomingTripCard extends StatelessWidget {
               ),
               if (!compact && showWhen) ...[
                 const SizedBox(height: TtSpacing.m),
-                Text("We'll start finding your driver 30 min before. Free to cancel until then.",
+                Text("We'll start finding your ${trip.isShifting ? 'movers' : 'driver'} 30 min before. Free to cancel until then.",
                     style: t.caption.copyWith(color: TtColors.navy500)),
                 if (onCancel != null)
                   Align(
@@ -106,7 +119,7 @@ Future<void> confirmCancelUpcoming(BuildContext context, WidgetRef ref, Trip tri
   final ok = await showTtConfirm(
     context,
     title: 'Cancel this booking?',
-    message: '${modeLabelOf(trip)}${trip.scheduledAt == null ? '' : ', ${formatWhen(trip.scheduledAt!)}'}. Nothing is charged.',
+    message: '${modeLabelOf(trip)}${trip.scheduledAt == null ? '' : ', ${whenLabelOf(trip)}'}. Nothing is charged.',
     confirmLabel: 'Cancel booking',
     cancelLabel: 'Keep it',
     destructive: true,

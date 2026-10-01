@@ -7,10 +7,11 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
+import '../ride/widgets/mode_widgets.dart' show WhenChoice;
 import 'widgets/parcel_widgets.dart';
 
-/// PP-06 Choose goods vehicle and review: route map, goods vehicles filtered by weight,
-/// who pays, fare breakdown and Book.
+/// PP-06 Choose goods vehicle and review: route map, goods vehicles filtered by weight (with their load bed), who
+/// pays, fare breakdown and Book. To another town: the goods trucks by the km, one way, now or later (Schedule → P-36).
 class PP06ChooseGoodsVehicleScreen extends ConsumerStatefulWidget {
   const PP06ChooseGoodsVehicleScreen({super.key, this.showcase = false});
 
@@ -30,7 +31,15 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
   }
 
   Future<void> _book() async {
-    final error = await ref.read(parcelFlowProvider.notifier).book();
+    final flow = ref.read(parcelFlowProvider.notifier);
+    if (ref.read(parcelFlowProvider).leaveAt != null) {
+      final r = await flow.bookForLater();
+      if (!mounted) return;
+      if (r.error != null) return showTtSnack(context, r.error!);
+      if (r.trip != null) context.go(Routes.parcelBooked, extra: r.trip);
+      return;
+    }
+    final error = await flow.book();
     if (!mounted) return;
     if (error != null) {
       showTtSnack(context, error);
@@ -127,7 +136,9 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                               Expanded(
                                 flex: 2,
                                 child: Text(
-                                  '${s.details.category.label} · ${s.details.weight.label}',
+                                  s.outstation
+                                      ? 'To ${s.drop.name} · one way'
+                                      : '${s.details.category.label} · ${s.details.weight.label}',
                                   textAlign: TextAlign.right,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -146,7 +157,7 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                               // Pictures where there are renders (bike, 3-wheeler, mini truck); the symbol tile else.
                               art: q.vehicle.kind.artAsset != null ? VehicleArt(q.vehicle.kind) : null,
                               name: q.vehicle.name,
-                              subtitle: '${q.vehicle.etaMin} min away · ${q.vehicle.capacityLabel.toLowerCase()}',
+                              subtitle: _subtitle(q, s.outstation),
                               fare: q.total,
                               badge: q.vehicle.badge,
                               selected: q.vehicle.kind == s.vehicle,
@@ -154,6 +165,13 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                               onTap: () => ctrl.selectVehicle(q.vehicle.kind),
                             ),
                             const SizedBox(height: 10),
+                          ],
+                          if (s.outstation) ...[
+                            const SizedBox(height: 6),
+                            Text('When?', style: t.bodyMedium),
+                            const SizedBox(height: 10),
+                            WhenChoice(at: s.leaveAt, onChanged: widget.showcase ? (_) {} : ctrl.setLeaveAt),
+                            const SizedBox(height: 16),
                           ],
                           const SizedBox(height: 6),
                           Text('Who pays the driver?', style: t.bodyMedium),
@@ -186,6 +204,13 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                             ],
                           ),
                           const SizedBox(height: 4),
+                          if (s.outstation) ...[
+                            Text(
+                              'One way: the price includes the drive back. Tolls and state permits on the way are yours.',
+                              style: t.caption.copyWith(color: TtColors.navy500),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
                           Text(
                             'Tamil Taxi connects you with drivers and is not liable for lost or damaged goods.',
                             style: t.caption.copyWith(color: TtColors.navy500),
@@ -197,7 +222,9 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: TtButton(
-                      label: quotesReady ? 'Book ${quote.vehicle.name} · ${formatInr(quote.total)}' : 'Book',
+                      label: quotesReady
+                          ? '${s.leaveAt != null ? 'Schedule' : 'Book'} ${quote.vehicle.name} · ${formatInr(quote.total)}'
+                          : 'Book',
                       loading: s.busy,
                       onPressed: canBook ? _book : null,
                     ),
@@ -210,6 +237,16 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
       ),
     );
   }
+}
+
+/// "6 min · 5 ft bed · 750 kg"; to another town "₹26/km · 104 km · 5 ft bed".
+String _subtitle(FareQuote q, bool outstation) {
+  final v = q.vehicle;
+  final terms = q.modeTerms;
+  if (outstation && terms is OutstationTerms) {
+    return ['₹${terms.perKm.round()}/km · ${formatCount(terms.includedKm)} km', ?v.kind.bedLabel].join(' · ');
+  }
+  return ['${v.etaMin} min', ?v.kind.bedLabel, if (v.capacityKg != null) '${formatCount(v.capacityKg!)} kg'].join(' · ');
 }
 
 class _RouteChip extends StatelessWidget {

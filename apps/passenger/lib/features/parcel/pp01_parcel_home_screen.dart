@@ -11,7 +11,8 @@ import '../../state/parcel_flow.dart';
 import '../../state/passenger_session.dart';
 import 'widgets/parcel_widgets.dart';
 
-/// PP-01 Parcel home: pickup / drop cards, goods vehicle grid, recent parcels.
+/// PP-01 Parcel home: in town or to another town, pickup / drop cards, House shifting, goods vehicle grid, recent
+/// parcels.
 class PP01ParcelHomeScreen extends ConsumerWidget {
   const PP01ParcelHomeScreen({super.key, this.showcase = false});
 
@@ -37,8 +38,20 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Send anything, anywhere in town', style: t.display),
-                  const SizedBox(height: 20),
+                  Text('Send anything', style: t.display),
+                  const SizedBox(height: 4),
+                  Text(
+                    flow.outstation ? 'To another town, by the km, one way' : 'Anywhere in town, in minutes',
+                    style: t.body.copyWith(color: TtColors.navy500),
+                  ),
+                  const SizedBox(height: 16),
+                  TtSegmented<bool>(
+                    options: const [false, true],
+                    labelOf: (out) => out ? 'To another town' : 'In town',
+                    selected: flow.outstation,
+                    onChanged: showcase ? (_) {} : ctrl.setOutstation,
+                  ),
+                  const SizedBox(height: 16),
                   if (flow.isActive && !showcase) ...[
                     TtBanner(
                       type: TtBannerType.info,
@@ -62,12 +75,20 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
             ),
             const Divider(),
             Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+              child: _ShiftingCard(onTap: () => context.push(Routes.shifting)),
+            ),
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SectionLabel('Choose a vehicle', padding: EdgeInsets.fromLTRB(0, 24, 0, 12)),
                   _VehicleGrid(
+                    // Another town: goods trucks only.
+                    vehicles: flow.outstation
+                        ? [for (final k in GoodsModeRates.goodsTrucks) Seed.vehicle(k)]
+                        : Seed.goodsVehicles,
                     onTap: (kind) {
                       ctrl.selectVehicle(kind);
                       context.push(Routes.parcelPickup);
@@ -216,12 +237,12 @@ class _RouteCard extends StatelessWidget {
 }
 
 class _VehicleGrid extends StatelessWidget {
-  const _VehicleGrid({required this.onTap});
+  const _VehicleGrid({required this.vehicles, required this.onTap});
+  final List<VehicleType> vehicles;
   final ValueChanged<VehicleKind> onTap;
 
   @override
   Widget build(BuildContext context) {
-    const vehicles = Seed.goodsVehicles;
     final rows = <Widget>[];
     for (var i = 0; i < vehicles.length; i += 2) {
       final a = vehicles[i];
@@ -274,6 +295,57 @@ class _VehicleTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Moving home?": opens house shifting (PH-01).
+class _ShiftingCard extends StatelessWidget {
+  const _ShiftingCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Semantics(
+      button: true,
+      label: 'House shifting. A truck, helpers and packing on the day you choose',
+      excludeSemantics: true,
+      child: Material(
+        color: TtColors.navy900,
+        borderRadius: TtRadii.cardRadius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: const BoxDecoration(color: TtColors.coral600, borderRadius: TtRadii.pillRadius),
+                        child: Text('NEW', style: t.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('House shifting', style: t.h2.copyWith(color: Colors.white)),
+                      const SizedBox(height: 2),
+                      Text('A truck, helpers and packing, on the day you choose. Price up front.',
+                          style: t.bodySmall.copyWith(color: Colors.white70)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const ParcelVehicleArt(kind: VehicleKind.miniTruck, width: 96, height: 64, tile: TtColors.navy700),
+                const Icon(Symbols.chevron_right_rounded, color: Colors.white70),
+              ],
+            ),
+          ),
         ),
       ),
     );

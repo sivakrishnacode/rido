@@ -33,6 +33,10 @@ import '../features/parcel/pp07_finding_goods_driver_screen.dart';
 import '../features/parcel/pp08_parcel_driver_assigned_screen.dart';
 import '../features/parcel/pp09_parcel_in_transit_screen.dart';
 import '../features/parcel/pp10_parcel_delivered_screen.dart';
+import '../features/shifting/ph01_moving_details_screen.dart';
+import '../features/shifting/ph02_items_screen.dart';
+import '../features/shifting/ph03_schedule_screen.dart';
+import '../features/shifting/ph04_review_screen.dart';
 import '../features/ride/p07_home_screen.dart';
 import '../features/ride/p08_search_screen.dart';
 import '../features/ride/p09_pin_on_map_screen.dart';
@@ -140,6 +144,27 @@ GoRouter createPassengerRouter({String initialLocation = Routes.splash}) => GoRo
                 _sub('chat', (_) => const P14ChatScreen(forParcel: true)),
                 _sub('in-transit', (_) => const PP09ParcelInTransitScreen()),
                 _sub('delivered', (_) => const PP10ParcelDeliveredScreen()),
+                _sub('booked', (s) => P36BookedLaterScreen(trip: s.extra is Trip ? s.extra as Trip : null)),
+                GoRoute(
+                  path: 'shifting',
+                  parentNavigatorKey: rootNavigatorKey,
+                  pageBuilder: (context, s) => MaterialPage(key: s.pageKey, child: const PH01MovingDetailsScreen()),
+                  routes: [
+                    GoRoute(
+                      path: 'items',
+                      parentNavigatorKey: rootNavigatorKey,
+                      pageBuilder: (context, s) => MaterialPage(key: s.pageKey, child: const PH02ItemsScreen()),
+                      routes: [
+                        GoRoute(
+                          path: 'day',
+                          parentNavigatorKey: rootNavigatorKey,
+                          pageBuilder: (context, s) => MaterialPage(key: s.pageKey, child: const PH03ScheduleScreen()),
+                          routes: [_sub('review', (_) => const PH04ReviewScreen())],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ],
             ),
           ],

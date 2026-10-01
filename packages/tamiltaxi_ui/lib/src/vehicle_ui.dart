@@ -31,6 +31,16 @@ extension VehicleKindUi on VehicleKind {
         VehicleKind.truck => 'Truck',
       };
 
+  /// Goods vehicles: the load bed's length, to judge what fits ("5 ft bed"); null for the rest.
+  String? get bedLabel => switch (this) {
+        VehicleKind.goodsBike => 'Carrier box',
+        VehicleKind.threeWheeler => '4.5 ft bed',
+        VehicleKind.miniTruck => '5 ft bed',
+        VehicleKind.pickup => '8 ft bed',
+        VehicleKind.truck => '14 ft bed',
+        _ => null,
+      };
+
   /// The 3/4 render in `assets/vehicles/` (built by scripts/vehicle_icons/build.py), or null for vehicles that have
   /// none yet (pickup, truck), which show [icon] instead.
   String? get artAsset => switch (this) {
