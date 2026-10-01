@@ -12,6 +12,7 @@ import '../../common/device_location.dart';
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
+import '../../state/nearby_vehicles.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
 import '../states/s05_location_denied_screen.dart';
@@ -60,16 +61,6 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   static LatLng _cameraFor(LatLng pickup) => TtMap.usesGoogle ? pickup : offsetPoint(pickup, 950, 180);
   static final LatLng _camera = _cameraFor(_pickup);
   static const double _zoom = 15;
-
-  /// Seeded nearby vehicles (bike, auto, car) at various headings, placed around [p]
-  /// (the current pickup, which follows the phone's real location).
-  static List<MapVehicle> _nearbyAround(LatLng p) => [
-    MapVehicle(position: offsetPoint(p, 520, 20), type: MapVehicleType.car, heading: 15),
-    MapVehicle(position: offsetPoint(p, 420, 320), type: MapVehicleType.car, heading: 30),
-    MapVehicle(position: offsetPoint(p, 420, 72), type: MapVehicleType.auto, heading: 110),
-    MapVehicle(position: offsetPoint(p, 330, 235), type: MapVehicleType.bike, heading: 70),
-    MapVehicle(position: offsetPoint(p, 360, 140), type: MapVehicleType.bike, heading: 120),
-  ];
 
   @override
   void dispose() {
@@ -176,8 +167,8 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
     final tripActive = widget.showTripBanner || ride.isActive || parcel.isActive;
     final sheetSize = tripActive ? 0.42 : 0.58;
-    // Decorative nearby vehicles in the seeded demo only; the live app has no feed of idle drivers.
-    final showNearby = !tripActive && (widget.showcase || !ref.watch(isLiveApiProvider));
+    // Free vehicles of every kind around the pickup (live: `GET /drivers/nearby`, every 15 s), like RedTaxi's map.
+    final showNearby = !tripActive;
 
     return Scaffold(
       backgroundColor: TtColors.surface,
@@ -198,7 +189,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                     mapPadding: sheetMapPadding(c.maxHeight * (padded ?? sheetSize)),
                     pickup: ref.watch(rideFlowProvider.select((r) => r.pickup.location)),
                     vehicles: showNearby
-                        ? _nearbyAround(ref.watch(rideFlowProvider.select((r) => r.pickup.location)))
+                        ? nearbyMarkers(ref, ref.watch(rideFlowProvider.select((r) => r.pickup.location)))
                         : const [],
                     // Just above the sheet (and the trip banner), like the Google logo: the top of the map is
                     // under the status bar and the greeting / SOS header.

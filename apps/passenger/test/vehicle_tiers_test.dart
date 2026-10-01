@@ -2,6 +2,7 @@
 // fares, the same numbers the API quotes for the demo route.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/ride/p07_home_screen.dart';
 import 'package:tamiltaxi_passenger/router/routes.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
@@ -29,6 +30,33 @@ void main() {
     ]);
   });
 
+  testWidgets('P-10 shows the free vehicles that could take the selected tier', (tester) async {
+    await pumpRoute(tester, Routes.chooseVehicle);
+    await tester.pump(const Duration(seconds: 1));
+    Finder markers(MapVehicleType type) => find.byWidgetPredicate((w) => w is VehicleMarker && w.type == type);
+    // Bike: the mock's two bikes and one scooter; no autos or cars.
+    expect(markers(MapVehicleType.bike), findsNWidgets(3));
+    expect(markers(MapVehicleType.auto), findsNothing);
+    expect(markers(MapVehicleType.car), findsNothing);
+    await tester.ensureVisible(find.text('Auto Priority'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Auto Priority'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(markers(MapVehicleType.auto), findsNWidgets(2));
+    expect(markers(MapVehicleType.bike), findsNothing);
+
+  });
+
+  testWidgets('Home shows free vehicles of every kind around the pickup', (tester) async {
+    await pumpRoute(tester, Routes.ride);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(P07HomeScreen), findsOneWidget);
+    Finder markers(MapVehicleType type) => find.byWidgetPredicate((w) => w is VehicleMarker && w.type == type);
+    expect(markers(MapVehicleType.bike), findsNWidgets(3));
+    expect(markers(MapVehicleType.auto), findsNWidgets(2));
+    expect(markers(MapVehicleType.car), findsNWidgets(3));
+  });
+
   test('every ride tier has a render; Auto Priority is not a driver vehicle', () {
     for (final v in Seed.rideVehicles) {
       expect(v.kind.artAsset, isNotNull, reason: v.name);
@@ -37,5 +65,8 @@ void main() {
     expect(VehicleKind.scooty.isTwoWheeler, isTrue);
     expect(VehicleKind.suv.isRide, isTrue);
     expect(VehicleKind.goodsBike.isGoods, isTrue);
+    expect(VehicleKind.bike.servedBy, [VehicleKind.bike, VehicleKind.scooty]);
+    expect(VehicleKind.autoPriority.servedBy, [VehicleKind.auto]);
+    expect(VehicleKind.sedan.servedBy, [VehicleKind.sedan]);
   });
 }

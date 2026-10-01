@@ -234,6 +234,11 @@ describe('Tamil Taxi API (e2e)', () => {
     const rider = await login();
     const pax = { Authorization: `Bearer ${rider}` };
     const auto = await onlineDriver('AUTO', near);
+    // The rider's map shows it nearby: kind and a rounded position, no id; signed-in riders only.
+    await http.get('/v1/drivers/nearby').query({ lat: pickup.lat, lng: pickup.lng }).expect(401);
+    const around = (await http.get('/v1/drivers/nearby').query({ lat: pickup.lat, lng: pickup.lng }).set(pax).expect(200)).body.vehicles;
+    expect(around.map((v: { kind: string }) => v.kind)).toContain('AUTO');
+    expect(around[0]).not.toHaveProperty('driverId');
     const priority = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'AUTO_PRIORITY', pickup, drop: BROOKEFIELDS }).expect(201)).body;
     expect(priority.fareTotal).toBe(fare('AUTO_PRIORITY'));
     expect((await acceptWhenOffered(priority.id, auto)).status).toBe(200);

@@ -189,6 +189,24 @@ class ApiRideRepository implements RideRepository {
   @override
   Future<DriverProfile?> findDriver(VehicleKind kind) async => null;
 
+  /// `GET /drivers/nearby` (signed-in riders).
+  @override
+  Future<List<NearbyVehicle>> nearbyVehicles(LatLng at, {bool parcels = false}) async {
+    final res = _map(await api.get('/drivers/nearby', query: {
+      'lat': at.latitude.toStringAsFixed(5),
+      'lng': at.longitude.toStringAsFixed(5),
+      if (parcels) 'trip': 'PARCEL',
+    }));
+    return [
+      for (final v in _list(res['vehicles']))
+        NearbyVehicle(
+          kind: vehicleKindFromApi(v['vehicleKind'] ?? v['kind']),
+          position: LatLng((v['lat'] as num).toDouble(), (v['lng'] as num).toDouble()),
+          heading: (v['heading'] as num?)?.toDouble(),
+        ),
+    ];
+  }
+
   @override
   Future<List<Trip>> history() async => _list(await api.get('/trips')).map(tripFromJson).toList();
 

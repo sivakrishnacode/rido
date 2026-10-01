@@ -6,6 +6,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
+import '../../state/nearby_vehicles.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
 import 'p10b_who_is_riding_sheet.dart';
@@ -92,6 +93,9 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                   pickup: state.pickup.location,
                   drop: state.drop.location,
                   route: route,
+                  // The free vehicles that could take the selected tier (bikes and scooters for Bike, autos for
+                  // Auto Priority), like Rapido.
+                  vehicles: nearbyMarkers(ref, state.pickup.location, kinds: state.vehicle.servedBy),
                   fitPoints: route,
                   fitPadding: const EdgeInsets.fromLTRB(56, 96, 56, 88),
                   // The sheet overlaps the map's bottom edge; keep the Google logo above it.

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
 
 /// Every vehicle Tamil Taxi supports, in the order the apps list them. Ride tiers carry passengers ([cab] is "Mini",
 /// the hatchback; [autoPriority] is a booking tier served by auto drivers, never a driver's vehicle); goods vehicles
@@ -25,6 +26,15 @@ enum VehicleKind {
 
   /// A vehicle a driver can register with (every kind except the Auto Priority booking tier).
   bool get isDriverVehicle => this != autoPriority;
+
+  /// The drivers' vehicles that can take a trip booked as this kind (same as the API's `driverKindsFor`): bikes and
+  /// scooters for a Bike ride or a goods-bike parcel, autos for Auto Priority, otherwise its own vehicle.
+  List<VehicleKind> get servedBy => switch (this) {
+        bike => const [bike, scooty],
+        goodsBike => const [goodsBike, bike, scooty],
+        autoPriority => const [auto],
+        _ => [this],
+      };
 }
 
 /// What a driver does on Tamil Taxi: carry passengers or carry goods.
@@ -297,4 +307,15 @@ int waitingChargeFor({required Duration waited, required int freeMin, required i
   final minutes = (overMs / 60000 - 1e-9).ceil();
   final charge = minutes * perMin;
   return charge < maxCharge ? charge : maxCharge;
+}
+
+/// A free driver's vehicle on the rider's map (`GET /drivers/nearby`): kind, a rounded position and the heading in
+/// 15° steps (null when the phone didn't know it). No driver id.
+@immutable
+class NearbyVehicle {
+  const NearbyVehicle({required this.kind, required this.position, this.heading});
+
+  final VehicleKind kind;
+  final LatLng position;
+  final double? heading;
 }

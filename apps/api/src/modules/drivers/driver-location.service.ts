@@ -47,8 +47,11 @@ export class DriverLocationService {
     return `h3:drv:${kind}:${cell}`;
   }
 
-  /** Moves the driver in the index. [at]: when the fix was taken (epoch ms, default now), stored in `driver:alive`. */
-  async update(params: { driverId: string; kind: VehicleKind; lat: number; lng: number; at?: number }): Promise<void> {
+  /**
+   * Moves the driver in the index. [at]: when the fix was taken (epoch ms, default now); [heading]: degrees from
+   * north when the phone knows it. Both are stored in `driver:alive` (`lat,lng,at[,heading]`).
+   */
+  async update(params: { driverId: string; kind: VehicleKind; lat: number; lng: number; at?: number; heading?: number | null }): Promise<void> {
     const cell = cellAt(params.lat, params.lng, DRIVER_H3_RES);
     const prev = await this.redis.get(`driver:cell:${params.driverId}`);
     const next = `${params.kind}|${cell}`;
@@ -59,7 +62,12 @@ export class DriverLocationService {
     }
     tx.sadd(DriverLocationService.cellKey(params.kind, cell), params.driverId)
       .set(`driver:cell:${params.driverId}`, next)
-      .set(`driver:alive:${params.driverId}`, `${params.lat},${params.lng},${params.at ?? Date.now()}`, 'EX', ALIVE_TTL_S)
+      .set(
+        `driver:alive:${params.driverId}`,
+        `${params.lat},${params.lng},${params.at ?? Date.now()}${params.heading == null ? '' : `,${Math.round(params.heading)}`}`,
+        'EX',
+        ALIVE_TTL_S,
+      )
       // Keeps the busy flag alive while the driver is on a trip (no-op when free).
       .expire(`driver:busy:${params.driverId}`, BUSY_TTL_S);
     await tx.exec();
@@ -81,12 +89,15 @@ export class DriverLocationService {
     return fix && { lat: fix.lat, lng: fix.lng };
   }
 
-  /** Last position from the app's GPS stream / heartbeat and when it arrived (epoch ms; null for older entries). */
-  async lastFix(driverId: string): Promise<{ lat: number; lng: number; at: number | null } | null> {
+  /**
+   * Last position from the app's GPS stream / heartbeat, when it arrived (epoch ms; null for older entries) and the
+   * heading (null when unknown).
+   */
+  async lastFix(driverId: string): Promise<{ lat: number; lng: number; at: number | null; heading: number | null } | null> {
     const raw = await this.redis.get(`driver:alive:${driverId}`);
     if (!raw) return null;
-    const [lat, lng, at] = raw.split(',').map(Number);
-    return { lat, lng, at: Number.isFinite(at) ? at : null };
+    const [lat, lng, at, heading] = raw.split(',').map(Number);
+    return { lat, lng, at: Number.isFinite(at) ? at : null, heading: Number.isFinite(heading) ? heading : null };
   }
 
   /**

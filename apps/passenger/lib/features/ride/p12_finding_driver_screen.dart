@@ -10,6 +10,7 @@ import '../../common/add_extra_card.dart';
 import '../../common/map_insets.dart';
 import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
+import '../../state/nearby_vehicles.dart';
 import '../../state/ride_flow.dart';
 
 /// P-12 Finding your driver: coral pulse at the pickup, progress bar, trip summary and
@@ -108,12 +109,8 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
     final state = ref.watch(rideFlowProvider);
     final q = state.quote;
     final pickup = state.pickup.location;
-    // Decorative nearby vehicles in the seeded demo only; the live app has no feed of idle drivers.
-    final vehicles = ref.watch(isLiveApiProvider) ? const <MapVehicle>[] : [
-      MapVehicle(position: offsetPoint(pickup, 420, 320), type: MapVehicleType.car, heading: 30),
-      MapVehicle(position: offsetPoint(pickup, 380, 70), type: MapVehicleType.auto, heading: 110),
-      MapVehicle(position: offsetPoint(pickup, 300, 150), type: MapVehicleType.bike, heading: 120),
-    ];
+    // Free vehicles that could take this request (the booked tier and any added with "Book any").
+    final vehicles = nearbyMarkers(ref, pickup, kinds: [for (final k in [state.vehicle, ...state.alsoVehicles]) ...k.servedBy]);
 
     final sheet = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

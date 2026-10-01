@@ -7,7 +7,7 @@ import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Roles } from '../../core/auth/roles.decorator.js';
 import { FileStorageService, MAX_UPLOAD_BYTES, type UploadedBlob } from '../../core/storage/file-storage.service.js';
 import type { Driver, KycDocument } from '../../generated/prisma/client.js';
-import { KycDocType, Role } from '../../generated/prisma/enums.js';
+import { KycDocType, Role, TripKind } from '../../generated/prisma/enums.js';
 import type { BookingPrefs } from './booking-prefs.js';
 import { DriverEarningsService, type Earnings } from './driver-earnings.service.js';
 import { DriversService } from './drivers.service.js';
@@ -15,6 +15,8 @@ import { AuditInterceptor } from '../admin/audit.interceptor.js';
 import { BookingPrefsDto } from './dto/booking-prefs.dto.js';
 import { EarningsQueryDto } from './dto/earnings-query.dto.js';
 import { LocationDto } from './dto/location.dto.js';
+import { NearbyQueryDto } from './dto/nearby-query.dto.js';
+import { PARCEL_MAP_KINDS, RIDE_MAP_KINDS, type NearbyVehicle } from './nearby-vehicles.js';
 import { RegisterDriverDto } from './dto/register-driver.dto.js';
 import { ReviewDriverDto } from './dto/review-driver.dto.js';
 import { ReviewPhotoDto } from './dto/review-photo.dto.js';
@@ -28,6 +30,15 @@ export class DriversController {
     private readonly earningsService: DriverEarningsService,
     private readonly files: FileStorageService,
   ) {}
+
+  /**
+   * Free vehicles around a pickup for the rider's map (P-07, P-10, P-12): up to 15 within 3 km, a few of each kind,
+   * no ids, positions rounded to ~55 m. `trip=PARCEL` shows goods vehicles and two-wheelers.
+   */
+  @Get('drivers/nearby')
+  nearby(@Query() q: NearbyQueryDto): Promise<{ vehicles: NearbyVehicle[] }> {
+    return this.drivers.nearbyVehicles({ lat: q.lat, lng: q.lng }, q.trip === TripKind.PARCEL ? PARCEL_MAP_KINDS : RIDE_MAP_KINDS);
+  }
 
   @Post('drivers')
   register(@CurrentUser() user: AuthUser, @Body() body: RegisterDriverDto): Promise<{ driver: Driver; accessToken: string }> {

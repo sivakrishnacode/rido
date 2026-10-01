@@ -13,6 +13,7 @@ import '../models/trip.dart';
 import '../models/vehicle.dart';
 import '../repositories/repositories.dart';
 import '../seed.dart';
+import '../simulation/trip_simulator.dart';
 import 'mock_database.dart';
 
 typedef SettingsReader = DemoSettings Function();
@@ -196,6 +197,33 @@ class MockRideRepository with _Latency implements RideRepository {
   Future<List<FareQuote>> quotes(Place from, Place to, {bool womenOnly = false}) async {
     await delay();
     return FareEngine.quoteAll(rideVehicles, FareEngine.estimate(from, to));
+  }
+
+  /// A fixed mix around [at] (same spots every time, so screenshots are stable).
+  @override
+  Future<List<NearbyVehicle>> nearbyVehicles(LatLng at, {bool parcels = false}) async {
+    if (settings().noDrivers) return const [];
+    const rides = [
+      (VehicleKind.cab, 520.0, 20.0, 15.0),
+      (VehicleKind.sedan, 430.0, 320.0, 30.0),
+      (VehicleKind.auto, 420.0, 72.0, 110.0),
+      (VehicleKind.bike, 330.0, 235.0, 70.0),
+      (VehicleKind.scooty, 360.0, 140.0, 120.0),
+      (VehicleKind.auto, 610.0, 200.0, 250.0),
+      (VehicleKind.bike, 260.0, 300.0, 340.0),
+      (VehicleKind.suv, 700.0, 110.0, 200.0),
+    ];
+    const goods = [
+      (VehicleKind.goodsBike, 330.0, 235.0, 70.0),
+      (VehicleKind.threeWheeler, 420.0, 72.0, 110.0),
+      (VehicleKind.bike, 360.0, 140.0, 120.0),
+      (VehicleKind.miniTruck, 560.0, 20.0, 15.0),
+      (VehicleKind.pickup, 690.0, 300.0, 210.0),
+    ];
+    return [
+      for (final (kind, metres, bearing, heading) in parcels ? goods : rides)
+        NearbyVehicle(kind: kind, position: offsetPoint(at, metres, bearing), heading: heading),
+    ];
   }
 
   @override

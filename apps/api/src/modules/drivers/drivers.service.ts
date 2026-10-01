@@ -8,9 +8,10 @@ import { type Area, type BookingPrefs, type GoTo, GO_TO_HOURS, readPrefs, type S
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, KycDocument, Prisma } from '../../generated/prisma/client.js';
-import { DriverStatus, IdentityStatus, KycDocType, KycStatus, Role, TripStatus } from '../../generated/prisma/enums.js';
+import { DriverStatus, IdentityStatus, KycDocType, KycStatus, Role, TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
 import { AuthService } from '../auth/auth.service.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
+import { nearbyVehicles, type NearbyVehicle } from './nearby-vehicles.js';
 import { DriverLocationService } from './driver-location.service.js';
 import type { RegisterDriverDto } from './dto/register-driver.dto.js';
 import { NotifierService } from '../notifications/notifier.service.js';
@@ -33,6 +34,11 @@ export class DriversService {
     private readonly didit: DiditClient,
     private readonly state: DriverStateCache,
   ) {}
+
+  /** Free vehicles around [at] for the rider's map (nearby-vehicles.ts). */
+  async nearbyVehicles(at: { lat: number; lng: number }, kinds: readonly VehicleKind[]): Promise<{ vehicles: NearbyVehicle[] }> {
+    return { vehicles: await nearbyVehicles(this.location, at, kinds) };
+  }
 
   /** Creates the driver, the RC + insurance rows and a 30-day free trial; returns a token with the DRIVER role. */
   async register(userId: string, dto: RegisterDriverDto): Promise<{ driver: Driver; accessToken: string }> {

@@ -64,7 +64,7 @@ export class LocationIngestService {
   }
 
   private async moveTo(driverId: string, kind: VehicleKind, fix: LocationFix, at: number, tripId: string | null): Promise<void> {
-    await this.location.update({ driverId, kind, lat: fix.lat, lng: fix.lng, at });
+    await this.location.update({ driverId, kind, lat: fix.lat, lng: fix.lng, at, heading: fix.hdg ?? null });
     if (tripId) this.events.toTrip(tripId, 'trip.location', { tripId, lat: fix.lat, lng: fix.lng, at, hdg: fix.hdg });
   }
 }

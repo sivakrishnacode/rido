@@ -73,6 +73,10 @@ abstract interface class RideRepository {
 
   /// Null when Demo control "No drivers nearby" is on.
   Future<DriverProfile?> findDriver(VehicleKind kind);
+
+  /// Free vehicles around [at] for the map (a few of each kind, nearest first). [parcels]: goods vehicles and
+  /// two-wheelers instead of ride vehicles. Empty when nobody is near (or Demo control "No drivers").
+  Future<List<NearbyVehicle>> nearbyVehicles(LatLng at, {bool parcels = false});
   Future<List<Trip>> history();
   Future<Trip?> tripById(String id);
   Future<void> addTrip(Trip trip);
