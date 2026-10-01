@@ -463,6 +463,9 @@ model Trip {
   /// What a rental / outstation trip agreed to (fares/ride-modes.ts RentalTerms / OutstationTerms). A rental's drop is
   /// its pickup (the rider says where on the way).
   modeTerms          Json?
+  /// House shifting (a parcel trip by a goods truck with helpers): home size, the items the rider typed, floors and
+  /// lifts, packing and extras, and the price lines (fares/goods-modes.ts). Always booked for a day and time slot.
+  shifting           Json?
   /// Pickup time of a trip booked for later (status SCHEDULED until dispatch starts).
   scheduledAt        DateTime?
   /// When the search for a driver started (booking, or the scheduled start): dispatch widens its radius from here.

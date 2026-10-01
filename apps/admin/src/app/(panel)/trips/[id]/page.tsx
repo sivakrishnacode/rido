@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, EyeOffIcon, LifeBuoyIcon, NavigationIcon, PackageIcon, ShieldAlertIcon, StarIcon } from "lucide-react";
+import { ArrowLeftIcon, EyeOffIcon, HomeIcon, LifeBuoyIcon, NavigationIcon, PackageIcon, ShieldAlertIcon, StarIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -11,7 +11,7 @@ import { cancelSummary, faultSummary, type CancelFault } from "@/lib/cancel";
 import { formatKm } from "@/lib/polyline";
 import { isSosActive, safetyEventLine, sosMapUrl, sosSourceLabel } from "@/lib/safety";
 import { displayName, formatDateTime, formatInr, formatPhone, humanize, shortId, vehicleLabel } from "@/lib/format";
-import type { FareBreakdown } from "@/lib/types";
+import type { FareBreakdown, ShiftingInfo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { MarkReviewedButton } from "./review-actions";
@@ -80,7 +80,16 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
             <StatusBadge status={t.status} />
           </span>
         }
-        description={`${isParcel ? "Parcel" : "Ride"} · ${vehicleLabel(t.vehicleKind)} · booked ${formatDateTime(t.createdAt)} · ${t.paymentMode === "UPI" ? "UPI" : "Cash"}`}
+        description={[
+          t.shifting ? "House shifting" : isParcel ? "Parcel" : "Ride",
+          t.rideMode === "RENTAL" ? "rental" : t.rideMode === "OUTSTATION" ? "to another town" : null,
+          vehicleLabel(t.vehicleKind),
+          `booked ${formatDateTime(t.createdAt)}`,
+          t.scheduledAt ? `for ${formatDateTime(t.scheduledAt)}` : null,
+          t.paymentMode === "UPI" ? "UPI" : "Cash",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
       />
 
       {activeSos.length > 0 && (
@@ -398,6 +407,8 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
           </Card>
         )}
 
+        {t.shifting && <ShiftingCard s={t.shifting} />}
+
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-semibold">
@@ -522,4 +533,83 @@ function signalsText(s: Record<string, unknown>): string {
 function formatMetres(m: number | null | undefined): string {
   if (m == null) return "far";
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
+}
+
+const HOME_SIZE: Record<ShiftingInfo["homeSize"], string> = {
+  FEW_ITEMS: "A few items",
+  ONE_RK: "Studio / 1 RK",
+  ONE_BHK: "1 BHK",
+  TWO_BHK: "2 BHK",
+  THREE_BHK: "3 BHK or more",
+};
+
+const floorText = (floor: number, lift: boolean): string => `${floor === 0 ? "Ground floor" : `Floor ${floor}`}${floor > 0 ? (lift ? ", lift" : ", no lift") : ""}`;
+
+/** House shifting: what the mover was asked to do (the items as the rider typed them) and the price lines. */
+function ShiftingCard({ s }: { s: ShiftingInfo }) {
+  const l = s.lines;
+  const extras = [
+    s.packing !== "NONE" && `${s.packing === "FULL" ? "Full" : "Basic"} packing`,
+    s.dismantlePieces > 0 && `${s.dismantlePieces} piece${s.dismantlePieces === 1 ? "" : "s"} taken apart`,
+    s.unpack && "Unpacking",
+    s.extraHelpers > 0 && `${s.extraHelpers} extra helper${s.extraHelpers === 1 ? "" : "s"}`,
+  ].filter(Boolean);
+  return (
+    <Card className="lg:col-span-3">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 font-semibold">
+          <HomeIcon className="size-4 text-coral-600" /> House shifting
+        </CardTitle>
+        <CardDescription>
+          {HOME_SIZE[s.homeSize]} · {s.between ? "to another town" : "in town"}
+          {l ? ` · ${l.helperCount} helper${l.helperCount === 1 ? "" : "s"}` : ""}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-6 md:grid-cols-3">
+        <dl className="grid gap-3">
+          <Field label="Pickup">{floorText(s.pickupFloor, s.pickupLift)}</Field>
+          <Field label="Drop">{floorText(s.dropFloor, s.dropLift)}</Field>
+          <Field label="Extras">{extras.length ? extras.join(", ") : "None"}</Field>
+        </dl>
+        <div>
+          <p className="mb-2 text-sm font-medium">Items ({s.items.reduce((n, i) => n + i.qty, 0)})</p>
+          <ul className="space-y-1 text-sm">
+            {s.items.map((i, k) => (
+              <li key={k}>
+                <span className="tabular-nums">{i.qty} ×</span> {i.name}
+                {i.note ? <span className="text-muted-foreground"> · {i.note}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+        {l && (
+          <dl className="grid gap-1 text-sm">
+            {(
+              [
+                ["Vehicle", l.transport],
+                ["Helpers", l.helpers],
+                ["Stairs", l.stairs],
+                ["Packing", l.packing],
+                ["Taking apart", l.dismantle],
+                ["Unpacking", l.unpack],
+                ["Weekend", l.weekend],
+              ] as const
+            )
+              .filter(([, v]) => v > 0)
+              .map(([k, v]) => (
+                <div key={k} className="flex justify-between">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="tabular-nums">{formatInr(v)}</dd>
+                </div>
+              ))}
+            <Separator className="my-1" />
+            <div className="flex justify-between font-semibold">
+              <dt>Total</dt>
+              <dd className="tabular-nums">{formatInr(l.total)}</dd>
+            </div>
+          </dl>
+        )}
+      </CardContent>
+    </Card>
+  );
 }

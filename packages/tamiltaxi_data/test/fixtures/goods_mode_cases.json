@@ -1,0 +1,245 @@
+{
+  "_comment": "Shared goods outstation and house-shifting cases, read by apps/api/src/modules/fares/goods-modes.spec.ts and packages/tamiltaxi_data/test/goods_modes_test.dart. Both must produce exactly these numbers; edit both rate tables and this file together. `at` is the slot start (UTC); Saturday and Sunday in IST add 10 %.",
+  "goodsOutstation": [
+    {
+      "name": "THREE_WHEELER 103.64 km",
+      "input": {
+        "kind": "THREE_WHEELER",
+        "routeKm": 103.64
+      },
+      "expected": {
+        "includedKm": 104,
+        "perKm": 22,
+        "routeKm": 103.6,
+        "total": 2288
+      }
+    },
+    {
+      "name": "TRUCK 22 km",
+      "input": {
+        "kind": "TRUCK",
+        "routeKm": 22
+      },
+      "expected": {
+        "includedKm": 40,
+        "perKm": 45,
+        "routeKm": 22.0,
+        "total": 1800
+      }
+    },
+    {
+      "name": "PICKUP 86.0 km",
+      "input": {
+        "kind": "PICKUP",
+        "routeKm": 86.0
+      },
+      "expected": {
+        "includedKm": 86,
+        "perKm": 30,
+        "routeKm": 86.0,
+        "total": 2580
+      }
+    },
+    {
+      "name": "MINI_TRUCK 40.04 km",
+      "input": {
+        "kind": "MINI_TRUCK",
+        "routeKm": 40.04
+      },
+      "expected": {
+        "includedKm": 40,
+        "perKm": 26,
+        "routeKm": 40.0,
+        "total": 1040
+      }
+    }
+  ],
+  "shifting": [
+    {
+      "name": "1 BHK in town, 2nd floor no lift to a lift, basic packing, Thursday",
+      "input": {
+        "details": {
+          "homeSize": "ONE_BHK",
+          "between": false,
+          "pickupFloor": 2,
+          "pickupLift": false,
+          "dropFloor": 5,
+          "dropLift": true,
+          "packing": "BASIC",
+          "dismantlePieces": 0,
+          "unpack": false,
+          "extraHelpers": 0
+        },
+        "transport": 1236,
+        "at": "2026-10-01T03:30:00Z"
+      },
+      "expected": {
+        "transport": 1236,
+        "helperCount": 2,
+        "helpers": 900,
+        "stairs": 300,
+        "packing": 699,
+        "dismantle": 0,
+        "unpack": 0,
+        "subtotal": 3135,
+        "weekend": 0,
+        "total": 3135
+      }
+    },
+    {
+      "name": "2 BHK to another town, Saturday, full packing, unpacking, 3 pieces apart, 1 extra helper",
+      "input": {
+        "details": {
+          "homeSize": "TWO_BHK",
+          "between": true,
+          "pickupFloor": 1,
+          "pickupLift": false,
+          "dropFloor": 3,
+          "dropLift": false,
+          "packing": "FULL",
+          "dismantlePieces": 3,
+          "unpack": true,
+          "extraHelpers": 1
+        },
+        "transport": 4500,
+        "at": "2026-10-03T03:30:00Z"
+      },
+      "expected": {
+        "transport": 4500,
+        "helperCount": 4,
+        "helpers": 2800,
+        "stairs": 600,
+        "packing": 1899,
+        "dismantle": 597,
+        "unpack": 699,
+        "subtotal": 11095,
+        "weekend": 1109,
+        "total": 12204
+      }
+    },
+    {
+      "name": "A few items, lifts both ends, no packing, just after midnight Sunday IST",
+      "input": {
+        "details": {
+          "homeSize": "FEW_ITEMS",
+          "between": false,
+          "pickupFloor": 7,
+          "pickupLift": true,
+          "dropFloor": 4,
+          "dropLift": true,
+          "packing": "NONE",
+          "dismantlePieces": 0,
+          "unpack": false,
+          "extraHelpers": 0
+        },
+        "transport": 164,
+        "at": "2026-10-03T19:00:00Z"
+      },
+      "expected": {
+        "transport": 164,
+        "helperCount": 1,
+        "helpers": 450,
+        "stairs": 0,
+        "packing": 0,
+        "dismantle": 0,
+        "unpack": 0,
+        "subtotal": 614,
+        "weekend": 61,
+        "total": 675
+      }
+    },
+    {
+      "name": "A few items, just after midnight Monday IST (weekday again)",
+      "input": {
+        "details": {
+          "homeSize": "FEW_ITEMS",
+          "between": false,
+          "pickupFloor": 0,
+          "pickupLift": false,
+          "dropFloor": 0,
+          "dropLift": false,
+          "packing": "NONE",
+          "dismantlePieces": 0,
+          "unpack": false,
+          "extraHelpers": 0
+        },
+        "transport": 164,
+        "at": "2026-10-04T19:00:00Z"
+      },
+      "expected": {
+        "transport": 164,
+        "helperCount": 1,
+        "helpers": 450,
+        "stairs": 0,
+        "packing": 0,
+        "dismantle": 0,
+        "unpack": 0,
+        "subtotal": 614,
+        "weekend": 0,
+        "total": 614
+      }
+    },
+    {
+      "name": "3 BHK, 4th and 3rd floor no lift, helpers and pieces capped",
+      "input": {
+        "details": {
+          "homeSize": "THREE_BHK",
+          "between": false,
+          "pickupFloor": 4,
+          "pickupLift": false,
+          "dropFloor": 3,
+          "dropLift": false,
+          "packing": "BASIC",
+          "dismantlePieces": 15,
+          "unpack": true,
+          "extraHelpers": 9
+        },
+        "transport": 2210,
+        "at": "2026-10-06T08:30:00Z"
+      },
+      "expected": {
+        "transport": 2210,
+        "helperCount": 8,
+        "helpers": 3600,
+        "stairs": 1050,
+        "packing": 1499,
+        "dismantle": 1990,
+        "unpack": 999,
+        "subtotal": 11348,
+        "weekend": 0,
+        "total": 11348
+      }
+    },
+    {
+      "name": "1 RK, ground floors, full packing",
+      "input": {
+        "details": {
+          "homeSize": "ONE_RK",
+          "between": false,
+          "pickupFloor": 0,
+          "pickupLift": false,
+          "dropFloor": 0,
+          "dropLift": false,
+          "packing": "FULL",
+          "dismantlePieces": 0,
+          "unpack": false,
+          "extraHelpers": 0
+        },
+        "transport": 620,
+        "at": "2026-10-07T05:30:00Z"
+      },
+      "expected": {
+        "transport": 620,
+        "helperCount": 2,
+        "helpers": 900,
+        "stairs": 0,
+        "packing": 799,
+        "dismantle": 0,
+        "unpack": 0,
+        "subtotal": 2319,
+        "weekend": 0,
+        "total": 2319
+      }
+    }
+  ]
+}

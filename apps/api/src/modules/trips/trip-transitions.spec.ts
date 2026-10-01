@@ -13,6 +13,14 @@ describe('trip transitions', () => {
     expect(canTransition({ kind: 'PARCEL', from: 'PICKED_UP', to: 'DELIVERED' })).toBe(true);
   });
 
+  it('a trip or parcel booked for later starts searching or is cancelled, nothing else', () => {
+    for (const kind of ['RIDE', 'PARCEL'] as const) {
+      expect(canTransition({ kind, from: 'SCHEDULED', to: 'SEARCHING' })).toBe(true);
+      expect(canTransition({ kind, from: 'SCHEDULED', to: 'CANCELLED' })).toBe(true);
+      expect(canTransition({ kind, from: 'SCHEDULED', to: 'DRIVER_ASSIGNED' })).toBe(false);
+    }
+  });
+
   it('rejects skipping steps and changing finished trips', () => {
     expect(canTransition({ kind: 'RIDE', from: 'SEARCHING', to: 'IN_PROGRESS' })).toBe(false);
     expect(canTransition({ kind: 'RIDE', from: 'IN_PROGRESS', to: 'CANCELLED' })).toBe(false);

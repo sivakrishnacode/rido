@@ -328,6 +328,71 @@ describe('Tamil Taxi API (e2e)', () => {
     if (demand.length) await redis.del(...demand);
   });
 
+  it('goods to another town: goods trucks only, one way, by the km; booked for later it waits', async () => {
+    const pickup = { lat: 11.0252, lng: 77.0091, name: 'Hope College' };
+    const drop = { lat: 11.1085, lng: 77.3411, name: 'Out of town' };
+    const quotes = (await http.post('/v1/fares/quote').send({ pickup, drop, kind: 'PARCEL', rideMode: 'OUTSTATION' }).expect(200)).body.quotes;
+    expect(quotes.map((q: { vehicleKind: string }) => q.vehicleKind)).toEqual(['THREE_WHEELER', 'MINI_TRUCK', 'PICKUP', 'TRUCK']);
+    const threeW = quotes[0];
+    expect(threeW.modeTerms).toMatchObject({ mode: 'OUTSTATION', roundTrip: false, perKm: 22, allowancePerDay: 0 });
+    expect(threeW.total).toBe(threeW.modeTerms.includedKm * 22);
+    await http.post('/v1/fares/quote').send({ pickup, drop, kind: 'PARCEL', rideMode: 'OUTSTATION', roundTrip: true }).expect(400);
+    await http.post('/v1/fares/quote').send({ pickup, kind: 'PARCEL', rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(400);
+
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const book = { kind: 'PARCEL', pickup, drop, rideMode: 'OUTSTATION' };
+    // Not by goods bike; a local parcel can't leave the service area.
+    await http.post('/v1/trips').set(pax).send({ ...book, vehicleKind: 'GOODS_BIKE' }).expect(400);
+    await http.post('/v1/trips').set(pax).send({ ...book, vehicleKind: 'THREE_WHEELER', rideMode: undefined }).expect(400);
+    const later = new Date(Date.now() + 26 * 3_600_000).toISOString();
+    const trip = (await http.post('/v1/trips').set(pax).send({ ...book, vehicleKind: 'THREE_WHEELER', scheduledAt: later }).expect(201)).body;
+    expect(trip).toMatchObject({ status: 'SCHEDULED', rideMode: 'OUTSTATION', kind: 'PARCEL', fareTotal: threeW.total, modeTerms: { perKm: 22 } });
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+  });
+
+  it('house shifting: lines, vehicles and days to compare; booked for a slot with typed items; the mover sees them', async () => {
+    const pickup = { lat: 11.0252, lng: 77.0091, name: 'Hope College' };
+    const shifting = {
+      homeSize: 'ONE_BHK', between: false, pickupFloor: 2, pickupLift: false, dropFloor: 5, dropLift: true,
+      packing: 'BASIC', dismantlePieces: 1, unpack: false, extraHelpers: 0,
+    };
+    const slot = new Date(Date.now() + 2 * 86_400_000);
+    slot.setUTCMinutes(0, 0, 0);
+    const q = (await http.post('/v1/fares/shifting-quote').send({ pickup, drop: BROOKEFIELDS, shifting, at: slot.toISOString() }).expect(200)).body;
+    // 1 BHK: a pickup truck, 2 helpers in town, 2 floors of stairs, basic packing, one piece taken apart.
+    expect(q.vehicleKind).toBe('PICKUP');
+    expect(q.lines).toMatchObject({ helperCount: 2, helpers: 900, stairs: 300, packing: 699, dismantle: 199, unpack: 0 });
+    expect(q.lines.total).toBe(q.lines.subtotal + q.lines.weekend);
+    expect(q.vehicles.map((v: { vehicleKind: string }) => v.vehicleKind)).toEqual(['THREE_WHEELER', 'MINI_TRUCK', 'PICKUP', 'TRUCK']);
+    expect(q.vehicles.find((v: { suggested: boolean }) => v.suggested).vehicleKind).toBe('PICKUP');
+    expect(q.days).toHaveLength(7);
+    expect(q.days.some((d: { weekend: boolean }) => d.weekend)).toBe(true);
+    // A shift by the goods bike, or without its items, or without a slot, is refused.
+    await http.post('/v1/fares/shifting-quote').send({ pickup, drop: BROOKEFIELDS, shifting, vehicleKind: 'GOODS_BIKE' }).expect(400);
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const items = [{ name: '  Double cot ', qty: 1, note: 'comes apart' }, { name: 'Fridge', qty: 1 }, { name: 'Cartons', qty: 12, note: '' }];
+    const book = { kind: 'PARCEL', vehicleKind: 'PICKUP', pickup, drop: BROOKEFIELDS, scheduledAt: slot.toISOString() };
+    await http.post('/v1/trips').set(pax).send({ ...book, shifting }).expect(400);
+    await http.post('/v1/trips').set(pax).send({ ...book, shifting: { ...shifting, items }, scheduledAt: undefined }).expect(400);
+    await http.post('/v1/trips').set(pax).send({ ...book, vehicleKind: 'GOODS_BIKE', shifting: { ...shifting, items } }).expect(400);
+
+    const trip = (await http.post('/v1/trips').set(pax).send({ ...book, shifting: { ...shifting, items } }).expect(201)).body;
+    expect(trip).toMatchObject({ status: 'SCHEDULED', kind: 'PARCEL', rideMode: 'LOCAL', fareTotal: q.lines.total });
+    expect(trip.shifting.items).toEqual([{ name: 'Double cot', qty: 1, note: 'comes apart' }, { name: 'Fridge', qty: 1 }, { name: 'Cartons', qty: 12 }]);
+    expect(trip.shifting.lines.total).toBe(q.lines.total);
+    expect((await http.get('/v1/trips/upcoming').set(pax).expect(200)).body.map((t: { id: string }) => t.id)).toContain(trip.id);
+
+    // Its time comes: a pickup-truck driver is offered it with the items, floors and helpers.
+    const mover = await onlineDriver('PICKUP', { lat: 11.0255, lng: 77.0095 });
+    const jobs = app.get(JobsService);
+    await jobs.runDue((await jobs.scheduledAt('trip.scheduled-dispatch', trip.id))!);
+    const accepted = await acceptWhenOffered(trip.id, mover);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.shifting).toMatchObject({ homeSize: 'ONE_BHK', pickupFloor: 2, pickupLift: false, lines: { helperCount: 2 } });
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+    await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${mover}`).expect(200);
+  });
+
   it('quotes carry the nearest driver\'s pickup ETA (null when nobody is near)', async () => {
     const bikeDriver = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
     const quotes = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200)).body.quotes;

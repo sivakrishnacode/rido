@@ -11,6 +11,7 @@ import { TripDriversService } from '../drivers/trip-drivers.service.js';
 import { MAX_RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
 import { type FareQuote, haversineMeters, waitingCharge, waitingTerms, withWaitingCharge } from '../fares/fare-engine.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
+import { isGoodsTruck } from '../fares/goods-modes.js';
 import { isCabTier, type ModeTerms, settleMode, withSettlement } from '../fares/ride-modes.js';
 import { DemandService } from '../geo/demand.service.js';
 import { GeoService } from '../geo/geo.service.js';
@@ -117,14 +118,24 @@ export class TripsService {
    * `scheduledDispatchLeadMin` before the pickup time ([startScheduled]).
    */
   async book(passengerId: string, dto: BookTripDto): Promise<Trip> {
-    const mode = dto.rideMode ?? RideMode.LOCAL;
+    const shifting = dto.shifting;
+    // A house shift to another town is priced by the km like goods to another town.
+    const mode = shifting ? (shifting.between ? RideMode.OUTSTATION : RideMode.LOCAL) : (dto.rideMode ?? RideMode.LOCAL);
     const isGoods = FARE_RULES[dto.vehicleKind].isGoods;
     if (isGoods !== (dto.kind === TripKind.PARCEL)) throw new BadRequestException('Vehicle does not match trip kind');
-    if (mode !== RideMode.LOCAL && (dto.kind !== TripKind.RIDE || !isCabTier(dto.vehicleKind))) {
+    if (shifting) {
+      if (!isGoodsTruck(dto.vehicleKind)) throw new BadRequestException('House shifting is by three-wheeler, mini truck, pickup or truck');
+      if (!shifting.items?.length) throw new BadRequestException('Add the things you are moving');
+    } else if (mode !== RideMode.LOCAL && dto.kind === TripKind.PARCEL) {
+      if (mode !== RideMode.OUTSTATION || !isGoodsTruck(dto.vehicleKind)) {
+        throw new BadRequestException('Goods to another town go by three-wheeler, mini truck, pickup or truck');
+      }
+      if (dto.roundTrip) throw new BadRequestException('Goods to another town are one way');
+    } else if (mode !== RideMode.LOCAL && !isCabTier(dto.vehicleKind)) {
       throw new BadRequestException('Rentals and outstation trips are for Mini, Sedan and SUV');
     }
     const now = new Date();
-    const { scheduledAt, returnAt } = bookingTimes(dto, mode, now);
+    const { scheduledAt, returnAt } = bookingTimes(dto, mode, now, { shifting: !!shifting });
     // A rental starts and ends wherever the rider says on the way: its drop is the pickup.
     const drop = mode === RideMode.RENTAL ? dto.pickup : dto.drop;
     if (!drop) throw new BadRequestException('Choose where you are going');
@@ -147,13 +158,22 @@ export class TripsService {
     }
     let quote: FareQuote;
     let modeTerms: ModeTerms | null = null;
-    if (mode === RideMode.LOCAL) {
+    let shiftingRecord: Prisma.InputJsonValue | undefined;
+    if (shifting && scheduledAt) {
+      const q = await this.fares.shiftingQuote({ pickup: dto.pickup, drop, details: shifting, vehicleKind: dto.vehicleKind, at: scheduledAt, now });
+      // The vehicle's fare with the whole shift as its total (the lines are in `shifting`).
+      quote = { ...q.transportQuote, subtotal: q.lines.subtotal, total: q.lines.total };
+      modeTerms = q.modeTerms;
+      const items = (shifting.items ?? []).map((i) => ({ name: i.name.trim(), qty: i.qty, ...(i.note?.trim() && { note: i.note.trim() }) }));
+      shiftingRecord = { ...shifting, items, lines: q.lines } as unknown as Prisma.InputJsonValue;
+    } else if (mode === RideMode.LOCAL) {
       quote = await this.fares.quoteOne({ pickup: dto.pickup, drop, vehicleKind: dto.vehicleKind });
     } else {
       const quotes = await this.fares.modeQuotes({
         pickup: dto.pickup,
         drop,
         rideMode: mode,
+        kind: dto.kind,
         rentalPackageId: dto.rentalPackageId,
         roundTrip: dto.roundTrip,
         leaveAt: scheduledAt ?? now,
@@ -177,6 +197,7 @@ export class TripsService {
         status: isLater ? TripStatus.SCHEDULED : TripStatus.SEARCHING,
         rideMode: mode,
         modeTerms: (modeTerms ?? undefined) as Prisma.InputJsonValue | undefined,
+        shifting: shiftingRecord,
         scheduledAt,
         searchFrom: now,
         pickupName: dto.pickup.name ?? 'Pinned location',
@@ -477,8 +498,9 @@ export class TripsService {
    * settings). Rides and parcels alike. Nothing to change → `{}`.
    */
   private async waitingFare(trip: Trip, startedAt: Date): Promise<{ fare?: Prisma.InputJsonValue; fareTotal?: number }> {
-    // Rentals and outstation trips quote no waiting terms (a rental's clock is its package).
-    if (!trip.arrivedAt || trip.rideMode !== RideMode.LOCAL) return {};
+    // Rentals and outstation trips quote no waiting terms (a rental's clock is its package); loading a house shift
+    // takes as long as it takes.
+    if (!trip.arrivedAt || trip.rideMode !== RideMode.LOCAL || trip.shifting) return {};
     const fare = (trip.fare ?? {}) as Partial<FareQuote> & { total: number };
     const s = await this.settings.all();
     const perMin = typeof fare.waitPerMin === 'number' ? fare.waitPerMin : await this.fares.waitPerMin({ lat: trip.pickupLat, lng: trip.pickupLng }, trip.vehicleKind);

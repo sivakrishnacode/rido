@@ -141,7 +141,18 @@ export class NotifierService {
       // The rider's extra shows as "₹50 + ₹20", like the request card.
       const extra = extraOf(t.fare);
       const fare = extra > 0 ? `₹${t.fareTotal - extra} + ₹${extra}` : `₹${t.fareTotal}`;
-      const what = t.kind === TripKind.PARCEL ? 'delivery' : t.rideMode === RideMode.RENTAL ? 'rental' : t.rideMode === RideMode.OUTSTATION ? 'outstation' : 'ride';
+      const what =
+        t.kind === TripKind.PARCEL
+          ? t.shifting
+            ? 'house shifting'
+            : t.rideMode === RideMode.OUTSTATION
+              ? 'outstation delivery'
+              : 'delivery'
+          : t.rideMode === RideMode.RENTAL
+            ? 'rental'
+            : t.rideMode === RideMode.OUTSTATION
+              ? 'outstation'
+              : 'ride';
       // A trip booked ahead says when: "· Tue 6:00 am".
       const when = t.scheduledAt ? ` · ${formatIstShort(t.scheduledAt)}` : '';
       this.push.toUser(driver.userId, AppKind.DRIVER, {

@@ -29,6 +29,32 @@ export type KycStatus = "NOT_UPLOADED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED
 export type IdentityStatus = "NOT_STARTED" | "IN_PROGRESS" | "IN_REVIEW" | "APPROVED" | "DECLINED";
 /** LOCAL: priced by distance and time; RENTAL: a cab by the hour; OUTSTATION: a cab to another town. */
 export type RideMode = "LOCAL" | "RENTAL" | "OUTSTATION";
+
+/** House shifting (api fares/goods-modes.ts ShiftingDetails + ShiftingLines), stored as `Trip.shifting`. */
+export interface ShiftingInfo {
+  readonly homeSize: "FEW_ITEMS" | "ONE_RK" | "ONE_BHK" | "TWO_BHK" | "THREE_BHK";
+  readonly between: boolean;
+  readonly items: readonly { readonly name: string; readonly qty: number; readonly note?: string }[];
+  readonly pickupFloor: number;
+  readonly pickupLift: boolean;
+  readonly dropFloor: number;
+  readonly dropLift: boolean;
+  readonly packing: "NONE" | "BASIC" | "FULL";
+  readonly dismantlePieces: number;
+  readonly unpack: boolean;
+  readonly extraHelpers: number;
+  readonly lines?: {
+    readonly transport: number;
+    readonly helperCount: number;
+    readonly helpers: number;
+    readonly stairs: number;
+    readonly packing: number;
+    readonly dismantle: number;
+    readonly unpack: number;
+    readonly weekend: number;
+    readonly total: number;
+  };
+}
 export type TripKind = "RIDE" | "PARCEL";
 export type TripStatus =
   | "SCHEDULED"
@@ -388,6 +414,11 @@ export interface TripBase {
   readonly paymentMode: PaymentMode;
   readonly parcel: Record<string, unknown> | null;
   readonly payer: ParcelPayer | null;
+  /** Local, a rental (by the hour) or outstation (another town; goods too). */
+  readonly rideMode?: RideMode;
+  /** Booked for later: the pickup time (a house shift's slot start). */
+  readonly scheduledAt?: string | null;
+  readonly shifting?: ShiftingInfo | null;
   readonly rating: number | null;
   /** Free-text note with the cancel (older apps sent only this). */
   readonly cancelReason: string | null;

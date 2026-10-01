@@ -11,11 +11,51 @@ import type { Settings } from '../settings/settings.defaults.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { FareQuote, GeoPoint, quoteFare, type RouteEstimate } from './fare-engine.js';
 import { FARE_RULES } from './fare-rules.js';
-import { CAB_TIERS, isCabTier, type ModeTerms, modeQuote, outstationTerms, rentalPackage, rentalTerms } from './ride-modes.js';
+import {
+  GOODS_TRUCKS,
+  goodsOutstationTerms,
+  type GoodsTruck,
+  isGoodsTruck,
+  SHIFTING_SIZES,
+  type ShiftingDetails,
+  type ShiftingLines,
+  shiftingLines,
+} from './goods-modes.js';
+import { CAB_TIERS, isCabTier, type ModeTerms, modeQuote, type OutstationTerms, outstationTerms, rentalPackage, rentalTerms } from './ride-modes.js';
 
-/** A quote on the vehicle list, with how soon the nearest free driver of that vehicle can reach the pickup. */
 /** A rental / outstation quote with the terms it agrees to. */
 export type ModeQuote = FareQuote & { modeTerms: ModeTerms };
+
+/** House shifting: what the rider asked for (the items don't change the price). */
+export type ShiftingInput = Omit<ShiftingDetails, 'items'>;
+
+/** A house shift priced for one vehicle and slot. */
+export interface ShiftingQuote {
+  readonly vehicleKind: VehicleKind;
+  readonly distanceKm: number;
+  readonly durationMin: number;
+  readonly lines: ShiftingLines;
+  /** To another town: the vehicle's one-way terms (by the km). */
+  readonly modeTerms: OutstationTerms | null;
+  /** The vehicle's trip fare in the usual quote shape (the transport line). */
+  readonly transportQuote: FareQuote;
+}
+
+/** [ShiftingQuote] plus what the rider can compare: every goods truck's total, and the next 7 days' totals. */
+export interface ShiftingQuoteResult extends ShiftingQuote {
+  readonly vehicles: readonly { vehicleKind: VehicleKind; total: number; suggested: boolean }[];
+  /** The total on each of the next 7 days (IST calendar dates; weekends cost more). */
+  readonly days: readonly { date: string; total: number; weekend: boolean }[];
+}
+
+const IST_MS = 330 * 60_000;
+const DAY_MS = 86_400_000;
+
+/** [hour] o'clock IST on the IST calendar day [dayOffset] days after [now]'s. */
+export function istDayAt(now: Date, dayOffset: number, hour: number): Date {
+  const istMidnight = Math.floor((now.getTime() + IST_MS) / DAY_MS) * DAY_MS;
+  return new Date(istMidnight + dayOffset * DAY_MS + hour * 3_600_000 - IST_MS);
+}
 
 export interface QuoteWithEta extends FareQuote {
   /** Road minutes from the nearest free driver; null = nobody within the maximum search radius right now. */
@@ -116,11 +156,19 @@ export class FaresService {
     pickup: GeoPoint;
     drop?: GeoPoint;
     rideMode: RideMode;
+    /** PARCEL: goods to another town (one way, the goods trucks). Default RIDE. */
+    kind?: TripKind;
     rentalPackageId?: string;
     roundTrip?: boolean;
     leaveAt: Date;
     returnAt?: Date | null;
   }): Promise<ModeQuote[]> {
+    if (params.kind === TripKind.PARCEL) {
+      if (params.rideMode !== RideMode.OUTSTATION) throw new BadRequestException('Goods go within town or to another town');
+      if (params.roundTrip) throw new BadRequestException('Goods to another town are one way');
+      if (!params.drop) throw new BadRequestException('Choose where the goods are going');
+      return this.goodsOutstationQuotes({ pickup: params.pickup, drop: params.drop });
+    }
     if (params.rideMode === RideMode.RENTAL) {
       const pkg = rentalPackage(params.rentalPackageId ?? '');
       if (!pkg) throw new BadRequestException('Choose a rental package');
@@ -139,6 +187,58 @@ export class FaresService {
       const plan = { distanceKm: roundTrip ? terms.includedKm : route.distanceKm, durationMin: awayMin, ...(typeof route.travelMin === 'number' && { travelMin: route.travelMin }) };
       return { ...modeQuote(kind, terms, plan), modeTerms: terms };
     });
+  }
+
+  /** Goods to another town: each goods truck one way by the km (goods-modes.ts), with its terms. */
+  async goodsOutstationQuotes(params: { pickup: GeoPoint; drop: GeoPoint }): Promise<ModeQuote[]> {
+    const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: FaresService.routeVehicle(true) });
+    const plan = { distanceKm: route.distanceKm, durationMin: route.durationMin, ...(typeof route.travelMin === 'number' && { travelMin: route.travelMin }) };
+    return GOODS_TRUCKS.filter(isGoodsTruck).map((kind) => {
+      const terms = goodsOutstationTerms(kind, route.distanceKm);
+      return { ...modeQuote(kind, terms, plan), modeTerms: terms };
+    });
+  }
+
+  /**
+   * House shifting for [vehicleKind] (default: the one suggested for the home size) at the slot [at]: the vehicle's
+   * fare on the goods route (in town: the goods fare engine at the city's rates, no surge; to another town: by the km)
+   * plus helpers, stairs, packing and extras. Also every goods truck's total and the next 7 days' totals.
+   */
+  async shiftingQuote(p: { pickup: GeoPoint; drop: GeoPoint; details: ShiftingInput; vehicleKind?: VehicleKind; at: Date; now?: Date }): Promise<ShiftingQuoteResult> {
+    const suggested = SHIFTING_SIZES[p.details.homeSize].vehicle;
+    const kind = p.vehicleKind ?? suggested;
+    if (!isGoodsTruck(kind)) throw new BadRequestException('House shifting is by three-wheeler, mini truck, pickup or truck');
+    const route = await this.maps.estimate({ from: p.pickup, to: p.drop, vehicleKind: FaresService.routeVehicle(true) });
+    const here = await this.geo.locate(p.pickup);
+    const s = await this.settings.all();
+    const plan = { distanceKm: route.distanceKm, durationMin: route.durationMin, ...(typeof route.travelMin === 'number' && { travelMin: route.travelMin }) };
+    const transportOf = async (k: GoodsTruck): Promise<{ quote: FareQuote; terms: OutstationTerms | null }> => {
+      if (p.details.between) {
+        const terms = goodsOutstationTerms(k, route.distanceKm);
+        return { quote: modeQuote(k, terms, plan), terms };
+      }
+      const rule = (await this.geo.fareRule(here.cityId, k)) ?? undefined;
+      // Booked for a day ahead: no surge, the price is agreed up front; no waiting charge while loading.
+      const q = quoteFare({ vehicleKind: k, route, multiplier: 1, maxMultiplier: s.maxMultiplier, rule, waiting: waitingSettings(s) });
+      return { quote: { ...q, freeWaitMin: 0, waitPerMin: 0, waitMaxCharge: 0 }, terms: null };
+    };
+    const all = await Promise.all(GOODS_TRUCKS.filter(isGoodsTruck).map(async (k) => ({ k, ...(await transportOf(k)) })));
+    const mine = all.find((t) => t.k === kind)!;
+    const now = p.now ?? new Date();
+    return {
+      vehicleKind: kind,
+      distanceKm: route.distanceKm,
+      durationMin: route.durationMin,
+      lines: shiftingLines(p.details, mine.quote.total, p.at),
+      modeTerms: mine.terms,
+      transportQuote: mine.quote,
+      vehicles: all.map((t) => ({ vehicleKind: t.k, total: shiftingLines(p.details, t.quote.total, p.at).total, suggested: t.k === suggested })),
+      days: Array.from({ length: 7 }, (_, i) => {
+        const at = istDayAt(now, i, 9);
+        const lines = shiftingLines(p.details, mine.quote.total, at);
+        return { date: new Date(at.getTime() + IST_MS).toISOString().slice(0, 10), total: lines.total, weekend: lines.weekend > 0 };
+      }),
+    };
   }
 
   /** One route prices every vehicle of a kind: rides on the car route, goods on the three-wheeler route. */

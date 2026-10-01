@@ -3,6 +3,7 @@ import { IsBoolean, IsDateString, IsEnum, IsObject, IsOptional, IsString, Length
 
 import { ParcelPayer, PaymentMode, RideMode, TripKind, VehicleKind, WomenDriverPref } from '../../../generated/prisma/enums.js';
 import { PointDto } from '../../fares/dto/point.dto.js';
+import { ShiftingDto } from '../../fares/dto/shifting.dto.js';
 
 /** "Who's riding?": someone else takes the ride (rides only). */
 export class RiderDto {
@@ -87,8 +88,17 @@ export class BookTripDto {
   @IsDateString()
   returnAt?: string;
 
-  /** RENTAL / OUTSTATION: the pickup time for a trip booked for later (ISO, up to 7 days ahead). Absent = now. */
+  /**
+   * RENTAL / OUTSTATION: the pickup time for a trip booked for later (ISO, up to 7 days ahead). Absent = now.
+   * House shifting: the slot start (required).
+   */
   @IsOptional()
   @IsDateString()
   scheduledAt?: string;
+
+  /** House shifting (PARCEL by a goods truck): home size, typed items, floors and lifts, packing and extras. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ShiftingDto)
+  shifting?: ShiftingDto;
 }

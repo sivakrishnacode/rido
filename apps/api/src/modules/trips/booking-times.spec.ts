@@ -23,4 +23,13 @@ describe('bookingTimes', () => {
     // One way: no return time.
     expect(bookingTimes({ roundTrip: false, returnAt: at(30) }, RideMode.OUTSTATION, now).returnAt).toBeNull();
   });
+
+  it('a house shift is always for a slot, at least an hour ahead and within 7 days', () => {
+    expect(() => bookingTimes({}, RideMode.LOCAL, now, { shifting: true })).toThrow('day and time slot');
+    expect(() => bookingTimes({ scheduledAt: at(0.5) }, RideMode.LOCAL, now, { shifting: true })).toThrow('an hour');
+    expect(() => bookingTimes({ scheduledAt: at(24 * 8) }, RideMode.LOCAL, now, { shifting: true })).toThrow('7 days');
+    expect(bookingTimes({ scheduledAt: at(26) }, RideMode.LOCAL, now, { shifting: true }).scheduledAt?.toISOString()).toBe(at(26));
+    // To another town too (priced by the km).
+    expect(bookingTimes({ scheduledAt: at(3) }, RideMode.OUTSTATION, now, { shifting: true }).scheduledAt?.toISOString()).toBe(at(3));
+  });
 });

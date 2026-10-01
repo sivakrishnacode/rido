@@ -26,7 +26,10 @@ export class QuoteRequestDto {
   @IsBoolean()
   womenOnly?: boolean;
 
-  /** LOCAL (default), RENTAL (a cab by the hour) or OUTSTATION (a cab to another town). Cab tiers only for the last two. */
+  /**
+   * LOCAL (default), RENTAL (a cab by the hour) or OUTSTATION (a cab to another town; with kind PARCEL, goods to
+   * another town by the goods trucks, one way).
+   */
   @IsOptional()
   @IsEnum(RideMode)
   rideMode?: RideMode;
