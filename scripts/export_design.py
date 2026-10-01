@@ -39,7 +39,7 @@ def frames(app):
 
 
 def folder(frame_id):
-    if frame_id.startswith('PP-'):
+    if frame_id.startswith('PP-') or frame_id.startswith('PH-'):
         return 'parcel'
     if frame_id.startswith('P-'):
         return 'passenger'
@@ -129,7 +129,7 @@ Notes:
 
 ## Send parcel (passenger app)
 
-{table(lambda i, a: a == 'passenger' and i.startswith('PP-'))}
+{table(lambda i, a: a == 'passenger' and (i.startswith('PP-') or i.startswith('PH-')))}
 
 ## Passenger states
 
