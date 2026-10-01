@@ -43,6 +43,9 @@ String formatWhen(DateTime t, {DateTime? now}) {
   return '${DateFormat('EEE d MMM').format(t)}, $time';
 }
 
+/// A trip's length in time: "45 min", "2 h", "2 h 30 min".
+String formatMinutes(int min) => min < 60 ? '$min min' : '${min ~/ 60} h${min % 60 == 0 ? '' : ' ${min % 60} min'}';
+
 /// "4.2 km"
 String formatKm(double km) => '${km.toStringAsFixed(1)} km';
 

@@ -29,6 +29,9 @@ sealed class ModeTerms {
 
   RideMode get mode;
 
+  /// The API's shape (what [fromJson] reads), e.g. to hand a request to the driver's overlay isolate.
+  Map<String, Object> toJson();
+
   static ModeTerms? fromJson(Object? raw) {
     if (raw is! Map) return null;
     final j = raw.cast<String, dynamic>();
@@ -78,6 +81,17 @@ final class RentalTerms extends ModeTerms {
   RideMode get mode => RideMode.rental;
 
   RentalPackage get package => RentalPackage(id: packageId, hours: hours, km: km);
+
+  @override
+  Map<String, Object> toJson() => {
+        'mode': 'RENTAL',
+        'packageId': packageId,
+        'hours': hours,
+        'km': km,
+        'price': price,
+        'extraKmRate': extraKmRate,
+        'extraMinRate': extraMinRate,
+      };
 }
 
 @immutable
@@ -104,7 +118,30 @@ final class OutstationTerms extends ModeTerms {
 
   @override
   RideMode get mode => RideMode.outstation;
+
+  @override
+  Map<String, Object> toJson() => {
+        'mode': 'OUTSTATION',
+        'roundTrip': roundTrip,
+        if (returnAt != null) 'returnAt': returnAt!.toUtc().toIso8601String(),
+        'days': days,
+        'includedKm': includedKm,
+        'perKm': perKm,
+        'allowancePerDay': allowancePerDay,
+        'routeKm': routeKm,
+      };
 }
+
+/// "Rental · 4 hrs · 40 km", "Outstation · round trip", "Outstation · one way"; null for a local ride.
+String? rideModeLabel(RideMode mode, ModeTerms? terms) => switch (terms) {
+      RentalTerms t => 'Rental · ${t.package.label}',
+      OutstationTerms t => t.roundTrip ? 'Outstation · round trip' : 'Outstation · one way',
+      null => switch (mode) {
+          RideMode.local => null,
+          RideMode.rental => 'Rental',
+          RideMode.outstation => 'Outstation',
+        },
+    };
 
 /// What the rider chose for a rental / outstation quote or booking.
 @immutable

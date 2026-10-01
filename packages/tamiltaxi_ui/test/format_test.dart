@@ -21,4 +21,10 @@ void main() {
     expect(formatWhen(DateTime(2026, 10, 6, 6), now: now), 'Tomorrow, 6:00 AM');
     expect(formatWhen(DateTime(2026, 10, 9, 9, 15), now: now), 'Fri 9 Oct, 9:15 AM');
   });
+
+  test('formatMinutes', () {
+    expect(formatMinutes(45), '45 min');
+    expect(formatMinutes(120), '2 h');
+    expect(formatMinutes(150), '2 h 30 min');
+  });
 }

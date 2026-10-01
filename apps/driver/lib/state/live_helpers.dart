@@ -129,6 +129,8 @@ final RegExp kUpiPattern = RegExp(r'^[\w.-]{2,}@[a-z]{2,}$', caseSensitive: fals
 
 /// The waiting timer of a trip the driver has arrived for (`arrivedAt` + the fare's waiting terms); null before.
 WaitingTerms? waitingOf(LiveTripUpdate update) {
+  // Rentals and outstation trips have no waiting charge (the time is in the package / allowance).
+  if (update.trip.rideMode != RideMode.local) return null;
   final raw = update.json['arrivedAt'];
   final at = raw is String ? DateTime.tryParse(raw)?.toLocal() : null;
   final quote = update.trip.quote;

@@ -105,12 +105,16 @@ D-13,Home · offline,driver,driver/D-13.png,In the app
 D-14,"Home · online, waiting",driver,driver/D-14.png,In the app
 D-14b,Home · trip in progress banner,driver,driver/D-14b.png,In the app
 D-15,Incoming ride request,driver,driver/D-15.png,In the app
+D-15c,Incoming request · rental,driver,driver/D-15c.png,Added after the design
+D-15d,"Incoming request · outstation, booked ahead",driver,driver/D-15d.png,Added after the design
 D-16,Navigate to pickup,driver,driver/D-16.png,In the app
 D-17,Enter ride OTP,driver,driver/D-17.png,In the app
 D-17-error,Enter ride OTP · error state,driver,driver/D-17-error.png,In the app
 D-18,Ride in progress,driver,driver/D-18.png,In the app
+D-18c,Rental in progress,driver,driver/D-18c.png,Added after the design
 D-18b,Driver SOS,driver,driver/D-18b.png,In the app
 D-19,Collect payment,driver,driver/D-19.png,In the app
+D-19c,Collect payment · rental with extra km and time,driver,driver/D-19c.png,Added after the design
 D-20,Incoming delivery request,driver,driver/D-20.png,In the app
 D-21,Delivery in progress,driver,driver/D-21.png,In the app
 D-22a,Complete delivery with OTP,driver,driver/D-22a.png,In the app

@@ -276,6 +276,8 @@ class RideRequest {
     this.rideMode = RideMode.local,
     this.modeTerms,
     this.scheduledAt,
+    this.quote,
+    this.rideStartedAt,
   });
 
   /// Rental (by the hour, no fixed drop) or outstation (another town); local otherwise.
@@ -286,6 +288,19 @@ class RideRequest {
   final DateTime? scheduledAt;
 
   bool get isRental => rideMode == RideMode.rental;
+  bool get isOutstation => rideMode == RideMode.outstation;
+
+  /// "Rental · 4 hrs · 40 km", "Outstation · round trip"; null for a local ride.
+  String? get modeLabel => rideModeLabel(rideMode, modeTerms);
+
+  /// Ends wherever the rider gets off: a rental, or a round trip back to the pickup (no "near the drop" check).
+  bool get endsAnywhere => isRental || (modeTerms is OutstationTerms && (modeTerms! as OutstationTerms).roundTrip);
+
+  /// The trip's fare lines (live: the server's, with the rental / round-trip extras once the trip has ended).
+  final FareQuote? quote;
+
+  /// When the ride started (OTP checked): a rental's clock runs from here.
+  final DateTime? rideStartedAt;
 
   final String id;
   final TripKind kind;
@@ -351,6 +366,8 @@ class RideRequest {
     RideMode? rideMode,
     ModeTerms? modeTerms,
     DateTime? scheduledAt,
+    FareQuote? quote,
+    DateTime? rideStartedAt,
   }) =>
       RideRequest(
         id: id ?? this.id,
@@ -375,5 +392,7 @@ class RideRequest {
         rideMode: rideMode ?? this.rideMode,
         modeTerms: modeTerms ?? this.modeTerms,
         scheduledAt: scheduledAt ?? this.scheduledAt,
+        quote: quote ?? this.quote,
+        rideStartedAt: rideStartedAt ?? this.rideStartedAt,
       );
 }

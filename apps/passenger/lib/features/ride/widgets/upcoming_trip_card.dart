@@ -6,11 +6,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../../state/ride_flow.dart';
 
 /// What a trip booked for later is: "Rental · 4 hrs · 40 km", "Outstation · round trip", "Outstation · one way".
-String modeLabelOf(Trip trip) => switch (trip.modeTerms) {
-      RentalTerms t => 'Rental · ${t.package.label}',
-      OutstationTerms t => t.roundTrip ? 'Outstation · round trip' : 'Outstation · one way',
-      null => trip.rideMode == RideMode.rental ? 'Rental' : 'Outstation',
-    };
+String modeLabelOf(Trip trip) => rideModeLabel(trip.rideMode, trip.modeTerms) ?? 'Ride';
 
 /// A trip booked for later: picture, when, what, from → to, fare and (with [onCancel]) a free Cancel.
 class UpcomingTripCard extends StatelessWidget {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:intl/intl.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -111,14 +112,53 @@ abstract final class RequestSpeech {
     final pickupKm = r.pickupDistanceKm.toStringAsFixed(1);
     final tripKm = r.tripKm.toStringAsFixed(1);
     final base = r.fare - r.extra;
+    final terms = r.modeTerms;
+    final roundTrip = terms is OutstationTerms && terms.roundTrip;
+    final at = r.scheduledAt;
     return switch (language) {
-      VoiceLanguage.english => '${r.isDelivery ? 'New delivery' : 'New ride'}. '
+      VoiceLanguage.english => '${switch (terms) {
+            RentalTerms t => 'New rental, ${t.hours} ${t.hours == 1 ? 'hour' : 'hours'}',
+            OutstationTerms() => 'New outstation trip to ${r.drop.name}${roundTrip ? ', round trip' : ''}',
+            null => r.isDelivery ? 'New delivery' : 'New ride',
+          }}. '
+          '${at == null ? '' : 'Pickup ${_whenEnglish(at)}. '}'
           '${r.extra > 0 ? '$base rupees plus ${r.extra} extra' : '${r.fare} rupees'}. '
-          'Pickup $pickupKm kilometres, ${r.pickup.name}. Trip $tripKm kilometres.',
-      VoiceLanguage.tamil => '${r.isDelivery ? 'புதிய டெலிவரி' : 'புதிய சவாரி'}. '
+          'Pickup $pickupKm kilometres, ${r.pickup.name}.${r.isRental ? '' : ' Trip $tripKm kilometres.'}',
+      VoiceLanguage.tamil => '${switch (terms) {
+            RentalTerms t => 'புதிய வாடகை சவாரி, ${t.hours} மணி நேரம்',
+            OutstationTerms() => 'புதிய வெளியூர் சவாரி, ${r.drop.name}${roundTrip ? ', போய் வர' : ''}',
+            null => r.isDelivery ? 'புதிய டெலிவரி' : 'புதிய சவாரி',
+          }}. '
+          '${at == null ? '' : 'பிக்கப் ${_whenTamil(at)}. '}'
           '${r.extra > 0 ? '$base ரூபாய், கூடுதல் ${r.extra} ரூபாய்' : '${r.fare} ரூபாய்'}. '
-          'பிக்கப் $pickupKm கிலோமீட்டர், ${r.pickup.name}. பயணம் $tripKm கிலோமீட்டர்.',
+          'பிக்கப் $pickupKm கிலோமீட்டர், ${r.pickup.name}.${r.isRental ? '' : ' பயணம் $tripKm கிலோமீட்டர்.'}',
     };
+  }
+
+  /// "today at 6:30 PM", "tomorrow at 6:00 AM", "on 9 October at 9:15 AM".
+  static String _whenEnglish(DateTime at) {
+    final day = _dayOffset(at);
+    final time = DateFormat('h:mm a').format(at);
+    return switch (day) {
+      0 => 'today at $time',
+      1 => 'tomorrow at $time',
+      _ => 'on ${DateFormat('d MMMM').format(at)} at $time',
+    };
+  }
+
+  /// "இன்று 6:30 PM", "நாளை 6:00 AM", "9/10 9:15 AM" (the TTS reads the digits in Tamil).
+  static String _whenTamil(DateTime at) {
+    final time = DateFormat('h:mm a').format(at);
+    return switch (_dayOffset(at)) {
+      0 => 'இன்று $time',
+      1 => 'நாளை $time',
+      _ => '${at.day}/${at.month} $time',
+    };
+  }
+
+  static int _dayOffset(DateTime at) {
+    final now = DateTime.now();
+    return DateTime(at.year, at.month, at.day).difference(DateTime(now.year, now.month, now.day)).inDays;
   }
 }
 

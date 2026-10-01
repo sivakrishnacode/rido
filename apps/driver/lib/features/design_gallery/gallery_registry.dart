@@ -96,12 +96,20 @@ final List<GalleryEntry> galleryEntries = [
   _e('D-14b', 'Home · trip in progress banner', _p6,
       (_) => const D13HomeScreen(variant: HomeVariant.tripBanner, showcase: true)),
   _e('D-15', 'Incoming ride request', _p6, (_) => const D15RideRequestScreen(showcase: true)),
+  _e('D-15c', 'Incoming request · rental', _p6,
+      (_) => const D15RideRequestScreen(showcase: true, sample: Seed.rentalRequest)),
+  _e('D-15d', 'Incoming request · outstation, booked ahead', _p6,
+      (_) => D15RideRequestScreen(showcase: true, sample: Seed.outstationRequest)),
   _e('D-16', 'Navigate to pickup', _p6, (_) => const D16NavigateToPickupScreen(showcase: true)),
   _e('D-17', 'Enter ride OTP', _p6, (_) => const D17RideOtpScreen(showcase: true)),
   _e('D-17-error', 'Enter ride OTP · error state', _p6, (_) => const D17RideOtpScreen(showError: true, showcase: true)),
   _e('D-18', 'Ride in progress', _p6, (_) => const D18RideInProgressScreen(showcase: true)),
+  _e('D-18c', 'Rental in progress', _p6,
+      (_) => const D18RideInProgressScreen(showcase: true, sample: Seed.rentalRequest)),
   _e('D-18b', 'Driver SOS', _p6, (_) => const D18bDriverSosScreen(showcase: true)),
   _e('D-19', 'Collect payment', _p6, (_) => const D19CollectPaymentScreen(showcase: true)),
+  _e('D-19c', 'Collect payment · rental with extra km and time', _p6,
+      (_) => D19CollectPaymentScreen(showcase: true, sample: _settledRental())),
   _e('D-20', 'Incoming delivery request', _p6, (_) => const D20DeliveryRequestScreen(showcase: true)),
   _e('D-21', 'Delivery in progress', _p6, (_) => const D21DeliveryInProgressScreen(showcase: true)),
   _e('D-22a', 'Complete delivery with OTP', _p6, (_) => const D22DeliveryOtpScreen(showcase: true)),
@@ -190,4 +198,13 @@ class _EmptyEarningsFrame extends StatelessWidget {
         appBar: TtAppBar.driver(title: 'Earnings', showBack: true),
         body: S15EmptyEarningsView(showcase: true),
       );
+}
+
+/// The 4 h rental after 4 h 12 min and 46 km: 6 km and 12 min past the package (₹84 + ₹30).
+RideRequest _settledRental() {
+  const r = Seed.rentalRequest;
+  final terms = r.modeTerms! as RentalTerms;
+  final base = RideModeRates.quote(Seed.vehicle(r.vehicle), terms, distanceKm: 46, durationMin: 252);
+  final q = base.copyWith(extraKmCharge: 84, extraTimeCharge: 30, total: base.total + 114);
+  return r.copyWith(fare: q.total, quote: q);
 }

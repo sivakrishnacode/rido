@@ -477,13 +477,17 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (_live) {
       final update = await _jobs.start(job.id, otp: job.isDelivery ? null : otp);
       if (!ref.mounted) return;
-      // The fare now includes any waiting charge.
-      state = state.copyWith(phase: JobPhase.toDrop, job: job.copyWith(fare: update.trip.fare));
+      // The fare now includes any waiting charge; a rental's clock runs from the server's start time.
+      final started = update.json['startedAt'] is String ? DateTime.tryParse(update.json['startedAt'] as String)?.toLocal() : null;
+      state = state.copyWith(
+        phase: JobPhase.toDrop,
+        job: job.copyWith(fare: update.trip.fare, quote: update.trip.quote, rideStartedAt: started ?? DateTime.now()),
+      );
       _setLeg(job.pickup.location, job.drop.location, job.vehicle, job.tripMin);
       return;
     }
     final leg = roadPath(job.pickup.location, job.drop.location, mode: travelModeFor(job.vehicle));
-    state = state.copyWith(phase: JobPhase.toDrop, route: leg, etaMin: job.tripMin);
+    state = state.copyWith(phase: JobPhase.toDrop, route: leg, etaMin: job.tripMin, job: job.copyWith(rideStartedAt: DateTime.now()));
     _sim.animateAlong(leg, _t(SimTimings.rideDuration), onProgress: (p) => _eta(job.tripMin, p));
   }
 
@@ -496,8 +500,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       final update = await _jobs.complete(job.id, at: _position, farReason: farReason);
       if (!ref.mounted) return;
       _unwatchJob();
-      // The final fare (it may include the passenger's earlier cancellation fee): D-19 collects this.
-      state = state.copyWith(phase: JobPhase.collect, etaMin: 0, job: job.copyWith(fare: update.trip.fare));
+      // The final fare (it may include the passenger's earlier cancellation fee, a rental's extra km and minutes):
+      // D-19 collects this and lists its lines.
+      state = state.copyWith(phase: JobPhase.collect, etaMin: 0, job: job.copyWith(fare: update.trip.fare, quote: update.trip.quote));
       return;
     }
     _sim.cancelAll();
@@ -582,8 +587,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   }
 
   /// Mock mode and an older API without waiting terms: the default free minutes and cap, the vehicle's rate.
-  WaitingTerms _defaultWaiting(RideRequest job) =>
-      WaitingTerms(arrivedAt: DateTime.now(), perMin: Seed.vehicle(job.vehicle).fareRule.waitPerMin);
+  /// None for rentals and outstation trips (no waiting charge there).
+  WaitingTerms? _defaultWaiting(RideRequest job) => job.rideMode != RideMode.local
+      ? null
+      : WaitingTerms(arrivedAt: DateTime.now(), perMin: Seed.vehicle(job.vehicle).fareRule.waitPerMin);
 
   /// The API's default no-show wait (5 min), for mock mode and an older API without `noShowAt`.
   DateTime _defaultNoShowAt() => DateTime.now().add(const Duration(minutes: 5));

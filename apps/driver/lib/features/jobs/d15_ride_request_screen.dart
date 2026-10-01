@@ -6,10 +6,13 @@ import 'widgets/request_flow.dart';
 
 /// D-15 Incoming ride request: the request card(s) (see [RequestStackView]): fare and ₹/km, pickup and trip, swipen/// to accept → D-16, ✕ / back / timeout → the next open request, else D-14 (timeout shows the S-11 banner).
 class D15RideRequestScreen extends ConsumerStatefulWidget {
-  const D15RideRequestScreen({super.key, this.showcase = false});
+  const D15RideRequestScreen({super.key, this.showcase = false, this.sample});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
+
+  /// Design gallery: the request shown (default: the bike ride).
+  final RideRequest? sample;
 
   @override
   ConsumerState<D15RideRequestScreen> createState() => _D15RideRequestScreenState();
@@ -20,7 +23,7 @@ class _D15RideRequestScreenState extends ConsumerState<D15RideRequestScreen> wit
   bool get showcase => widget.showcase;
 
   @override
-  RideRequest get seed => Seed.rideRequest;
+  RideRequest get seed => widget.sample ?? Seed.rideRequest;
 
 
   @override

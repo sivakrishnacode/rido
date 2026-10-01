@@ -16,6 +16,10 @@ enum RequestPerk {
   /// Butterfly: a woman rider asked for a woman driver (first or only). The rail shows the butterfly on pink.
   butterfly('Butterfly', Symbols.female_rounded, TtColors.butterfly600, TtColors.butterfly50),
 
+  /// A cab by the hour, or a trip to another town (the card has a band saying which, and when for later).
+  rental('Rental', Symbols.timer_rounded, TtColors.navy900, TtColors.infoTint),
+  outstation('Outstation', Symbols.route_rounded, TtColors.navy900, TtColors.infoTint),
+
   /// A parcel among rides (a bike driver's mixed list).
   parcel('Parcel', Symbols.package_2_rounded, TtColors.coral700, TtColors.coral50),
 
@@ -47,12 +51,15 @@ Map<String, List<RequestPerk>> requestPerks(List<RideRequest> requests) {
   }
 
   final mixed = requests.any((r) => r.isDelivery) && requests.any((r) => !r.isDelivery);
-  final bestRate = only((r) => r.tripKm > 0 ? (r.fare / r.tripKm).round() : null, highest: true);
+  // Local rides only: a rental is priced by the hour, an outstation trip includes the driver's allowance.
+  final bestRate = only((r) => r.rideMode == RideMode.local && r.tripKm > 0 ? (r.fare / r.tripKm).round() : null, highest: true);
   final closest = only((r) => (r.pickupDistanceKm * 10).round(), highest: false);
   return {
     for (final r in requests)
       r.id: [
         if (r.isButterfly) RequestPerk.butterfly,
+        if (r.isRental) RequestPerk.rental,
+        if (r.isOutstation) RequestPerk.outstation,
         if (mixed && r.isDelivery) RequestPerk.parcel,
         if (r.id == bestRate) RequestPerk.bestRate,
         if (r.id == closest) RequestPerk.closest,
@@ -215,8 +222,11 @@ class _RequestStackViewState extends State<RequestStackView> {
     );
   }
 
-  /// "New ride request", "2 delivery requests", or "3 requests" when rides and parcels are mixed.
+  /// "New ride request", "New rental request", "2 delivery requests", or "3 requests" when rides and parcels are
+  /// mixed.
   String _title(List<StackEntry> entries) {
+    if (entries.length == 1 && entries.single.request.isRental) return 'New rental request';
+    if (entries.length == 1 && entries.single.request.isOutstation) return 'New outstation request';
     final deliveries = entries.where((e) => e.request.isDelivery).length;
     final kind = entries.isEmpty
         ? (widget.delivery ? 'delivery ' : 'ride ')
@@ -323,9 +333,11 @@ class _RequestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     final r = request;
-    final perKm = r.tripKm > 0 ? (r.fare / r.tripKm).round() : null;
+    final rate = _rateOf(r);
     final parcel = r.parcel;
     final butterfly = r.isButterfly;
+    final mode = r.rideMode != RideMode.local;
+    final terms = r.modeTerms;
     const radius = BorderRadius.all(Radius.circular(TtRadii.sheet));
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -337,8 +349,9 @@ class _RequestCard extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (butterfly) _ButterflyBand(womenOnly: r.isWomenOnly),
+        if (mode) _ModeBand(request: r),
         Padding(
-          padding: EdgeInsets.fromLTRB(TtSpacing.l, butterfly ? TtSpacing.s : TtSpacing.m, TtSpacing.s, TtSpacing.l),
+          padding: EdgeInsets.fromLTRB(TtSpacing.l, butterfly || mode ? TtSpacing.s : TtSpacing.m, TtSpacing.s, TtSpacing.l),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(
@@ -395,10 +408,10 @@ class _RequestCard extends StatelessWidget {
                 ]),
                 style: TtTextStyles.tabular(t.display),
               ),
-              if (perKm != null)
+              if (rate != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text('₹$perKm/km', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+                  child: Text(rate, style: t.bodySmall.copyWith(color: TtColors.navy500)),
                 ),
             ]),
             if (r.extra > 0) ...[
@@ -427,12 +440,19 @@ class _RequestCard extends StatelessWidget {
               address: r.pickup.address,
               line: true,
             ),
-            _Stop(
-              dot: TtColors.coral600,
-              headline: '${formatKm(r.tripKm)} trip · ~${r.tripMin} min',
-              name: r.drop.name,
-              address: r.drop.address,
-            ),
+            if (r.isRental)
+              const _Stop(dot: TtColors.coral600, headline: 'No fixed drop', name: 'Ends where the rider gets off', address: '')
+            else
+              _Stop(
+                dot: TtColors.coral600,
+                headline: switch (terms) {
+                  OutstationTerms(roundTrip: true, :final returnAt) =>
+                    '${formatKm(r.tripKm)} each way${returnAt == null ? '' : ' · back ${formatWhen(returnAt)}'}',
+                  _ => '${formatKm(r.tripKm)} trip · ~${formatMinutes(r.tripMin)}',
+                },
+                name: r.drop.name,
+                address: r.drop.address,
+              ),
             const SizedBox(height: TtSpacing.s),
             Text(
               [r.customerName, if (r.bookedBy != null) 'booked by ${r.bookedBy}', 'Cash / UPI to you'].join(' · '),
@@ -456,6 +476,71 @@ class _RequestCard extends StatelessWidget {
             ),
           ]),
         ),
+      ]),
+    );
+  }
+}
+
+/// "₹9/km" for a local ride; "₹245/hr" for a rental (the package by its hours); for an outstation trip the fare
+/// over the km it charges or includes.
+String? _rateOf(RideRequest r) => switch (r.modeTerms) {
+      RentalTerms t when t.hours > 0 => '₹${(r.fare / t.hours).round()}/hr',
+      OutstationTerms t when t.includedKm > 0 => '₹${(r.fare / t.includedKm).round()}/km',
+      _ => r.tripKm > 0 && r.rideMode == RideMode.local ? '₹${(r.fare / r.tripKm).round()}/km' : null,
+    };
+
+/// Rental / outstation: a band across the top of the card saying what the trip is ("Rental · 4 hrs · 40 km
+/// package", "Outstation · Round trip · 2 days") and, for a trip booked ahead, the pickup time, so it reads apart
+/// from the rides around it.
+class _ModeBand extends StatelessWidget {
+  const _ModeBand({required this.request});
+  final RideRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    final r = request;
+    final (label, icon, what) = switch (r.modeTerms) {
+      RentalTerms t => ('Rental', Symbols.timer_rounded, '${t.package.label} package'),
+      OutstationTerms(roundTrip: true, :final days) =>
+        ('Outstation', Symbols.route_rounded, 'Round trip · ${days == 1 ? 'same day' : '$days days'}'),
+      OutstationTerms() => ('Outstation', Symbols.route_rounded, 'One way'),
+      null => r.isRental ? ('Rental', Symbols.timer_rounded, 'By the hour') : ('Outstation', Symbols.route_rounded, 'Another town'),
+    };
+    final at = r.scheduledAt;
+    return Container(
+      color: TtColors.infoTint,
+      padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.m, TtSpacing.s),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(6, 3, 10, 3),
+            decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.pillRadius),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 16, color: TtColors.surface, fill: 1),
+              const SizedBox(width: 4),
+              Text(label, style: t.caption.copyWith(color: TtColors.surface, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+          const SizedBox(width: TtSpacing.s),
+          Expanded(
+            child: Text(what,
+                style: t.bodySmallMedium.copyWith(color: TtColors.navy900, fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ),
+        ]),
+        if (at != null) ...[
+          const SizedBox(height: 6),
+          Row(children: [
+            const Icon(Symbols.event_rounded, size: 18, color: TtColors.coral700, fill: 1),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text('Pickup ${formatWhen(at)}',
+                  style: t.bodySemibold.copyWith(color: TtColors.coral700), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          ]),
+        ],
       ]),
     );
   }

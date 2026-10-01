@@ -6,6 +6,7 @@ import 'models/people.dart';
 import 'models/place.dart';
 import 'models/trip.dart';
 import 'models/vehicle.dart';
+import 'ride_modes.dart';
 
 /// The prototype runs on a fixed calendar day (24 Sep 2026) so seed dates, the free trial and
 /// "next debit 24 Oct 2026" always line up. Only the time of day is live.
@@ -603,6 +604,55 @@ abstract final class Seed {
     customerPhone: '+91 98765 43210',
     otp: rideOtp,
   );
+
+  /// A Sedan rented for 4 hours (D-15 rental card, D-18 / D-19 rental frames). A rental has no drop: the API sets
+  /// the drop to the pickup.
+  static const RideRequest rentalRequest = RideRequest(
+    id: 'REQ-R1',
+    kind: TripKind.ride,
+    vehicle: VehicleKind.sedan,
+    fare: 979,
+    pickup: gandhipuram,
+    drop: gandhipuram,
+    pickupDistanceKm: 1.2,
+    pickupEtaMin: 5,
+    tripKm: 40,
+    tripMin: 240,
+    customerName: 'Meena',
+    customerRating: 4.8,
+    customerPhone: '+91 98765 43211',
+    otp: rideOtp,
+    rideMode: RideMode.rental,
+    modeTerms: RentalTerms(packageId: '4h', hours: 4, km: 40, price: 979, extraKmRate: 14, extraMinRate: 2.5),
+  );
+
+  /// A Sedan to Ooty and back, booked for tomorrow 6 am, back the day after at 6 pm (D-15 outstation card).
+  static RideRequest get outstationRequest {
+    final now = DateTime.now();
+    final leave = DateTime(now.year, now.month, now.day + 1, 6);
+    final back = DateTime(now.year, now.month, now.day + 2, 18);
+    final ooty = outstationTowns[1];
+    final terms = RideModeRates.outstationTerms(VehicleKind.sedan, routeKm: 86, roundTrip: true, leaveAt: leave, returnAt: back);
+    return RideRequest(
+      id: 'REQ-O1',
+      kind: TripKind.ride,
+      vehicle: VehicleKind.sedan,
+      fare: (terms.includedKm * terms.perKm).floor() + terms.allowancePerDay * terms.days,
+      pickup: gandhipuram,
+      drop: ooty,
+      pickupDistanceKm: 2.4,
+      pickupEtaMin: 8,
+      tripKm: 86,
+      tripMin: 150,
+      customerName: 'Arun',
+      customerRating: 4.9,
+      customerPhone: '+91 98765 43212',
+      otp: rideOtp,
+      rideMode: RideMode.outstation,
+      modeTerms: terms,
+      scheduledAt: leave,
+    );
+  }
 
   /// The delivery request shown on D-20.
   static const RideRequest deliveryRequest = RideRequest(

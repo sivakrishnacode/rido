@@ -148,12 +148,16 @@ Notes:
 | D-14 | Home · online, waiting | In the app | [driver/D-14.png](driver/D-14.png) |
 | D-14b | Home · trip in progress banner | In the app | [driver/D-14b.png](driver/D-14b.png) |
 | D-15 | Incoming ride request | In the app | [driver/D-15.png](driver/D-15.png) |
+| D-15c | Incoming request · rental | Added after the design | [driver/D-15c.png](driver/D-15c.png) |
+| D-15d | Incoming request · outstation, booked ahead | Added after the design | [driver/D-15d.png](driver/D-15d.png) |
 | D-16 | Navigate to pickup | In the app | [driver/D-16.png](driver/D-16.png) |
 | D-17 | Enter ride OTP | In the app | [driver/D-17.png](driver/D-17.png) |
 | D-17-error | Enter ride OTP · error state | In the app | [driver/D-17-error.png](driver/D-17-error.png) |
 | D-18 | Ride in progress | In the app | [driver/D-18.png](driver/D-18.png) |
+| D-18c | Rental in progress | Added after the design | [driver/D-18c.png](driver/D-18c.png) |
 | D-18b | Driver SOS | In the app | [driver/D-18b.png](driver/D-18b.png) |
 | D-19 | Collect payment | In the app | [driver/D-19.png](driver/D-19.png) |
+| D-19c | Collect payment · rental with extra km and time | Added after the design | [driver/D-19c.png](driver/D-19c.png) |
 | D-20 | Incoming delivery request | In the app | [driver/D-20.png](driver/D-20.png) |
 | D-21 | Delivery in progress | In the app | [driver/D-21.png](driver/D-21.png) |
 | D-22a | Complete delivery with OTP | In the app | [driver/D-22a.png](driver/D-22a.png) |

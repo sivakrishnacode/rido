@@ -120,7 +120,12 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
               child: Row(children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Going to pickup', style: t.bodySmall.copyWith(color: Colors.white70)),
+                    // Booked ahead: the time the rider expects you (accepting early only means setting off in time).
+                    if (_job.scheduledAt case final at?)
+                      Text('Pickup ${formatWhen(at)}',
+                          style: t.bodySmallMedium.copyWith(color: TtColors.coral100, fontWeight: FontWeight.w700))
+                    else
+                      Text('Going to pickup', style: t.bodySmall.copyWith(color: Colors.white70)),
                     Text(eta <= 0 ? 'Arriving now' : '$eta min · ${formatKm(km)}',
                         style: TtTextStyles.tabular(t.h1.copyWith(color: Colors.white))),
                   ]),
@@ -202,8 +207,10 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                         ),
                         const Icon(Symbols.star_rounded, fill: 1, size: 20, color: TtColors.navy900),
                       ]),
-                      Text('${formatInr(_job.fare)} · Cash / UPI',
-                          style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500))),
+                      Text('${formatInr(_job.fare)} · ${_job.modeLabel ?? 'Cash / UPI'}',
+                          style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                     ]),
                   ),
                   RoundIconButton(

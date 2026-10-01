@@ -14,8 +14,13 @@ import 'widgets/rate_customer_sheet.dart';
 
 /// D-19 Collect payment (and D-22b for deliveries): "Collect ₹38", the driver's own UPI QR,
 /// "Received cash" / "Received on UPI" → rate the passenger → D-14 with today's earnings up.
+/// A rental or outstation trip also lists what the fare is made of (package, extra km / minutes, allowance), so the
+/// driver can show the rider.
 class D19CollectPaymentScreen extends ConsumerStatefulWidget {
-  const D19CollectPaymentScreen({super.key, this.delivery = false, this.showcase = false});
+  const D19CollectPaymentScreen({super.key, this.delivery = false, this.showcase = false, this.sample});
+
+  /// Design gallery: the trip shown (default: the bike ride / the parcel).
+  final RideRequest? sample;
 
   /// D-22b "Collect from receiver" variant.
   final bool delivery;
@@ -29,6 +34,7 @@ class D19CollectPaymentScreen extends ConsumerStatefulWidget {
 
 class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScreen> {
   late final RideRequest _job = ref.read(driverSessionProvider).job ??
+      widget.sample ??
       (widget.delivery ? Seed.deliveryRequest : Seed.rideRequest);
   bool _busy = false;
 
@@ -45,6 +51,16 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
     if (!mounted) return;
     showTtSnack(context, '${formatInr(_job.fare)} added. You keep 100%.', success: true);
     context.go(Routes.home);
+  }
+
+  /// A rental / outstation trip's fare lines: the server's final ones (with any extra km / minutes), else the terms'
+  /// own (mock mode). Null for local rides and parcels.
+  FareQuote? _modeQuote() {
+    final terms = _job.modeTerms;
+    if (terms == null) return null;
+    final q = _job.quote;
+    if (q != null && q.total == _job.fare) return q.modeTerms == null ? q.copyWith(modeTerms: terms) : q;
+    return RideModeRates.quote(Seed.vehicle(_job.vehicle), terms, distanceKm: _job.tripKm, durationMin: _job.tripMin);
   }
 
   @override
@@ -84,7 +100,8 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
                       ]),
                     )
                   else
-                    Text('Ride complete · ${_job.customerName}', style: t.body.copyWith(color: Colors.white70)),
+                    Text('${_job.isRental ? 'Rental' : _job.isOutstation ? 'Trip' : 'Ride'} complete · ${_job.customerName}',
+                        style: t.body.copyWith(color: Colors.white70)),
                   const SizedBox(height: TtSpacing.xs),
                   FittedBox(
                     child: Text('Collect ${formatInr(_job.fare)}', style: t.heroSmall.copyWith(color: Colors.white)),
@@ -100,6 +117,18 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.l),
                 child: Column(children: [
+                  if (_modeQuote() case final q?) ...[
+                    Container(
+                      padding: const EdgeInsets.all(TtSpacing.l),
+                      decoration: BoxDecoration(
+                        color: TtColors.background,
+                        borderRadius: TtRadii.cardRadius,
+                        border: Border.all(color: TtColors.divider),
+                      ),
+                      child: FareBreakdown.fromQuote(q, title: _job.modeLabel),
+                    ),
+                    const SizedBox(height: TtSpacing.l),
+                  ],
                   Container(
                     padding: const EdgeInsets.all(TtSpacing.m),
                     decoration: BoxDecoration(

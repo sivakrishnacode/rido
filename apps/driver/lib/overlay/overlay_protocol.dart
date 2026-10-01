@@ -49,6 +49,9 @@ class OverlayOffer {
     this.isVerified = false,
     this.womenDriver = WomenDriverPref.none,
     this.extra = 0,
+    this.rideMode = RideMode.local,
+    this.modeTerms,
+    this.scheduledAt,
   });
 
   factory OverlayOffer.fromRequest(RideRequest r, DateTime expiresAt) => OverlayOffer(
@@ -72,6 +75,9 @@ class OverlayOffer {
         isVerified: r.isCustomerVerified,
         womenDriver: r.womenDriver,
         extra: r.extra,
+        rideMode: r.rideMode,
+        modeTerms: r.modeTerms,
+        scheduledAt: r.scheduledAt,
       );
 
   /// Null when [json] isn't an offer (e.g. a message from an older build).
@@ -103,6 +109,9 @@ class OverlayOffer {
       womenDriver: WomenDriverPref.values.asNameMap()[json['womenDriver']] ??
           (json['isWomenOnly'] == true ? WomenDriverPref.only : WomenDriverPref.none),
       extra: n('extra').round(),
+      rideMode: RideMode.values.asNameMap()[json['rideMode']] ?? RideMode.local,
+      modeTerms: ModeTerms.fromJson(json['modeTerms']),
+      scheduledAt: json['scheduledAtMs'] is num ? DateTime.fromMillisecondsSinceEpoch((json['scheduledAtMs'] as num).round()) : null,
     );
   }
 
@@ -115,6 +124,11 @@ class OverlayOffer {
 
   /// Part of [fare] the rider added ("₹50 + ₹20").
   final int extra;
+
+  /// Rental / outstation and what it agreed to; the pickup time of a trip booked ahead.
+  final RideMode rideMode;
+  final ModeTerms? modeTerms;
+  final DateTime? scheduledAt;
 
   /// Back to a [RideRequest] for the shared card widgets (no coordinates: the overlay draws no map).
   RideRequest toRequest() => RideRequest(
@@ -133,6 +147,9 @@ class OverlayOffer {
         isCustomerVerified: isVerified,
         womenDriver: womenDriver,
         extra: extra,
+        rideMode: rideMode,
+        modeTerms: modeTerms,
+        scheduledAt: scheduledAt,
       );
 
   DateTime get expiresAt => DateTime.fromMillisecondsSinceEpoch(expiresAtMs);
@@ -179,6 +196,9 @@ class OverlayOffer {
         'extra': extra,
         'isVerified': isVerified,
         'womenDriver': womenDriver.name,
+        'rideMode': rideMode.name,
+        'modeTerms': ?modeTerms?.toJson(),
+        'scheduledAtMs': ?scheduledAt?.millisecondsSinceEpoch,
       };
 }
 

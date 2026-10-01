@@ -192,7 +192,8 @@ Trip tripFromJson(Json j) {
     pickup: _tripPlace(j, 'pickup'),
     drop: _tripPlace(j, 'drop'),
     fare: _i(j['fareTotal']),
-    quote: fare == null ? null : quoteFromJson(fare),
+    // A trip's fare JSON doesn't repeat its terms: the quote gets the trip's (for the fare breakdown).
+    quote: fare == null ? null : _withTerms(quoteFromJson(fare), ModeTerms.fromJson(j['modeTerms'])),
     status: tripStatusFromApi(j['status']),
     startedAt: _date(j['createdAt']),
     driver: driver == null ? null : driverFromJson(driver),
@@ -208,6 +209,8 @@ Trip tripFromJson(Json j) {
     scheduledAt: j['scheduledAt'] is String ? DateTime.tryParse(j['scheduledAt'] as String)?.toLocal() : null,
   );
 }
+
+FareQuote _withTerms(FareQuote q, ModeTerms? terms) => terms == null || q.modeTerms != null ? q : q.copyWith(modeTerms: terms);
 
 /// The API status string of a trip (the app's [TripStatus] folds NO_DRIVERS into cancelled).
 String apiStatusOf(Json j) => _s(j['status']);
@@ -239,6 +242,7 @@ RideRequest rideRequestFromOffer(Json offer) {
     rideMode: trip.rideMode,
     modeTerms: trip.modeTerms,
     scheduledAt: trip.scheduledAt,
+    quote: trip.quote,
   );
 }
 
@@ -270,6 +274,8 @@ RideRequest rideRequestFromTrip(Json j) {
     rideMode: trip.rideMode,
     modeTerms: trip.modeTerms,
     scheduledAt: trip.scheduledAt,
+    quote: trip.quote,
+    rideStartedAt: j['startedAt'] is String ? DateTime.tryParse(j['startedAt'] as String)?.toLocal() : null,
   );
 }
 

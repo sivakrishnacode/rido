@@ -33,6 +33,23 @@ void main() {
   });
 
   group('OverlayOffer', () {
+    test('a rental or an outstation trip booked ahead keeps its terms and pickup time', () {
+      final expiresAt = DateTime(2026, 10, 1, 21);
+      for (final r in [Seed.rentalRequest, Seed.outstationRequest]) {
+        final o = OverlayOffer.fromJson(jsonDecode(jsonEncode(OverlayOffer.fromRequest(r, expiresAt).toJson())))!.toRequest();
+        expect(o.rideMode, r.rideMode);
+        expect(o.modeLabel, r.modeLabel);
+        expect(o.scheduledAt, r.scheduledAt == null ? isNull : DateTime.fromMillisecondsSinceEpoch(r.scheduledAt!.millisecondsSinceEpoch));
+      }
+      final back = OverlayOffer.fromJson(
+              jsonDecode(jsonEncode(OverlayOffer.fromRequest(Seed.outstationRequest, expiresAt).toJson())))!
+          .toRequest()
+          .modeTerms! as OutstationTerms;
+      final want = Seed.outstationRequest.modeTerms! as OutstationTerms;
+      expect((back.roundTrip, back.days, back.includedKm, back.perKm), (want.roundTrip, want.days, want.includedKm, want.perKm));
+      expect(back.returnAt, want.returnAt);
+    });
+
     final expires = DateTime(2026, 9, 26, 10, 0, 15);
     final r = Seed.deliveryRequest.copyWith(id: 'trip-9', customerName: 'Meena', pickupDistanceKm: 1.4, pickupEtaMin: 5);
 

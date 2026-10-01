@@ -31,6 +31,16 @@ void main() {
     expect(RequestSpeech.of(r, VoiceLanguage.tamil), startsWith('புதிய சவாரி. ${r.fare} ரூபாய்.'));
   });
 
+  test('rentals say the hours, outstation trips the town and the pickup time', () {
+    final rental = RequestSpeech.of(Seed.rentalRequest, VoiceLanguage.english);
+    expect(rental, startsWith('New rental, 4 hours. 979 rupees.'));
+    expect(rental, isNot(contains('Trip ')), reason: 'a rental has no trip length');
+    final o = Seed.outstationRequest;
+    final en = RequestSpeech.of(o, VoiceLanguage.english);
+    expect(en, startsWith('New outstation trip to Ooty, round trip. Pickup tomorrow at 6:00 AM. ${o.fare} rupees.'));
+    expect(RequestSpeech.of(o, VoiceLanguage.tamil), startsWith('புதிய வெளியூர் சவாரி, Ooty, போய் வர. பிக்கப் நாளை 6:00 AM.'));
+  });
+
   test("the rider's extra is read after the fare", () {
     final r = Seed.rideRequest.copyWith(fare: 70, extra: 20);
     expect(RequestSpeech.of(r, VoiceLanguage.english), startsWith('New ride. 50 rupees plus 20 extra.'));

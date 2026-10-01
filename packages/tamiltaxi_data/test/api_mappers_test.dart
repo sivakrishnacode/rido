@@ -225,4 +225,40 @@ void main() {
     expect(u.cancelledBy, CancelledBy.driver);
     expect(u.cancelCode, CancelCode.vehicleIssue);
   });
+
+  test("a rental trip: the quote gets the trip's terms, settled extras and the start time reach the driver", () {
+    final j = {
+      ..._trip,
+      'status': 'COMPLETED',
+      'vehicleKind': 'SEDAN',
+      'rideMode': 'RENTAL',
+      'modeTerms': {'mode': 'RENTAL', 'packageId': '4h', 'hours': 4, 'km': 40, 'price': 979, 'extraKmRate': 14, 'extraMinRate': 2.5},
+      'fare': {
+        'vehicleKind': 'SEDAN', 'distanceKm': 40, 'durationMin': 240, 'base': 979, 'distanceCharge': 0, 'timeCharge': 0,
+        'minFareTopUp': 0, 'subtotal': 979, 'multiplier': 1, 'peakCharge': 0, 'total': 1093,
+        'extraKm': 6, 'extraMin': 12, 'extraKmCharge': 84, 'extraTimeCharge': 30,
+      },
+      'fareTotal': 1093,
+      'startedAt': '2026-09-26T06:00:00.000Z',
+    };
+    final r = rideRequestFromTrip(j);
+    expect(r.isRental, isTrue);
+    expect(r.modeLabel, 'Rental · 4 hrs · 40 km');
+    expect(r.endsAnywhere, isTrue);
+    expect(r.fare, 1093);
+    expect(r.quote!.modeTerms, isA<RentalTerms>());
+    expect((r.quote!.extraKmCharge, r.quote!.extraTimeCharge), (84, 30));
+    expect(r.rideStartedAt, DateTime.utc(2026, 9, 26, 6).toLocal());
+  });
+
+  test('mode terms round-trip through JSON', () {
+    final rental = Seed.rentalRequest.modeTerms!;
+    final back = ModeTerms.fromJson(rental.toJson())! as RentalTerms;
+    expect((back.packageId, back.hours, back.km, back.price, back.extraMinRate), ('4h', 4, 40, 979, 2.5));
+    final out = ModeTerms.fromJson(Seed.outstationRequest.modeTerms!.toJson())! as OutstationTerms;
+    expect(out.roundTrip, isTrue);
+    expect(out.days, 2);
+    expect(rideModeLabel(RideMode.local, null), isNull);
+    expect(rideModeLabel(RideMode.outstation, out), 'Outstation · round trip');
+  });
 }

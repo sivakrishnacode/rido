@@ -212,4 +212,33 @@ void main() {
     expect(tester.widget<Text>(label).style?.color, TtColors.error);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('rental and outstation requests get a band, ₹/hr or ₹/km on the package, and no best-₹/km race', (tester) async {
+    final now = DateTime.now();
+    await pump(tester, [
+      (request: Seed.rentalRequest, expiresAt: now.add(const Duration(seconds: 12))),
+      (request: Seed.outstationRequest, expiresAt: now.add(const Duration(seconds: 14))),
+      (request: Seed.rideRequest, expiresAt: now.add(const Duration(seconds: 10))),
+    ]);
+    // Rental: package band, by the hour, no drop.
+    expect(find.text('4 hrs · 40 km package'), findsOneWidget);
+    expect(find.text('₹245/hr'), findsOneWidget); // 979 / 4
+    expect(find.text('No fixed drop'), findsOneWidget);
+    // Outstation booked ahead: round trip, the pickup time, km each way and when back.
+    final o = Seed.outstationRequest;
+    final terms = o.modeTerms! as OutstationTerms;
+    expect(find.text('Round trip · 2 days'), findsOneWidget);
+    expect(find.text('Pickup ${formatWhen(o.scheduledAt!)}'), findsOneWidget);
+    expect(find.text('86.0 km each way · back ${formatWhen(terms.returnAt!)}'), findsOneWidget);
+    expect(find.text('₹${(o.fare / terms.includedKm).round()}/km'), findsOneWidget);
+    // The local ride is the only one with a ₹/km to compare: nobody gets "Best ₹/km".
+    expect(find.text('Best ₹/km'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('a single rental says so in the title', (tester) async {
+    await pump(tester, [(request: Seed.rentalRequest, expiresAt: DateTime.now().add(const Duration(seconds: 12)))]);
+    expect(find.text('New rental request'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 }
