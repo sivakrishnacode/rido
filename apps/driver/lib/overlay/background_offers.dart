@@ -48,6 +48,10 @@ class BackgroundOffers {
   Timer? _backgroundTimer;
   final List<Timer> _rechecks = [];
 
+  /// Set by [dispose]: queued changes and overlay messages that arrive later must not touch the (unmounted)
+  /// widget's ref.
+  bool _disposed = false;
+
   void start() {
     _messages = FlutterOverlayWindow.overlayListener.listen(_onOverlayMessage, onError: (Object _) {});
     // A bubble left over from before (the app was restarted while it showed) is closed now the app is in front.
@@ -55,6 +59,7 @@ class BackgroundOffers {
   }
 
   void dispose() {
+    _disposed = true;
     _messages?.cancel();
     _backgroundTimer?.cancel();
     for (final t in _rechecks) {
@@ -122,7 +127,9 @@ class BackgroundOffers {
   }
 
   Future<void> _apply(bool checkPermission) async {
+    if (_disposed) return;
     if (checkPermission) _overlayAllowed = await FlutterOverlayWindow.isPermissionGranted();
+    if (_disposed) return;
     final s = _ref.read(driverSessionProvider);
     final incoming = s.incoming;
     final surface = backgroundSurfaceFor(
@@ -267,7 +274,7 @@ class BackgroundOffers {
   }
 
   Future<void> _onOverlayMessage(dynamic raw) async {
-    if (raw is! Map) return;
+    if (raw is! Map || _disposed) return;
     final session = _ref.read(driverSessionProvider.notifier);
     final incoming = _ref.read(driverSessionProvider).incoming;
     final id = raw['id'];
