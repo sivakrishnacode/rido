@@ -21,6 +21,7 @@ export 'src/widgets/home_footer.dart';
 export 'src/widgets/location_markers.dart';
 export 'src/widgets/location_row.dart';
 export 'src/widgets/map_bottom_sheet.dart';
+export 'src/widgets/kolam_ring.dart';
 export 'src/widgets/map_markers.dart';
 export 'src/widgets/number_plate.dart';
 export 'src/widgets/otp_display.dart';

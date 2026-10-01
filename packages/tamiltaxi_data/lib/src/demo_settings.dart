@@ -99,6 +99,9 @@ final demoSettingsProvider = NotifierProvider<DemoSettingsNotifier, DemoSettings
 abstract final class SimTimings {
   static const splash = Duration(milliseconds: 1500);
 
+  /// P-01's animated intro (kolam ring, lane dashes, tagline); the rider app routes on when it ends.
+  static const intro = Duration(milliseconds: 2000);
+
   // Passenger ride
   static const findDriver = Duration(seconds: 3);
   static const driverArrives = Duration(seconds: 5);
