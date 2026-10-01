@@ -1375,6 +1375,14 @@ together is refused (400) and Go To turns Stay In off (prefs restored after). Th
 `tamiltaxi-api:prev` / `tamiltaxi-admin:prev` (rollback: tag them back to `:local` and `up -d --no-build`). Apps need
 new APKs for the features.
 
+**Deployed 1 Oct 2026:** admin manual approval + Approvals queue, regrouped sidebar, faster list views, admin people
+API (`ccbe555..b343de1`; the website `apps/web` isn't deployed). Migrations `admin_list_indexes` and `admin_notes`
+applied on start; DB dump first at `~/tamiltaxi-20261001.dump` on the server. Slim upload (3.3 MB): only
+`package-lock.json` had changed, for the website's packages. Rollback images: `tamiltaxi-api:prev` /
+`tamiltaxi-admin:prev` (the 30 Sep build); the older ones are `:prev-0930a`. Checked live: `/health` 200, admin
+login 200, signed-in `GET /admin/approvals` (counts, `autoApprove` true), drivers with status counts and no UPI IDs in
+the list, rider / trip filters, activity and notes 200. `rido-sg` also allows `110.226.112.45` (SSH, 1 Oct).
+
 - **Slow upload (mobile data, ~100 KB/s):** when no `package.json`, `package-lock.json`, Dockerfile or migration changed
   since the deployed build, ship only the build outputs (~3 MB instead of ~450 MB): copy `apps/api/dist`,
   `apps/api/prisma` and `apps/api/src/generated` out of the new API image and `/app/apps/admin` out of the new admin
@@ -1382,8 +1390,8 @@ new APKs for the features.
   replaced, tag the result `:local` and `up -d --no-build`. Used on 30 Sep 2026.
 - **SSH from a mobile network:** carrier NAT can show one IP to `checkip.amazonaws.com` and use another towards AWS,
   so a rule for the first still times out. Find the one the server sees in `$SSH_CLIENT` (open 22 briefly, connect,
-  allow that /32, close the wide rule again). `rido-sg` now allows `122.178.167.96` (home) and `157.51.64.100`
-  (mobile, may change).
+  allow that /32, close the wide rule again). `rido-sg` now allows `122.178.167.96` (home), `157.51.64.100`
+  (mobile, may change) and `110.226.112.45` (1 Oct 2026).
 
 **Capacity (measured 26 Sep 2026, t3.small):** cached fare quotes at 50 concurrent connections: ~890 req/s average
 (peak 1,340), p50 43 ms, p99 ~200 ms, no errors; the API process used both vCPUs while Postgres/Redis stayed idle.
