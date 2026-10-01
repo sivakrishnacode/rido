@@ -59,6 +59,7 @@ export const VEHICLE_KINDS: readonly VehicleKind[] = [
   "TRUCK",
 ];
 export const ROLES: readonly Role[] = ["PASSENGER", "DRIVER", "ADMIN"];
+export const WORK_TYPES: readonly WorkType[] = ["RIDES", "DELIVERIES"];
 export const KYC_STATUSES: readonly KycStatus[] = ["UNDER_REVIEW", "REJECTED", "NOT_UPLOADED", "VERIFIED"];
 export const PAYMENT_STATUSES: readonly PaymentStatus[] = ["PENDING", "PAID", "FAILED", "REFUNDED"];
 export const ZONE_KINDS: readonly ZoneKind[] = ["SURGE", "DEMAND", "NO_SERVICE", "PICKUP_POINT"];
@@ -601,6 +602,35 @@ export interface AdminUser extends User {
   readonly driver: { readonly id: string; readonly status: DriverStatus; readonly vehicleKind: VehicleKind; readonly plate: string } | null;
   readonly _count: { readonly trips: number; readonly tickets: number };
 }
+
+/** GET /admin/users/:id/notes item: an internal note, admin panel only. */
+export interface AdminNote {
+  readonly id: string;
+  readonly body: string;
+  readonly createdAt: string;
+  readonly author: { readonly id: string; readonly name: string | null; readonly phone: string } | null;
+}
+
+/** GET /admin/users/:id/activity item: one admin change to this person, as a readable line. */
+export interface ActivityEntry {
+  readonly id: string;
+  readonly at: string;
+  readonly summary: string;
+  readonly action: string;
+  readonly actor: { readonly id: string; readonly name: string | null; readonly phone: string } | null;
+}
+
+/** PATCH /admin/drivers/:id/profile body. */
+export interface DriverProfileInput {
+  readonly vehicleKind?: VehicleKind;
+  readonly workType?: WorkType;
+  readonly vehicleModel?: string;
+  readonly vehicleColor?: string;
+  readonly plate?: string;
+  readonly upiId?: string;
+}
+
+export type MessageApp = "DRIVER" | "PASSENGER" | "BOTH";
 
 export interface EmergencyContact {
   readonly id: string;

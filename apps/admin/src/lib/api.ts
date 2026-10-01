@@ -8,8 +8,12 @@ import type { QueryInput } from "./paging";
 import type { SosPage, SosRecord } from "./safety";
 import { TOKEN_COOKIE, USER_COOKIE, getToken } from "./session";
 import type {
+  ActivityEntry,
+  AdminNote,
   AdminStats,
   AdminUser,
+  DriverProfileInput,
+  MessageApp,
   ApprovalStage,
   ApprovalsPage,
   Announcement,
@@ -286,8 +290,20 @@ export const adminApi = {
   // Users and the KYC queue
   users: (q: ListQuery = {}) => apiFetch<Paged<AdminUser>>("/admin/users", { query: listQuery(q) }),
   user: (id: string) => orNotFound(apiFetch<UserDetail>(`/admin/users/${enc(id)}`)),
-  updateUser: (id: string, data: { name?: string; role?: Role; isBlocked?: boolean; blockedReason?: string }) =>
+  updateUser: (id: string, data: { name?: string; email?: string | null; role?: Role; isBlocked?: boolean; blockedReason?: string }) =>
     apiFetch<UserDetail>(`/admin/users/${enc(id)}`, { method: "PATCH", body: data }),
+
+  // One person: notes (shared by their driver and account pages), history, a direct push, driver fixes
+  notes: (userId: string) => apiFetch<AdminNote[]>(`/admin/users/${enc(userId)}/notes`),
+  addNote: (userId: string, body: string) => apiFetch<AdminNote>(`/admin/users/${enc(userId)}/notes`, { method: "POST", body: { body } }),
+  deleteNote: (id: string) => apiFetch<null>(`/admin/notes/${enc(id)}`, { method: "DELETE" }),
+  activity: (userId: string, limit = 30) => apiFetch<ActivityEntry[]>(`/admin/users/${enc(userId)}/activity`, { query: { limit } }),
+  /** `devices` = phones the push went to (0 = none registered, nothing sent). */
+  message: (userId: string, data: { title: string; body: string; app?: MessageApp }) =>
+    apiFetch<{ devices: number }>(`/admin/users/${enc(userId)}/message`, { method: "POST", body: data }),
+  updateDriverProfile: (driverId: string, data: DriverProfileInput) =>
+    apiFetch<Driver>(`/admin/drivers/${enc(driverId)}/profile`, { method: "PATCH", body: data }),
+  takeDriverOffline: (driverId: string) => apiFetch<Driver>(`/admin/drivers/${enc(driverId)}/offline`, { method: "POST" }),
   kyc: (q: ListQuery = {}) => apiFetch<Paged<KycQueueItem>>("/admin/kyc", { query: listQuery(q) }),
 
   // Operations

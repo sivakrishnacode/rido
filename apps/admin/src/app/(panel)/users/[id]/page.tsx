@@ -1,20 +1,25 @@
 import { ArrowLeftIcon, BanIcon, HeartHandshakeIcon, LifeBuoyIcon, MapPinIcon, RouteIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { EmptyState, Field, PageHeader } from "@/components/common/page";
 import { PlateBadge, StatusBadge } from "@/components/common/status";
 import { TripRouteCell } from "@/components/common/trip-bits";
+import { PersonMenu } from "@/components/people/person-menu";
+import { PersonRecord } from "@/components/people/person-record";
+import { PersonTabs } from "@/components/people/person-tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { adminApi } from "@/lib/api";
 import { displayName, formatDate, formatDateTime, formatInr, formatPhone, humanize, initials, kycProgress, shortId, vehicleLabel } from "@/lib/format";
 import { getSessionUser } from "@/lib/session";
 
-import { BlockControl, RoleControl } from "./user-actions";
+import { RoleControl } from "./user-actions";
 
 export async function generateMetadata({ params }: PageProps<"/users/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -30,9 +35,15 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
 
   return (
     <>
-      <Link href="/users" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeftIcon className="size-4" /> Users
-      </Link>
+      {u.role === "PASSENGER" ? (
+        <Link href="/passengers" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeftIcon className="size-4" /> All riders
+        </Link>
+      ) : (
+        <Link href="/users" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeftIcon className="size-4" /> All accounts
+        </Link>
+      )}
       <PageHeader
         title={
           <span className="flex items-center gap-3">
@@ -55,16 +66,34 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
           </span>
         }
         actions={
-          isSelf ? (
-            <p className="text-sm text-muted-foreground">This is your account.</p>
-          ) : (
-            <>
-              <RoleControl userId={u.id} role={u.role} name={name} />
-              <BlockControl userId={u.id} isBlocked={!!u.isBlocked} name={name} />
-            </>
-          )
+          <>
+            {isSelf ? <p className="text-sm text-muted-foreground">This is your account.</p> : <RoleControl userId={u.id} role={u.role} name={name} />}
+            <PersonMenu
+              userId={u.id}
+              name={name}
+              email={u.email}
+              personName={u.name}
+              isBlocked={!!u.isBlocked}
+              isSelf={isSelf}
+              driver={
+                u.driver
+                  ? {
+                      id: u.driver.id,
+                      isOnline: u.driver.isOnline,
+                      vehicleKind: u.driver.vehicleKind,
+                      workType: u.driver.workType,
+                      vehicleModel: u.driver.vehicleModel,
+                      vehicleColor: u.driver.vehicleColor,
+                      plate: u.driver.plate,
+                      upiId: u.driver.upiId,
+                    }
+                  : undefined
+              }
+            />
+          </>
         }
       />
+      {u.driver && <PersonTabs userId={u.id} driverId={u.driver.id} active="account" />}
 
       {u.isBlocked && (
         <p className="mb-4 rounded-lg bg-error-tint px-4 py-3 text-sm text-error">
@@ -243,6 +272,10 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
           )}
         </Card>
       </div>
+
+      <Suspense fallback={<Skeleton className="mt-4 h-48 w-full rounded-xl" />}>
+        <PersonRecord userId={u.id} driverId={u.driver?.id} />
+      </Suspense>
     </>
   );
 }

@@ -9,13 +9,16 @@ import { validateSettings, type SettingsInput } from "@/lib/validation";
 import {
   AUDIENCES,
   DRIVER_STATUSES,
+  WORK_TYPES,
   KYC_DOC_TYPES,
   ROLES,
   TICKET_STATUSES,
   VEHICLE_KINDS,
   ZONE_KINDS,
   type City,
+  type DriverProfileInput,
   type DriverStatus,
+  type MessageApp,
   type KycDocType,
   type Role,
   type TicketStatus,
@@ -228,15 +231,85 @@ export async function setUserRole(userId: string, role: Role): Promise<ActionRes
   return plain(res);
 }
 
-export async function setUserBlocked(userId: string, isBlocked: boolean, reason?: string): Promise<ActionResult> {
+export async function setUserBlocked(userId: string, isBlocked: boolean, reason?: string, driverId?: string): Promise<ActionResult> {
   const trimmed = reason?.trim();
   if (isBlocked && (!trimmed || trimmed.length < 3 || trimmed.length > 200)) return { ok: false, error: "Add a reason (3–200 characters)" };
   const res = await run(
     () => adminApi.updateUser(userId, isBlocked ? { isBlocked, blockedReason: trimmed } : { isBlocked }),
     isBlocked ? "User blocked" : "User unblocked",
-    [`/users/${userId}`, "/users", "/"],
+    [...personPaths(userId, driverId), "/users", "/passengers", "/drivers", "/"],
   );
   return plain(res);
+}
+
+// One person: notes, push, details ---------------------------------------------------------------------------------
+
+/** Both pages of a person: their account and, for a driver, the driver page. */
+function personPaths(userId: string, driverId?: string): string[] {
+  return [`/users/${userId}`, ...(driverId ? [`/drivers/${driverId}`] : [])];
+}
+
+export async function addNote(userId: string, body: string, driverId?: string): Promise<ActionResult> {
+  const text = body.trim();
+  if (text.length < 2 || text.length > 1000) return { ok: false, error: "Write 2–1,000 characters" };
+  return plain(await run(() => adminApi.addNote(userId, text), "Note added", personPaths(userId, driverId)));
+}
+
+export async function deleteNote(noteId: string, userId: string, driverId?: string): Promise<ActionResult> {
+  return plain(await run(() => adminApi.deleteNote(noteId), "Note deleted", personPaths(userId, driverId)));
+}
+
+/** A push to one person's phone. Fails with a clear message when they have no phone registered for pushes. */
+export async function sendMessage(userId: string, input: { title: string; body: string; app?: MessageApp }, driverId?: string): Promise<ActionResult> {
+  const title = input.title.trim();
+  const body = input.body.trim();
+  if (title.length < 3 || title.length > 65) return { ok: false, error: "Title must be 3–65 characters" };
+  if (body.length < 3 || body.length > 240) return { ok: false, error: "Message must be 3–240 characters" };
+  if (input.app && !["DRIVER", "PASSENGER", "BOTH"].includes(input.app)) return { ok: false, error: "Pick an app" };
+  const res = await run(() => adminApi.message(userId, { title, body, app: input.app }), "", personPaths(userId, driverId));
+  if (!res.ok) return res;
+  const n = res.data?.devices ?? 0;
+  if (n === 0) return { ok: false, error: "Not sent: they haven't allowed notifications on a signed-in phone" };
+  return { ok: true, message: `Sent to ${n} phone${n === 1 ? "" : "s"}` };
+}
+
+const PLATE = /^[A-Z]{2}\s?\d{1,2}\s?[A-Z]{0,3}\s?\d{1,4}$/i;
+const UPI = /^[\w.-]{2,}@[a-z]{2,}$/i;
+
+/** Fixes a driver's vehicle / payout details (only the changed fields are sent). */
+export async function updateDriverProfile(driverId: string, userId: string, input: DriverProfileInput): Promise<ActionResult> {
+  if (input.vehicleKind !== undefined && !VEHICLE_KINDS.includes(input.vehicleKind)) return { ok: false, error: "Unknown vehicle" };
+  if (input.workType !== undefined && !WORK_TYPES.includes(input.workType)) return { ok: false, error: "Unknown work type" };
+  if (input.vehicleModel !== undefined && (input.vehicleModel.trim().length < 2 || input.vehicleModel.trim().length > 60)) {
+    return { ok: false, error: "Model must be 2–60 characters" };
+  }
+  if (input.vehicleColor !== undefined && input.vehicleColor.trim().length > 30) return { ok: false, error: "Colour is at most 30 characters" };
+  if (input.plate !== undefined && !PLATE.test(input.plate.trim())) return { ok: false, error: "Enter a valid number plate, e.g. TN 38 AB 1234" };
+  if (input.upiId !== undefined && !UPI.test(input.upiId.trim())) return { ok: false, error: "Enter a valid UPI ID, e.g. name@okaxis" };
+  const data = Object.fromEntries(Object.entries(input).map(([k, v]) => [k, typeof v === "string" ? v.trim() : v])) as DriverProfileInput;
+  if (Object.keys(data).length === 0) return { ok: false, error: "Nothing changed" };
+  return plain(await run(() => adminApi.updateDriverProfile(driverId, data), "Driver details saved", [...personPaths(userId, driverId), "/drivers"]));
+}
+
+export async function takeDriverOffline(driverId: string, userId: string): Promise<ActionResult> {
+  return plain(await run(() => adminApi.takeDriverOffline(driverId), "Driver taken offline", [...personPaths(userId, driverId), "/drivers", "/live"]));
+}
+
+/** Name and email of an account (email "" clears it). */
+export async function updateUserDetails(userId: string, input: { name?: string; email?: string }, driverId?: string): Promise<ActionResult> {
+  const data: { name?: string; email?: string | null } = {};
+  if (input.name !== undefined) {
+    const name = input.name.trim();
+    if (name.length < 2 || name.length > 60) return { ok: false, error: "Name must be 2–60 characters" };
+    data.name = name;
+  }
+  if (input.email !== undefined) {
+    const email = input.email.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: "Enter a valid email, or leave it empty" };
+    data.email = email || null;
+  }
+  if (Object.keys(data).length === 0) return { ok: false, error: "Nothing changed" };
+  return plain(await run(() => adminApi.updateUser(userId, data), "Details saved", [...personPaths(userId, driverId), "/users", "/passengers"]));
 }
 
 // Announcements ----------------------------------------------------------------------------------------------------

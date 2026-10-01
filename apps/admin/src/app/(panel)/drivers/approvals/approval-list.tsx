@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { ApprovalChecks, missingChecks } from "@/components/common/approval-checks";
 import { PlateBadge, StatusBadge } from "@/components/common/status";
+import { MessageButton } from "@/components/people/message-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { docFileHref } from "@/lib/files";
@@ -160,9 +161,20 @@ export function ApprovalList({ stage, items, waiting }: { stage: ApprovalStage; 
                 </Button>
               )}
               {stage === "driver" && (
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`/drivers/${d.id}`}>Open driver</Link>
-                </Button>
+                <div className="flex gap-2">
+                  <MessageButton
+                    label="Remind"
+                    userId={d.userId}
+                    driverId={d.id}
+                    name={displayName(d.user)}
+                    defaultApp="DRIVER"
+                    defaultTitle="Finish your Tamil Taxi sign-up"
+                    defaultBody={`Still to do: ${missingChecks(d.checklist) || "your documents"}. Open the app › Account › Documents to finish.`}
+                  />
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/drivers/${d.id}`}>Open driver</Link>
+                  </Button>
+                </div>
               )}
               {stage === "photos" && d.pendingPhotoFile && (
                 <div className="flex items-center gap-3">

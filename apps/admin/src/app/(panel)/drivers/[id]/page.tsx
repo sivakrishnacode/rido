@@ -1,13 +1,18 @@
 import { ArrowLeftIcon, ExternalLinkIcon, FileTextIcon, RouteIcon, ScanFaceIcon, StarIcon, WalletCardsIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { ApprovalChecks, missingChecks } from "@/components/common/approval-checks";
 import { EmptyState, Field, PageHeader } from "@/components/common/page";
 import { KycProgress, OnlineDot, PlateBadge, StatusBadge } from "@/components/common/status";
 import { TripRouteCell } from "@/components/common/trip-bits";
+import { PersonMenu } from "@/components/people/person-menu";
+import { PersonRecord } from "@/components/people/person-record";
+import { PersonTabs } from "@/components/people/person-tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { adminApi, docFileHref } from "@/lib/api";
 import {
@@ -62,7 +67,7 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
   return (
     <>
       <Link href="/drivers" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeftIcon className="size-4" /> Drivers
+        <ArrowLeftIcon className="size-4" /> All drivers
       </Link>
       <PageHeader
         title={
@@ -82,8 +87,36 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
             </span>
           </span>
         }
-        actions={<DriverStatusActions driverId={d.id} status={d.status} name={name} missing={d.checklist ? missingChecks(d.checklist) : undefined} />}
+        actions={
+          <>
+            <DriverStatusActions driverId={d.id} status={d.status} name={name} missing={d.checklist ? missingChecks(d.checklist) : undefined} />
+            <PersonMenu
+              userId={d.user.id}
+              name={name}
+              email={d.user.email}
+              personName={d.user.name}
+              isBlocked={!!d.user.isBlocked}
+              driver={{
+                id: d.id,
+                isOnline: d.isOnline,
+                vehicleKind: d.vehicleKind,
+                workType: d.workType,
+                vehicleModel: d.vehicleModel,
+                vehicleColor: d.vehicleColor,
+                plate: d.plate,
+                upiId: d.upiId,
+              }}
+            />
+          </>
+        }
       />
+      <PersonTabs userId={d.user.id} driverId={d.id} active="driver" />
+
+      {d.user.isBlocked && (
+        <p className="mb-4 rounded-lg bg-error-tint px-4 py-3 text-sm text-error">
+          Account blocked{d.user.blockedReason ? `: ${d.user.blockedReason}` : ""}. The driver can&apos;t sign in or go online.
+        </p>
+      )}
 
       {d.checklist && (d.status === "PENDING" || d.status === "REJECTED") && (
         <Card className="mb-4 gap-2 border-coral-500/30 bg-coral-50/40 py-4">
@@ -117,7 +150,7 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
               <Field label="Email">{d.user.email ?? "–"}</Field>
               <Field label="Gender">{humanize(d.user.gender)}</Field>
               <Field label="Works on">{d.workType === "RIDES" ? "Rides" : "Deliveries"}</Field>
-              <Field label="User">
+              <Field label="Account">
                 <Link href={`/users/${d.user.id}`} className="text-coral-600 hover:underline">
                   Open account
                 </Link>
@@ -473,6 +506,10 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
           </Table>
         )}
       </Card>
+
+      <Suspense fallback={<Skeleton className="mt-4 h-48 w-full rounded-xl" />}>
+        <PersonRecord userId={d.user.id} driverId={d.id} />
+      </Suspense>
     </>
   );
 }
