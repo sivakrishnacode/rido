@@ -17,6 +17,7 @@ export 'src/widgets/countdown_ring.dart';
 export 'src/widgets/driver_info_card.dart';
 export 'src/widgets/empty_state.dart';
 export 'src/widgets/fare_breakdown.dart';
+export 'src/widgets/home_footer.dart';
 export 'src/widgets/location_markers.dart';
 export 'src/widgets/location_row.dart';
 export 'src/widgets/map_bottom_sheet.dart';

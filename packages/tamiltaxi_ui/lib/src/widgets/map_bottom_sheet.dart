@@ -22,6 +22,7 @@ class MapBottomSheet extends StatelessWidget {
     this.snapSizes,
     this.controller,
     this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    this.footer,
   });
 
   /// Build the sheet's children; they are placed in a ListView using [ScrollController].
@@ -32,6 +33,9 @@ class MapBottomSheet extends StatelessWidget {
   final List<double>? snapSizes;
   final DraggableScrollableController? controller;
   final EdgeInsets padding;
+
+  /// Shown after the children, edge to edge and down to the sheet's bottom (outside [padding]).
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -49,11 +53,26 @@ class MapBottomSheet extends StatelessWidget {
           borderRadius: TtRadii.sheetTop,
           boxShadow: TtShadows.raised,
         ),
-        child: ListView(
-          controller: scroll,
-          padding: padding,
-          children: [const SheetHandle(), ...builder(context)],
-        ),
+        child: footer == null
+            ? ListView(
+                controller: scroll,
+                padding: padding,
+                children: [const SheetHandle(), ...builder(context)],
+              )
+            : ListView(
+                controller: scroll,
+                padding: EdgeInsets.only(top: padding.top),
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(padding.left, 0, padding.right, padding.bottom),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [const SheetHandle(), ...builder(context)],
+                    ),
+                  ),
+                  footer!,
+                ],
+              ),
       ),
     );
   }

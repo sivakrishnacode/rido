@@ -99,7 +99,7 @@ docs/COST_AND_SCALING.md         running cost per trip, free tiers, P-10 ETA + O
 docs/private/                    owner-only business docs (git-ignored, never publish)
 .github/                         CI workflow, issue + PR templates
 docs/design/                     screenshots of every app screen + index (scripts/export_design.py)
-scripts/                         flutter.sh / dart.sh (SDK lookup), build_apks.sh
+scripts/                         flutter.sh / dart.sh (SDK lookup), build_apks.sh, footer_art/ (home footer SVG)
 docker-compose.yml               postgres + redis + api + admin (+ `tools` profile: Adminer, Redis Insight)
 ```
 
@@ -166,5 +166,6 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
 | 26 Sep 2026 | Free app: intro updated (no subscription, contributions), `app-config` module added to the map |
 | 29 Sep 2026 | Open source (AGPL-3.0): contributor note, `DEV_OTP_CODE`, new docs and folders in the map |
 | 30 Sep 2026 | Website `apps/web` (static Next.js): `web` scope, checks row, repo map, dev command |
+| 1 Oct 2026 | Repo map: `scripts/footer_art` (passenger home footer line art) |
 | 29 Sep 2026 | Renamed Rido → Tamil Taxi: `@tamiltaxi/*`, `tamiltaxi_ui` / `tamiltaxi_data`, `Tt*` classes, `com.tamiltaxi.*`, DB `tamiltaxi` |
 | 1 Oct 2026 | `docs/design` is now screenshots of the apps: `scripts/export_design.py` command, repo map line |

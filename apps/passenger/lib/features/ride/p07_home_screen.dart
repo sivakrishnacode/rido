@@ -20,7 +20,8 @@ import '../states/s08_service_unavailable_screen.dart';
 import 'widgets/dashed_border.dart';
 
 /// P-07 Home (Ride tab): full map around the pickup with nearby vehicles, greeting card,
-/// SOS, and a half-height sheet with search, saved places, recent destinations and a promo.
+/// SOS, and a half-height sheet with search, saved places, recent destinations and a promo, ending in the
+/// "#NammaOoru · Made in Coimbatore" line art.
 /// P-07b: a "Trip in progress" banner while a ride or parcel is active.
 class P07HomeScreen extends ConsumerStatefulWidget {
   const P07HomeScreen({super.key, this.showTripBanner = false, this.showcase = false});
@@ -263,6 +264,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                   initialSize: sheetSize,
                   minSize: tripActive ? 0.3 : 0.34,
                   snapSizes: [sheetSize],
+                  footer: tripActive ? null : const HomeFooter(),
                   builder: (context) => tripActive ? _activeSheet(profile) : _bookingSheet(profile),
                 ),
               ),
