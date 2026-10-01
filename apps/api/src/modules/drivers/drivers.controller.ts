@@ -11,6 +11,7 @@ import { KycDocType, Role } from '../../generated/prisma/enums.js';
 import type { BookingPrefs } from './booking-prefs.js';
 import { DriverEarningsService, type Earnings } from './driver-earnings.service.js';
 import { DriversService } from './drivers.service.js';
+import { AuditInterceptor } from '../admin/audit.interceptor.js';
 import { BookingPrefsDto } from './dto/booking-prefs.dto.js';
 import { EarningsQueryDto } from './dto/earnings-query.dto.js';
 import { LocationDto } from './dto/location.dto.js';
@@ -109,6 +110,7 @@ export class DriversController {
   @Roles(Role.ADMIN)
   @Post('admin/drivers/:id/photo')
   @HttpCode(200)
+  @UseInterceptors(AuditInterceptor)
   reviewPhoto(@Param('id') id: string, @Body() body: ReviewPhotoDto): Promise<Driver> {
     return this.drivers.reviewPhoto({ driverId: id, ...body });
   }

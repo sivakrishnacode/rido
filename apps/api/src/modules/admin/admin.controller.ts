@@ -11,12 +11,14 @@ import { type CancelRateStats, DriverBlocksService } from '../trips/driver-block
 import { DriverOfferStatsService } from '../trips/driver-offer-stats.service.js';
 import { driverOfferStats, type DriverOfferStats } from '../trips/driver-rank.js';
 import { AdminApprovalsService, type ApprovalsPage } from './admin-approvals.service.js';
+import { AdminPeopleService } from './admin-people.service.js';
 import { AdminStatsService } from './admin-stats.service.js';
 import { AdminService } from './admin.service.js';
 import type { AdminStats, Paged } from './admin.types.js';
 import { AuditInterceptor } from './audit.interceptor.js';
 import { ApprovalsQueryDto, ApproveDriversDto } from './dto/approvals.dto.js';
 import { DocumentReviewDto } from './dto/document-review.dto.js';
+import { AdminDriverProfileDto } from './dto/people.dto.js';
 import { DriverStatusDto } from './dto/driver-status.dto.js';
 import { ListQueryDto } from './dto/list-query.dto.js';
 import { TicketStatusDto } from './dto/ticket-status.dto.js';
@@ -35,6 +37,7 @@ export class AdminController {
     private readonly offerStats: DriverOfferStatsService,
     private readonly settings: SettingsService,
     private readonly approvals: AdminApprovalsService,
+    private readonly people: AdminPeopleService,
   ) {}
 
   @Get('stats')
@@ -82,6 +85,19 @@ export class AdminController {
   @Patch('drivers/:id')
   setDriverStatus(@Param('id') id: string, @Body() body: DriverStatusDto): Promise<Driver> {
     return this.admin.setDriverStatus(id, body.status, body.reason);
+  }
+
+  /** Fix the driver's vehicle / payout details (vehicle kind only while offline; plate must be unique → 409). */
+  @Patch('drivers/:id/profile')
+  updateDriverProfile(@Param('id') id: string, @Body() body: AdminDriverProfileDto): Promise<Driver> {
+    return this.people.updateDriverProfile(id, body);
+  }
+
+  /** Takes an online driver offline now. 409 when already offline. */
+  @Post('drivers/:id/offline')
+  @HttpCode(200)
+  takeOffline(@Param('id') id: string): Promise<Driver> {
+    return this.people.takeOffline(id);
   }
 
   @Post('drivers/:id/documents/:type')

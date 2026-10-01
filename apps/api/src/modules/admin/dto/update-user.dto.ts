@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsOptional, IsString, Length } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, Length, ValidateIf } from 'class-validator';
 
 import { Role } from '../../../generated/prisma/enums.js';
 
@@ -8,6 +8,12 @@ export class UpdateUserDto {
   @IsString()
   @Length(2, 60)
   name?: string;
+
+  /** null clears it. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsEmail({}, { message: 'Enter a valid email' })
+  email?: string | null;
 
   @IsOptional()
   @IsEnum(Role)

@@ -1233,6 +1233,47 @@ describe('Tamil Taxi API (e2e)', () => {
     }
   });
 
+  it('keeps notes and a history per person, fixes driver details, takes them offline and pushes a message', async () => {
+    const admin = await adminAuth();
+    const token = await onlineDriver('AUTO', { lat: 11.019, lng: 76.973 });
+    const me = (await http.get('/v1/drivers/me').set('Authorization', `Bearer ${token}`).expect(200)).body as { id: string; userId: string; plate: string };
+
+    // The vehicle can't change while they're online; an admin takes them offline (once).
+    await http.patch(`/v1/admin/drivers/${me.id}/profile`).set(admin).send({ vehicleKind: 'CAB' }).expect(409);
+    await http.post(`/v1/admin/drivers/${me.id}/offline`).set(admin).expect(200);
+    await http.post(`/v1/admin/drivers/${me.id}/offline`).set(admin).expect(409);
+    expect((await http.get('/v1/drivers/me').set('Authorization', `Bearer ${token}`).expect(200)).body.isOnline).toBe(false);
+
+    // Edits: bad plate refused, another driver's plate is a conflict, a new one is stored upper-case.
+    await http.patch(`/v1/admin/drivers/${me.id}/profile`).set(admin).send({ plate: 'not a plate' }).expect(400);
+    const other = (await http.get('/v1/admin/drivers?pageSize=5').set(admin).expect(200)).body.items.find((d: { id: string }) => d.id !== me.id);
+    await http.patch(`/v1/admin/drivers/${me.id}/profile`).set(admin).send({ plate: other.plate }).expect(409);
+    const plate = randomPlate();
+    const edited = (await http.patch(`/v1/admin/drivers/${me.id}/profile`).set(admin).send({ plate: plate.toLowerCase(), vehicleColor: 'Yellow', vehicleKind: 'CAB' }).expect(200)).body;
+    expect(edited).toMatchObject({ plate, vehicleColor: 'Yellow', vehicleKind: 'CAB' });
+    await http.patch(`/v1/admin/users/${me.userId}`).set(admin).send({ email: 'not-an-email' }).expect(400);
+    await http.patch(`/v1/admin/users/${me.userId}`).set(admin).send({ email: 'driver@example.com' }).expect(200);
+
+    // Notes are shared by the driver and account pages; deleting one removes it.
+    const note = (await http.post(`/v1/admin/users/${me.userId}/notes`).set(admin).send({ body: 'Called: will re-upload the RC tomorrow' }).expect(201)).body;
+    expect(note.author.phone).toBe(`+91${ADMIN_PHONE}`);
+    const temp = (await http.post(`/v1/admin/users/${me.userId}/notes`).set(admin).send({ body: 'Typo note' }).expect(201)).body;
+    await http.delete(`/v1/admin/notes/${temp.id}`).set(admin).expect(204);
+    expect((await http.get(`/v1/admin/users/${me.userId}/notes`).set(admin).expect(200)).body.map((n: { id: string }) => n.id)).toEqual([note.id]);
+    await http.post(`/v1/admin/users/${me.userId}/notes`).set(admin).send({ body: 'x' }).expect(400);
+
+    // A push to the driver's phone: no phone registered in tests, so it reports 0 devices.
+    expect((await http.post(`/v1/admin/users/${me.userId}/message`).set(admin).send({ title: 'Please re-upload RC', body: 'The photo was blurred' }).expect(200)).body).toEqual({ devices: 0 });
+
+    // The history reads like what happened, newest first, with who did it.
+    const activity = (await http.get(`/v1/admin/users/${me.userId}/activity`).set(admin).expect(200)).body as { summary: string; actor: { phone: string } }[];
+    const summaries = activity.map((a) => a.summary);
+    expect(summaries).toEqual(expect.arrayContaining(['Taken offline by an admin', 'Edited email', 'Push sent: “Please re-upload RC”', 'Note added']));
+    expect(summaries.find((x) => x.startsWith('Edited plate') || x.startsWith('Edited vehicle'))?.split(', ').length).toBe(3);
+    expect(summaries.indexOf('Push sent: “Please re-upload RC”')).toBeLessThan(summaries.indexOf('Taken offline by an admin'));
+    expect(activity[0].actor.phone).toBe(`+91${ADMIN_PHONE}`);
+  });
+
   it('approves a driver after the Didit identity check and the RC + insurance review', async () => {
     const driverUser = await login();
     const plate = randomPlate();
