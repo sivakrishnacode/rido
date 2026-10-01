@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'tt_colors.dart';
+import 'tt_transitions.dart';
 import 'tt_tokens.dart';
 
 /// Builds the Tamil Taxi Material 3 light theme.
@@ -103,6 +104,8 @@ abstract final class TtTheme {
 
     return ThemeData(
       useMaterial3: true,
+      // One calm slide-and-fade between every screen in both apps (tt_transitions.dart).
+      pageTransitionsTheme: ttPageTransitions,
       colorScheme: scheme,
       textTheme: textTheme,
       scaffoldBackgroundColor: TtColors.background,

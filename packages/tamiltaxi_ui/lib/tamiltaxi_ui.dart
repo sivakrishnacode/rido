@@ -8,6 +8,7 @@ export 'src/illustrations/tt_illustration.dart';
 export 'src/theme/tt_colors.dart';
 export 'src/theme/tt_theme.dart';
 export 'src/theme/tt_tokens.dart';
+export 'src/theme/tt_transitions.dart';
 export 'src/vehicle_ui.dart';
 export 'src/widgets/butterfly_mark.dart';
 export 'src/widgets/choice_chips.dart';
