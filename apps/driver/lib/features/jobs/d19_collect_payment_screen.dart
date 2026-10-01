@@ -119,16 +119,20 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
                         dataModuleStyle:
                             const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: TtColors.navy900),
                       ),
+                      // The Tamil Taxi app icon (it was a coral "r" from the old name). Error correction H keeps the
+                      // code readable under it.
                       Container(
-                        width: 44,
-                        height: 44,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: TtColors.coral500,
-                          borderRadius: TtRadii.cardRadius,
-                          border: Border.all(color: TtColors.surface, width: 3),
+                        width: 48,
+                        height: 48,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: TtColors.surface,
+                          boxShadow: TtShadows.soft,
                         ),
-                        child: Text('r', style: t.h1.copyWith(color: Colors.white, fontWeight: FontWeight.w700, height: 1)),
+                        padding: const EdgeInsets.all(3),
+                        child: ClipOval(
+                          child: Image.asset('assets/brand/launcher_rider.png', package: 'tamiltaxi_ui', fit: BoxFit.cover),
+                        ),
                       ),
                     ]),
                   ),

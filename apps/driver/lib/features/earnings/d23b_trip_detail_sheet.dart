@@ -29,7 +29,7 @@ class D23bTripDetailSheet extends ConsumerWidget {
 
   static String tripCode(EarningsTrip t) {
     final n = 4667 + t.id.codeUnits.fold<int>(0, (a, b) => a + b);
-    return 'RD-CBE-${t.time.day.toString().padLeft(2, '0')}${t.time.month.toString().padLeft(2, '0')}-$n';
+    return 'TT-CBE-${t.time.day.toString().padLeft(2, '0')}${t.time.month.toString().padLeft(2, '0')}-$n';
   }
 
   @override
