@@ -2,6 +2,7 @@ import { ArrowLeftIcon, ExternalLinkIcon, FileTextIcon, RouteIcon, ScanFaceIcon,
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ApprovalChecks, missingChecks } from "@/components/common/approval-checks";
 import { EmptyState, Field, PageHeader } from "@/components/common/page";
 import { KycProgress, OnlineDot, PlateBadge, StatusBadge } from "@/components/common/status";
 import { TripRouteCell } from "@/components/common/trip-bits";
@@ -81,8 +82,28 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
             </span>
           </span>
         }
-        actions={<DriverStatusActions driverId={d.id} status={d.status} name={name} />}
+        actions={<DriverStatusActions driverId={d.id} status={d.status} name={name} missing={d.checklist ? missingChecks(d.checklist) : undefined} />}
       />
+
+      {d.checklist && (d.status === "PENDING" || d.status === "REJECTED") && (
+        <Card className="mb-4 gap-2 border-coral-500/30 bg-coral-50/40 py-4">
+          <CardContent className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-navy-900">
+                {d.status === "REJECTED"
+                  ? "Rejected: waiting for the driver to fix and re-upload"
+                  : d.checklist.isReady
+                    ? "Ready to approve: every check is done"
+                    : `Not ready yet: ${missingChecks(d.checklist)}`}
+              </p>
+              <ApprovalChecks checklist={d.checklist} />
+            </div>
+            <Link href="/drivers/approvals" className="text-sm text-coral-600 hover:underline">
+              Open Approvals
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AdminApprovalsService } from './admin-approvals.service.js';
 import { AdminCitiesController } from './admin-cities.controller.js';
 import { AdminCitiesService } from './admin-cities.service.js';
 import { AdminHeatmapService } from './admin-heatmap.service.js';
@@ -19,6 +20,6 @@ import { TripsModule } from '../trips/trips.module.js';
 @Module({
   imports: [KycModule, TripsModule],
   controllers: [AdminController, AdminCitiesController, AdminUsersController, AdminOpsController, AnnouncementsController],
-  providers: [AdminService, AdminStatsService, AdminCitiesService, AdminUsersService, AdminOpsService, AdminHeatmapService, AuditInterceptor],
+  providers: [AdminService, AdminApprovalsService, AdminStatsService, AdminCitiesService, AdminUsersService, AdminOpsService, AdminHeatmapService, AuditInterceptor],
 })
 export class AdminModule {}

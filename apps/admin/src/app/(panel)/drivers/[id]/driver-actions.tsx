@@ -26,16 +26,56 @@ function notify(res: ActionResult): boolean {
   return res.ok;
 }
 
-/** Approve / Put on hold / Reactivate → PATCH /admin/drivers/:id. */
-export function DriverStatusActions({ driverId, status, name }: { driverId: string; status: DriverStatus; name: string }) {
+/** What the confirmation says for each decision. */
+const DECISION: Record<"ON_HOLD" | "REJECTED", { title: string; description: string; button: string; placeholder: string; isReasonRequired: boolean }> = {
+  ON_HOLD: {
+    title: "Put {name} on hold?",
+    description: "The driver is taken offline and can't receive rides until you reactivate the account. They get a push with your reason.",
+    button: "Put on hold",
+    placeholder: "e.g. Insurance expired, please upload the new policy",
+    isReasonRequired: false,
+  },
+  REJECTED: {
+    title: "Reject {name}?",
+    description: "The driver can't go online. They get a push with your reason; re-uploading a document puts them back in the queue.",
+    button: "Reject driver",
+    placeholder: "e.g. Vehicle doesn't match the RC",
+    isReasonRequired: true,
+  },
+};
+
+/**
+ * Approve / Reject / Put on hold / Reactivate → PATCH /admin/drivers/:id. Approving a driver whose checks aren't all
+ * done asks first and lists what is missing; hold and reject take a reason that is pushed to the driver.
+ */
+export function DriverStatusActions({
+  driverId,
+  status,
+  name,
+  missing,
+}: {
+  driverId: string;
+  status: DriverStatus;
+  name: string;
+  /** "RC not uploaded · Identity in review" when some checks aren't done (empty = ready). */
+  missing?: string;
+}) {
   const [isPending, startTransition] = useTransition();
   const [pendingTarget, setPendingTarget] = useState<DriverStatus | null>(null);
-  const [isHoldOpen, setHoldOpen] = useState(false);
+  const [decision, setDecision] = useState<"ON_HOLD" | "REJECTED" | null>(null);
+  const [isOverrideOpen, setOverrideOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const trimmed = reason.trim();
+  const d = decision ? DECISION[decision] : null;
+  const isReasonValid = trimmed.length === 0 ? !d?.isReasonRequired : trimmed.length >= 3 && trimmed.length <= 200;
 
   function change(target: DriverStatus, after?: () => void) {
     setPendingTarget(target);
     startTransition(async () => {
-      if (notify(await setDriverStatus(driverId, target))) after?.();
+      if (notify(await setDriverStatus(driverId, target, target === "ON_HOLD" || target === "REJECTED" ? trimmed : undefined))) {
+        setReason("");
+        after?.();
+      }
       setPendingTarget(null);
     });
   }
@@ -45,7 +85,7 @@ export function DriverStatusActions({ driverId, status, name }: { driverId: stri
   return (
     <>
       {status === "PENDING" && (
-        <Button onClick={() => change("APPROVED")} disabled={isPending}>
+        <Button onClick={() => (missing ? setOverrideOpen(true) : change("APPROVED"))} disabled={isPending}>
           {spinner("APPROVED") ?? <CheckIcon />} Approve
         </Button>
       )}
@@ -55,27 +95,74 @@ export function DriverStatusActions({ driverId, status, name }: { driverId: stri
         </Button>
       )}
       {(status === "APPROVED" || status === "PENDING") && (
-        <Button variant="outline" onClick={() => setHoldOpen(true)} disabled={isPending}>
+        <Button variant="outline" onClick={() => setDecision("ON_HOLD")} disabled={isPending}>
           <PauseIcon /> Put on hold
         </Button>
       )}
+      {status === "PENDING" && (
+        <Button variant="outline" className="border-error/30 text-error hover:bg-error-tint hover:text-error" onClick={() => setDecision("REJECTED")} disabled={isPending}>
+          <XIcon /> Reject
+        </Button>
+      )}
 
-      <Dialog open={isHoldOpen} onOpenChange={setHoldOpen}>
+      <Dialog open={isOverrideOpen} onOpenChange={setOverrideOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Put {name} on hold?</DialogTitle>
-            <DialogDescription>
-              The driver is taken offline and can&apos;t receive rides until you reactivate the account.
-            </DialogDescription>
+            <DialogTitle>Approve {name} anyway?</DialogTitle>
+            <DialogDescription>Not every check is done: {missing}. The driver can go online as soon as you approve.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button variant="destructive" disabled={isPending} onClick={() => change("ON_HOLD", () => setHoldOpen(false))}>
-              {spinner("ON_HOLD") ?? <PauseIcon />} Put on hold
+            <Button disabled={isPending} onClick={() => change("APPROVED", () => setOverrideOpen(false))}>
+              {spinner("APPROVED") ?? <CheckIcon />} Approve anyway
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={decision !== null} onOpenChange={(open) => !open && setDecision(null)}>
+        <DialogContent>
+          {d && decision && (
+            <form
+              className="grid gap-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (isReasonValid) change(decision, () => setDecision(null));
+              }}
+            >
+              <DialogHeader>
+                <DialogTitle>{d.title.replace("{name}", name)}</DialogTitle>
+                <DialogDescription>{d.description}</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-2">
+                <Label htmlFor="status-reason">Reason{d.isReasonRequired ? "" : " (optional)"}</Label>
+                <Textarea
+                  id="status-reason"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder={d.placeholder}
+                  maxLength={200}
+                  rows={3}
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  {trimmed.length}/200{d.isReasonRequired ? " · at least 3 characters" : ""}
+                </p>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button type="submit" variant="destructive" disabled={!isReasonValid || isPending}>
+                  {spinner(decision) ?? (decision === "ON_HOLD" ? <PauseIcon /> : <XIcon />)} {d.button}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </>

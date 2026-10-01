@@ -53,6 +53,18 @@ export function formatTime(value: string | Date | null | undefined): string {
   return timeFmt.format(toDate(value)).toLowerCase();
 }
 
+/** "just now", "12 min", "5 h", "3 days": how long ago, for "waiting since" columns. */
+export function formatAgo(value: string | Date | null | undefined, now: Date = new Date()): string {
+  if (!value) return "–";
+  const min = Math.floor((now.getTime() - toDate(value).getTime()) / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"}`;
+}
+
 /** Chart label for a "YYYY-MM-DD" day: "Fri 25". */
 export function formatDayLabel(isoDay: string): string {
   return dayFmt.format(new Date(`${isoDay}T00:00:00Z`));

@@ -66,6 +66,11 @@ export const SETTING_DEFAULTS = {
   stuckDurationFactor: 4,
   /** Safety net: a trip still not started this many minutes after accept is cancelled by the system. */
   pickupHardCapMin: 60,
+  /**
+   * Driver approval. On: a driver is approved the moment RC + insurance are verified and (with Didit) the identity
+   * check passes. Off: they wait as "Ready to approve" in Drivers › Approvals until an admin approves them.
+   */
+  driverAutoApprove: true,
   /** Free-trial length for new drivers. */
   trialDays: 30,
   /** Days a lapsed plan can still go online. */

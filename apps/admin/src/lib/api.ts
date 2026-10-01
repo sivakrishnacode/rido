@@ -10,6 +10,8 @@ import { TOKEN_COOKIE, USER_COOKIE, getToken } from "./session";
 import type {
   AdminStats,
   AdminUser,
+  ApprovalStage,
+  ApprovalsPage,
   Announcement,
   AnnouncementAudience,
   AuditLog,
@@ -53,6 +55,7 @@ import type {
 } from "./types";
 
 export { ApiError } from "./api-core";
+export { docFileHref } from "./files";
 
 interface RequestOptions {
   readonly method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -190,8 +193,15 @@ export const adminApi = {
   driver: (id: string) => orNotFound(apiFetch<DriverDetail>(`/admin/drivers/${encodeURIComponent(id)}`)),
   driverOfferStats: (id: string) => apiFetch<DriverOfferStats>(`/admin/drivers/${encodeURIComponent(id)}/offer-stats`),
   liftDriverBlock: (id: string) => apiFetch<DriverBlock>(`/admin/drivers/${encodeURIComponent(id)}/lift-block`, { method: "POST" }),
-  setDriverStatus: (id: string, status: DriverStatus) =>
-    apiFetch<Driver>(`/admin/drivers/${encodeURIComponent(id)}`, { method: "PATCH", body: { status } }),
+  /** The reason (hold, reject) is pushed to the driver and kept in the audit log. */
+  setDriverStatus: (id: string, status: DriverStatus, reason?: string) =>
+    apiFetch<Driver>(`/admin/drivers/${encodeURIComponent(id)}`, { method: "PATCH", body: { status, reason } }),
+  /** Approvals queue with counts per stage (GET /admin/approvals). */
+  approvals: (q: ListQuery & { stage?: ApprovalStage } = {}) =>
+    apiFetch<ApprovalsPage>("/admin/approvals", { query: { ...listQuery(q), stage: q.stage } }),
+  /** Approves the ready ones (pending, every check done); the rest come back in `skipped`. */
+  approveDrivers: (ids: string[]) =>
+    apiFetch<{ approved: string[]; skipped: { id: string; reason: string }[] }>("/admin/drivers/approve", { method: "POST", body: { ids } }),
   reviewDocument: (id: string, type: KycDocType, status: "VERIFIED" | "REJECTED", reason?: string) =>
     apiFetch<KycDocument[]>(`/admin/drivers/${encodeURIComponent(id)}/documents/${type}`, {
       method: "POST",
@@ -298,8 +308,3 @@ export const authApi = {
     apiFetch<LoginResult>("/auth/verify", { method: "POST", body: { phone, code, app: "ADMIN" }, auth: false }),
 };
 
-
-/** Link for a KYC document: uploaded files go through the admin-only `/files/:name` proxy; full URLs open as they are. */
-export function docFileHref(fileUrl: string): string {
-  return /^https?:\/\//.test(fileUrl) ? fileUrl : `/files/${encodeURIComponent(fileUrl)}`;
-}

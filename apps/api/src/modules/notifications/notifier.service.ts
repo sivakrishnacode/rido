@@ -211,6 +211,22 @@ export class NotifierService {
     });
   }
 
+  /** An admin changed the driver's status by hand (approve, reactivate, hold, reject). PENDING is not pushed. */
+  driverStatus(params: { driverId: string; from: string; to: string; reason?: string | null }): Promise<void> {
+    if (params.to === 'APPROVED' && params.from !== 'ON_HOLD') return this.kycReviewed({ driverId: params.driverId, status: 'APPROVED' });
+    const why = params.reason?.trim();
+    const msg =
+      params.to === 'APPROVED'
+        ? { title: 'Your account is active again', body: 'Go online to take rides' }
+        : params.to === 'ON_HOLD'
+          ? { title: 'Your account is on hold', body: why ? `${why}. Contact support if you have questions` : 'Contact support to know more' }
+          : params.to === 'REJECTED'
+            ? { title: "Your application wasn't approved", body: why ? `${why}. Open the app to see what to fix` : 'Open the app to see what to fix' }
+            : null;
+    if (!msg) return Promise.resolve();
+    return this.driverAccount({ driverId: params.driverId, kind: `status_${params.to.toLowerCase()}`, ...msg });
+  }
+
   /** A profile photo went to admin review: tell the driver it is being checked. */
   photoSubmitted(driverId: string): Promise<void> {
     return this.safeAsync('photo submitted', async () => {

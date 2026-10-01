@@ -8,7 +8,8 @@ import type { Paged } from './admin.types.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { DriverApprovalService } from '../kyc/driver-approval.service.js';
-import { REQUIRED_DOCS } from '../kyc/driver-approval.js';
+import { DiditClient } from '../kyc/didit.client.js';
+import { approvalChecklist, type ApprovalChecklist, REQUIRED_DOCS } from '../kyc/driver-approval.js';
 import { type CancelRateStats, DriverBlocksService } from '../trips/driver-blocks.service.js';
 
 function paging(q: ListQueryDto): { skip: number; take: number; page: number; pageSize: number } {
@@ -30,6 +31,7 @@ export class AdminService {
     private readonly approval: DriverApprovalService,
     private readonly driverState: DriverStateCache,
     private readonly blocks: DriverBlocksService,
+    private readonly didit: DiditClient,
   ) {}
 
   async drivers(q: ListQueryDto): Promise<Paged<Driver>> {
@@ -50,8 +52,11 @@ export class AdminService {
     return { items, total, page, pageSize };
   }
 
-  /** With the pause history and the cancellation rate now (7 days, trips/driver-blocks.service.ts). */
-  async driver(id: string): Promise<Driver & { cancelRate: CancelRateStats }> {
+  /**
+   * With the pause history, the cancellation rate now (7 days, trips/driver-blocks.service.ts) and the approval
+   * checklist (documents + identity, as the Approvals queue shows it).
+   */
+  async driver(id: string): Promise<Driver & { cancelRate: CancelRateStats; checklist: ApprovalChecklist; identityRequired: boolean }> {
     const driver = await this.prisma.driver.findUniqueOrThrow({
       where: { id },
       include: {
@@ -63,12 +68,16 @@ export class AdminService {
         trips: { orderBy: { createdAt: 'desc' }, take: 20 },
       },
     });
-    return { ...driver, cancelRate: await this.blocks.stats(id) };
+    const checklist = approvalChecklist({ docs: driver.documents, identity: driver.user.identityStatus, isIdentityRequired: this.didit.isEnabled });
+    return { ...driver, cancelRate: await this.blocks.stats(id), checklist, identityRequired: this.didit.isEnabled };
   }
 
-  async setDriverStatus(id: string, status: DriverStatus): Promise<Driver> {
+  /** An admin decision (approve, hold, reject, back to pending). The driver gets a push, with the reason when given. */
+  async setDriverStatus(id: string, status: DriverStatus, reason?: string): Promise<Driver> {
+    const before = await this.prisma.driver.findUniqueOrThrow({ where: { id }, select: { status: true } });
     const driver = await this.prisma.driver.update({ where: { id }, data: { status, isOnline: status === DriverStatus.APPROVED ? undefined : false } });
     await this.driverState.invalidate(id);
+    if (before.status !== status) void this.notifier.driverStatus({ driverId: id, from: before.status, to: status, reason });
     return driver;
   }
 

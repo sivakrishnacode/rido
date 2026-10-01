@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { displayName, formatDate, formatInr, formatPhone, humanize, kycProgress, shortId } from "@/lib/format";
+import { displayName, formatAgo, formatDate, formatInr, formatPhone, humanize, kycProgress, shortId } from "@/lib/format";
 import type { KycDocument } from "@/lib/types";
 
 describe("formatInr", () => {
@@ -16,6 +16,18 @@ describe("formatInr", () => {
     expect(formatInr(37.6)).toBe("₹38");
     expect(formatInr(null)).toBe("₹0");
     expect(formatInr(Number.NaN)).toBe("₹0");
+  });
+});
+
+describe("formatAgo", () => {
+  it("rounds down to minutes, hours, then days", () => {
+    const now = new Date("2026-10-01T12:00:00Z");
+    expect(formatAgo("2026-10-01T11:59:30Z", now)).toBe("just now");
+    expect(formatAgo("2026-10-01T11:48:00Z", now)).toBe("12 min");
+    expect(formatAgo("2026-10-01T06:30:00Z", now)).toBe("5 h");
+    expect(formatAgo("2026-09-30T11:00:00Z", now)).toBe("1 day");
+    expect(formatAgo("2026-09-28T12:00:00Z", now)).toBe("3 days");
+    expect(formatAgo(null, now)).toBe("–");
   });
 });
 

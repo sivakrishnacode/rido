@@ -1,18 +1,21 @@
-import { Body, Controller, Get, Param, ParseEnumPipe, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseEnumPipe, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Roles } from '../../core/auth/roles.decorator.js';
 import type { Driver, DriverBlock, KycDocument, Plan, SupportTicket, Trip, User } from '../../generated/prisma/client.js';
 import { KycDocType, Role } from '../../generated/prisma/enums.js';
+import type { ApprovalChecklist } from '../kyc/driver-approval.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { type CancelRateStats, DriverBlocksService } from '../trips/driver-blocks.service.js';
 import { DriverOfferStatsService } from '../trips/driver-offer-stats.service.js';
 import { driverOfferStats, type DriverOfferStats } from '../trips/driver-rank.js';
+import { AdminApprovalsService, type ApprovalsPage } from './admin-approvals.service.js';
 import { AdminStatsService } from './admin-stats.service.js';
 import { AdminService } from './admin.service.js';
 import type { AdminStats, Paged } from './admin.types.js';
 import { AuditInterceptor } from './audit.interceptor.js';
+import { ApprovalsQueryDto, ApproveDriversDto } from './dto/approvals.dto.js';
 import { DocumentReviewDto } from './dto/document-review.dto.js';
 import { DriverStatusDto } from './dto/driver-status.dto.js';
 import { ListQueryDto } from './dto/list-query.dto.js';
@@ -31,6 +34,7 @@ export class AdminController {
     private readonly blocks: DriverBlocksService,
     private readonly offerStats: DriverOfferStatsService,
     private readonly settings: SettingsService,
+    private readonly approvals: AdminApprovalsService,
   ) {}
 
   @Get('stats')
@@ -43,8 +47,21 @@ export class AdminController {
     return this.admin.drivers(q);
   }
 
+  /** Approvals queue: ?stage=ready (default) | documents | identity | driver | photos, with counts per stage. */
+  @Get('approvals')
+  approvalQueue(@Query() q: ApprovalsQueryDto): Promise<ApprovalsPage> {
+    return this.approvals.list(q);
+  }
+
+  /** Approves several ready drivers (pending, every check done); the others come back in `skipped`. */
+  @Post('drivers/approve')
+  @HttpCode(200)
+  approveDrivers(@Body() body: ApproveDriversDto): Promise<{ approved: string[]; skipped: { id: string; reason: string }[] }> {
+    return this.approvals.approveMany(body.ids);
+  }
+
   @Get('drivers/:id')
-  driver(@Param('id') id: string): Promise<Driver & { cancelRate: CancelRateStats }> {
+  driver(@Param('id') id: string): Promise<Driver & { cancelRate: CancelRateStats; checklist: ApprovalChecklist; identityRequired: boolean }> {
     return this.admin.driver(id);
   }
 
@@ -63,7 +80,7 @@ export class AdminController {
 
   @Patch('drivers/:id')
   setDriverStatus(@Param('id') id: string, @Body() body: DriverStatusDto): Promise<Driver> {
-    return this.admin.setDriverStatus(id, body.status);
+    return this.admin.setDriverStatus(id, body.status, body.reason);
   }
 
   @Post('drivers/:id/documents/:type')

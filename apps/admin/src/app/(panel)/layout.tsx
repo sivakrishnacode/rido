@@ -26,6 +26,20 @@ async function KycBadge() {
   );
 }
 
+/** Drivers ready to approve plus photos to review, next to "Approvals". Never breaks the layout. */
+async function ApprovalsBadge() {
+  const total = await adminApi
+    .approvals({ stage: "ready", pageSize: 1 })
+    .then((r) => r.counts.ready + r.counts.photos)
+    .catch(() => 0);
+  if (!total) return null;
+  return (
+    <span className="rounded-full bg-coral-600 px-1.5 py-px text-[11px] font-semibold text-white tabular-nums">
+      {total > 99 ? "99+" : total}
+    </span>
+  );
+}
+
 /** Open SOS alerts, shown in red next to "SOS". Never breaks the layout. */
 async function SosBadge() {
   const open = await adminApi
@@ -49,6 +63,11 @@ export default function PanelLayout({ children }: LayoutProps<"/">) {
         </Suspense>
       }
       badges={{
+        "/drivers/approvals": (
+          <Suspense fallback={null}>
+            <ApprovalsBadge />
+          </Suspense>
+        ),
         "/kyc": (
           <Suspense fallback={null}>
             <KycBadge />

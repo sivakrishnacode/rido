@@ -7,20 +7,57 @@ export const REQUIRED_DOCS: readonly KycDocType[] = [KycDocType.VEHICLE_RC, KycD
  * A driver's status from their documents and identity check. APPROVED needs every required document verified
  * and (when Didit is set up) an approved identity; any rejection → REJECTED; otherwise PENDING. ON_HOLD is an
  * admin decision and never changes here, and already-approved drivers stay approved until something is rejected.
+ * With [isAutoApprove] off (setting `driverAutoApprove`), a driver who passes every check stays PENDING ("ready to
+ * approve") until an admin approves them.
  */
 export function nextDriverStatus(params: {
   current: DriverStatus;
   docs: readonly { type: KycDocType; status: KycStatus }[];
   identity: IdentityStatus;
   isIdentityRequired: boolean;
+  isAutoApprove?: boolean;
 }): DriverStatus {
   if (params.current === DriverStatus.ON_HOLD) return params.current;
-  const required = params.docs.filter((d) => REQUIRED_DOCS.includes(d.type));
-  const isDocsVerified = REQUIRED_DOCS.every((t) => required.some((d) => d.type === t && d.status === KycStatus.VERIFIED));
-  const isIdentityOk = !params.isIdentityRequired || params.identity === IdentityStatus.APPROVED;
-  const isRejected =
-    required.some((d) => d.status === KycStatus.REJECTED) || (params.isIdentityRequired && params.identity === IdentityStatus.DECLINED);
-  if (isRejected) return DriverStatus.REJECTED;
-  if (isDocsVerified && isIdentityOk) return DriverStatus.APPROVED;
+  const check = approvalChecklist(params);
+  if (check.isRejected) return DriverStatus.REJECTED;
+  if (check.isReady && params.isAutoApprove !== false) return DriverStatus.APPROVED;
   return params.current === DriverStatus.APPROVED ? DriverStatus.APPROVED : DriverStatus.PENDING;
+}
+
+/** One approval step: an uploaded document, or the identity check. */
+export type CheckState = 'DONE' | 'REVIEW' | 'TODO' | 'FAILED';
+
+export interface ApprovalChecklist {
+  /** RC, insurance, then IDENTITY when Didit is set up. */
+  readonly checks: readonly { readonly key: KycDocType | 'IDENTITY'; readonly state: CheckState }[];
+  /** Every check done: approved at once, or waiting for an admin when auto-approval is off. */
+  readonly isReady: boolean;
+  readonly isRejected: boolean;
+}
+
+function docState(status: KycStatus | undefined): CheckState {
+  if (status === KycStatus.VERIFIED) return 'DONE';
+  if (status === KycStatus.UNDER_REVIEW) return 'REVIEW';
+  if (status === KycStatus.REJECTED) return 'FAILED';
+  return 'TODO';
+}
+
+function identityState(status: IdentityStatus): CheckState {
+  if (status === IdentityStatus.APPROVED) return 'DONE';
+  if (status === IdentityStatus.IN_REVIEW) return 'REVIEW';
+  if (status === IdentityStatus.DECLINED) return 'FAILED';
+  return 'TODO';
+}
+
+/** Where a driver's application stands, check by check (the admin Approvals queue shows the same steps). */
+export function approvalChecklist(params: {
+  docs: readonly { type: KycDocType; status: KycStatus }[];
+  identity: IdentityStatus;
+  isIdentityRequired: boolean;
+}): ApprovalChecklist {
+  const checks = [
+    ...REQUIRED_DOCS.map((key) => ({ key, state: docState(params.docs.find((d) => d.type === key)?.status) })),
+    ...(params.isIdentityRequired ? [{ key: 'IDENTITY' as const, state: identityState(params.identity) }] : []),
+  ];
+  return { checks, isReady: checks.every((c) => c.state === 'DONE'), isRejected: checks.some((c) => c.state === 'FAILED') };
 }

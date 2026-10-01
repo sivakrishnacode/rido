@@ -42,10 +42,42 @@ function plain<T>(res: ActionResult<T>): ActionResult {
   return res.ok ? { ok: true, message: res.message } : { ok: false, error: res.error };
 }
 
-export async function setDriverStatus(driverId: string, status: DriverStatus): Promise<ActionResult> {
+/** Approve, hold, reject or reactivate. A reason (hold: optional, reject: required) is pushed to the driver. */
+export async function setDriverStatus(driverId: string, status: DriverStatus, reason?: string): Promise<ActionResult> {
   if (!DRIVER_STATUSES.includes(status)) return { ok: false, error: "Unknown status" };
+  const trimmed = reason?.trim() || undefined;
+  if (status === "REJECTED" && !trimmed) return { ok: false, error: "Add a reason the driver will see" };
+  if (trimmed && (trimmed.length < 3 || trimmed.length > 200)) return { ok: false, error: "Reason must be 3–200 characters" };
   const label = { APPROVED: "Driver approved", ON_HOLD: "Driver put on hold", REJECTED: "Driver rejected", PENDING: "Driver moved to pending" }[status];
-  return plain(await run(() => adminApi.setDriverStatus(driverId, status), label, [`/drivers/${driverId}`, "/drivers", "/"]));
+  return plain(
+    await run(() => adminApi.setDriverStatus(driverId, status, trimmed), label, [`/drivers/${driverId}`, "/drivers", "/drivers/approvals", "/"]),
+  );
+}
+
+/** Approves several ready drivers (POST /admin/drivers/approve); drivers not ready are skipped and counted. */
+export async function approveDrivers(ids: string[]): Promise<ActionResult<{ approved: number; skipped: number }>> {
+  const unique = [...new Set(ids)].filter(Boolean);
+  if (unique.length === 0) return { ok: false, error: "Select at least one driver" };
+  if (unique.length > 50) return { ok: false, error: "Approve at most 50 drivers at a time" };
+  return run(
+    async () => {
+      const r = await adminApi.approveDrivers(unique);
+      return { approved: r.approved.length, skipped: r.skipped.length };
+    },
+    (r) => `${r.approved} driver${r.approved === 1 ? "" : "s"} approved${r.skipped ? `, ${r.skipped} skipped (not ready or already decided)` : ""}`,
+    ["/drivers/approvals", "/drivers", "/"],
+  );
+}
+
+/** Settings › driverAutoApprove, switched from the Approvals page. */
+export async function setAutoApprove(isOn: boolean): Promise<ActionResult> {
+  return plain(
+    await run(
+      () => adminApi.updateSettings({ driverAutoApprove: isOn }),
+      isOn ? "Auto-approval on: drivers are approved once every check passes" : "Manual approval on: ready drivers wait for you",
+      ["/drivers/approvals", "/settings"],
+    ),
+  );
 }
 
 /** Ends the driver's cancellation pause now (POST /admin/drivers/:id/lift-block, audit logged). */
@@ -65,7 +97,7 @@ export async function reviewDocument(
   return plain(await run(
     () => adminApi.reviewDocument(driverId, type, status, status === "REJECTED" ? trimmed : undefined),
     status === "VERIFIED" ? "Document verified" : "Document rejected",
-    [`/drivers/${driverId}`, "/drivers", "/kyc", "/"],
+    [`/drivers/${driverId}`, "/drivers", "/drivers/approvals", "/kyc", "/"],
   ));
 }
 
@@ -75,7 +107,7 @@ export async function reviewPhoto(driverId: string, isApproved: boolean, reason?
   return plain(await run(
     () => adminApi.reviewPhoto(driverId, isApproved, isApproved ? undefined : trimmed),
     isApproved ? "Photo approved" : "Photo rejected",
-    [`/drivers/${driverId}`, "/drivers"],
+    [`/drivers/${driverId}`, "/drivers", "/drivers/approvals"],
   ));
 }
 

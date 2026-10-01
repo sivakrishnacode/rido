@@ -247,7 +247,57 @@ export interface PassengerCancelRate {
   readonly faultRate: number;
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Driver approval (kyc/driver-approval.ts, admin-approvals.service.ts)
+
+/** Approvals queue buckets. Pending drivers sit in one of ready / documents / identity / driver; photos is any driver. */
+export type ApprovalStage = "ready" | "documents" | "identity" | "driver" | "photos";
+export const APPROVAL_STAGES: readonly ApprovalStage[] = ["ready", "documents", "identity", "driver", "photos"];
+
+/** One approval step: DONE, REVIEW (waiting for an admin or Didit), TODO (waiting for the driver), FAILED. */
+export type CheckState = "DONE" | "REVIEW" | "TODO" | "FAILED";
+
+export interface ApprovalChecklist {
+  /** RC, insurance, then IDENTITY when Didit is set up. */
+  readonly checks: readonly { readonly key: KycDocType | "IDENTITY"; readonly state: CheckState }[];
+  readonly isReady: boolean;
+  readonly isRejected: boolean;
+}
+
+/** GET /admin/approvals item. */
+export interface ApprovalItem {
+  readonly id: string;
+  readonly userId: string;
+  readonly status: DriverStatus;
+  readonly workType: WorkType;
+  readonly vehicleKind: VehicleKind;
+  readonly vehicleModel: string;
+  readonly plate: string;
+  readonly photoFile: string | null;
+  readonly pendingPhotoFile: string | null;
+  readonly photoMatchScore: number | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly user: { readonly id: string; readonly name: string | null; readonly phone: string; readonly gender: Gender | null; readonly identityStatus: IdentityStatus };
+  readonly documents: Omit<KycDocument, "driverId">[];
+  readonly checklist: ApprovalChecklist;
+}
+
+/** GET /admin/approvals. */
+export interface ApprovalsPage extends Paged<ApprovalItem> {
+  readonly stage: ApprovalStage;
+  /** Drivers per bucket (without the search). */
+  readonly counts: Record<ApprovalStage, number>;
+  /** Setting driverAutoApprove: off = ready drivers wait for an admin. */
+  readonly autoApprove: boolean;
+  /** Didit is set up: the identity check is one of the steps. */
+  readonly identityRequired: boolean;
+}
+
 export interface DriverDetail extends Driver {
+  /** Documents + identity, as the Approvals queue shows them (newer APIs). */
+  readonly checklist?: ApprovalChecklist;
+  readonly identityRequired?: boolean;
   readonly trips: TripBase[];
   /** Pauses, newest first (up to 20), and the rate now. */
   readonly blocks?: DriverBlock[];
@@ -708,6 +758,8 @@ export interface Settings {
   readonly supportPhone: string;
   /** Off = free app: no plan screens and no plan check when going online. */
   readonly driverPlansEnabled: boolean;
+  /** On: approved as soon as every check passes. Off: ready drivers wait in Drivers › Approvals. */
+  readonly driverAutoApprove: boolean;
   /** Contribute page (both apps). */
   readonly contributeUpiId: string;
   readonly contributePayeeName: string;

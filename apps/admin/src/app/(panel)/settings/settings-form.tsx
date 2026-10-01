@@ -95,6 +95,12 @@ const GROUPS: readonly Group[] = [
     ],
   },
   {
+    group: "Driver approval",
+    description:
+      "Every driver uploads RC + insurance (verified in Drivers › Approvals or KYC) and passes the Didit identity check. On: they are approved the moment the last check passes. Off: they wait in Approvals › Ready to approve until an admin approves them (one by one or in bulk).",
+    fields: [{ key: "driverAutoApprove", label: "Auto-approve drivers", hint: "Off = you approve each ready driver yourself" }],
+  },
+  {
     group: "Driver cancellations",
     description:
       "Driver-fault cancellations ÷ assigned trips over 7 days (counting restarts after a pause). Judged from the minimum trips; from Warn at the driver gets a push and a Home banner, from Pause at they can't go online for the pause length (the repeat length if they were paused in the last 7 days). Admins can lift a pause on the driver page. Passengers are never paused.",

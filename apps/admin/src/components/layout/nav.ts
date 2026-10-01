@@ -14,6 +14,7 @@ import {
   ScrollTextIcon,
   SettingsIcon,
   ShieldAlertIcon,
+  UserCheckIcon,
   UserCogIcon,
   UsersIcon,
   WalletCardsIcon,
@@ -47,6 +48,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: "/trips", label: "Trips", icon: RouteIcon, searchHint: "Search trips by id, pickup or drop" },
       { href: "/drivers", label: "Drivers", icon: IdCardIcon, searchHint: "Search drivers by name, phone or plate" },
+      { href: "/drivers/approvals", label: "Approvals", icon: UserCheckIcon, searchHint: "Search approvals by name, phone or plate" },
       { href: "/kyc", label: "KYC", icon: ClipboardCheckIcon },
       { href: "/passengers", label: "Passengers", icon: UsersIcon, searchHint: "Search passengers by name or phone" },
       { href: "/users", label: "Users", icon: UserCogIcon, searchHint: "Search all accounts by name, phone or email" },
@@ -81,11 +83,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
 
 export const NAV: readonly NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
-/** The nav item a path belongs to ("/drivers/abc" → Drivers). */
+/** The nav item a path belongs to, the longest match winning ("/drivers/abc" → Drivers, "/drivers/approvals" → Approvals). */
 export function activeNav(pathname: string): NavItem {
-  return (
-    NAV.find((n) => (n.href === "/" ? pathname === "/" : pathname === n.href || pathname.startsWith(`${n.href}/`))) ?? NAV[0]
-  );
+  const matches = NAV.filter((n) => (n.href === "/" ? pathname === "/" : pathname === n.href || pathname.startsWith(`${n.href}/`)));
+  return matches.reduce<NavItem | undefined>((best, n) => (!best || n.href.length > best.href.length ? n : best), undefined) ?? NAV[0];
 }
 
 /** Default target of the top-bar search when the open page has no search. */

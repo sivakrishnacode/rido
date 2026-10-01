@@ -1172,6 +1172,50 @@ describe('Tamil Taxi API (e2e)', () => {
     const plans = await http.get('/v1/plans?vehicleKind=BIKE').expect(200);
     expect(plans.body.map((p: { price: number }) => p.price)).toEqual([79, 449, 1499]);
   });
+  it('holds ready drivers for an admin when auto-approval is off, then approves them in bulk', async () => {
+    const admin = await adminAuth();
+    await http.put('/v1/admin/settings').set(admin).send({ driverAutoApprove: false }).expect(200);
+    try {
+      const plate = randomPlate();
+      const driverUser = await login();
+      const reg = await http
+        .post('/v1/drivers')
+        .set('Authorization', `Bearer ${driverUser}`)
+        .send({ name: 'Selvi R', workType: 'RIDES', vehicleKind: 'AUTO', vehicleModel: 'Bajaj RE', vehicleColor: 'Green', plate, upiId: 'selvi@okaxis' })
+        .expect(201);
+      const driver = { Authorization: `Bearer ${reg.body.accessToken as string}` };
+      const driverId = reg.body.driver.id as string;
+      await prisma.user.update({ where: { id: reg.body.driver.userId as string }, data: { identityStatus: 'APPROVED' } });
+
+      // Waiting on the driver until the documents are in; verified documents leave them ready, not approved.
+      const waiting = (await http.get(`/v1/admin/approvals?stage=driver&q=${encodeURIComponent(plate)}`).set(admin).expect(200)).body;
+      expect(waiting.items.map((d: { id: string }) => d.id)).toEqual([driverId]);
+      for (const type of ['VEHICLE_RC', 'INSURANCE']) {
+        await http.post(`/v1/admin/drivers/${driverId}/documents/${type}`).set(admin).send({ status: 'VERIFIED' }).expect(201);
+      }
+      expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('PENDING');
+      const ready = (await http.get(`/v1/admin/approvals?stage=ready&q=${encodeURIComponent(plate)}`).set(admin).expect(200)).body;
+      expect(ready).toMatchObject({ stage: 'ready', autoApprove: false, identityRequired: true, total: 1 });
+      expect(ready.counts.ready).toBeGreaterThanOrEqual(1);
+      expect(ready.items[0].checklist).toMatchObject({ isReady: true, isRejected: false });
+      await http.get('/v1/admin/approvals?stage=bogus').set(admin).expect(400);
+
+      // Bulk approve: unknown ids and drivers already decided are skipped, with the reason.
+      const res = (await http.post('/v1/admin/drivers/approve').set(admin).send({ ids: [driverId, 'missing'] }).expect(200)).body;
+      expect(res).toEqual({ approved: [driverId], skipped: [{ id: 'missing', reason: 'Not found' }] });
+      expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('APPROVED');
+      expect((await http.post('/v1/admin/drivers/approve').set(admin).send({ ids: [driverId] }).expect(200)).body.skipped).toEqual([{ id: driverId, reason: 'Already approved' }]);
+
+      // Hold with a reason (kept in the audit log); a too-short reason is refused.
+      await http.patch(`/v1/admin/drivers/${driverId}`).set(admin).send({ status: 'ON_HOLD', reason: 'ab' }).expect(400);
+      await http.patch(`/v1/admin/drivers/${driverId}`).set(admin).send({ status: 'ON_HOLD', reason: 'Insurance expired' }).expect(200);
+      const audit = await prisma.auditLog.findFirst({ where: { entity: 'drivers', entityId: driverId }, orderBy: { createdAt: 'desc' } });
+      expect(audit?.data).toMatchObject({ body: { status: 'ON_HOLD', reason: 'Insurance expired' } });
+    } finally {
+      await http.put('/v1/admin/settings').set(admin).send({ driverAutoApprove: true }).expect(200);
+    }
+  });
+
   it('approves a driver after the Didit identity check and the RC + insurance review', async () => {
     const driverUser = await login();
     const plate = randomPlate();
