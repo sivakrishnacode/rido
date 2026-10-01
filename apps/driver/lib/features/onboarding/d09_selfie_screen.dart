@@ -46,7 +46,7 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
       if (widget.dailyCheck) {
         _goOnline();
       } else {
-        context.push(Routes.underReview);
+        context.go(Routes.documents);
       }
     });
   }
@@ -76,7 +76,6 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
         backgroundColor: TtColors.navy900,
         appBar: SignupAppBar(
           title: widget.dailyCheck ? 'Selfie check' : 'Selfie verification',
-          step: widget.dailyCheck ? null : 5,
           onBack: widget.dailyCheck ? null : backOr(context, Routes.documents),
         ),
         body: Column(

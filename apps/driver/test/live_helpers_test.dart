@@ -98,30 +98,12 @@ void main() {
 
   group('applicationRoute', () {
     test('approved → Home', () {
-      expect(applicationRoute(approved: true, docs: docs({})), Routes.home);
+      expect(applicationRoute(approved: true), Routes.home);
     });
 
-    test('a rejected document → S-09', () {
-      expect(applicationRoute(approved: false, docs: docs({KycDocType.vehicleRc: KycStatus.rejected})), Routes.kycRejected);
-    });
-
-    test('missing documents → D-07', () {
-      expect(applicationRoute(approved: null, docs: docs({KycDocType.insurance: KycStatus.notUploaded})), Routes.documents);
-    });
-
-    test('identity check not done or declined → D-07 (runs it in the app); in review → D-10', () {
-      const underReview = {KycDocType.insurance: KycStatus.underReview};
-      IdentityCheck id(IdentityStatus s) => IdentityCheck(isEnabled: true, status: s);
-      expect(applicationRoute(approved: null, docs: docs(underReview), identity: id(IdentityStatus.notStarted)), Routes.documents);
-      expect(applicationRoute(approved: false, docs: docs(underReview), identity: id(IdentityStatus.declined)), Routes.documents);
-      expect(applicationRoute(approved: null, docs: docs(underReview), identity: id(IdentityStatus.inReview)), Routes.underReview);
-      const off = IdentityCheck(isEnabled: false, status: IdentityStatus.notStarted);
-      expect(applicationRoute(approved: null, docs: docs(underReview), identity: off), Routes.underReview);
-    });
-
-    test('all uploaded, waiting for an admin → D-10 (also after re-uploading a rejected document)', () {
-      expect(applicationRoute(approved: null, docs: docs({KycDocType.insurance: KycStatus.underReview})), Routes.underReview);
-      expect(applicationRoute(approved: false, docs: docs({KycDocType.vehicleRc: KycStatus.underReview})), Routes.underReview);
+    test('anything else (missing, rejected, under review) → the D-07 registration page', () {
+      expect(applicationRoute(approved: false), Routes.documents);
+      expect(applicationRoute(approved: null), Routes.documents);
     });
   });
 

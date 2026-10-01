@@ -36,13 +36,11 @@ import '../features/onboarding/d07_documents_screen.dart';
 import '../features/onboarding/d08_upload_document_screen.dart';
 import '../features/onboarding/profile_photo_screen.dart';
 import '../features/onboarding/d09_selfie_screen.dart';
-import '../features/onboarding/d10_under_review_screen.dart';
 import '../features/onboarding/d11_choose_plan_screen.dart';
 import '../features/onboarding/d12_autopay_screen.dart';
 import '../features/onboarding/d12b_autopay_success_screen.dart';
 import '../features/onboarding/legal_screen.dart';
 import '../features/plan/d24_plan_screen.dart';
-import '../features/states/s09_kyc_rejected_screen.dart';
 import '../features/states/s10_account_on_hold_screen.dart';
 import '../features/states/s13_selfie_check_screen.dart';
 import 'routes.dart';
@@ -81,11 +79,9 @@ GoRouter createDriverRouter({String initialLocation = Routes.splash}) => GoRoute
         ),
         _full(Routes.selfie, (_) => const D09SelfieScreen()),
         _full(Routes.profilePhoto, (_) => const ProfilePhotoScreen()),
-        _full(Routes.underReview, (_) => const D10UnderReviewScreen()),
         _full(Routes.choosePlan, (_) => const D11ChoosePlanScreen()),
         _full('/autopay', (s) => D12AutopayScreen(purpose: _purpose(s))),
         _full('/autopay/success', (s) => D12bAutopaySuccessScreen(purpose: _purpose(s))),
-        _full(Routes.kycRejected, (_) => const S09KycRejectedScreen()),
         _full(Routes.accountOnHold, (_) => const S10AccountOnHoldScreen()),
         _full(
           Routes.accountPausedPath,

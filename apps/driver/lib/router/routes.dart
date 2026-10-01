@@ -13,13 +13,11 @@ abstract final class Routes {
   static String uploadDocument(String type) => '/signup/documents/upload/$type';
   static const selfie = '/signup/selfie';
   static const profilePhoto = '/signup/photo';
-  static const underReview = '/signup/review';
   static const choosePlan = '/signup/plan';
 
   /// D-12 frame 1. [purpose] is `setup` (D-11), `change` (D-24) or `pay` (D-25 / S-14).
   static String autopay({String purpose = 'setup'}) => '/autopay?purpose=$purpose';
   static String autopaySuccess({String purpose = 'setup'}) => '/autopay/success?purpose=$purpose';
-  static const kycRejected = '/kyc-rejected';
   static const accountOnHold = '/account-on-hold';
 
   /// Paused for too many cancellations until [until] (S-10b).

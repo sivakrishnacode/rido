@@ -60,7 +60,7 @@ class _TtDriverAppState extends ConsumerState<TtDriverApp> with WidgetsBindingOb
   }
 
   /// Request / job / chat → pick up the offer or job from the API; KYC decision → the start screen decides
-  /// (plan, re-upload or home).
+  /// (Home once approved, else the registration page with what to fix).
   void _onPushTap(PushData data) {
     switch (data['type']) {
       case 'offer' || 'trip' || 'chat':

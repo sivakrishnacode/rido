@@ -32,7 +32,7 @@ class D11ChoosePlanScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: TtColors.background,
-      appBar: SignupAppBar(title: 'Your plan', step: 6, onBack: backOr(context, Routes.documents)),
+      appBar: SignupAppBar(title: 'Your plan', onBack: backOr(context, Routes.home)),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

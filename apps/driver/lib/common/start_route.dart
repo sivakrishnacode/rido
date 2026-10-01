@@ -2,18 +2,12 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import '../router/routes.dart';
 
-/// Where a signed-in driver lands (live API), from the admin's decision, the documents and the identity check.
+/// Where a signed-in driver lands (live API): Home once approved, otherwise always the D-07 registration page,
+/// which shows what is missing, what was rejected (with the reason) or that the review is pending.
 ///
-/// [approved]: true = approved, false = rejected, null = not decided yet. A rejected driver who has
-/// re-uploaded the rejected document waits on D-10 until an admin reviews it again. An identity check that
-/// isn't done (or was declined) goes back to D-07, which runs it in the app.
-String applicationRoute({required bool? approved, required List<KycDocument> docs, IdentityCheck? identity}) {
-  if (approved == true) return Routes.home;
-  if (docs.any((d) => d.status == KycStatus.rejected)) return Routes.kycRejected;
-  if (docs.any((d) => d.status == KycStatus.notUploaded)) return Routes.documents;
-  if (identity != null && identity.canStart) return Routes.documents;
-  return Routes.underReview;
-}
+/// [approved]: true = approved, false = rejected, null = not decided yet.
+String applicationRoute({required bool? approved}) =>
+    approved == true ? Routes.home : Routes.documents;
 
 /// Asks the API for the driver's application status and picks the start route. Offline → Home
 /// (it shows its own offline state).
@@ -26,10 +20,5 @@ Future<String> driverStartRoute(DriverRepository repo, IdentityRepository identi
   } on OfflineException {
     return Routes.home;
   }
-  if (approved == true) return Routes.home;
-  try {
-    return applicationRoute(approved: approved, docs: await repo.kycDocuments(), identity: await identity.status());
-  } on OfflineException {
-    return Routes.underReview;
-  }
+  return applicationRoute(approved: approved);
 }

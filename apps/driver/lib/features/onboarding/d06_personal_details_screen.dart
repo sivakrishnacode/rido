@@ -138,7 +138,8 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
     }
     if (!mounted) return;
     setState(() => _saving = false);
-    context.push(Routes.documents);
+    // Back to the registration page, now with the documents open.
+    context.go(Routes.documents);
   }
 
   /// The service city the driver signs up in (the API's cities; empty until they load).

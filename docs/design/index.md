@@ -132,11 +132,10 @@ Notes:
 | D-04 | Choose work type | In the app | [driver/D-04.png](driver/D-04.png) |
 | D-05 | Choose vehicle | As in the flow (plans off: no price) | [driver/D-05.png](driver/D-05.png) |
 | D-06 | Personal details | In the app | [driver/D-06.png](driver/D-06.png) |
-| D-07 | Documents · KYC checklist | In the app | [driver/D-07.png](driver/D-07.png) |
+| D-07 | Registration · vehicle card + checklist | In the app | [driver/D-07.png](driver/D-07.png) |
 | D-08a | Upload document · before capture | In the app | [driver/D-08a.png](driver/D-08a.png) |
 | D-08b | Upload document · captured | In the app | [driver/D-08b.png](driver/D-08b.png) |
 | D-09 | Selfie verification | In the app | [driver/D-09.png](driver/D-09.png) |
-| D-10 | Application under review · Check status | In the app | [driver/D-10.png](driver/D-10.png) |
 | D-11 | Choose plan · start free trial | Off while the app is free (paid plans switched off) | [driver/D-11.png](driver/D-11.png) |
 | D-12a | UPI Autopay setup | Off while the app is free (paid plans switched off) | [driver/D-12a.png](driver/D-12a.png) |
 | D-12b | Autopay success | Off while the app is free (paid plans switched off) | [driver/D-12b.png](driver/D-12b.png) |
@@ -180,7 +179,6 @@ Notes:
 
 | Frame ID | Screen | Status | File |
 |---|---|---|---|
-| S-09 | KYC rejected | In the app | [states/S-09.png](states/S-09.png) |
 | S-10 | Account on hold | In the app | [states/S-10.png](states/S-10.png) |
 | S-10b | Paused for cancellations | Added after the design | [states/S-10b.png](states/S-10b.png) |
 | S-11 | Missed ride request | In the app | [states/S-11.png](states/S-11.png) |

@@ -89,11 +89,10 @@ D-03b,OTP verification,driver,driver/D-03b.png,In the app
 D-04,Choose work type,driver,driver/D-04.png,In the app
 D-05,Choose vehicle,driver,driver/D-05.png,As in the flow (plans off: no price)
 D-06,Personal details,driver,driver/D-06.png,In the app
-D-07,Documents · KYC checklist,driver,driver/D-07.png,In the app
+D-07,Registration · vehicle card + checklist,driver,driver/D-07.png,In the app
 D-08a,Upload document · before capture,driver,driver/D-08a.png,In the app
 D-08b,Upload document · captured,driver,driver/D-08b.png,In the app
 D-09,Selfie verification,driver,driver/D-09.png,In the app
-D-10,Application under review · Check status,driver,driver/D-10.png,In the app
 D-11,Choose plan · start free trial,driver,driver/D-11.png,Off while the app is free (paid plans switched off)
 D-12a,UPI Autopay setup,driver,driver/D-12a.png,Off while the app is free (paid plans switched off)
 D-12b,Autopay success,driver,driver/D-12b.png,Off while the app is free (paid plans switched off)
@@ -119,7 +118,6 @@ D-24c,Plan · cancelled,driver,driver/D-24c.png,Off while the app is free (paid 
 D-25a,Home · grace period,driver,driver/D-25a.png,Off while the app is free (paid plans switched off)
 D-25b,Home · plan expired,driver,driver/D-25b.png,Off while the app is free (paid plans switched off)
 D-26,Driver account,driver,driver/D-26.png,In the app
-S-09,KYC rejected,driver,states/S-09.png,In the app
 S-10,Account on hold,driver,states/S-10.png,In the app
 S-10b,Paused for cancellations,driver,states/S-10b.png,Added after the design
 S-11,Missed ride request,driver,states/S-11.png,In the app

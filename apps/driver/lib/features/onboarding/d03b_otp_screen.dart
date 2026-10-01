@@ -97,7 +97,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
     }
     if (!_live) {
       setState(() => _verifying = false);
-      context.go(widget.signup ? Routes.workType : Routes.home);
+      context.go(widget.signup ? Routes.documents : Routes.home);
       return;
     }
     resetDriverData(ref);
@@ -105,7 +105,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
       ref.read(signupProvider.notifier).update((d) => d.copyWith(phone: widget.phone));
       setState(() => _verifying = false);
       if (!widget.signup) showTtSnack(context, "This number isn't registered yet. Let's sign you up.");
-      context.go(Routes.workType);
+      context.go(Routes.documents);
       return;
     }
     String route;

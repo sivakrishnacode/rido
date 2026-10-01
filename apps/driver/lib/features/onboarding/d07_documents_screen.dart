@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,16 +8,24 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
+import '../../state/live_helpers.dart';
 import 'widgets/identity_check_card.dart';
 import 'widgets/profile_photo_card.dart';
 import 'widgets/signup_widgets.dart';
 
-/// D-07 Documents / KYC checklist: the in-app identity check (driving licence + Aadhaar + selfie, by Didit) and a row
-/// per document to upload (RC, insurance) with its status and an Upload button. Continue (identity done and
-/// both uploaded) → D-10 under review.
-/// [readOnly] (Account → Documents) shows every document as verified, with no actions (live API: the
-/// real statuses, with Re-upload for a rejected document).
-class D07DocumentsScreen extends ConsumerWidget {
+/// D-07 Registration: the one page a driver sees from the OTP until an admin approves them (like Rapido's "My
+/// vehicles" card). A vehicle card with the overall status and the next thing to do, then the checklist:
+/// 1. vehicle and personal details (D-04 → D-05 → D-06, which creates the driver),
+/// 2. the in-app identity check (driving licence + Aadhaar + selfie, by Didit) and the profile photo,
+/// 3. one row per document to upload (RC, insurance) with its status.
+/// Once everything is in, the page shows "Under review" and checks the application (live: every 30 s; mock: after
+/// [SimTimings.applicationReview]); approved → Home (or D-11 when paid plans are on). A rejected document, a declined
+/// identity check or a rejected photo shows on its row ("1 error") with Re-upload / Try again. The app opens here
+/// on every start until the driver is approved ([applicationRoute]).
+///
+/// [readOnly] (Account → Documents) shows every document as verified, with no actions (live API: the real statuses,
+/// with Re-upload for a rejected document).
+class D07DocumentsScreen extends ConsumerStatefulWidget {
   const D07DocumentsScreen({super.key, this.readOnly = false, this.showcase = false});
 
   final bool readOnly;
@@ -24,33 +34,284 @@ class D07DocumentsScreen extends ConsumerWidget {
   final bool showcase;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<D07DocumentsScreen> createState() => _D07DocumentsScreenState();
+}
+
+class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
+  Timer? _poll;
+  Timer? _mockReview;
+  bool _checking = false;
+  late final bool _live = !widget.showcase && ref.read(isLiveApiProvider);
+
+  bool get _isHub => !widget.readOnly && !widget.showcase;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_isHub || !_live) return;
+    // Live: the admin decides in the panel; check quietly now and every 30 s (a push also brings the driver here).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _check(silent: true));
+    _poll = Timer.periodic(const Duration(seconds: 30), (_) => _check(silent: true));
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    _mockReview?.cancel();
+    super.dispose();
+  }
+
+  /// Plans on → D-11 choose a plan; the free app → straight to Home.
+  Future<String> _approvedRoute() async =>
+      (await ref.read(appConfigProvider.future)).driverPlansEnabled ? Routes.choosePlan : Routes.home;
+
+  /// Asks whether the application is approved. [silent]: the background check (no spinner, no "still under
+  /// review" snack).
+  Future<void> _check({bool silent = false}) async {
+    if (_checking || !mounted) return;
+    // Not created yet (new driver before D-06): nothing to check.
+    if (_live && !ref.read(driverRepositoryProvider).isLoggedIn) return;
+    if (!silent) setState(() => _checking = true);
+    bool? ok;
+    try {
+      ok = await ref.read(kycProvider.notifier).checkApplication();
+      if (_live) await ref.read(identityProvider.notifier).refresh();
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _checking = false);
+      if (!silent) {
+        showTtSnack(context, e is OfflineException ? "You're offline. We'll check again when you're back." : userMessage(e));
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _checking = false);
+    if (ok == true) {
+      _poll?.cancel();
+      final route = await _approvedRoute();
+      if (!mounted) return;
+      showTtSnack(context, "You're approved! Welcome to Tamil Taxi", success: true);
+      context.go(route);
+      return;
+    }
+    if (!silent && ok == null) {
+      showTtSnack(context, "Still under review. We'll let you know as soon as an admin approves your documents.");
+    }
+  }
+
+  /// Mock: everything is in, so the simulated review starts (approve, or reject the RC with Demo control
+  /// "Reject KYC").
+  void _startMockReview() {
+    if (_live || _mockReview != null) return;
+    _mockReview = Timer(ref.read(simTimingProvider)(SimTimings.applicationReview), () {
+      _mockReview = null;
+      _check(silent: true);
+    });
+  }
+
+  Future<void> _logout() async {
+    final ok = await showTtConfirm(
+      context,
+      title: 'Log out?',
+      message: 'Your progress is saved. Log in again with your phone number and OTP to carry on.',
+      confirmLabel: 'Log out',
+      cancelLabel: 'Stay',
+      icon: Symbols.logout_rounded,
+    );
+    if (!ok || !mounted) return;
+    await ref.read(driverRepositoryProvider).logout();
+    if (!mounted) return;
+    if (_live) {
+      ref.read(realtimeProvider).disconnect();
+      resetDriverData(ref);
+    }
+    ref.invalidate(signupProvider);
+    context.go(Routes.welcome);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.readOnly ? _readOnlyView(context) : _hubView(context);
+
+  // ------------------------------------------------------------------------------------------- registration
+
+  Widget _hubView(BuildContext context) {
     final t = context.type;
-    final live = !showcase && ref.watch(isLiveApiProvider);
-    final allDocs = readOnly && !live
-        ? Seed.kycAllVerified
-        : showcase
-            ? Seed.kycFresh
-            : (ref.watch(kycProvider).value ?? Seed.kycFresh);
+    final showcase = widget.showcase;
+    final live = _live;
+    final signup = ref.watch(signupProvider);
+    // Live: a new driver has no account until D-06 saves, so nothing is loaded from the API before that.
+    final loggedIn = !live || ref.read(driverRepositoryProvider).isLoggedIn;
+    final allDocs = showcase || !loggedIn ? Seed.kycFresh : (ref.watch(kycProvider).value ?? Seed.kycFresh);
+    final docs = [for (final d in allDocs) if (driverUploadDocs.contains(d.type)) d];
+    final identity = showcase || !loggedIn ? null : ref.watch(identityProvider).value;
+    final profile = live && loggedIn ? ref.watch(driverProfileProvider).value : null;
+
+    // 1. Vehicle and personal details: live, the driver exists once D-06 has saved; mock, once D-06 committed.
+    final detailsDone = showcase || signup.detailsSaved || (live && loggedIn);
+    // 2. Identity check (Didit off in dev counts as nothing to do; live before D-06 it shows locked) and, once it
+    // is approved, the profile photo.
+    final hasIdentity = identity?.isEnabled ?? (live && !loggedIn);
+    final identityDone = !hasIdentity || identity!.isSubmitted;
+    final identityError = hasIdentity && identity!.status == IdentityStatus.declined;
+    final needsPhoto = live && hasIdentity;
+    final photoDone = !needsPhoto || !identity!.isApproved || profile?.photoPath != null || (profile?.hasPendingPhoto ?? false);
+    final photoError = needsPhoto && profile != null && profile.photoRejectReason != null && profile.photoPath == null && !profile.hasPendingPhoto;
+    // 3. Documents.
+    bool isIn(KycDocument d) => d.status == KycStatus.verified || d.status == KycStatus.underReview;
+    final docsDone = docs.where(isIn).length;
+    final docErrors = docs.where((d) => d.status == KycStatus.rejected).length;
+
+    final steps = 1 + (hasIdentity ? 1 : 0) + (needsPhoto ? 1 : 0) + docs.length;
+    // Steps after the details only count once they are open.
+    final done = detailsDone
+        ? 1 + (hasIdentity && identityDone ? 1 : 0) + (needsPhoto && photoDone && identity!.isApproved ? 1 : 0) + docsDone
+        : 0;
+    final errors = docErrors + (identityError ? 1 : 0) + (photoError ? 1 : 0);
+    final allIn = detailsDone && identityDone && photoDone && docsDone == docs.length;
+    if (allIn && errors == 0 && !showcase) WidgetsBinding.instance.addPostFrameCallback((_) => _startMockReview());
+
+    final kind = profile?.vehicleKind ?? signup.vehicle;
+    final plate = (profile?.plate ?? signup.plate).trim();
+    final name = (profile?.name ?? signup.name).trim();
+    final phone = (profile?.phone ?? signup.phone).trim();
+
+    // The card's status pill and the next thing to do (its navy band).
+    final (String pill, Color pillBg, Color pillFg) = errors > 0
+        ? (errors == 1 ? '1 error' : '$errors errors', TtColors.error, Colors.white)
+        : allIn
+            ? ('Under review', TtColors.warning, TtColors.navy900)
+            : ('${steps - done} to do', TtColors.navy900, Colors.white);
+    final firstRejected = docs.where((d) => d.status == KycStatus.rejected).firstOrNull;
+    final firstMissing = docs.where((d) => d.status == KycStatus.notUploaded).firstOrNull;
+    final (String next, VoidCallback? onNext) = !detailsDone
+        ? ('Add your vehicle and details', () => context.push(Routes.workType))
+        : firstRejected != null
+            ? ('Re-upload your ${firstRejected.type.label}', () => _upload(firstRejected.type))
+            : hasIdentity && !identityDone
+                ? ('Verify your licence and Aadhaar', null)
+                : !photoDone
+                    ? ('Take your profile photo', () => context.push(Routes.profilePhoto))
+                    : firstMissing != null
+                        ? ('Upload your ${firstMissing.type.label}', () => _upload(firstMissing.type))
+                        : ("Under review · we'll notify you", null);
+
+    return Scaffold(
+      backgroundColor: TtColors.background,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DocsHeader(
+            title: 'Registration',
+            showBack: false,
+            summary: allIn && errors == 0 ? 'All done, under review' : '$done of $steps done',
+            segments: [(done / steps, errors > 0 ? TtColors.error : TtColors.coral500)],
+            onHelp: showcase ? null : () => context.push(Routes.help),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(TtSpacing.l),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _VehicleCard(
+                    kind: kind,
+                    isSet: detailsDone,
+                    plate: plate,
+                    line: [if (name.isNotEmpty) name, if (phone.isNotEmpty) phone].join(', '),
+                    pill: pill,
+                    pillBg: pillBg,
+                    pillFg: pillFg,
+                    next: next,
+                    onNext: showcase ? null : onNext,
+                  ),
+                  const SizedBox(height: TtSpacing.xl),
+                  Text('Complete these to start driving', style: t.bodySemibold.copyWith(fontSize: 17)),
+                  const SizedBox(height: TtSpacing.m),
+                  _StepRow(
+                    icon: Symbols.directions_car_rounded,
+                    title: 'Vehicle and personal details',
+                    subtitle: detailsDone
+                        ? [kind == VehicleKind.truck ? 'Truck' : kind.label, if (plate.isNotEmpty) plate, if (name.isNotEmpty) name]
+                            .join(' · ')
+                        : 'Your work, vehicle, name and UPI ID',
+                    status: detailsDone ? KycStatus.verified : KycStatus.notUploaded,
+                    doneLabel: 'Done',
+                    actionLabel: detailsDone ? 'Edit' : 'Start',
+                    // Live: the vehicle type is fixed once the driver exists, so editing opens the details only.
+                    onTap: showcase
+                        ? null
+                        : () => context.push(live && detailsDone ? Routes.personalDetails : Routes.workType),
+                  ),
+                  const SizedBox(height: TtSpacing.m),
+                  if (hasIdentity) ...[
+                    if (detailsDone) IdentityCheckCard(showcase: showcase) else const _LockedRow(title: 'Licence, Aadhaar and selfie'),
+                    const SizedBox(height: TtSpacing.m),
+                    if (needsPhoto && detailsDone) ...[
+                      const ProfilePhotoCard(),
+                      const SizedBox(height: TtSpacing.m),
+                    ],
+                  ],
+                  // One card per document, outlined by its status (green once done), like Namma Yatri's checklist.
+                  for (final doc in docs) ...[
+                    if (detailsDone)
+                      _DocRow(doc: doc, readOnly: false, live: live, onUpload: () => _upload(doc.type))
+                    else
+                      _LockedRow(title: doc.type.label),
+                    const SizedBox(height: TtSpacing.m),
+                  ],
+                  const SizedBox(height: TtSpacing.s),
+                  const _PhotoTip(),
+                  const SizedBox(height: TtSpacing.m),
+                  if (!showcase)
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _logout,
+                        icon: const Icon(Symbols.logout_rounded, size: 20),
+                        label: const Text('Log out'),
+                        style: TextButton.styleFrom(foregroundColor: TtColors.navy700, minimumSize: const Size(48, 48)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (allIn && errors == 0)
+            BottomActions(
+              color: TtColors.surface,
+              children: [
+                TtButton(label: 'Check status', loading: _checking, onPressed: showcase ? null : _check),
+                const SizedBox(height: TtSpacing.s),
+                Text(
+                  "An admin checks your documents, usually within 24 hours. We'll notify you when you can start.",
+                  textAlign: TextAlign.center,
+                  style: t.bodySmall.copyWith(color: TtColors.navy500),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Opens the camera for [type]; mock: clears Demo control "Reject KYC" first so the re-upload passes.
+  void _upload(KycDocType type) {
+    if (!_live) ref.read(demoSettingsProvider.notifier).update((s) => s.copyWith(rejectKyc: false));
+    context.push(Routes.uploadDocument(type.name));
+  }
+
+  // ------------------------------------------------------------------------------------------ Account view
+
+  Widget _readOnlyView(BuildContext context) {
+    final t = context.type;
+    final showcase = widget.showcase;
+    final live = _live;
+    final allDocs = !live ? Seed.kycAllVerified : (ref.watch(kycProvider).value ?? Seed.kycFresh);
     final docs = [for (final d in allDocs) if (driverUploadDocs.contains(d.type)) d];
     final identity = showcase ? null : ref.watch(identityProvider).value;
-    // Didit off (dev) counts as done; so does a check waiting for review.
-    final isIdentityDone = identity == null ? showcase : (!identity.isEnabled || identity.isSubmitted);
     final hasIdentity = identity?.isEnabled ?? showcase;
-    final signup = ref.watch(signupProvider);
-    final done = docs.where((d) => d.status == KycStatus.verified || d.status == KycStatus.underReview).length;
     final verified = docs.where((d) => d.status == KycStatus.verified).length;
     final steps = docs.length + (hasIdentity ? 1 : 0);
-    final stepsDone = done + (hasIdentity && isIdentityDone ? 1 : 0);
     final stepsVerified = verified + (identity?.isApproved == true ? 1 : 0);
-    // Live API: after a restart the sign-up draft is empty, so the vehicle comes from the driver profile.
-    final profile = live ? ref.watch(driverProfileProvider).value : null;
-    // Once the identity check is approved, the profile photo is needed too (riders see it).
-    final isPhotoDone = !live || identity == null || !identity.isApproved || profile?.photoPath != null || (profile?.hasPendingPhoto ?? false);
-    final allDone = done == docs.length && isIdentityDone && isPhotoDone;
-    final kind = profile?.vehicleKind ?? signup.vehicle;
-    final vehicle = kind == VehicleKind.truck ? 'Truck' : kind.label;
-    final work = (profile != null ? !profile.vehicleKind.isGoods : signup.workType == WorkType.rides) ? 'Rides' : 'Deliveries';
 
     return Scaffold(
       backgroundColor: TtColors.background,
@@ -59,11 +320,8 @@ class D07DocumentsScreen extends ConsumerWidget {
         children: [
           DocsHeader(
             title: 'Documents',
-            step: readOnly ? null : 4,
-            summary: readOnly ? '$stepsVerified of $steps verified' : '$stepsDone of $steps done',
-            trailing: readOnly ? null : '$vehicle · $work',
-            segments: [((readOnly ? stepsVerified : stepsDone) / steps, readOnly ? TtColors.success : TtColors.coral500)],
-            onBack: readOnly ? null : backOr(context, Routes.personalDetails),
+            summary: '$stepsVerified of $steps verified',
+            segments: [(stepsVerified / steps, TtColors.success)],
             onHelp: showcase ? null : () => context.push(Routes.help),
           ),
           Expanded(
@@ -80,68 +338,255 @@ class D07DocumentsScreen extends ConsumerWidget {
                       const SizedBox(height: TtSpacing.l),
                     ],
                   ],
-                  // One card per document, outlined by its status (green once done), like Namma Yatri's checklist.
                   for (final doc in docs) ...[
                     _DocRow(
                       doc: doc,
                       // Live: a rejected document can be re-uploaded from Account too.
-                      readOnly: readOnly && !(live && doc.status == KycStatus.rejected),
+                      readOnly: !(live && doc.status == KycStatus.rejected),
                       live: live,
-                      onUpload: () => context.push(Routes.uploadDocument(doc.type.name)),
+                      onUpload: () => _upload(doc.type),
                     ),
                     const SizedBox(height: TtSpacing.m),
                   ],
                   const SizedBox(height: TtSpacing.l),
-                  if (readOnly)
-                    Text(
-                        // Counts the identity check too: a declined check is never "all verified".
-                        identity?.status == IdentityStatus.declined
-                            ? 'Your identity check needs another try. Fix the points above, then tap Try again.'
-                            : stepsVerified == steps
-                                ? 'All your documents are verified. Contact support if something changes, like a new RC.'
-                                : 'An admin checks each document, usually within 24 hours. Contact support if you need help.',
-                        style: t.bodySmall.copyWith(color: TtColors.navy500))
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(TtSpacing.l),
-                      decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.cardRadius),
-                      child: Row(
-                        children: [
-                          const Icon(Symbols.lightbulb_rounded, color: Colors.white),
-                          const SizedBox(width: TtSpacing.m),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Clear photos get approved faster',
-                                    style: t.bodySemibold.copyWith(color: Colors.white)),
-                                Text('Good light, all 4 corners visible, no glare.',
-                                    style: t.bodySmall.copyWith(color: TtColors.navy300)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  Text(
+                      // Counts the identity check too: a declined check is never "all verified".
+                      identity?.status == IdentityStatus.declined
+                          ? 'Your identity check needs another try. Fix the points above, then tap Try again.'
+                          : stepsVerified == steps
+                              ? 'All your documents are verified. Contact support if something changes, like a new RC.'
+                              : 'An admin checks each document, usually within 24 hours. Contact support if you need help.',
+                      style: t.bodySmall.copyWith(color: TtColors.navy500)),
                 ],
               ),
             ),
           ),
-          if (!readOnly)
-            BottomActions(
+        ],
+      ),
+    );
+  }
+}
+
+/// The registration's vehicle card: plate (or "Your vehicle"), name and phone, the vehicle art, a status pill and a
+/// navy band with the next thing to do.
+class _VehicleCard extends StatelessWidget {
+  const _VehicleCard({
+    required this.kind,
+    required this.isSet,
+    required this.plate,
+    required this.line,
+    required this.pill,
+    required this.pillBg,
+    required this.pillFg,
+    required this.next,
+    required this.onNext,
+  });
+
+  final VehicleKind kind;
+  final bool isSet;
+  final String plate;
+  final String line;
+  final String pill;
+  final Color pillBg;
+  final Color pillFg;
+  final String next;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Material(
+      color: TtColors.surface,
+      borderRadius: TtRadii.cardRadius,
+      clipBehavior: Clip.antiAlias,
+      elevation: 1,
+      shadowColor: TtColors.shadow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.l, TtSpacing.m, TtSpacing.l),
+            child: Row(
               children: [
-                TtButton(label: 'Continue', onPressed: allDone ? () => context.go(Routes.underReview) : null),
-                if (!allDone) ...[
-                  const SizedBox(height: TtSpacing.s),
-                  Text(!isIdentityDone
-                      ? 'Verify your licence and Aadhaar, and upload both documents to continue'
-                      : !isPhotoDone
-                          ? 'Take your profile photo to continue'
-                          : 'Upload both documents to continue',
-                      textAlign: TextAlign.center, style: t.bodySmall.copyWith(color: TtColors.navy500)),
-                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isSet && plate.isNotEmpty ? plate : 'Your vehicle',
+                        style: t.h2.copyWith(letterSpacing: isSet && plate.isNotEmpty ? 0.5 : 0),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (line.isNotEmpty)
+                        Text(line, style: t.bodySmall.copyWith(color: TtColors.navy500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: TtSpacing.s),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: pillBg, borderRadius: TtRadii.pillRadius),
+                        child: Text(pill, style: t.caption.copyWith(color: pillFg, fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ),
+                VehicleArt(kind, size: 48),
               ],
             ),
+          ),
+          InkWell(
+            onTap: onNext,
+            child: Container(
+              color: TtColors.navy900,
+              constraints: const BoxConstraints(minHeight: 52),
+              padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l, vertical: TtSpacing.m),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(next, style: t.bodySemibold.copyWith(color: Colors.white), maxLines: 2),
+                  ),
+                  if (onNext != null) const Icon(Symbols.arrow_forward_rounded, color: Colors.white),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A checklist row that opens a screen: icon tile, title, subtitle, and a Done pill or an action button.
+class _StepRow extends StatelessWidget {
+  const _StepRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.status,
+    required this.doneLabel,
+    required this.actionLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final KycStatus status;
+  final String doneLabel;
+  final String actionLabel;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    final done = status == KycStatus.verified;
+    return Container(
+      padding: const EdgeInsets.all(TtSpacing.l),
+      decoration: BoxDecoration(
+        color: TtColors.surface,
+        borderRadius: TtRadii.cardRadius,
+        border: Border.all(
+          color: done ? TtColors.success.withValues(alpha: 0.55) : TtColors.divider,
+          width: done ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: done ? TtColors.successTint : TtColors.inputBg, borderRadius: TtRadii.cardRadius),
+            child: Icon(icon, color: done ? TtColors.successText : TtColors.navy700, size: 22),
+          ),
+          const SizedBox(width: TtSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: t.bodySemibold),
+                Text(subtitle,
+                    style: t.bodySmall.copyWith(color: TtColors.navy500), maxLines: 2, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          const SizedBox(width: TtSpacing.s),
+          if (done && onTap == null)
+            IconPill(label: doneLabel, icon: Symbols.check_circle_rounded, bg: TtColors.successTint, fg: TtColors.successText)
+          else if (done)
+            TextButton(
+              onPressed: onTap,
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48), foregroundColor: TtColors.coral600),
+              child: Text(actionLabel),
+            )
+          else
+            _UploadButton(label: actionLabel, icon: Symbols.arrow_forward_rounded, onTap: onTap),
+        ],
+      ),
+    );
+  }
+}
+
+/// A step that opens after "Vehicle and personal details" (the documents belong to the new driver).
+class _LockedRow extends StatelessWidget {
+  const _LockedRow({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Container(
+      padding: const EdgeInsets.all(TtSpacing.l),
+      decoration: BoxDecoration(
+        color: TtColors.surface,
+        borderRadius: TtRadii.cardRadius,
+        border: Border.all(color: TtColors.divider),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.cardRadius),
+            child: const Icon(Symbols.lock_rounded, color: TtColors.navy500, size: 22),
+          ),
+          const SizedBox(width: TtSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: t.bodySemibold.copyWith(color: TtColors.navy700)),
+                Text('Opens after your vehicle and details', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Clear photos get approved faster" tip.
+class _PhotoTip extends StatelessWidget {
+  const _PhotoTip();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Container(
+      padding: const EdgeInsets.all(TtSpacing.l),
+      decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.cardRadius),
+      child: Row(
+        children: [
+          const Icon(Symbols.lightbulb_rounded, color: Colors.white),
+          const SizedBox(width: TtSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Clear photos get approved faster', style: t.bodySemibold.copyWith(color: Colors.white)),
+                Text('Good light, all 4 corners visible, no glare.', style: t.bodySmall.copyWith(color: TtColors.navy300)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -254,9 +699,10 @@ class _DocRow extends StatelessWidget {
 }
 
 class _UploadButton extends StatelessWidget {
-  const _UploadButton({required this.label, required this.onTap});
+  const _UploadButton({required this.label, required this.onTap, this.icon = Symbols.upload_rounded});
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -272,7 +718,7 @@ class _UploadButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Symbols.upload_rounded, color: Colors.white, size: 20),
+                  Icon(icon, color: Colors.white, size: 20),
                   const SizedBox(width: 6),
                   Text(label, style: context.type.button.copyWith(color: Colors.white)),
                 ],

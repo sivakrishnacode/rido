@@ -6,9 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
-/// Navy sign-up app bar: back arrow, title, "Step n of 6" and a coral progress line.
+/// Navy sign-up app bar: back arrow, title, "Step n of 3" and a coral progress line from the left edge.
 class SignupAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const SignupAppBar({super.key, required this.title, this.step, this.total = 6, this.onBack, this.showBack = true});
+  const SignupAppBar({super.key, required this.title, this.step, this.total = 3, this.onBack, this.showBack = true});
 
   final String title;
 
@@ -59,8 +59,10 @@ class SignupAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
               if (step != null)
+                // Full width: in the centred Column a width-less box shrank to the coral part and sat in the middle.
                 SizedBox(
                   height: 4,
+                  width: double.infinity,
                   child: Stack(
                     children: [
                       const Positioned.fill(child: ColoredBox(color: TtColors.navy700)),
@@ -269,19 +271,21 @@ class DocsHeader extends StatelessWidget {
     required this.segments,
     this.trailing,
     this.trailingColor = TtColors.navy300,
-    this.step,
     this.onBack,
     this.onHelp,
+    this.showBack = true,
   });
 
   final String title;
   final String summary;
 
+  /// False on the registration page (the first page after the OTP: nothing to go back to).
+  final bool showBack;
+
   /// Shows a "Help" button at the top right (stuck on a document → support), like Namma Yatri's checklist.
   final VoidCallback? onHelp;
   final String? trailing;
   final Color trailingColor;
-  final int? step;
   final VoidCallback? onBack;
 
   /// (flex, colour) segments of the progress bar; the rest is navy-700.
@@ -304,20 +308,18 @@ class DocsHeader extends StatelessWidget {
                 height: 64,
                 child: Row(
                   children: [
-                    IconButton(
-                      tooltip: 'Back',
-                      icon: const Icon(Symbols.arrow_back_rounded, color: Colors.white),
-                      onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-                    ),
+                    if (showBack)
+                      IconButton(
+                        tooltip: 'Back',
+                        icon: const Icon(Symbols.arrow_back_rounded, color: Colors.white),
+                        onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+                      )
+                    else
+                      const SizedBox(width: TtSpacing.l),
                     Expanded(
                       child: Text(title,
                           style: t.h1.copyWith(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
-                    if (step != null)
-                      Padding(
-                        padding: EdgeInsets.only(right: onHelp == null ? TtSpacing.l : TtSpacing.s),
-                        child: Text('Step $step of 6', style: t.bodySmallMedium.copyWith(color: TtColors.navy300)),
-                      ),
                     if (onHelp != null)
                       Padding(
                         padding: const EdgeInsets.only(right: TtSpacing.s),

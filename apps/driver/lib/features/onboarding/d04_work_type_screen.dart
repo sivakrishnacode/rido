@@ -8,7 +8,8 @@ import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import 'widgets/signup_widgets.dart';
 
-/// D-04 Choose work type: "Rides: carry passengers" or "Deliveries: carry goods".
+/// D-04 Choose work type: "Rides: carry passengers" or "Deliveries: carry goods". Step 1 of 3 from the D-07
+/// registration page (work type → vehicle → details).
 class D04WorkTypeScreen extends ConsumerStatefulWidget {
   const D04WorkTypeScreen({super.key, this.showcase = false});
 
@@ -32,7 +33,7 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
     final t = context.type;
     return Scaffold(
       backgroundColor: TtColors.surface,
-      appBar: SignupAppBar(title: 'Choose work type', step: 1, onBack: backOr(context, Routes.welcome)),
+      appBar: SignupAppBar(title: 'Choose work type', step: 1, onBack: backOr(context, Routes.documents)),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

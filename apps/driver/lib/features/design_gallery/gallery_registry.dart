@@ -27,12 +27,10 @@ import '../onboarding/d06_personal_details_screen.dart';
 import '../onboarding/d07_documents_screen.dart';
 import '../onboarding/d08_upload_document_screen.dart';
 import '../onboarding/d09_selfie_screen.dart';
-import '../onboarding/d10_under_review_screen.dart';
 import '../onboarding/d11_choose_plan_screen.dart';
 import '../onboarding/d12_autopay_screen.dart';
 import '../onboarding/d12b_autopay_success_screen.dart';
 import '../plan/d24_plan_screen.dart';
-import '../states/s09_kyc_rejected_screen.dart';
 import '../states/s10_account_on_hold_screen.dart';
 import '../states/s13_selfie_check_screen.dart';
 import '../states/s14_payment_failed_dialog.dart';
@@ -83,13 +81,12 @@ final List<GalleryEntry> galleryEntries = [
   _e('D-04', 'Choose work type', _p5, (_) => const D04WorkTypeScreen(showcase: true)),
   _e('D-05', 'Choose vehicle', _p5, (_) => const D05ChooseVehicleScreen(showcase: true)),
   _e('D-06', 'Personal details', _p5, (_) => const D06PersonalDetailsScreen(showcase: true)),
-  _e('D-07', 'Documents · KYC checklist', _p5, (_) => const D07DocumentsScreen(showcase: true)),
+  _e('D-07', 'Registration · vehicle card + checklist', _p5, (_) => const D07DocumentsScreen(showcase: true)),
   _e('D-08a', 'Upload document · before capture', _p5,
       (_) => const D08UploadDocumentScreen(type: KycDocType.drivingLicence, captured: false, showcase: true)),
   _e('D-08b', 'Upload document · captured', _p5,
       (_) => const D08UploadDocumentScreen(type: KycDocType.drivingLicence, captured: true, showcase: true)),
   _e('D-09', 'Selfie verification', _p5, (_) => const D09SelfieScreen(showcase: true)),
-  _e('D-10', 'Application under review · Check status', _p5, (_) => const D10UnderReviewScreen(showcase: true)),
   _e('D-11', 'Choose plan · start free trial', _p5, (_) => const D11ChoosePlanScreen(showcase: true)),
   _e('D-12a', 'UPI Autopay setup', _p5, (_) => const D12AutopayScreen(showcase: true)),
   _e('D-12b', 'Autopay success', _p5, (_) => const D12bAutopaySuccessScreen(showcase: true)),
@@ -119,7 +116,6 @@ final List<GalleryEntry> galleryEntries = [
   _e('D-25b', 'Home · plan expired', _p6, (_) => const D13HomeScreen(variant: HomeVariant.expired, showcase: true)),
   _e('D-26', 'Driver account', _p6, (_) => const D26AccountScreen(showcase: true)),
   // Part 7
-  _e('S-09', 'KYC rejected', _p7, (_) => const S09KycRejectedScreen(showcase: true)),
   _e('S-10', 'Account on hold', _p7, (_) => const S10AccountOnHoldScreen(showcase: true)),
   _e('S-10b', 'Paused for cancellations', _p7,
       (_) => S10AccountOnHoldScreen(showcase: true, pausedUntil: DateTime.now().add(const Duration(hours: 24)))),

@@ -160,7 +160,7 @@ void resetDriverData(WidgetRef ref) {
     ..invalidate(earningsProvider);
 }
 
-/// What the driver entered during sign-up (D-03 … D-06).
+/// What the driver entered during sign-up (D-03 … D-06), for the D-07 registration page.
 @immutable
 class SignupDraft {
   const SignupDraft({
@@ -176,6 +176,7 @@ class SignupDraft {
     this.vehicleModel = '',
     this.vehicleColor = '',
     this.plate = '',
+    this.detailsSaved = false,
   });
 
   /// Live API: nothing prefilled.
@@ -196,6 +197,9 @@ class SignupDraft {
   final String vehicleColor;
   final String plate;
 
+  /// D-06 saved the details (live: the driver now exists), so the registration page opens the documents.
+  final bool detailsSaved;
+
   SignupDraft copyWith({
     String? phone,
     WorkType? workType,
@@ -209,6 +213,7 @@ class SignupDraft {
     String? vehicleModel,
     String? vehicleColor,
     String? plate,
+    bool? detailsSaved,
   }) =>
       SignupDraft(
         phone: phone ?? this.phone,
@@ -223,6 +228,7 @@ class SignupDraft {
         vehicleModel: vehicleModel ?? this.vehicleModel,
         vehicleColor: vehicleColor ?? this.vehicleColor,
         plate: plate ?? this.plate,
+        detailsSaved: detailsSaved ?? this.detailsSaved,
       );
 }
 
@@ -284,6 +290,7 @@ class SignupController extends Notifier<SignupDraft> {
         ..invalidate(paymentsProvider)
         ..invalidate(driverEmergencyContactProvider)
         ..invalidate(driverSessionProvider);
+      state = state.copyWith(detailsSaved: true);
       return;
     }
     final profile = ref.read(driverProfileProvider).value ?? Seed.karthik;
@@ -301,6 +308,7 @@ class SignupController extends Notifier<SignupDraft> {
           gender: state.gender,
         ));
     await ref.read(planProvider.notifier).changeVehicle(state.vehicle);
+    state = state.copyWith(detailsSaved: true);
   }
 }
 
