@@ -1092,6 +1092,23 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
                 ],
                 center: LatLng((from.latitude + to.latitude) / 2, (from.longitude + to.longitude) / 2),
                 zoom: 14.2,
+                // A demand hex (res 7) with its busy nested hexes (res 8), as on the driver map.
+                polygons: [
+                  MapPolygon(
+                    points: hexagonAround(from, HexRes.r7),
+                    fillColor: TtColors.coral500.withValues(alpha: 0.12),
+                    strokeColor: TtColors.coral500.withValues(alpha: 0.85),
+                    strokeWidth: 2,
+                  ),
+                  for (final (i, c) in hexDisk(from, HexRes.r8, 1, rotation: HexRes.childRotation).indexed)
+                    MapPolygon(
+                      points: hexagonAround(c, HexRes.r8, rotation: HexRes.childRotation),
+                      fillColor: TtColors.coral500.withValues(alpha: i == 0 ? 0.3 : 0.12),
+                      strokeColor: TtColors.coral500.withValues(alpha: 0.45),
+                      strokeWidth: 1,
+                      zIndex: 1,
+                    ),
+                ],
               ),
               Positioned(
                 right: TtSpacing.m,
@@ -1121,10 +1138,15 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
       ),
       legend(
         const SizedBox(width: 48, height: 48, child: PulseRing(animate: false, size: 48)),
-        'Pulse ring',
-        'Searching for a driver (animated in the flow)',
+        'Hex pulse',
+        'Searching for a driver: hexes grow outward, as dispatch searches H3 rings (animated in the flow)',
       ),
-      legend(const DemandLabel(text: '1.1x'), 'Demand label', 'Zone callout on the driver map'),
+      legend(
+        CustomPaint(size: const Size(40, 40), painter: _HexSwatchPainter()),
+        'Areas are hexes',
+        'Service area, demand and search areas are H3 hexes: never a circle with a radius',
+      ),
+      legend(const DemandLabel(text: '1.1x'), 'Demand label', 'Callout on the busiest demand hexes'),
       const _SubLabel('Driver vehicle · top-down, rotates with heading'),
       Wrap(
         spacing: TtSpacing.xl,
@@ -1423,4 +1445,24 @@ class _Dot extends StatelessWidget {
         margin: const EdgeInsets.only(right: TtSpacing.s),
         decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: TtColors.divider)),
       );
+}
+
+/// A demand hex swatch for the map legend.
+class _HexSwatchPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = hexagonPath(size.center(Offset.zero), size.width / 2 - 2);
+    canvas.drawPath(path, Paint()..color = TtColors.coral500.withValues(alpha: 0.18));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = TtColors.coral500
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HexSwatchPainter oldDelegate) => false;
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../geo/hex_grid.dart';
+import '../seed.dart';
+
 /// How busy a demand hex is right now (`GET /v1/demand/hotspots`).
 enum HotspotLevel { high, busy, some }
 
@@ -77,6 +80,40 @@ class DemandMap {
           ),
       ],
       serviceArea: [for (final r in (j['serviceArea'] as List? ?? const [])) ring(r)],
+    );
+  }
+
+  /// Mock mode and the Design gallery: what `/demand/hotspots` returns, without the API. Each seeded busy area is
+  /// a res-7-sized hex with its seven res-8-sized children, and the service area is a hex outline. [quiet] (S-12):
+  /// busy, nothing "high".
+  factory DemandMap.demo({bool quiet = false}) {
+    const levels = [HotspotLevel.high, HotspotLevel.busy, HotspotLevel.some];
+    const childScores = [1.0, 0.7, 0.45, 0.3, 0.2, 0.55, 0.15];
+    return DemandMap(
+      at: DateTime.now(),
+      hotspots: [
+        for (final (i, z) in Seed.demandZones.indexed)
+          Hotspot(
+            cell: 'demo-${z.name}',
+            level: quiet ? HotspotLevel.busy : levels[i % levels.length],
+            score: 1 - i * 0.3,
+            multiplier: 1,
+            centre: z.centre,
+            name: z.name,
+            boundary: hexagonAround(z.centre, HexRes.r7),
+            nested: [
+              for (final (j, c) in hexDisk(z.centre, HexRes.r8, 1, rotation: HexRes.childRotation).indexed)
+                NestedHex(
+                  cell: 'demo-${z.name}-$j',
+                  score: childScores[j],
+                  boundary: hexagonAround(c, HexRes.r8, rotation: HexRes.childRotation),
+                ),
+            ],
+          ),
+      ],
+      serviceArea: [
+        hexDiskOutline(Seed.cityCentre, HexRes.r7, hexRingsFor(Seed.serviceRadiusKm * 1000, HexRes.r7)),
+      ],
     );
   }
 }

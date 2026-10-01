@@ -207,7 +207,6 @@ class _GoogleTtMapState extends State<_GoogleTtMap> with WidgetsBindingObserver 
   bool get _hasOverlays =>
       m.pulseAt != null ||
       m.extraMarkers.isNotEmpty ||
-      m.zones.any((z) => z.label != null) ||
       m.polygons.any((p) => p.isZoomLimited);
 
   void _onCameraMove(gm.CameraPosition pos) {
@@ -333,9 +332,6 @@ class _GoogleTtMapState extends State<_GoogleTtMap> with WidgetsBindingObserver 
 
   List<Widget> _overlays() => [
     if (m.pulseAt != null) _overlay(m.pulseAt!, 180, 180, Alignment.center, PulseRing(color: m.pulseColor)),
-    for (final z in m.zones)
-      if (z.label != null)
-        _overlay(z.centre, 240, 40, const Alignment(0, 3.2), Center(child: DemandLabel(text: z.label!))),
     for (final mk in m.extraMarkers)
       _overlay(mk.point, mk.width, mk.height, mk.alignment ?? Alignment.center, mk.child),
   ].nonNulls.toList();
@@ -391,17 +387,6 @@ class _GoogleTtMapState extends State<_GoogleTtMap> with WidgetsBindingObserver 
                               strokeWidth: m.polygons[i].strokeWidth.round(),
                               zIndex: m.polygons[i].zIndex,
                             ),
-                      },
-                      circles: {
-                        for (var i = 0; i < m.zones.length; i++)
-                          gm.Circle(
-                            circleId: gm.CircleId('zone-$i'),
-                            center: _g(m.zones[i].centre),
-                            radius: m.zones[i].radiusM,
-                            fillColor: TtColors.coral500.withValues(alpha: 0.16),
-                            strokeColor: TtColors.coral500.withValues(alpha: 0.5),
-                            strokeWidth: 2,
-                          ),
                       },
                       minMaxZoomPreference: const gm.MinMaxZoomPreference(10, 18),
                       compassEnabled: false,

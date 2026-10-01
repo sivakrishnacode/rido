@@ -388,15 +388,13 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     }
 
     // ------------------------------------------------------------------ map
-    // The seeded demand zones are for the demo; the live app shows no made-up hotspots.
-    final zones = !online || gpsLost || job != null || _api
-        ? const <MapZone>[]
-        : quiet
-            ? demandZones(labelled: const {'Gandhipuram', 'Peelamedu'})
-            : demandZones(labelled: const {'Gandhipuram'}, highDemandLabel: true);
-    // Live: where orders come from (demand hexes, nested hexes when zoomed in) and the service area when zoomed
-    // out; hidden during a job.
-    final demand = _api && job == null ? ref.watch(demandMapProvider) : null;
+    // Where orders come from (demand hexes, nested hexes when zoomed in) and the service area when zoomed out;
+    // hidden during a job. Live: the API's H3 hexes. Mock and gallery: the seeded busy areas as hexes, while online.
+    final demand = job != null
+        ? null
+        : _api
+            ? ref.watch(demandMapProvider)
+            : (online && !gpsLost ? DemandMap.demo(quiet: quiet) : null);
     final polygons = demandPolygons(demand);
     final map = ValueListenableBuilder<double>(
       valueListenable: _labelZoom,
@@ -409,7 +407,6 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         fixedPosition: _showcase ? Seed.driverHome : null,
         pulse: online && job == null,
         gpsLost: gpsLost,
-        zones: zones,
         zoom: quiet ? 13.4 : 14.6,
         mapPadding: EdgeInsets.only(bottom: _panelHeight),
       ),

@@ -1045,6 +1045,15 @@ suggestion's name.
   · 1.2x", the area name, and a directions button with the distance that opens Google Maps ("You're here" within
   1.2 km of its centre).
 - **tamiltaxi_ui:** `TtMap.polygons` (`MapPolygon` with fill, stroke, zIndex and a zoom range) on both engines.
+- **Hexes only (1 Oct 2026):** no map draws a circle with a radius; areas are hexes, as the service works on H3.
+  `TtMap` has no circle zones any more (`MapZone` removed). Live maps draw the API's real H3 outlines; mock mode and
+  the Design gallery use look-alikes from `tamiltaxi_data/lib/src/geo/hex_grid.dart` (pointy-top cells with H3's
+  average edge per resolution, res 8 children turned 19.1° as in aperture 7): `DemandMap.demo()` (seeded busy
+  areas as res-7 hexes + nested res-8, service area as a hex outline) feeds the same `demand_layer.dart` as live.
+  S-08 draws the service-area outline from `/demand/hotspots` (live) or the demo outline; S-01 draws the searched
+  pickup hex + ring 1; `PulseRing` grows hexagons; the "location lost" marker is a dashed hexagon
+  (`hexagonPath` / `drawDashedHexagon` in `map_markers.dart`). Distance rules (arrival within 250 m, etc.) stay
+  GPS distances: they are not drawn.
 
 ## 7a. Device location in the apps
 
@@ -1272,6 +1281,7 @@ suggestion's name.
 | tamiltaxi_data | fare engine unit tests (₹35/66/132 with no peak; design ₹38/72/145, ₹49/180/420 at 1.1x; lines add up) + shared cases `test/fixtures/fare_cases.json` (also run by the API spec, so the engines can't drift) |
 | tamiltaxi_ui | formatter tests |
 | passenger / driver | every Design gallery frame at 360 and 430 px, main-path flow tests (fast mode, fake time) |
+| tamiltaxi_data (geo) | `hex_grid_test.dart`: disk sizes, regular hexagons of H3 edge length, neighbours share an edge, outline ring, demo demand map |
 | api | unit (fare engine incl. the shared `fare_cases.json`, transitions, subscriptions, maps service, polyline) + e2e (full ride lifecycle, fallbacks) |
 | web | Vitest: Play Store links match each app's `applicationId`, every sitemap page exists, legal docs are dated with a contact, privacy links to account deletion |
 | admin | Vitest unit: ₹ Indian formatting, IST dates, paging/URL builder, API URL + error helpers, safe post-login redirect, JWT role/expiry check, fare preview = API engine (₹38 demo trip at 1.1x), H3 circle fill/undo, settings validation |
@@ -1495,7 +1505,7 @@ Resolutions used: res 8 (≈0.74 km²) for service areas, zones, the driver inde
 (≈5 km², parent of 7 res-8 cells) for demand/supply and surge; learned speeds at res 9 (≈0.1 km²), 8 and 7 with
 back-off, so busy streets get street-level speeds while quiet areas still get a stable district average.
 Compaction: `GET /v1/cities/:id/service-area?compact=true` returns `compactCells` output (mixed resolutions) for
-small app payloads. Still optional: `h3_flutter` in the driver app to draw `/v1/demand` hexes (apps use mock data today).
+small app payloads. The apps draw the API's hex outlines (`/demand/hotspots`), so they need no H3 library; mock mode uses look-alike hexes (7a0).
 
 Status (25 Sep 2026): **all parts live** (service areas, zones, dispatch, heatmaps, live surge, learned ETA). New settings:
 dynamicSurgeEnabled, surgeSensitivity, demandWindowMin, surgeMinRequests, historicalEtaMinTrips.

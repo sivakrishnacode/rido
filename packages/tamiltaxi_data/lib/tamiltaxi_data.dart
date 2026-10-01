@@ -16,6 +16,7 @@ export 'src/api/realtime_client.dart';
 export 'src/api/safety.dart';
 export 'src/demo_settings.dart';
 export 'src/fare_engine.dart';
+export 'src/geo/hex_grid.dart';
 export 'src/identity/identity.dart';
 export 'src/maps/google_http.dart' show GoogleApiException;
 export 'src/maps/google_maps_config.dart';

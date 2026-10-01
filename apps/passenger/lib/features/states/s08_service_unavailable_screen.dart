@@ -19,6 +19,18 @@ class S08ServiceUnavailableScreen extends StatelessWidget {
       const Scaffold(backgroundColor: TtColors.surface, body: S08ServiceUnavailableView());
 }
 
+/// The service-area outline: live, the real H3 outline from the public `/demand/hotspots` (none if it can't be
+/// loaded, rather than a made-up area); mock, the demo hex outline.
+final _serviceAreaProvider = FutureProvider.autoDispose<List<List<LatLng>>>((ref) async {
+  if (!ref.watch(isLiveApiProvider)) return DemandMap.demo().serviceArea;
+  try {
+    final json = await ref.watch(apiClientProvider).get('/demand/hotspots');
+    return DemandMap.fromJson((json as Map).cast<String, dynamic>()).serviceArea;
+  } catch (_) {
+    return const [];
+  }
+});
+
 /// The S-08 body (map with the service area + explanation sheet). Also embedded by P-07
 /// Home when Demo control "Outside service area" is on.
 ///
@@ -49,7 +61,16 @@ class S08ServiceUnavailableView extends ConsumerWidget {
                 fitPoints: [pin, southEdge],
                 // The pin's label draws ~70 px above its point: leave room for it below the status bar.
                 fitPadding: EdgeInsets.fromLTRB(32, MediaQuery.paddingOf(context).top + 96, 32, 56),
-                zones: const [MapZone(centre: Seed.cityCentre, radiusM: Seed.serviceRadiusKm * 1000)],
+                // The service area as its H3 outline (hexes, never a circle).
+                polygons: [
+                  for (final ring in ref.watch(_serviceAreaProvider).value ?? const <List<LatLng>>[])
+                    MapPolygon(
+                      points: ring,
+                      fillColor: TtColors.coral500.withValues(alpha: 0.14),
+                      strokeColor: TtColors.coral500.withValues(alpha: 0.6),
+                      strokeWidth: 1.5,
+                    ),
+                ],
                 extraMarkers: [
                   Marker(
                     point: Seed.cityCentre,

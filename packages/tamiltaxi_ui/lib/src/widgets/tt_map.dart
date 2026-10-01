@@ -92,19 +92,12 @@ class MapPolygon {
   bool get isZoomLimited => minZoom > 0 || maxZoom < 30;
 }
 
-class MapZone {
-  const MapZone({required this.centre, required this.radiusM, this.label});
-  final LatLng centre;
-  final double radiusM;
-  final String? label;
-}
-
 /// Tamil Taxi map. With a Google Maps key ([isGoogleMapsEnabled]) and [tilesEnabled] it renders the
 /// Google Maps SDK (styled light map, bitmap markers); otherwise flutter_map with CARTO
 /// light-grey tiles and the required attribution (tests, no key).
 ///
 /// Draws pickup (green dot), drop (coral pin), vehicles (navy top-down icons), a coral 5px
-/// route, a pulse ring and demand zones. If tiles fail (offline) the plain #F1F5F9
+/// route, a pulse ring and hex polygons (no circles: areas are H3 hexes). If tiles fail (offline) the plain #F1F5F9
 /// background shows; nothing throws.
 class TtMap extends StatelessWidget {
   const TtMap({
@@ -117,7 +110,6 @@ class TtMap extends StatelessWidget {
     this.vehicles = const [],
     this.pulseAt,
     this.pulseColor = TtColors.coral500,
-    this.zones = const [],
     this.fitPoints,
     this.fitPadding = const EdgeInsets.fromLTRB(48, 96, 48, 48),
     this.interactive = true,
@@ -152,7 +144,6 @@ class TtMap extends StatelessWidget {
   final List<MapVehicle> vehicles;
   final LatLng? pulseAt;
   final Color pulseColor;
-  final List<MapZone> zones;
 
   /// When set, the camera fits these points on first build.
   final List<LatLng>? fitPoints;
@@ -218,20 +209,6 @@ class TtMap extends StatelessWidget {
               errorTileCallback: (tile, error, stack) {},
             ),
           if (polygons.isNotEmpty) _ZoomedPolygons(polygons: polygons),
-          if (zones.isNotEmpty)
-            CircleLayer(
-              circles: [
-                for (final z in zones)
-                  CircleMarker(
-                    point: z.centre,
-                    radius: z.radiusM,
-                    useRadiusInMeter: true,
-                    color: TtColors.coral500.withValues(alpha: 0.16),
-                    borderColor: TtColors.coral500.withValues(alpha: 0.5),
-                    borderStrokeWidth: 1.5,
-                  ),
-              ],
-            ),
           if (route.length >= 2)
             PolylineLayer(
               polylines: [
@@ -242,15 +219,6 @@ class TtMap extends StatelessWidget {
             markers: [
               if (pulseAt != null)
                 Marker(point: pulseAt!, width: 180, height: 180, child: PulseRing(color: pulseColor)),
-              for (final z in zones)
-                if (z.label != null)
-                  Marker(
-                    point: z.centre,
-                    width: 240,
-                    height: 40,
-                    alignment: const Alignment(0, 3.2),
-                    child: Center(child: DemandLabel(text: z.label!)),
-                  ),
               if (pickup != null) Marker(point: pickup!, width: 28, height: 28, child: const PickupDot()),
               if (drop != null)
                 Marker(

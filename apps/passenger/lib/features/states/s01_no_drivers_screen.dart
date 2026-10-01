@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart' show Marker;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
@@ -66,18 +65,20 @@ class S01NoDriversScreen extends ConsumerWidget {
       child: TripSheetScaffold(
         map: (context, h) => TtMap(
           pickup: ride.pickup.location,
-          fitPoints: [offsetPoint(ride.pickup.location, 700, 0), offsetPoint(ride.pickup.location, 700, 180)],
+          fitPoints: hexDiskOutline(ride.pickup.location, HexRes.r8, 1),
           fitPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).fit,
           mapPadding: sheetMapInsets(EdgeInsets.fromLTRB(24, 72, 24, h * 0.5), h * 0.5).map,
           attributionAlignment: Alignment.topRight,
           attributionPadding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
-          extraMarkers: [
-            Marker(
-              point: ride.pickup.location,
-              width: 240,
-              height: 240,
-              child: const IgnorePointer(child: CustomPaint(painter: _SearchRingPainter())),
-            ),
+          // The empty search area as dispatch sees it: the pickup's hex and the ring around it.
+          polygons: [
+            for (final cell in hexDiskCells(ride.pickup.location, HexRes.r8, 1))
+              MapPolygon(
+                points: cell,
+                fillColor: TtColors.navy500.withValues(alpha: 0.07),
+                strokeColor: TtColors.navy500.withValues(alpha: 0.35),
+                strokeWidth: 1.5,
+              ),
           ],
         ),
         overlays: [TripMapTopBar(onBack: () => _back(context, ref))],
@@ -118,34 +119,4 @@ class S01NoDriversScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// Dashed navy outer ring + faint inner ring: the "empty search area".
-class _SearchRingPainter extends CustomPainter {
-  const _SearchRingPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final r = size.width / 2 - 2;
-    canvas.drawCircle(c, r, Paint()..color = TtColors.navy500.withValues(alpha: 0.08));
-    _dashed(canvas, c, r, TtColors.navy500, 2.4, 40);
-    _dashed(canvas, c, r * 0.5, TtColors.navy300, 2, 22);
-  }
-
-  void _dashed(Canvas canvas, Offset c, double r, Color color, double width, int dashes) {
-    final p = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = width
-      ..strokeCap = StrokeCap.round;
-    const full = 6.283185307179586;
-    final step = full / dashes;
-    for (var i = 0; i < dashes; i++) {
-      canvas.drawArc(Rect.fromCircle(center: c, radius: r), i * step, step * 0.55, false, p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -21,7 +20,6 @@ class LiveVehicleMap extends ConsumerWidget {
     this.fitPoints,
     this.fitPadding = const EdgeInsets.fromLTRB(48, 96, 48, 48),
     this.pulse = false,
-    this.zones = const [],
     this.zoom = 14.5,
     this.gpsLost = false,
     this.centerOnVehicle = true,
@@ -41,10 +39,9 @@ class LiveVehicleMap extends ConsumerWidget {
 
   /// Green pulse ring around the vehicle (online, waiting for rides).
   final bool pulse;
-  final List<MapZone> zones;
   final double zoom;
 
-  /// S-16: draw a dashed red "location lost" circle instead of the vehicle.
+  /// S-16: draw a dashed red "location lost" hexagon instead of the vehicle.
   final bool gpsLost;
   final bool centerOnVehicle;
 
@@ -84,7 +81,6 @@ class LiveVehicleMap extends ConsumerWidget {
         mapPadding: mapPadding,
         pulseAt: pulse && !gpsLost && showVehicle ? pos : null,
         pulseColor: TtColors.success,
-        zones: zones,
         vehicles: gpsLost || !showVehicle
             ? const []
             : [MapVehicle(position: pos, type: vehicleType, heading: heading, large: true)],
@@ -104,7 +100,7 @@ class _GpsLostMarker extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         label: 'Location lost',
         child: CustomPaint(
-          painter: _DashedCirclePainter(),
+          painter: _DashedHexPainter(),
           child: Center(
             child: Container(
               width: 44,
@@ -117,34 +113,26 @@ class _GpsLostMarker extends StatelessWidget {
       );
 }
 
-class _DashedCirclePainter extends CustomPainter {
+/// Dashed red hexagon (the H3 cell shape; maps never draw circles).
+class _DashedHexPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     final r = size.width / 2 - 2;
-    canvas.drawCircle(c, r, Paint()..color = TtColors.error.withValues(alpha: 0.08));
-    final stroke = Paint()
-      ..color = TtColors.error
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-    const dashes = 28;
-    const sweep = 2 * math.pi / dashes;
-    for (var i = 0; i < dashes; i++) {
-      canvas.drawArc(Rect.fromCircle(center: c, radius: r), i * sweep, sweep * 0.55, false, stroke);
-    }
+    canvas.drawPath(hexagonPath(c, r), Paint()..color = TtColors.error.withValues(alpha: 0.08));
+    drawDashedHexagon(
+      canvas,
+      c,
+      r,
+      Paint()
+        ..color = TtColors.error
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round,
+      dashes: 28,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _DashedCirclePainter oldDelegate) => false;
+  bool shouldRepaint(covariant _DashedHexPainter oldDelegate) => false;
 }
-
-/// Demand zones from the seed. [labelled] names get a chip; the first can say "High demand: …".
-List<MapZone> demandZones({Set<String> labelled = const {}, bool highDemandLabel = false}) => [
-      for (final z in Seed.demandZones)
-        MapZone(
-          centre: z.centre,
-          radiusM: z.radiusM,
-          label: labelled.contains(z.name) ? (highDemandLabel ? 'High demand: ${z.name}' : z.name) : null,
-        ),
-    ];

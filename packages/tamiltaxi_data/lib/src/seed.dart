@@ -584,10 +584,10 @@ abstract final class Seed {
   /// The driver's own location on the home map.
   static const LatLng driverHome = LatLng(11.0165, 76.9690);
 
-  /// Soft coral "busy area" circles on D-14 / S-12.
-  static const List<({String name, LatLng centre, double radiusM})> demandZones = [
-    (name: 'Gandhipuram', centre: LatLng(11.0183, 76.9725), radiusM: 650),
-    (name: 'Peelamedu', centre: LatLng(11.0290, 77.0270), radiusM: 800),
-    (name: 'RS Puram', centre: LatLng(11.0089, 76.9500), radiusM: 500),
+  /// Busy areas for the demo map on D-14 / S-12, drawn as hexes (see `DemandMap.demo`), busiest first.
+  static const List<({String name, LatLng centre})> demandZones = [
+    (name: 'Gandhipuram', centre: LatLng(11.0183, 76.9725)),
+    (name: 'Peelamedu', centre: LatLng(11.0290, 77.0270)),
+    (name: 'RS Puram', centre: LatLng(11.0089, 76.9500)),
   ];
 }

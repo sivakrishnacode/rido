@@ -159,7 +159,7 @@ class _VehiclePainter extends CustomPainter {
   bool shouldRepaint(covariant _VehiclePainter old) => old.type != type;
 }
 
-/// Expanding coral pulse ring (P-12 finding driver, D-14 online).
+/// Expanding coral hex pulse, like the H3 rings dispatch searches outward (P-12 finding driver, D-14 online).
 class PulseRing extends StatefulWidget {
   const PulseRing({super.key, this.color = TtColors.coral500, this.size = 180, this.animate = true});
 
@@ -211,18 +211,40 @@ class _PulsePainter extends CustomPainter {
     final maxR = size.width / 2;
     for (final offset in [0.0, 0.5]) {
       final p = (t + offset) % 1.0;
-      canvas.drawCircle(c, maxR * (0.2 + 0.8 * p), Paint()..color = color.withValues(alpha: 0.28 * (1 - p)));
+      canvas.drawPath(hexagonPath(c, maxR * (0.2 + 0.8 * p)), Paint()..color = color.withValues(alpha: 0.28 * (1 - p)));
     }
-    canvas.drawCircle(
-      c,
-      maxR * 0.2,
+    canvas.drawPath(
+      hexagonPath(c, maxR * 0.2),
       Paint()
         ..color = color.withValues(alpha: 0.35)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.round,
     );
   }
 
   @override
   bool shouldRepaint(covariant _PulsePainter old) => old.t != t;
+}
+
+/// A pointy-top hexagon (a corner points up) around [centre] with corner distance [r]: the H3 cell shape, used
+/// on maps in place of circles (search pulses, "location lost", the no-drivers ring).
+Path hexagonPath(Offset centre, double r) {
+  final path = Path();
+  for (var i = 0; i < 6; i++) {
+    final a = (-90 + 60 * i) * math.pi / 180;
+    final p = centre + Offset(r * math.cos(a), r * math.sin(a));
+    i == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
+  }
+  return path..close();
+}
+
+/// [hexagonPath] as a dashed outline: [dashes] dashes over the six sides.
+void drawDashedHexagon(Canvas canvas, Offset centre, double r, Paint paint, {int dashes = 30, double on = 0.55}) {
+  for (final metric in hexagonPath(centre, r).computeMetrics()) {
+    final step = metric.length / dashes;
+    for (var i = 0; i < dashes; i++) {
+      canvas.drawPath(metric.extractPath(i * step, i * step + step * on), paint);
+    }
+  }
 }
