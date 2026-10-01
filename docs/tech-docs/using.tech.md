@@ -1400,6 +1400,11 @@ applied on start; DB dump first at `~/tamiltaxi-20261001.dump` on the server. Sl
 login 200, signed-in `GET /admin/approvals` (counts, `autoApprove` true), drivers with status counts and no UPI IDs in
 the list, rider / trip filters, activity and notes 200. `rido-sg` also allows `110.226.112.45` (SSH, 1 Oct).
 
+**Deployed 1 Oct 2026 (second):** the admin screens for people (More menu, notes, history, Remind), the Ctrl+K
+search and the new dashboard (`59d5155..fb74b51`, no migrations, slim upload). Rollback: `:prev` is the morning build,
+`:prev-0930b` the 30 Sep one. Checked live: `/health` 200, `GET /admin/search` 200, signed-in admin dashboard shows
+"Needs attention", `/drivers/approvals` and `/api/search` 200.
+
 - **Slow upload (mobile data, ~100 KB/s):** when no `package.json`, `package-lock.json`, Dockerfile or migration changed
   since the deployed build, ship only the build outputs (~3 MB instead of ~450 MB): copy `apps/api/dist`,
   `apps/api/prisma` and `apps/api/src/generated` out of the new API image and `/app/apps/admin` out of the new admin
