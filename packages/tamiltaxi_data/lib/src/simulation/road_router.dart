@@ -191,6 +191,5 @@ List<LatLng> roadPath(
   return curvedPath(from, to, segments: segments, bend: bend);
 }
 
-/// Bikes (rides and goods) may take two-wheeler shortcuts; everything else drives.
-RouteTravelMode travelModeFor(VehicleKind kind) =>
-    kind == VehicleKind.bike || kind == VehicleKind.goodsBike ? RouteTravelMode.twoWheeler : RouteTravelMode.drive;
+/// Bikes and scooters (rides and goods) may take two-wheeler shortcuts; everything else drives.
+RouteTravelMode travelModeFor(VehicleKind kind) => kind.isTwoWheeler ? RouteTravelMode.twoWheeler : RouteTravelMode.drive;

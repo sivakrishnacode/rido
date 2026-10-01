@@ -429,7 +429,7 @@ class _VehicleCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                VehicleArt(kind, size: 48),
+                VehicleArt(kind, width: 88, height: 56),
               ],
             ),
           ),

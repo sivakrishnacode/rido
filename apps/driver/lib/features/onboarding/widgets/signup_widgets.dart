@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 /// Navy sign-up app bar: back arrow, title, "Step n of 3" and a coral progress line from the left edge.
@@ -138,40 +137,6 @@ class DriverOrb extends StatelessWidget {
 
   Widget _dot(double d, Color c) =>
       Container(width: d, height: d, decoration: BoxDecoration(color: c, shape: BoxShape.circle));
-}
-
-/// A flat vehicle picture: the coral vehicle symbol over a soft ground shadow.
-class VehicleArt extends StatelessWidget {
-  const VehicleArt(this.kind, {super.key, this.size = 56, this.color = TtColors.coral500});
-
-  final VehicleKind kind;
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => ExcludeSemantics(
-        child: SizedBox(
-          width: size * 1.5,
-          height: size * 1.05,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned(
-                bottom: 0,
-                child: Container(
-                  width: size * 1.4,
-                  height: size * 0.1,
-                  decoration: BoxDecoration(
-                    color: TtColors.divider,
-                    borderRadius: BorderRadius.all(Radius.elliptical(size, size * 0.1)),
-                  ),
-                ),
-              ),
-              Positioned(top: 0, child: Icon(kind.icon, size: size, color: color, fill: 1)),
-            ],
-          ),
-        ),
-      );
 }
 
 /// A circle drawn with dashes (face guides on D-09 / S-13, photo circle on D-06).

@@ -104,7 +104,7 @@ class D11ChoosePlanScreen extends ConsumerWidget {
                 height: 56,
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
-                child: VehicleArt(kind, size: 32),
+                child: VehicleArt(kind, width: 48, height: 34),
               ),
               const SizedBox(width: TtSpacing.m),
               Expanded(

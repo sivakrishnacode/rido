@@ -8,7 +8,8 @@ import '../theme/tt_tokens.dart';
 /// Badge style on a vehicle card: "Lowest" / "Best value" = coral, "Comfort" / "Fastest" = navy.
 enum VehicleBadgeTone { coral, navy }
 
-/// Vehicle option card: illustration tile, name + capacity + badges, "3 min away · Drop 9:24 PM", fare.
+/// Vehicle option card: the vehicle's picture ([art]) or a symbol tile, name + capacity + badges,
+/// "3 min away · Drop 9:24 PM", fare.
 /// Selected = coral-50 fill + coral-100 border. Disabled shows [disabledReason] in grey. [fastest] adds a
 /// "Fastest" chip (earliest drop of the list).
 class VehicleOptionCard extends StatelessWidget {
@@ -25,15 +26,19 @@ class VehicleOptionCard extends StatelessWidget {
     this.onTap,
     this.capacity,
     this.fastest = false,
+    this.art,
   });
 
   final IconData icon;
+
+  /// The vehicle's picture (e.g. [VehicleArt]); when set it replaces the coral symbol tile, like Rapido's list.
+  final Widget? art;
   final String name;
 
   /// "3 min away · Drop 9:24 PM" (or "2 min away · 1 seat" when [capacity] is not given).
   final String subtitle;
 
-  /// "1 seat", "4 seats": shown next to the name.
+  /// "1 seat", "4 seats": shown next to the name as "👤 1" (the full text for screen readers).
   final String? capacity;
 
   /// Earliest drop of the list: a "Fastest" chip with a bolt.
@@ -48,6 +53,9 @@ class VehicleOptionCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   bool get _disabled => disabledReason != null;
+
+  /// "3" from "3 seats" / "1 seat"; null for other capacities.
+  String? get _seats => RegExp(r'^(\d+) seats?$').firstMatch(capacity ?? '')?.group(1);
 
   @override
   Widget build(BuildContext context) {
@@ -80,15 +88,18 @@ class VehicleOptionCard extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               child: Row(
                 children: [
-                  Container(
-                    width: 56,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: selected ? TtColors.surface : (_disabled ? TtColors.inputBg : TtColors.coral50),
-                      borderRadius: TtRadii.cardRadius,
+                  if (art != null)
+                    SizedBox(width: 72, height: 52, child: Center(child: art))
+                  else
+                    Container(
+                      width: 56,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: selected ? TtColors.surface : (_disabled ? TtColors.inputBg : TtColors.coral50),
+                        borderRadius: TtRadii.cardRadius,
+                      ),
+                      child: Icon(icon, size: 32, color: _disabled ? TtColors.navy500 : TtColors.coral500, fill: 1),
                     ),
-                    child: Icon(icon, size: 32, color: _disabled ? TtColors.navy500 : TtColors.coral500, fill: 1),
-                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -102,15 +113,20 @@ class VehicleOptionCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis),
                             ),
+                            // Seats as "👤 3" (like Rapido) so a long name ("Auto Priority") keeps its room; other
+                            // capacities ("Up to 500 kg") shrink with ellipsis. Screen readers get the full label.
                             if (capacity != null) ...[
                               const SizedBox(width: 6),
                               Icon(Symbols.person_rounded, size: 16, color: TtColors.navy500, fill: 1),
-                              Flexible(
-                                child: Text(capacity!,
-                                    style: t.caption.copyWith(color: TtColors.navy500),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis),
-                              ),
+                              if (_seats != null)
+                                Text(_seats!, style: t.caption.copyWith(color: TtColors.navy500), maxLines: 1)
+                              else
+                                Flexible(
+                                  child: Text(capacity!,
+                                      style: t.caption.copyWith(color: TtColors.navy500),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                ),
                             ],
                             if (fastest && !_disabled) ...[
                               const SizedBox(width: 8),

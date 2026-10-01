@@ -1,10 +1,16 @@
 import 'package:flutter/foundation.dart';
 
-/// Every vehicle Tamil Taxi supports. Ride vehicles carry passengers; goods vehicles carry parcels.
+/// Every vehicle Tamil Taxi supports, in the order the apps list them. Ride tiers carry passengers ([cab] is "Mini",
+/// the hatchback; [autoPriority] is a booking tier served by auto drivers, never a driver's vehicle); goods vehicles
+/// carry parcels. Ride tiers must stay before [goodsBike] ([isGoods]).
 enum VehicleKind {
   bike,
+  scooty,
   auto,
+  autoPriority,
   cab,
+  sedan,
+  suv,
   goodsBike,
   threeWheeler,
   miniTruck,
@@ -13,6 +19,12 @@ enum VehicleKind {
 
   bool get isGoods => index >= VehicleKind.goodsBike.index;
   bool get isRide => !isGoods;
+
+  /// Bikes and scooters: they also carry goods-bike parcels ("Parcels too") and may take two-wheeler routes.
+  bool get isTwoWheeler => this == bike || this == scooty || this == goodsBike;
+
+  /// A vehicle a driver can register with (every kind except the Auto Priority booking tier).
+  bool get isDriverVehicle => this != autoPriority;
 }
 
 /// What a driver does on Tamil Taxi: carry passengers or carry goods.

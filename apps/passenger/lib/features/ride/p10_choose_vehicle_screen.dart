@@ -195,6 +195,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                               for (final q in state.quotes) ...[
                                 VehicleOptionCard(
                                   icon: q.vehicle.kind.icon,
+                                  art: VehicleArt(q.vehicle.kind),
                                   name: q.vehicle.name,
                                   subtitle: subtitleOf(q),
                                   capacity: q.vehicle.capacityLabel,

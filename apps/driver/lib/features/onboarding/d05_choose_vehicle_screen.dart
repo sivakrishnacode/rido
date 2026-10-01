@@ -25,8 +25,9 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
   late final SignupDraft _draft = widget.showcase ? const SignupDraft() : ref.read(signupProvider);
   late VehicleKind _selected = _draft.vehicle;
 
+  /// Rides: every vehicle a driver can register with (Auto Priority is a booking tier autos serve, not a vehicle).
   List<VehicleKind> get _options => _draft.workType == WorkType.rides
-      ? const [VehicleKind.bike, VehicleKind.auto, VehicleKind.cab]
+      ? const [VehicleKind.bike, VehicleKind.scooty, VehicleKind.auto, VehicleKind.cab, VehicleKind.sedan, VehicleKind.suv]
       : const [
           VehicleKind.goodsBike,
           VehicleKind.threeWheeler,
@@ -162,7 +163,7 @@ class _VehicleCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Align(alignment: Alignment.centerLeft, child: VehicleArt(kind, size: 56))),
+                    Expanded(child: Align(alignment: Alignment.centerLeft, child: VehicleArt(kind, width: 96, height: 60))),
                     Icon(
                       selected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
                       color: selected ? TtColors.coral600 : TtColors.navy500,

@@ -237,7 +237,8 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     final quiet = _v == HomeVariant.quiet;
     final delivery = _live ? (_api ? profile.vehicleKind.isGoods : demo.workType == WorkType.deliveries) : false;
     // A bike driver gets goods-bike parcels too unless they turned it off.
-    final parcelsToo = !delivery && profile.vehicleKind == VehicleKind.bike && (prefs?.parcels ?? true);
+    final twoWheeler = profile.vehicleKind == VehicleKind.bike || profile.vehicleKind == VehicleKind.scooty;
+    final parcelsToo = !delivery && twoWheeler && (prefs?.parcels ?? true);
     final earnings = _v == HomeVariant.offline ? 0 : (_live ? session.todayEarnings : Seed.todayEarnings);
     final rides = _v == HomeVariant.offline ? 0 : (_live ? session.todayRides : Seed.todayRides);
     final eta = _live ? session.etaMin : 9;

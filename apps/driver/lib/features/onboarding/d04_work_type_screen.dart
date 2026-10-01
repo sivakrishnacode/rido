@@ -50,8 +50,15 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
                   const SizedBox(height: TtSpacing.l),
                   _WorkCard(
                     title: 'Rides: carry passengers',
-                    subtitle: 'Bike taxi, auto or cab',
-                    vehicles: const [VehicleKind.bike, VehicleKind.auto, VehicleKind.cab],
+                    subtitle: 'Bike, scooty, auto or car',
+                    vehicles: const [
+                      VehicleKind.bike,
+                      VehicleKind.scooty,
+                      VehicleKind.auto,
+                      VehicleKind.cab,
+                      VehicleKind.sedan,
+                      VehicleKind.suv,
+                    ],
                     selected: _selected == WorkType.rides,
                     onTap: () => setState(() => _selected = WorkType.rides),
                   ),
@@ -59,7 +66,13 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
                   _WorkCard(
                     title: 'Deliveries: carry goods',
                     subtitle: 'Parcels, shop stock, house moves',
-                    vehicles: const [VehicleKind.goodsBike, VehicleKind.threeWheeler, VehicleKind.truck],
+                    vehicles: const [
+                      VehicleKind.goodsBike,
+                      VehicleKind.threeWheeler,
+                      VehicleKind.miniTruck,
+                      VehicleKind.pickup,
+                      VehicleKind.truck,
+                    ],
                     selected: _selected == WorkType.deliveries,
                     onTap: () => setState(() => _selected = WorkType.deliveries),
                   ),
@@ -130,30 +143,36 @@ class _WorkCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: TtSpacing.l),
-                Row(
-                  children: [
-                    for (var i = 0; i < vehicles.length; i++) ...[
-                      if (i > 0) const SizedBox(width: TtSpacing.s),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: TtSpacing.m),
-                          decoration: BoxDecoration(
-                            color: selected ? TtColors.surface : TtColors.background,
-                            borderRadius: TtRadii.cardRadius,
-                          ),
-                          child: Column(
-                            children: [
-                              VehicleArt(vehicles[i], size: 40),
-                              const SizedBox(height: TtSpacing.xs),
-                              Text(vehicles[i] == VehicleKind.truck ? 'Truck' : vehicles[i].label,
-                                  style: t.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
+                // Three to a row (the last row keeps the same tile width).
+                for (var r = 0; r < vehicles.length; r += 3) ...[
+                  if (r > 0) const SizedBox(height: TtSpacing.s),
+                  Row(
+                    children: [
+                      for (var i = r; i < r + 3; i++) ...[
+                        if (i > r) const SizedBox(width: TtSpacing.s),
+                        Expanded(
+                          child: i >= vehicles.length
+                              ? const SizedBox.shrink()
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(vertical: TtSpacing.s),
+                                  decoration: BoxDecoration(
+                                    color: selected ? TtColors.surface : TtColors.background,
+                                    borderRadius: TtRadii.cardRadius,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      VehicleArt(vehicles[i], width: 64, height: 42),
+                                      const SizedBox(height: TtSpacing.xs),
+                                      Text(vehicles[i] == VehicleKind.truck ? 'Truck' : vehicles[i].label,
+                                          style: t.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    ],
+                                  ),
+                                ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
+                ],
               ],
             ),
           ),

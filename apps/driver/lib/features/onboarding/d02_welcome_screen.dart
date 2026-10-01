@@ -181,7 +181,7 @@ class _HappyDriver extends StatelessWidget {
             Positioned(
               bottom: size * 0.02,
               left: size * 0.12,
-              child: const VehicleArt(VehicleKind.bike, size: 48),
+              child: const VehicleArt(VehicleKind.bike, width: 72, height: 50),
             ),
           ],
         ),

@@ -210,6 +210,82 @@
         "peakCharge": 0,
         "total": 1000
       }
+    },
+    {
+      "name": "Scooty, Gandhipuram → Brookefields, no peak",
+      "input": {
+        "vehicleKind": "SCOOTY",
+        "distanceKm": 4.2,
+        "durationMin": 14,
+        "multiplier": 1
+      },
+      "expected": {
+        "base": 14,
+        "distanceCharge": 23,
+        "timeCharge": 2,
+        "minFareTopUp": 0,
+        "subtotal": 39,
+        "multiplier": 1,
+        "peakCharge": 0,
+        "total": 39
+      }
+    },
+    {
+      "name": "Auto Priority, same route, no peak",
+      "input": {
+        "vehicleKind": "AUTO_PRIORITY",
+        "distanceKm": 4.2,
+        "durationMin": 14,
+        "multiplier": 1
+      },
+      "expected": {
+        "base": 30,
+        "distanceCharge": 46,
+        "timeCharge": 4,
+        "minFareTopUp": 0,
+        "subtotal": 80,
+        "multiplier": 1,
+        "peakCharge": 0,
+        "total": 80
+      }
+    },
+    {
+      "name": "Sedan, same route, peak 1.2x",
+      "input": {
+        "vehicleKind": "SEDAN",
+        "distanceKm": 4.2,
+        "durationMin": 14,
+        "multiplier": 1.2
+      },
+      "expected": {
+        "base": 58,
+        "distanceCharge": 75,
+        "timeCharge": 25,
+        "minFareTopUp": 0,
+        "subtotal": 158,
+        "multiplier": 1.2,
+        "peakCharge": 31,
+        "total": 189
+      }
+    },
+    {
+      "name": "SUV, short hop below the minimum fare",
+      "input": {
+        "vehicleKind": "SUV",
+        "distanceKm": 1.1,
+        "durationMin": 4,
+        "multiplier": 1
+      },
+      "expected": {
+        "base": 80,
+        "distanceCharge": 26,
+        "timeCharge": 8,
+        "minFareTopUp": 36,
+        "subtotal": 150,
+        "multiplier": 1,
+        "peakCharge": 0,
+        "total": 150
+      }
     }
   ],
   "waitingCases": [

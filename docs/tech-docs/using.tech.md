@@ -1006,6 +1006,17 @@ tier per city (City › Fares).
   every kind (`PLAN_PRICES`, paid plans are off). Test drivers: `+919100000801` scooty, `…901` sedan, `…902` SUV.
 - **Admin:** labels (Mini, Sedan, SUV, Scooty, Auto Priority), map colours, list filters; driver filters and edits use
   `DRIVER_VEHICLE_KINDS`.
+- **Apps:** `VehicleKind` gains `scooty`, `autoPriority`, `sedan`, `suv` (ride tiers stay before `goodsBike`, so
+  `isGoods` still works), with `isTwoWheeler` (bike, scooty, goods bike: two-wheeler routes, "Parcels too") and
+  `isDriverVehicle`. `Seed.rideVehicles` lists the seven tiers (labels: Mini for `cab`). P-10 shows every tier, D-04
+  shows all ride and goods vehicles three to a row, D-05 offers Bike, Scooty, Auto, Mini, Sedan and SUV (never Auto
+  Priority); S-01 suggests the two nearest tiers.
+- **Vehicle pictures:** `VehicleArt(kind)` (tamiltaxi_ui) draws the 3/4 render from `assets/vehicles/<kind>.webp`
+  (`VehicleKindUi.artAsset`) or, for goods vehicles without one yet (3-wheeler, mini truck, pickup, truck), the coral
+  symbol over a ground shadow. Used on P-10 (`VehicleOptionCard.art`), P-11, P-12, D-02, D-04, D-05, D-07, D-11 and
+  the design board. The renders are the owner's (`docs/design/vechile/`, kept local: some show real makers' logos);
+  `scripts/vehicle_icons/build.py` trims them, paints a plain badge over a real logo and writes 360 px WebPs (~20–35
+  KB each).
 
 ## 6e. Website (apps/web)
 

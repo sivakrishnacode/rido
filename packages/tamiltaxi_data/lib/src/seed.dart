@@ -164,6 +164,14 @@ abstract final class Seed {
     badge: 'Lowest',
     subscriptionPrice: 2000,
   );
+  static const scooty = VehicleType(
+    kind: VehicleKind.scooty,
+    name: 'Scooty',
+    fareRule: FareRule(base: 14, perKm: 5.5, perMin: 0.2, minFare: 28, waitPerMin: 1),
+    etaMin: 3,
+    seats: 1,
+    subscriptionPrice: 2000,
+  );
   static const auto = VehicleType(
     kind: VehicleKind.auto,
     name: 'Auto',
@@ -172,13 +180,42 @@ abstract final class Seed {
     seats: 3,
     subscriptionPrice: 2000,
   );
+
+  /// Auto drivers serve it at the higher fare and it is offered first (API `vehicle-match.ts`, `batch-assign.ts`). No
+  /// badge: the long name needs the room, and its picture carries the bolt.
+  static const autoPriority = VehicleType(
+    kind: VehicleKind.autoPriority,
+    name: 'Auto Priority',
+    fareRule: FareRule(base: 30, perKm: 11, perMin: 0.35, minFare: 45, waitPerMin: 1),
+    etaMin: 3,
+    seats: 3,
+    subscriptionPrice: 2000,
+  );
+
+  /// "Mini": the hatchback (the API's `CAB`).
   static const cab = VehicleType(
     kind: VehicleKind.cab,
-    name: 'Cab',
+    name: 'Mini',
     fareRule: FareRule(base: 48, perKm: 15, perMin: 1.5, minFare: 90, waitPerMin: 2),
     etaMin: 6,
     seats: 4,
+    subscriptionPrice: 2000,
+  );
+  static const sedan = VehicleType(
+    kind: VehicleKind.sedan,
+    name: 'Sedan',
+    fareRule: FareRule(base: 58, perKm: 18, perMin: 1.8, minFare: 110, waitPerMin: 2),
+    etaMin: 7,
+    seats: 4,
     badge: 'Comfort',
+    subscriptionPrice: 2000,
+  );
+  static const suv = VehicleType(
+    kind: VehicleKind.suv,
+    name: 'SUV',
+    fareRule: FareRule(base: 80, perKm: 24, perMin: 2.2, minFare: 150, waitPerMin: 3),
+    etaMin: 9,
+    seats: 6,
     subscriptionPrice: 2000,
   );
   static const goodsBike = VehicleType(
@@ -225,7 +262,7 @@ abstract final class Seed {
     modelHint: '14ft / 17ft',
   );
 
-  static const List<VehicleType> rideVehicles = [bike, auto, cab];
+  static const List<VehicleType> rideVehicles = [bike, scooty, auto, autoPriority, cab, sedan, suv];
   static const List<VehicleType> goodsVehicles = [goodsBike, threeWheeler, miniTruck, pickupTruck, truck];
   static const List<VehicleType> allVehicles = [...rideVehicles, ...goodsVehicles];
 
@@ -309,9 +346,9 @@ abstract final class Seed {
 
   /// The driver assigned when a vehicle of [kind] is booked.
   static DriverProfile driverFor(VehicleKind kind) => switch (kind) {
-        VehicleKind.bike => karthik,
-        VehicleKind.auto => murugan,
-        VehicleKind.cab => arun,
+        VehicleKind.bike || VehicleKind.scooty => karthik,
+        VehicleKind.auto || VehicleKind.autoPriority => murugan,
+        VehicleKind.cab || VehicleKind.sedan || VehicleKind.suv => arun,
         VehicleKind.goodsBike => vignesh,
         VehicleKind.threeWheeler => selvam,
         VehicleKind.miniTruck || VehicleKind.pickup || VehicleKind.truck => dinesh,

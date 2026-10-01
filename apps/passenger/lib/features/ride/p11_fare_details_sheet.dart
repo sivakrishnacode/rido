@@ -27,12 +27,7 @@ class P11FareDetailsSheet extends ConsumerWidget {
       children: [
         Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
-              child: Icon(q.vehicle.kind.icon, color: TtColors.coral500, fill: 1, size: 28),
-            ),
+            VehicleArt(q.vehicle.kind, width: 64, height: 48),
             const SizedBox(width: TtSpacing.m),
             Expanded(
               child: Column(

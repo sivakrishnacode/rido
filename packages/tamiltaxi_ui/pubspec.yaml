@@ -35,3 +35,5 @@ flutter:
     - assets/brand/
     # Line art (home footer), built by scripts/footer_art/build.py.
     - assets/illustrations/
+    # Vehicle renders (VehicleArt), built from docs/design/vechile/ by scripts/vehicle_icons/build.py.
+    - assets/vehicles/

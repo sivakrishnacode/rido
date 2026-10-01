@@ -46,16 +46,26 @@ class S01NoDriversScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final ride = ref.watch(rideFlowProvider);
-    // Suggest Auto for bikes, Cab for autos, Auto for cabs.
-    final alt = ride.vehicle == VehicleKind.auto ? VehicleKind.cab : VehicleKind.auto;
+    // Suggest an auto for two-wheelers and cars, a Mini for autos.
+    final alt = switch (ride.vehicle) {
+      VehicleKind.auto || VehicleKind.autoPriority => VehicleKind.cab,
+      _ => VehicleKind.auto,
+    };
     final altQuote = ride.quotes.firstWhere((q) => q.vehicle.kind == alt, orElse: () => ride.quote);
     final plural = switch (ride.vehicle) {
       VehicleKind.bike => 'bikes',
-      VehicleKind.auto => 'autos',
-      VehicleKind.cab => 'cabs',
+      VehicleKind.scooty => 'scooters',
+      VehicleKind.auto || VehicleKind.autoPriority => 'autos',
+      VehicleKind.cab || VehicleKind.sedan || VehicleKind.suv => 'cars',
       _ => 'drivers',
     };
-    final others = [for (final v in [VehicleKind.bike, VehicleKind.auto, VehicleKind.cab]) if (v != ride.vehicle) v.label];
+    // The two tiers nearest the booked one in the list (e.g. Bike → Scooty, Auto).
+    final tiers = [for (final v in Seed.rideVehicles) v.kind];
+    final at = tiers.indexOf(ride.vehicle);
+    final others = [
+      for (final v in [...tiers]..sort((a, b) => (tiers.indexOf(a) - at).abs().compareTo((tiers.indexOf(b) - at).abs())))
+        if (v != ride.vehicle) v.label,
+    ].take(2).toList();
 
     return PopScope(
       canPop: showcase,

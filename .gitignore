@@ -69,3 +69,8 @@ apps/api/uploads/
 
 # Local tooling
 sync_config.jsonc
+
+# Owner's source vehicle renders (some show real car makers' logos). The apps use the cleaned WebPs in
+# packages/tamiltaxi_ui/assets/vehicles/, built from them by scripts/vehicle_icons/build.py.
+docs/design/vechile/
+docs/Ride-Hailing Vehicle Icon Grid.png

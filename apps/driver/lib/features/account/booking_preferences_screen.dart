@@ -69,7 +69,9 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
     final voice = ref.watch(requestVoiceProvider);
     // Go To / Stay In come from the stored preferences (their sheet saves at once).
     final stored = loaded.value;
-    final isBike = ref.watch(driverProfileProvider).value?.vehicleKind == VehicleKind.bike;
+    // Bikes and scooters can carry goods-bike parcels too.
+    final kind = ref.watch(driverProfileProvider).value?.vehicleKind;
+    final isBike = kind == VehicleKind.bike || kind == VehicleKind.scooty;
 
     void update(BookingPrefs next) => setState(() => _draft = next);
 
