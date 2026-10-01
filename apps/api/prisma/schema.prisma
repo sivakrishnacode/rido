@@ -84,7 +84,17 @@ enum TripKind {
   PARCEL
 }
 
+/// LOCAL: a ride or parcel priced by distance and time. RENTAL: a cab by the hour (package, settled from the actual km
+/// and time). OUTSTATION: a cab to another town, one way or round trip.
+enum RideMode {
+  LOCAL
+  RENTAL
+  OUTSTATION
+}
+
 enum TripStatus {
+  /// Booked for later (rentals and outstation): dispatch starts `scheduledDispatchLeadMin` before [Trip.scheduledAt].
+  SCHEDULED
   SEARCHING
   NO_DRIVERS
   DRIVER_ASSIGNED
@@ -449,6 +459,14 @@ model Trip {
   payer              ParcelPayer?
   /// Butterfly: offer the trip to women drivers first (PREFERRED) or only (ONLY).
   womenDriver        WomenDriverPref    @default(NONE)
+  rideMode           RideMode           @default(LOCAL)
+  /// What a rental / outstation trip agreed to (fares/ride-modes.ts RentalTerms / OutstationTerms). A rental's drop is
+  /// its pickup (the rider says where on the way).
+  modeTerms          Json?
+  /// Pickup time of a trip booked for later (status SCHEDULED until dispatch starts).
+  scheduledAt        DateTime?
+  /// When the search for a driver started (booking, or the scheduled start): dispatch widens its radius from here.
+  searchFrom         DateTime           @default(now())
   /// "Who's riding?": booked for someone else (e.g. a father for his daughter). The driver sees and calls the rider.
   riderName          String?
   riderPhone         String?
@@ -508,6 +526,7 @@ model Trip {
 
   @@index([passengerId, createdAt])
   @@index([driverId, createdAt])
+  @@index([status, scheduledAt])
   @@index([status, createdAt])
   /// Admin trips list (newest first) and the dashboard's "today" counts.
   @@index([createdAt])

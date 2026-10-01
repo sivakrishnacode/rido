@@ -10,6 +10,8 @@ export const TRIP_JOBS = {
   stuck: 'trip.stuck',
   /** Not started long after accept → cancelled by the system (safety net). */
   pickupCap: 'trip.pickup-cap',
+  /** SCHEDULED: the pickup time is near → start looking for a driver. */
+  scheduledDispatch: 'trip.scheduled-dispatch',
 } as const;
 
 export const ALL_TRIP_JOBS = Object.values(TRIP_JOBS);
@@ -20,6 +22,15 @@ type TimeoutSettings = Pick<
 >;
 
 const MIN = 60_000;
+
+/**
+ * When the driver has to set off: at accept, or for a trip booked for later that was accepted early, the pickup time
+ * minus their ETA (minus 5 minutes' margin). The "not moving" checks and the not-started cap count from here.
+ */
+export function setOffAt(acceptedAt: number, scheduledAt: Date | null, pickupEtaMin: number | null): number {
+  if (!scheduledAt) return acceptedAt;
+  return Math.max(acceptedAt, scheduledAt.getTime() - ((pickupEtaMin ?? 0) + 5) * MIN);
+}
 
 /** First "not moving" check: max(notMovingMinMin, notMovingEtaFactor × pickup ETA) after accept. */
 export function pickupCheckAt(acceptedAt: number, pickupEtaMin: number | null, s: TimeoutSettings): number {

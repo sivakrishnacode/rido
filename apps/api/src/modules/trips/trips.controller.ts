@@ -37,6 +37,12 @@ export class TripsController {
     return this.trips.history(user);
   }
 
+  /** Passenger: trips booked for later (rentals, outstation), soonest first. */
+  @Get('upcoming')
+  upcoming(@CurrentUser() user: AuthUser): Promise<Trip[]> {
+    return this.trips.upcoming(user.userId);
+  }
+
   /** The caller's unfinished trip, or null. */
   @Get('active')
   active(@CurrentUser() user: AuthUser): Promise<Trip | null> {

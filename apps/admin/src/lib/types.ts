@@ -27,8 +27,11 @@ export type KycDocType = "DRIVING_LICENCE" | "AADHAAR" | "VEHICLE_RC" | "INSURAN
 export type KycStatus = "NOT_UPLOADED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
 /** Didit identity check (drivers: licence + Aadhaar + selfie; riders: optional, any ID). */
 export type IdentityStatus = "NOT_STARTED" | "IN_PROGRESS" | "IN_REVIEW" | "APPROVED" | "DECLINED";
+/** LOCAL: priced by distance and time; RENTAL: a cab by the hour; OUTSTATION: a cab to another town. */
+export type RideMode = "LOCAL" | "RENTAL" | "OUTSTATION";
 export type TripKind = "RIDE" | "PARCEL";
 export type TripStatus =
+  | "SCHEDULED"
   | "SEARCHING"
   | "NO_DRIVERS"
   | "DRIVER_ASSIGNED"
@@ -51,6 +54,7 @@ export const DRIVER_STATUSES: readonly DriverStatus[] = ["PENDING", "APPROVED", 
 export const TICKET_STATUSES: readonly TicketStatus[] = ["OPEN", "IN_PROGRESS", "RESOLVED"];
 export const TRIP_KINDS: readonly TripKind[] = ["RIDE", "PARCEL"];
 export const TRIP_STATUSES: readonly TripStatus[] = [
+  "SCHEDULED",
   "SEARCHING",
   "NO_DRIVERS",
   "DRIVER_ASSIGNED",

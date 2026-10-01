@@ -5,12 +5,13 @@ import type { AuthUser } from '../../core/auth/auth-user.js';
 import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
-import { CancelCode, CancelFault, CancelledBy, DueStatus, Gender, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
+import { CancelCode, CancelFault, CancelledBy, DueStatus, Gender, RideMode, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { TripDriversService } from '../drivers/trip-drivers.service.js';
 import { MAX_RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
 import { type FareQuote, haversineMeters, waitingCharge, waitingTerms, withWaitingCharge } from '../fares/fare-engine.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
+import { isCabTier, type ModeTerms, settleMode, withSettlement } from '../fares/ride-modes.js';
 import { DemandService } from '../geo/demand.service.js';
 import { GeoService } from '../geo/geo.service.js';
 import { cellAt } from '../geo/h3.util.js';
@@ -21,6 +22,7 @@ import { NotifierService, type TripWithPeople } from '../notifications/notifier.
 import { TripEventsService } from '../realtime/trip-events.service.js';
 import { TripTrackService } from '../realtime/trip-track.service.js';
 import { asVehicle, DispatchService } from './dispatch.service.js';
+import { bookingTimes } from './booking-times.js';
 import type { BookTripDto } from './dto/book-trip.dto.js';
 import type { CancelTripDto } from './dto/cancel-trip.dto.js';
 import { resolveCancel } from './cancel-codes.js';
@@ -36,7 +38,7 @@ import { fareReviewNotes, mergeReviewNote } from './fare-review.js';
 import { TripOtpGuard } from './trip-otp-guard.js';
 import { DriverBlocksService } from './driver-blocks.service.js';
 import { canReassign, canTransition, isFinished } from './trip-transitions.js';
-import { ALL_TRIP_JOBS, noShowAt, pickupCapAt, pickupCheckAt, stuckAt, TRIP_JOBS } from './trip-timeouts.js';
+import { ALL_TRIP_JOBS, noShowAt, pickupCapAt, pickupCheckAt, setOffAt, stuckAt, TRIP_JOBS } from './trip-timeouts.js';
 
 /** H3 resolution stored on trips for heatmaps. */
 const HEAT_RES = 8;
@@ -109,12 +111,26 @@ export class TripsService {
     private readonly tripDrivers: TripDriversService,
   ) {}
 
-  /** Quotes, stores and starts dispatching a trip. */
+  /**
+   * Quotes, stores and starts dispatching a trip. A rental or outstation trip (cab tiers) is priced by its package or
+   * per km (ride-modes.ts); booked for later ([BookTripDto.scheduledAt]) it waits as SCHEDULED and dispatch starts
+   * `scheduledDispatchLeadMin` before the pickup time ([startScheduled]).
+   */
   async book(passengerId: string, dto: BookTripDto): Promise<Trip> {
+    const mode = dto.rideMode ?? RideMode.LOCAL;
     const isGoods = FARE_RULES[dto.vehicleKind].isGoods;
     if (isGoods !== (dto.kind === TripKind.PARCEL)) throw new BadRequestException('Vehicle does not match trip kind');
-    const [from, to] = await Promise.all([this.geo.locate(dto.pickup), this.geo.locate(dto.drop)]);
-    if (!from.isServiceable || !to.isServiceable) throw new BadRequestException("Tamil Taxi isn't in this area yet");
+    if (mode !== RideMode.LOCAL && (dto.kind !== TripKind.RIDE || !isCabTier(dto.vehicleKind))) {
+      throw new BadRequestException('Rentals and outstation trips are for Mini, Sedan and SUV');
+    }
+    const now = new Date();
+    const { scheduledAt, returnAt } = bookingTimes(dto, mode, now);
+    // A rental starts and ends wherever the rider says on the way: its drop is the pickup.
+    const drop = mode === RideMode.RENTAL ? dto.pickup : dto.drop;
+    if (!drop) throw new BadRequestException('Choose where you are going');
+    const [from, to] = await Promise.all([this.geo.locate(dto.pickup), this.geo.locate(drop)]);
+    // Outstation goes to other towns: only the pickup has to be in the service area.
+    if (!from.isServiceable || (mode === RideMode.LOCAL && !to.isServiceable)) throw new BadRequestException("Tamil Taxi isn't in this area yet");
     if (dto.rider && isGoods) throw new BadRequestException('Parcels are booked with sender and receiver details');
     const riderIsWoman = dto.rider
       ? dto.rider.isWoman
@@ -129,25 +145,51 @@ export class TripsService {
       }
       if (dto.rider) await this.checkButterflyForOthers(passengerId);
     }
-    const quote = await this.fares.quoteOne({ pickup: dto.pickup, drop: dto.drop, vehicleKind: dto.vehicleKind });
+    let quote: FareQuote;
+    let modeTerms: ModeTerms | null = null;
+    if (mode === RideMode.LOCAL) {
+      quote = await this.fares.quoteOne({ pickup: dto.pickup, drop, vehicleKind: dto.vehicleKind });
+    } else {
+      const quotes = await this.fares.modeQuotes({
+        pickup: dto.pickup,
+        drop,
+        rideMode: mode,
+        rentalPackageId: dto.rentalPackageId,
+        roundTrip: dto.roundTrip,
+        leaveAt: scheduledAt ?? now,
+        returnAt,
+      });
+      const { modeTerms: terms, ...fare } = quotes.find((q) => q.vehicleKind === dto.vehicleKind)!;
+      quote = fare;
+      modeTerms = terms;
+    }
     // The road route that quote just fetched, from the cache (no extra Google call), for the route-deviation check.
-    const road = await this.maps.cachedRoute({ from: dto.pickup, to: dto.drop, vehicleKind: dto.vehicleKind }).catch(() => null);
+    const road =
+      mode === RideMode.RENTAL ? null : await this.maps.cachedRoute({ from: dto.pickup, to: drop, vehicleKind: dto.vehicleKind }).catch(() => null);
+    const s = await this.settings.all();
+    const dispatchAt = scheduledAt ? scheduledAt.getTime() - s.scheduledDispatchLeadMin * 60_000 : now.getTime();
+    const isLater = dispatchAt > now.getTime();
     const trip = await this.prisma.trip.create({
       data: {
         kind: dto.kind,
         vehicleKind: dto.vehicleKind,
         passengerId,
+        status: isLater ? TripStatus.SCHEDULED : TripStatus.SEARCHING,
+        rideMode: mode,
+        modeTerms: (modeTerms ?? undefined) as Prisma.InputJsonValue | undefined,
+        scheduledAt,
+        searchFrom: now,
         pickupName: dto.pickup.name ?? 'Pinned location',
         pickupAddr: dto.pickup.address ?? '',
         pickupLandmark: dto.pickupLandmark?.trim() || null,
         pickupLat: dto.pickup.lat,
         pickupLng: dto.pickup.lng,
-        dropName: dto.drop.name ?? 'Pinned location',
-        dropAddr: dto.drop.address ?? '',
-        dropLat: dto.drop.lat,
-        dropLng: dto.drop.lng,
+        dropName: drop.name ?? 'Pinned location',
+        dropAddr: drop.address ?? '',
+        dropLat: drop.lat,
+        dropLng: drop.lng,
         pickupCell: cellAt(dto.pickup.lat, dto.pickup.lng, HEAT_RES),
-        dropCell: cellAt(dto.drop.lat, dto.drop.lng, HEAT_RES),
+        dropCell: cellAt(drop.lat, drop.lng, HEAT_RES),
         distanceKm: quote.distanceKm,
         durationMin: quote.durationMin,
         fare: quote as unknown as Prisma.InputJsonValue,
@@ -163,9 +205,40 @@ export class TripsService {
         routePolyline: road?.encodedPolyline || null,
       },
     });
+    if (isLater) {
+      await this.jobs.schedule(TRIP_JOBS.scheduledDispatch, trip.id, dispatchAt, {});
+      return trip;
+    }
     await this.demand.recordRequest(dto.pickup, passengerId);
     await this.dispatch.start(trip);
     return trip;
+  }
+
+  /**
+   * A SCHEDULED trip's time has come (job `trip.scheduled-dispatch`): it starts looking for a driver now (the search
+   * radius widens from here), and the passenger sees "Finding your driver". A cancelled or already started trip is
+   * left alone.
+   */
+  async startScheduled(tripId: string): Promise<void> {
+    const { count } = await this.prisma.trip.updateMany({
+      where: { id: tripId, status: TripStatus.SCHEDULED },
+      data: { status: TripStatus.SEARCHING, searchFrom: new Date() },
+    });
+    if (count === 0) return;
+    const trip = await this.prisma.trip.findUniqueOrThrow({ where: { id: tripId } });
+    await this.demand.recordRequest({ lat: trip.pickupLat, lng: trip.pickupLng }, trip.passengerId);
+    await this.dispatch.start(trip);
+    await this.publish(tripId, 'SYSTEM');
+  }
+
+  /** The passenger's trips booked for later (soonest first). */
+  async upcoming(passengerId: string): Promise<Trip[]> {
+    return this.prisma.trip.findMany({
+      where: { passengerId, status: TripStatus.SCHEDULED },
+      orderBy: { scheduledAt: 'asc' },
+      take: 20,
+      include: TRIP_INCLUDE,
+    });
   }
 
   /** Drivers reported (cancel code BUTTERFLY_MISMATCH) that the "woman" this account booked Butterfly for was not one. */
@@ -186,7 +259,8 @@ export class TripsService {
 
   /** The caller's unfinished trip (searching or on the way), to restore the app after a restart. */
   async active(user: AuthUser): Promise<Trip | null> {
-    const unfinished = { notIn: [TripStatus.COMPLETED, TripStatus.DELIVERED, TripStatus.CANCELLED, TripStatus.NO_DRIVERS] };
+    // A trip booked for later isn't active until its search starts (GET /trips/upcoming lists those).
+    const unfinished = { notIn: [TripStatus.COMPLETED, TripStatus.DELIVERED, TripStatus.CANCELLED, TripStatus.NO_DRIVERS, TripStatus.SCHEDULED] };
     const where = user.driverId ? { driverId: user.driverId, status: unfinished } : { passengerId: user.userId, status: unfinished };
     const trip = await this.prisma.trip.findFirst({ where, orderBy: { createdAt: 'desc' }, include: TRIP_INCLUDE });
     if (!trip) return null;
@@ -244,8 +318,10 @@ export class TripsService {
     await this.track.setPhase(tripId, 'p');
     const s = await this.settings.all();
     const etaMin = at ? await this.eta.minutes({ from: at, to: pickup, vehicleKind: matched.vehicleKind, useRoad: s.useRoadEta }).catch(() => null) : null;
-    await this.jobs.schedule(TRIP_JOBS.pickupProgress, tripId, pickupCheckAt(acceptedAt.getTime(), etaMin, s), { driverId, strikes: 0 });
-    await this.jobs.schedule(TRIP_JOBS.pickupCap, tripId, pickupCapAt(acceptedAt.getTime(), s), { driverId });
+    // A trip booked for later, accepted early: the driver only has to set off in time for the pickup.
+    const setOff = setOffAt(acceptedAt.getTime(), booked.scheduledAt, etaMin);
+    await this.jobs.schedule(TRIP_JOBS.pickupProgress, tripId, pickupCheckAt(setOff, etaMin, s), { driverId, strikes: 0 });
+    await this.jobs.schedule(TRIP_JOBS.pickupCap, tripId, pickupCapAt(setOff, s), { driverId });
     return hideOtp(await this.publish(tripId, 'DRIVER'));
   }
 
@@ -255,6 +331,8 @@ export class TripsService {
    */
   async alternatives(passengerId: string, tripId: string): Promise<VehicleAlternative[]> {
     const trip = await this.searchingTrip(passengerId, tripId);
+    // Rentals and outstation trips are priced per tier up front: no "Book any".
+    if (trip.rideMode !== RideMode.LOCAL) return [];
     const s = await this.settings.all();
     const isGoods = FARE_RULES[trip.vehicleKind].isGoods;
     const kinds = (Object.keys(FARE_RULES) as VehicleKind[]).filter(
@@ -301,6 +379,7 @@ export class TripsService {
   /** Adds [vehicleKind] to a searching trip ("Book any"): its drivers get the offer too, at that vehicle's fare. */
   async addVehicle(passengerId: string, tripId: string, vehicleKind: VehicleKind): Promise<Trip> {
     const trip = await this.searchingTrip(passengerId, tripId);
+    if (trip.rideMode !== RideMode.LOCAL) throw new BadRequestException('Rentals and outstation trips keep the vehicle you booked');
     if (FARE_RULES[vehicleKind].isGoods !== FARE_RULES[trip.vehicleKind].isGoods) {
       throw new BadRequestException("That vehicle can't take this trip");
     }
@@ -351,7 +430,13 @@ export class TripsService {
       driverId,
       tripId,
       to: TripStatus.DRIVER_ARRIVED,
-      data: { arrivedAt: new Date(now), noShowAt: new Date(noShowAt(now, s)), arrivedDistanceM: check.distanceM, arrivedFarReason: check.farReason },
+      // Early for a scheduled pickup: the no-show wait starts at the pickup time.
+      data: {
+        arrivedAt: new Date(now),
+        noShowAt: new Date(noShowAt(Math.max(now, trip.scheduledAt?.getTime() ?? 0), s)),
+        arrivedDistanceM: check.distanceM,
+        arrivedFarReason: check.farReason,
+      },
     });
     await this.jobs.cancel(TRIP_JOBS.pickupProgress, tripId);
     if (updated.noShowAt) await this.jobs.schedule(TRIP_JOBS.noShow, tripId, updated.noShowAt, { driverId });
@@ -392,12 +477,15 @@ export class TripsService {
    * settings). Rides and parcels alike. Nothing to change → `{}`.
    */
   private async waitingFare(trip: Trip, startedAt: Date): Promise<{ fare?: Prisma.InputJsonValue; fareTotal?: number }> {
-    if (!trip.arrivedAt) return {};
+    // Rentals and outstation trips quote no waiting terms (a rental's clock is its package).
+    if (!trip.arrivedAt || trip.rideMode !== RideMode.LOCAL) return {};
     const fare = (trip.fare ?? {}) as Partial<FareQuote> & { total: number };
     const s = await this.settings.all();
     const perMin = typeof fare.waitPerMin === 'number' ? fare.waitPerMin : await this.fares.waitPerMin({ lat: trip.pickupLat, lng: trip.pickupLng }, trip.vehicleKind);
     const terms = waitingTerms(fare, { freeMin: s.freeWaitMin, perMin, maxCharge: s.waitMaxCharge });
-    const charge = waitingCharge({ waitedMs: startedAt.getTime() - trip.arrivedAt.getTime(), ...terms });
+    // A driver early for a scheduled pickup waits for free until the pickup time.
+    const waitFrom = Math.max(trip.arrivedAt.getTime(), trip.scheduledAt?.getTime() ?? 0);
+    const charge = waitingCharge({ waitedMs: startedAt.getTime() - waitFrom, ...terms });
     const was = fare.waitingCharge ?? 0;
     if (charge === was) return {};
     const withWait = withWaitingCharge({ ...fare, total: fare.total ?? trip.fareTotal }, charge);
@@ -417,11 +505,14 @@ export class TripsService {
     }
     if (isParcel) await this.otpGuard.check({ tripId, expected: trip.otp, given: body.otp, who: 'receiver' });
     const s = await this.settings.all();
+    const terms = trip.modeTerms as ModeTerms | null;
+    // A rental ends wherever the rider gets off, a round trip back near the pickup: no "near the drop" check.
+    const endsAnywhere = trip.rideMode === RideMode.RENTAL || (terms?.mode === 'OUTSTATION' && terms.roundTrip);
     const check = checkNearStop({
       stop: 'drop',
       at: await this.driverPosition(driverId, body),
       target: { lat: trip.dropLat, lng: trip.dropLng },
-      radiusM: s.dropRadiusM,
+      radiusM: endsAnywhere ? Number.MAX_SAFE_INTEGER : s.dropRadiusM,
       farReason: body.farReason,
     });
     // The recorded path, measured before the guarded move so it is stored with the completion (one Redis read),
@@ -434,12 +525,14 @@ export class TripsService {
       isDropFar: !!check.farReason || (check.distanceM ?? 0) > s.dropRadiusM,
     });
     const review = notes.length ? { needsReview: true, reviewNote: mergeReviewNote(trip.reviewNote, notes) } : {};
-    const dues = await this.pendingDues(trip, s.cancellationFeeEnabled);
+    // Rental / round trip: the km (from the GPS path) and, for rentals, minutes past the package are added now.
+    const settled = terms ? this.settle(trip, terms, path) : {};
+    const dues = await this.pendingDues({ ...trip, ...settled } as Trip, s.cancellationFeeEnabled);
     const updated = await this.move({
       driverId,
       tripId,
       to: isParcel ? TripStatus.DELIVERED : TripStatus.COMPLETED,
-      data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason, ...path, ...review, ...dues.fare },
+      data: { endedAt: new Date(), endDistanceM: check.distanceM, endFarReason: check.farReason, ...path, ...review, ...settled, ...dues.fare },
       // Counted in the same transaction as the guarded status change, so a double tap counts the ride once.
       after: async (tx) => {
         await tx.driver.update({ where: { id: driverId }, data: { ridesCount: { increment: 1 } } });
@@ -457,6 +550,16 @@ export class TripsService {
     // Night ride: "Did you reach safely?" a few minutes from now (safety module).
     await this.safety.rideCompleted(updated).catch((e: Error) => this.logger.warn(`Arrival check for ${tripId} not scheduled: ${e.message}`));
     return updated;
+  }
+
+  /** [trip]'s fare with the rental / round-trip settlement for the recorded [path] (`{}` when nothing is added). */
+  private settle(trip: Trip, terms: ModeTerms, path: { actualDistanceM?: number | null; distanceCalcFailed?: boolean }): { fare?: Prisma.InputJsonValue; fareTotal?: number } {
+    const km = path.distanceCalcFailed || path.actualDistanceM == null ? null : path.actualDistanceM / 1000;
+    const minutes = trip.startedAt ? (Date.now() - trip.startedAt.getTime()) / 60_000 : 0;
+    const s = settleMode(terms, km, minutes);
+    if (s.extraKmCharge === 0 && s.extraTimeCharge === 0) return {};
+    const fare = withSettlement({ ...(trip.fare as { total: number }), total: trip.fareTotal }, s);
+    return { fare: fare as unknown as Prisma.InputJsonValue, fareTotal: fare.total };
   }
 
   /**

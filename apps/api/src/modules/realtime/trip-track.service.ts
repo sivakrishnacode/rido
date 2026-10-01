@@ -4,10 +4,13 @@ import { RedisService } from '../../core/redis/redis.service.js';
 import type { LocationFix } from '../drivers/location-fix.js';
 import { decodePoint, encodePoint, isAccurateEnough, type PathPhase, type PathSummary, summarizePath } from '../trips/trip-path.js';
 
-/** Breadcrumbs outlive the longest trip; a trip that never ends leaves nothing behind for long. */
-export const TRIP_TRACK_TTL_S = 12 * 3600;
-/** Most points recorded per trip (≈ 8 h at one every 5 s); later ones are dropped. */
-export const MAX_TRIP_POINTS = 6000;
+/**
+ * Breadcrumbs outlive the longest trip (a week-long outstation round trip); a trip that never ends leaves nothing
+ * behind for long. Cleared when a trip ends.
+ */
+export const TRIP_TRACK_TTL_S = 8 * 86_400;
+/** Most points recorded per trip (≈ 28 h at one every 5 s, so a 12 h rental fits); later ones are dropped. */
+export const MAX_TRIP_POINTS = 20_000;
 
 const keys = (tripId: string) => ({
   phase: `trip:phase:${tripId}`,

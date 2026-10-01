@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsOptional, ValidateNested } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
 
-import { TripKind } from '../../../generated/prisma/enums.js';
+import { RideMode, TripKind } from '../../../generated/prisma/enums.js';
 import { PointDto } from './point.dto.js';
 
 /** POST /fares/quote body. */
@@ -10,9 +10,11 @@ export class QuoteRequestDto {
   @Type(() => PointDto)
   pickup: PointDto;
 
+  /** Required except for a rental quote. */
+  @IsOptional()
   @ValidateNested()
   @Type(() => PointDto)
-  drop: PointDto;
+  drop?: PointDto;
 
   /** RIDE (bike/auto/cab) or PARCEL (goods vehicles). Default RIDE. */
   @IsOptional()
@@ -23,4 +25,30 @@ export class QuoteRequestDto {
   @IsOptional()
   @IsBoolean()
   womenOnly?: boolean;
+
+  /** LOCAL (default), RENTAL (a cab by the hour) or OUTSTATION (a cab to another town). Cab tiers only for the last two. */
+  @IsOptional()
+  @IsEnum(RideMode)
+  rideMode?: RideMode;
+
+  /** RENTAL: the package ("1h" … "12h", GET /fares/rental-packages). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  rentalPackageId?: string;
+
+  /** OUTSTATION: back to the pickup at [returnAt] (true) or one way (false, default). */
+  @IsOptional()
+  @IsBoolean()
+  roundTrip?: boolean;
+
+  /** OUTSTATION round trip: when the rider comes back (ISO). */
+  @IsOptional()
+  @IsDateString()
+  returnAt?: string;
+
+  /** OUTSTATION: the leaving time (counts the round trip's days). Absent = now. */
+  @IsOptional()
+  @IsDateString()
+  scheduledAt?: string;
 }

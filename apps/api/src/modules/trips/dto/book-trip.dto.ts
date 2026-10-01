@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsObject, IsOptional, IsString, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsObject, IsOptional, IsString, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
 
-import { ParcelPayer, PaymentMode, TripKind, VehicleKind, WomenDriverPref } from '../../../generated/prisma/enums.js';
+import { ParcelPayer, PaymentMode, RideMode, TripKind, VehicleKind, WomenDriverPref } from '../../../generated/prisma/enums.js';
 import { PointDto } from '../../fares/dto/point.dto.js';
 
 /** "Who's riding?": someone else takes the ride (rides only). */
@@ -30,9 +30,11 @@ export class BookTripDto {
   @Type(() => PointDto)
   pickup: PointDto;
 
+  /** Required except for a rental (it starts and ends wherever the rider says on the way). */
+  @IsOptional()
   @ValidateNested()
   @Type(() => PointDto)
-  drop: PointDto;
+  drop?: PointDto;
 
   @IsOptional()
   @IsEnum(PaymentMode)
@@ -63,4 +65,30 @@ export class BookTripDto {
   @ValidateNested()
   @Type(() => RiderDto)
   rider?: RiderDto;
+
+  /** LOCAL (default), RENTAL (a cab by the hour) or OUTSTATION (a cab to another town). Cab tiers only for the last two. */
+  @IsOptional()
+  @IsEnum(RideMode)
+  rideMode?: RideMode;
+
+  /** RENTAL: the package ("1h" … "12h", GET /fares/rental-packages). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  rentalPackageId?: string;
+
+  /** OUTSTATION: back to the pickup at [returnAt] (true) or one way (false, default). */
+  @IsOptional()
+  @IsBoolean()
+  roundTrip?: boolean;
+
+  /** OUTSTATION round trip: when the rider comes back (ISO). */
+  @IsOptional()
+  @IsDateString()
+  returnAt?: string;
+
+  /** RENTAL / OUTSTATION: the pickup time for a trip booked for later (ISO, up to 7 days ahead). Absent = now. */
+  @IsOptional()
+  @IsDateString()
+  scheduledAt?: string;
 }

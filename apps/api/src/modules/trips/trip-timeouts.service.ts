@@ -27,6 +27,7 @@ export const NUDGE_EVENT = 'trip.nudge';
  * - `trip.stuck`: a started trip still running long past its estimate → flagged for admins (`needsReview`) and the
  *   driver is asked to end it. Never completed automatically.
  * - `trip.pickup-cap`: still not started `pickupHardCapMin` after accept → cancelled by the system (STUCK).
+ * - `trip.scheduled-dispatch`: a trip booked for later starts looking for a driver (`scheduledDispatchLeadMin` before).
  * Each handler first checks the trip is still in that step with that driver (a stale job does nothing).
  */
 @Injectable()
@@ -48,6 +49,7 @@ export class TripTimeoutsService implements OnModuleInit {
     this.jobs.register(TRIP_JOBS.noShow, (j: DriverJob) => this.noShow(j));
     this.jobs.register(TRIP_JOBS.stuck, (j: DriverJob) => this.stuck(j));
     this.jobs.register(TRIP_JOBS.pickupCap, (j: DriverJob) => this.pickupCap(j));
+    this.jobs.register(TRIP_JOBS.scheduledDispatch, (j: Job<unknown>) => this.trips.startScheduled(j.id));
   }
 
   /** The trip, if it is still in one of [statuses] with [driverId]. */

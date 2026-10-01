@@ -5,7 +5,7 @@ import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
-import { SafetyEventKind, TripKind, TripStatus } from '../../generated/prisma/enums.js';
+import { RideMode, SafetyEventKind, TripKind, TripStatus } from '../../generated/prisma/enums.js';
 import type { LocationFix } from '../drivers/location-fix.js';
 import { NotifierService } from '../notifications/notifier.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -100,7 +100,10 @@ export class SafetyMonitorService implements OnModuleInit {
       dlng: String(trip.dropLng),
       route: trip.routePolyline ?? '',
     };
-    await this.redis.multi().del(k.state, k.devAlert, k.devPush).hset(k.state, state).expire(k.state, SAFETY_STATE_TTL_S).exec();
+    // Stop and route checks are for local rides: a rental stops on purpose and an outstation trip takes breaks.
+    if (trip.rideMode === RideMode.LOCAL) {
+      await this.redis.multi().del(k.state, k.devAlert, k.devPush).hset(k.state, state).expire(k.state, SAFETY_STATE_TTL_S).exec();
+    }
     const s = await this.settings.all();
     if (trip.kind !== TripKind.RIDE || !isNightIst(trip.startedAt ?? new Date(), s.nightStartHour, s.nightEndHour)) return null;
     const user = await this.prisma.user.findUnique({ where: { id: trip.passengerId }, select: { autoShareTrips: true } });

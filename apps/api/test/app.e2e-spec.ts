@@ -258,6 +258,76 @@ describe('Tamil Taxi API (e2e)', () => {
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${scooty}`).expect(200);
   });
 
+  it('rents a sedan by the hour, end to end, at the package price', async () => {
+    // Away from the Gandhipuram tests (their demand doesn't touch these fixed prices anyway).
+    const pickup = { lat: 11.0252, lng: 77.0091, name: 'Hope College' };
+    const packages = (await http.get('/v1/fares/rental-packages').expect(200)).body;
+    expect(packages.packages.find((p: { id: string }) => p.id === '4h')).toMatchObject({ hours: 4, km: 40, prices: { CAB: 849, SEDAN: 979, SUV: 1279 } });
+    const quotes = (await http.post('/v1/fares/quote').send({ pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(200)).body.quotes;
+    expect(quotes.map((q: { vehicleKind: string; total: number }) => [q.vehicleKind, q.total])).toEqual([['CAB', 849], ['SEDAN', 979], ['SUV', 1279]]);
+    expect(quotes[1].modeTerms).toMatchObject({ mode: 'RENTAL', hours: 4, km: 40, extraKmRate: 14 });
+
+    const rider = await login();
+    const pax = { Authorization: `Bearer ${rider}` };
+    // Rentals are cab tiers only; booking for later is for rentals and outstation.
+    await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(400);
+    const later = new Date(Date.now() + 3 * 3_600_000).toISOString();
+    await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup, drop: BROOKEFIELDS, scheduledAt: later }).expect(400);
+
+    const driver = await onlineDriver('SEDAN', { lat: 11.0255, lng: 77.0095 });
+    const auth = { Authorization: `Bearer ${driver}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'SEDAN', pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(201)).body;
+    expect(trip).toMatchObject({ rideMode: 'RENTAL', status: 'SEARCHING', fareTotal: 979, dropLat: pickup.lat, modeTerms: { packageId: '4h' } });
+    expect((await acceptWhenOffered(trip.id, driver)).status).toBe(200);
+    await http.post(`/v1/trips/${trip.id}/arrived`).set(auth).expect(200);
+    await http.post(`/v1/trips/${trip.id}/start`).set(auth).send({ otp: trip.otp }).expect(200);
+    // A rental ends wherever the rider gets off: no "too far from the drop".
+    await http.post('/v1/drivers/me/location').set(auth).send({ lat: 11.05, lng: 77.03 }).expect(204);
+    const done = (await http.post(`/v1/trips/${trip.id}/complete`).set(auth).send({}).expect(200)).body;
+    expect(done).toMatchObject({ status: 'COMPLETED', fareTotal: 979 });
+    await http.post('/v1/drivers/me/offline').set(auth).expect(200);
+  });
+
+  it('books an outstation round trip for later: upcoming until its time, then it searches', async () => {
+    const pickup = { lat: 11.0252, lng: 77.0091, name: 'Hope College' };
+    const drop = { lat: 11.1085, lng: 77.3411, name: 'Out of town' };
+    const leave = new Date(Date.now() + 2 * 86_400_000);
+    const back = new Date(leave.getTime() + 30 * 3_600_000);
+    const body = { pickup, drop, rideMode: 'OUTSTATION', roundTrip: true, scheduledAt: leave.toISOString(), returnAt: back.toISOString() };
+    const quotes = (await http.post('/v1/fares/quote').send(body).expect(200)).body.quotes;
+    const mini = quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'CAB');
+    expect(mini.modeTerms).toMatchObject({ mode: 'OUTSTATION', roundTrip: true, perKm: 11, allowancePerDay: 300 });
+    expect(mini.total).toBe(mini.modeTerms.includedKm * 11 + 300 * mini.modeTerms.days);
+    // The drop is outside the service area: fine for outstation, refused for a local ride.
+    const rider = await login();
+    const pax = { Authorization: `Bearer ${rider}` };
+    await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'CAB', pickup, drop }).expect(400);
+    await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'CAB', ...body, returnAt: undefined }).expect(400);
+
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'CAB', ...body }).expect(201)).body;
+    expect(trip).toMatchObject({ status: 'SCHEDULED', rideMode: 'OUTSTATION', fareTotal: mini.total });
+    expect((await http.get('/v1/trips/upcoming').set(pax).expect(200)).body.map((t: { id: string }) => t.id)).toEqual([trip.id]);
+    // Not "active" until its search starts.
+    expect((await http.get('/v1/trips/active').set(pax).expect(200)).body).toEqual({});
+    const jobs = app.get(JobsService);
+    const due = await jobs.scheduledAt('trip.scheduled-dispatch', trip.id);
+    expect(due).toBe(leave.getTime() - 30 * 60_000);
+    await jobs.runDue(due!);
+    const searching = await prisma.trip.findUniqueOrThrow({ where: { id: trip.id } });
+    expect(searching.status).toBe('SEARCHING');
+    expect(searching.searchFrom.getTime()).toBeGreaterThan(searching.createdAt.getTime());
+    expect((await http.get('/v1/trips/upcoming').set(pax).expect(200)).body).toEqual([]);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+
+    // Cancelling while still scheduled drops its start job.
+    const other = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'SUV', ...body }).expect(201)).body;
+    await http.post(`/v1/trips/${other.id}/cancel`).set(pax).send({}).expect(200);
+    expect(await jobs.scheduledAt('trip.scheduled-dispatch', other.id)).toBeNull();
+    const redis = app.get(RedisService);
+    const demand = [...(await redis.keys('h3:req:*')), ...(await redis.keys('h3:riders:*')), ...(await redis.keys('h3:surge:*'))];
+    if (demand.length) await redis.del(...demand);
+  });
+
   it('quotes carry the nearest driver\'s pickup ETA (null when nobody is near)', async () => {
     const bikeDriver = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
     const quotes = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200)).body.quotes;

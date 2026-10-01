@@ -5,6 +5,7 @@ import { TripKind, TripStatus } from '../../generated/prisma/enums.js';
  * dropped the trip before pickup and dispatch looks for another ([canReassign]).
  */
 const RIDE: Readonly<Partial<Record<TripStatus, readonly TripStatus[]>>> = {
+  SCHEDULED: [TripStatus.SEARCHING, TripStatus.CANCELLED],
   SEARCHING: [TripStatus.DRIVER_ASSIGNED, TripStatus.NO_DRIVERS, TripStatus.CANCELLED],
   NO_DRIVERS: [TripStatus.SEARCHING, TripStatus.CANCELLED],
   DRIVER_ASSIGNED: [TripStatus.DRIVER_ARRIVED, TripStatus.SEARCHING, TripStatus.CANCELLED],

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Announcement, Trip } from '../../generated/prisma/client.js';
-import { AnnouncementAudience, AppKind, Role, TripKind, TripStatus } from '../../generated/prisma/enums.js';
+import { AnnouncementAudience, AppKind, RideMode, Role, TripKind, TripStatus } from '../../generated/prisma/enums.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { CANCEL_CODE_LABEL } from '../trips/cancel-codes.js';
 import { extraOf } from '../trips/extra-fare.js';
@@ -141,8 +141,11 @@ export class NotifierService {
       // The rider's extra shows as "₹50 + ₹20", like the request card.
       const extra = extraOf(t.fare);
       const fare = extra > 0 ? `₹${t.fareTotal - extra} + ₹${extra}` : `₹${t.fareTotal}`;
+      const what = t.kind === TripKind.PARCEL ? 'delivery' : t.rideMode === RideMode.RENTAL ? 'rental' : t.rideMode === RideMode.OUTSTATION ? 'outstation' : 'ride';
+      // A trip booked ahead says when: "· Tue 6:00 am".
+      const when = t.scheduledAt ? ` · ${formatIstShort(t.scheduledAt)}` : '';
       this.push.toUser(driver.userId, AppKind.DRIVER, {
-        title: `New ${t.kind === TripKind.PARCEL ? 'delivery' : 'ride'} request · ${fare}`,
+        title: `New ${what} request · ${fare}${when}`,
         body: `${t.pickupName} → ${t.dropName}${eta}`,
         channel: 'ride_requests',
         data: { type: 'offer', tripId: t.id },
@@ -326,4 +329,12 @@ export class NotifierService {
     const topic = a.audience === AnnouncementAudience.PASSENGER ? PUSH_TOPICS.PASSENGER : a.audience === AnnouncementAudience.DRIVER ? PUSH_TOPICS.DRIVER : PUSH_TOPICS.ALL;
     this.push.toTopic(topic, { title: a.title, body: a.body, channel: 'announcements', data: { type: 'announcement', id: a.id } });
   }
+}
+
+/** "Tue 6:00 am" in IST, for a scheduled pickup in a push. */
+export function formatIstShort(at: Date): string {
+  return new Intl.DateTimeFormat('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+    .format(at)
+    .replace(/\s?(AM|PM)$/i, (m) => ` ${m.trim().toLowerCase()}`)
+    .replace(',', '');
 }

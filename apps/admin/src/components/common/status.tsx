@@ -27,6 +27,7 @@ const TONES: Record<string, Tone> = {
   IN_REVIEW: "warning",
   DECLINED: "error",
   // Trip
+  SCHEDULED: "neutral",
   SEARCHING: "brand",
   NO_DRIVERS: "warning",
   DRIVER_ASSIGNED: "brand",

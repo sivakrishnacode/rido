@@ -275,7 +275,8 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   private async request(trip: Trip): Promise<BatchRequest> {
     const s = await this.settings.all();
     const pickup = { lat: trip.pickupLat, lng: trip.pickupLng };
-    const radiusKm = searchRadiusAt(Date.now() - trip.createdAt.getTime(), s);
+    // From when the search started (booking, or a scheduled trip's start), not from when it was booked.
+    const radiusKm = searchRadiusAt(Date.now() - trip.searchFrom.getTime(), s);
     const kinds: VehicleKind[] = [trip.vehicleKind, ...trip.alsoKinds.filter((k) => k !== trip.vehicleKind)];
     const [perKind, declined] = await Promise.all([
       Promise.all(kinds.map((kind) => this.tripDrivers.nearby({ kind, ...pickup, radiusKm, limit: s.maxCandidates * 2 }))),
@@ -304,7 +305,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     const candidates = applyWomenPref(ranked, trip.womenDriver, women)
       .sort((a, b) => a.etaMin - b.etaMin)
       .slice(0, s.maxCandidates);
-    return { tripId: trip.id, createdAt: trip.createdAt, candidates, priority: isPriority(trip.vehicleKind) };
+    return { tripId: trip.id, createdAt: trip.searchFrom, candidates, priority: isPriority(trip.vehicleKind) };
   }
 
   /** [drivers] whose booking preferences accept [trip] (one query for all of them). */
@@ -378,7 +379,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
       this.redis.get(`dispatch:${trip.id}:since`),
       this.settings.all(),
     ]);
-    const from = Math.max(trip.createdAt.getTime(), Number(since ?? 0));
+    const from = Math.max(trip.searchFrom.getTime(), Number(since ?? 0));
     return Date.now() - from >= searchWindowMs(offered === 1, s);
   }
 
@@ -391,7 +392,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     if (searchFoundNobody && (await this.redis.scard(`dispatch:${trip.id}:declined`)) > 0) {
       // Only drivers who said no are in range: wait while the radius still widens, else end it now.
       const s = await this.settings.all();
-      const atMax = searchRadiusAt(Date.now() - trip.createdAt.getTime(), s) >= Math.max(s.searchRadiusKm, s.maxSearchRadiusKm);
+      const atMax = searchRadiusAt(Date.now() - trip.searchFrom.getTime(), s) >= Math.max(s.searchRadiusKm, s.maxSearchRadiusKm);
       if (atMax && trip.alsoKinds.length === 0) return this.giveUp(trip);
     }
     if (!(await this.searchedLongEnough(trip))) {

@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
-import { TripKind, VehicleKind } from '../../generated/prisma/enums.js';
+import { RideMode, TripKind, VehicleKind } from '../../generated/prisma/enums.js';
 import { TripDriversService } from '../drivers/trip-drivers.service.js';
 import { womenAmong } from '../drivers/women-drivers.js';
 import { GeoService } from '../geo/geo.service.js';
@@ -11,8 +11,12 @@ import type { Settings } from '../settings/settings.defaults.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { FareQuote, GeoPoint, quoteFare, type RouteEstimate } from './fare-engine.js';
 import { FARE_RULES } from './fare-rules.js';
+import { CAB_TIERS, isCabTier, type ModeTerms, modeQuote, outstationTerms, rentalPackage, rentalTerms } from './ride-modes.js';
 
 /** A quote on the vehicle list, with how soon the nearest free driver of that vehicle can reach the pickup. */
+/** A rental / outstation quote with the terms it agrees to. */
+export type ModeQuote = FareQuote & { modeTerms: ModeTerms };
+
 export interface QuoteWithEta extends FareQuote {
   /** Road minutes from the nearest free driver; null = nobody within the maximum search radius right now. */
   readonly pickupEtaMin: number | null;
@@ -101,6 +105,40 @@ export class FaresService {
     const rule = (await this.geo.fareRule(here.cityId, params.vehicleKind)) ?? undefined;
     const s = await this.settings.all();
     return quoteFare({ vehicleKind: params.vehicleKind, route, multiplier: here.multiplier, maxMultiplier: s.maxMultiplier, rule, waiting: waitingSettings(s) });
+  }
+
+  /**
+   * Rental or outstation quotes for the cab tiers (Mini, Sedan, SUV), each with the terms it agrees to
+   * (ride-modes.ts). No surge and no city override: the price is fixed up front. Throws 400 for a missing package,
+   * drop or return time.
+   */
+  async modeQuotes(params: {
+    pickup: GeoPoint;
+    drop?: GeoPoint;
+    rideMode: RideMode;
+    rentalPackageId?: string;
+    roundTrip?: boolean;
+    leaveAt: Date;
+    returnAt?: Date | null;
+  }): Promise<ModeQuote[]> {
+    if (params.rideMode === RideMode.RENTAL) {
+      const pkg = rentalPackage(params.rentalPackageId ?? '');
+      if (!pkg) throw new BadRequestException('Choose a rental package');
+      return CAB_TIERS.filter(isCabTier).map((kind) => {
+        const terms = rentalTerms(kind, pkg.id)!;
+        return { ...modeQuote(kind, terms, { distanceKm: pkg.km, durationMin: pkg.hours * 60 }), modeTerms: terms };
+      });
+    }
+    if (!params.drop) throw new BadRequestException('Choose where you are going');
+    const roundTrip = params.roundTrip === true;
+    if (roundTrip && !params.returnAt) throw new BadRequestException('Choose when you come back');
+    const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: VehicleKind.CAB });
+    return CAB_TIERS.filter(isCabTier).map((kind) => {
+      const terms = outstationTerms({ kind, routeKm: route.distanceKm, roundTrip, leaveAt: params.leaveAt, returnAt: params.returnAt ?? null });
+      const awayMin = roundTrip ? Math.max(route.durationMin * 2, Math.round(((params.returnAt as Date).getTime() - params.leaveAt.getTime()) / 60_000)) : route.durationMin;
+      const plan = { distanceKm: roundTrip ? terms.includedKm : route.distanceKm, durationMin: awayMin, ...(typeof route.travelMin === 'number' && { travelMin: route.travelMin }) };
+      return { ...modeQuote(kind, terms, plan), modeTerms: terms };
+    });
   }
 
   /** One route prices every vehicle of a kind: rides on the car route, goods on the three-wheeler route. */
