@@ -1098,6 +1098,13 @@ describe('Tamil Taxi API (e2e)', () => {
     const byPhone = (await http.get(`/v1/admin/drivers?q=${encodeURIComponent(spaced)}`).set(auth).expect(200)).body;
     expect(byPhone.items.map((d: { id: string }) => d.id)).toContain(driverId);
     await http.get('/v1/admin/drivers?sort=bogus').set(auth).expect(400);
+    // Global search: drivers by plate, trips by the short id the panel shows.
+    const found = (await http.get(`/v1/admin/search?q=${encodeURIComponent(autos.items[0]?.plate ?? drivers.body.items[0].plate)}`).set(auth).expect(200)).body;
+    expect(found.drivers.length).toBeGreaterThan(0);
+    const anyTrip = (await http.get('/v1/admin/trips?pageSize=1').set(auth).expect(200)).body.items[0] as { id: string };
+    const byShortId = (await http.get(`/v1/admin/search?q=%23${anyTrip.id.slice(-8).toUpperCase()}`).set(auth).expect(200)).body;
+    expect(byShortId.trips.map((t: { id: string }) => t.id)).toContain(anyTrip.id);
+    expect((await http.get('/v1/admin/search?q=a').set(auth).expect(200)).body).toEqual({ drivers: [], people: [], trips: [] });
     await http.get('/v1/admin/passengers?sort=trips&blocked=false&women=true').set(auth).expect(200);
     const since = new Date(Date.now() - 86_400_000).toISOString();
     const recent = (await http.get(`/v1/admin/trips?sort=fare&from=${since}&pageSize=100`).set(auth).expect(200)).body;

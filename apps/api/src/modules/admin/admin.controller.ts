@@ -12,6 +12,7 @@ import { DriverOfferStatsService } from '../trips/driver-offer-stats.service.js'
 import { driverOfferStats, type DriverOfferStats } from '../trips/driver-rank.js';
 import { AdminApprovalsService, type ApprovalsPage } from './admin-approvals.service.js';
 import { AdminPeopleService } from './admin-people.service.js';
+import { AdminSearchService, type SearchResults } from './admin-search.service.js';
 import { AdminStatsService } from './admin-stats.service.js';
 import { AdminService } from './admin.service.js';
 import type { AdminStats, Paged } from './admin.types.js';
@@ -38,11 +39,18 @@ export class AdminController {
     private readonly settings: SettingsService,
     private readonly approvals: AdminApprovalsService,
     private readonly people: AdminPeopleService,
+    private readonly searcher: AdminSearchService,
   ) {}
 
   @Get('stats')
   stats(): Promise<AdminStats> {
     return this.statsService.stats();
+  }
+
+  /** Global search (Ctrl+K in the panel): up to 5 drivers, people without a driver profile and trips. ?q ≥ 2 chars. */
+  @Get('search')
+  search(@Query('q') q?: string): Promise<SearchResults> {
+    return this.searcher.search(q);
   }
 
   /** ?status&vehicle&online&gender&q&sort=newest|oldest|rating|trips|name, plus `counts` per status (the other filters applied). */

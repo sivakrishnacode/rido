@@ -1,17 +1,17 @@
 "use client";
 
-import { ChevronDownIcon, MenuIcon, SearchIcon } from "lucide-react";
+import { ChevronDownIcon, MenuIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useMemo, useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+import { useMemo, useState, useSyncExternalStore } from "react";
 
 import { Wordmark } from "@/components/common/wordmark";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-import { DEFAULT_SEARCH, NAV_GROUPS, activeNav, groupOf } from "./nav";
+import { CommandPalette } from "./command-palette";
+import { NAV_GROUPS, activeNav, groupOf } from "./nav";
 
 // Collapsed sidebar groups, per browser (a convenience: everything works without storage).
 const COLLAPSED_KEY = "tt-admin-nav-collapsed";
@@ -120,47 +120,6 @@ function SidebarNav({
   );
 }
 
-function TopSearch({ pathname }: { pathname: string }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const section = activeNav(pathname);
-  // Search the open list page, otherwise drivers (the most common lookup).
-  const target = section.searchHint && pathname === section.href ? section : DEFAULT_SEARCH;
-  const urlValue = pathname === target.href ? (searchParams.get("q") ?? "") : "";
-  const [value, setValue] = useState(urlValue);
-  const [prevUrlValue, setPrevUrlValue] = useState(urlValue);
-  if (urlValue !== prevUrlValue) {
-    setPrevUrlValue(urlValue);
-    setValue(urlValue);
-  }
-
-  return (
-    <form
-      role="search"
-      className="relative hidden w-full max-w-sm md:block"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const params = new URLSearchParams(pathname === target.href ? searchParams.toString() : "");
-        params.delete("page");
-        if (value.trim()) params.set("q", value.trim());
-        else params.delete("q");
-        const qs = params.toString();
-        router.push(qs ? `${target.href}?${qs}` : target.href);
-      }}
-    >
-      <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        type="search"
-        aria-label={target.searchHint}
-        placeholder={target.searchHint}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        className="h-9 bg-muted/60 pl-9"
-      />
-    </form>
-  );
-}
-
 /** Sidebar (desktop) / sheet (mobile) + top bar around every signed-in page. */
 export function AppShell({
   userMenu,
@@ -208,9 +167,7 @@ export function AppShell({
             <MenuIcon />
           </Button>
           <p className="font-heading text-lg font-semibold text-navy-900 lg:hidden">{section.label}</p>
-          <Suspense fallback={<div className="hidden h-9 w-full max-w-sm rounded-lg bg-muted/60 md:block" />}>
-            <TopSearch pathname={pathname} />
-          </Suspense>
+          <CommandPalette pathname={pathname} />
           <div className="ml-auto">{userMenu}</div>
         </header>
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:py-8">{children}</main>

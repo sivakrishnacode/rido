@@ -603,6 +603,30 @@ export interface AdminUser extends User {
   readonly _count: { readonly trips: number; readonly tickets: number };
 }
 
+/** GET /admin/search (the Ctrl+K palette): a few of each. */
+export interface SearchResults {
+  readonly drivers: {
+    readonly id: string;
+    readonly userId: string;
+    readonly plate: string;
+    readonly vehicleKind: VehicleKind;
+    readonly status: DriverStatus;
+    readonly isOnline: boolean;
+    readonly user: { readonly name: string | null; readonly phone: string };
+  }[];
+  /** Accounts without a driver profile (riders, admins). */
+  readonly people: { readonly id: string; readonly name: string | null; readonly phone: string; readonly role: Role; readonly isBlocked: boolean }[];
+  readonly trips: {
+    readonly id: string;
+    readonly status: TripStatus;
+    readonly kind: TripKind;
+    readonly pickupName: string;
+    readonly dropName: string;
+    readonly fareTotal: number;
+    readonly createdAt: string;
+  }[];
+}
+
 /** GET /admin/users/:id/notes item: an internal note, admin panel only. */
 export interface AdminNote {
   readonly id: string;
