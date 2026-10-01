@@ -72,9 +72,13 @@ void main() {
   testWidgets("P-10's route chip and drop time use Google's travel minutes; the fare keeps its own", (tester) async {
     await _openP10(tester, travelMin: 24);
     expect(find.text('11.4 km · 24 min'), findsOneWidget);
-    // Pickup in 3 min + 24 min on the road, not 3 + 38 fare minutes.
-    final drop = formatTime(TtClock.now().add(const Duration(minutes: 27)));
-    expect(find.text('3 min away · Drop $drop'), findsWidgets);
+    // Pickup in 3 min + 24 min on the road, not 3 + 38 fare minutes. The screen read the clock a moment before this
+    // line, so on a minute boundary its time is one minute earlier.
+    final now = TtClock.now();
+    final drops = {
+      for (final m in [26, 27]) '3 min away · Drop ${formatTime(now.add(Duration(minutes: m)))}',
+    };
+    expect(find.byWidgetPredicate((w) => w is Text && drops.contains(w.data)), findsWidgets);
 
     await tester.tap(find.text('Fare details'));
     await tester.pumpAndSettle();
