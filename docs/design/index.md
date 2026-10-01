@@ -10,7 +10,8 @@ and rebuilds this folder and `index.csv`. Don't edit the PNGs by hand.
 Notes:
 - Maps show no tiles here (tests never load the network); on a phone they show CARTO or Google tiles.
 - Areas on maps are H3 hexes, never circles: demand (res 7, nested res 8), the service-area outline and the
-  search area; the search pulse grows as hexes too. Live maps draw the API's real H3 outlines.
+  search area. The search radar pulse stays round (an animation, not an area). Live maps draw the API's real H3
+  outlines.
 - Tamil text and a few symbols (e.g. "→" in Poppins headings) show as boxes in these renders only: the test
   engine has no system fallback font. Phones render them.
 - Paid-plan screens are still in the code but switched off (`driverPlansEnabled`), so riders and drivers don't

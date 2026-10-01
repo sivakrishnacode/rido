@@ -159,7 +159,8 @@ class _VehiclePainter extends CustomPainter {
   bool shouldRepaint(covariant _VehiclePainter old) => old.type != type;
 }
 
-/// Expanding coral hex pulse, like the H3 rings dispatch searches outward (P-12 finding driver, D-14 online).
+/// Expanding round radar pulse while searching (P-12 finding driver, coral; D-14 online, green). A search
+/// animation, not an area, so it stays round while map areas are hexes.
 class PulseRing extends StatefulWidget {
   const PulseRing({super.key, this.color = TtColors.coral500, this.size = 180, this.animate = true});
 
@@ -211,15 +212,15 @@ class _PulsePainter extends CustomPainter {
     final maxR = size.width / 2;
     for (final offset in [0.0, 0.5]) {
       final p = (t + offset) % 1.0;
-      canvas.drawPath(hexagonPath(c, maxR * (0.2 + 0.8 * p)), Paint()..color = color.withValues(alpha: 0.28 * (1 - p)));
+      canvas.drawCircle(c, maxR * (0.2 + 0.8 * p), Paint()..color = color.withValues(alpha: 0.28 * (1 - p)));
     }
-    canvas.drawPath(
-      hexagonPath(c, maxR * 0.2),
+    canvas.drawCircle(
+      c,
+      maxR * 0.2,
       Paint()
         ..color = color.withValues(alpha: 0.35)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeJoin = StrokeJoin.round,
+        ..strokeWidth = 2,
     );
   }
 
@@ -228,7 +229,7 @@ class _PulsePainter extends CustomPainter {
 }
 
 /// A pointy-top hexagon (a corner points up) around [centre] with corner distance [r]: the H3 cell shape, used
-/// on maps in place of circles (search pulses, "location lost", the no-drivers ring).
+/// on maps in place of circles ("location lost", the design board's area swatch).
 Path hexagonPath(Offset centre, double r) {
   final path = Path();
   for (var i = 0; i < 6; i++) {

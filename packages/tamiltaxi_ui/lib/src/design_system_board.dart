@@ -1138,13 +1138,13 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
       ),
       legend(
         const SizedBox(width: 48, height: 48, child: PulseRing(animate: false, size: 48)),
-        'Hex pulse',
-        'Searching for a driver: hexes grow outward, as dispatch searches H3 rings (animated in the flow)',
+        'Pulse ring',
+        'Searching for a driver (animated in the flow)',
       ),
       legend(
         CustomPaint(size: const Size(40, 40), painter: _HexSwatchPainter()),
         'Areas are hexes',
-        'Service area, demand and search areas are H3 hexes: never a circle with a radius',
+        'Service area, demand and search areas are H3 hexes, never a circle with a radius (the search pulse stays round)',
       ),
       legend(const DemandLabel(text: '1.1x'), 'Demand label', 'Callout on the busiest demand hexes'),
       const _SubLabel('Driver vehicle · top-down, rotates with heading'),
