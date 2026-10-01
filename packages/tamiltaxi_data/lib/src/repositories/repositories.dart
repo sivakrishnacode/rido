@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 
+import '../goods_modes.dart';
 import '../models/driver.dart';
 import '../models/people.dart';
 import '../models/place.dart';
@@ -99,7 +100,12 @@ abstract interface class RideRepository {
 /// Goods vehicles and parcel quotes.
 abstract interface class ParcelRepository {
   List<VehicleType> get goodsVehicles;
-  Future<List<FareQuote>> quotes(Place from, Place to);
+
+  /// In town: every goods vehicle; [outstation]: the goods trucks one way to another town, each with its terms.
+  Future<List<FareQuote>> quotes(Place from, Place to, {bool outstation = false});
+
+  /// House shifting [d] by [vehicle] (default: suggested for the home size) at the slot [at].
+  Future<ShiftingQuote> shiftingQuote(Place from, Place to, ShiftingDetails d, {VehicleKind? vehicle, required DateTime at});
   Future<List<Trip>> recentParcels();
 }
 

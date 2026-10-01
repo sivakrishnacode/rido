@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:latlong2/latlong.dart';
 
+import '../goods_modes.dart';
 import '../ride_modes.dart';
 import '../models/booking_prefs.dart';
 import '../models/cancellation.dart';
@@ -92,6 +93,8 @@ class LiveTrips {
     WomenDriverPref womenDriver = WomenDriverPref.none,
     OtherRider? rider,
     ModeRequest? mode,
+    ShiftingDetails? shifting,
+    DateTime? slot,
   }) async {
     realtime.connect();
     final res = _map(await api.post('/trips', {
@@ -107,6 +110,9 @@ class LiveTrips {
       if (parcel != null) 'payer': enumToApi(parcel.payer),
       if (womenDriver.isOn) 'womenDriver': enumToApi(womenDriver),
       if (rider != null) 'rider': {'name': rider.name.trim(), 'phone': apiPhone(rider.phone), 'isWoman': rider.isWoman},
+      // House shifting: its details and items, for a slot (the server picks LOCAL / OUTSTATION from `between`).
+      if (shifting != null) 'shifting': shifting.toJson(),
+      if (shifting != null && slot != null) 'scheduledAt': slot.toUtc().toIso8601String(),
     }));
     final update = _update(res);
     unawaited(realtime.joinTrip(update.trip.id));

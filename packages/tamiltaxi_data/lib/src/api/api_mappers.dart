@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
 import '../fare_engine.dart';
+import '../goods_modes.dart';
 import '../models/driver.dart';
 import '../models/people.dart';
 import '../models/place.dart';
@@ -207,6 +208,7 @@ Trip tripFromJson(Json j) {
     // The trip's own terms; a quote's fare JSON doesn't repeat them.
     modeTerms: ModeTerms.fromJson(j['modeTerms']),
     scheduledAt: j['scheduledAt'] is String ? DateTime.tryParse(j['scheduledAt'] as String)?.toLocal() : null,
+    shifting: ShiftingDetails.fromJson(j['shifting']),
   );
 }
 
@@ -243,6 +245,7 @@ RideRequest rideRequestFromOffer(Json offer) {
     modeTerms: trip.modeTerms,
     scheduledAt: trip.scheduledAt,
     quote: trip.quote,
+    shifting: trip.shifting,
   );
 }
 
@@ -276,6 +279,7 @@ RideRequest rideRequestFromTrip(Json j) {
     scheduledAt: trip.scheduledAt,
     quote: trip.quote,
     rideStartedAt: j['startedAt'] is String ? DateTime.tryParse(j['startedAt'] as String)?.toLocal() : null,
+    shifting: trip.shifting,
   );
 }
 
@@ -400,3 +404,27 @@ EarningsSummary earningsFromJson(Json j) => EarningsSummary(
           ),
       ],
     );
+
+/// `POST /fares/shifting-quote` → [ShiftingQuote].
+ShiftingQuote shiftingQuoteFromJson(Json j) {
+  final terms = ModeTerms.fromJson(j['modeTerms']);
+  return ShiftingQuote(
+    vehicle: vehicleKindFromApi(j['vehicleKind']),
+    distanceKm: _d(j['distanceKm']),
+    durationMin: _i(j['durationMin']),
+    lines: ShiftingLines.fromJson(j['lines']) ??
+        const ShiftingLines(
+            transport: 0, helperCount: 0, helpers: 0, stairs: 0, packing: 0, dismantle: 0, unpack: 0, subtotal: 0, weekend: 0, total: 0),
+    modeTerms: terms is OutstationTerms ? terms : null,
+    vehicles: [
+      for (final v in _jsonList(j['vehicles']))
+        (kind: vehicleKindFromApi(v['vehicleKind']), total: _i(v['total']), suggested: v['suggested'] == true),
+    ],
+    days: [
+      for (final d in _jsonList(j['days']))
+        if (DateTime.tryParse('${d['date']}') case final date?) (date: date, total: _i(d['total']), weekend: d['weekend'] == true),
+    ],
+  );
+}
+
+List<Json> _jsonList(Object? raw) => [for (final e in (raw as List? ?? const [])) if (e is Map) e.cast<String, dynamic>()];

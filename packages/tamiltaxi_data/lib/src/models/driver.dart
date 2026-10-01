@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'people.dart';
 import 'place.dart';
 import 'trip.dart';
+import '../goods_modes.dart';
 import '../ride_modes.dart';
 import 'vehicle.dart';
 
@@ -278,6 +279,7 @@ class RideRequest {
     this.scheduledAt,
     this.quote,
     this.rideStartedAt,
+    this.shifting,
   });
 
   /// Rental (by the hour, no fixed drop) or outstation (another town); local otherwise.
@@ -301,6 +303,10 @@ class RideRequest {
 
   /// When the ride started (OTP checked): a rental's clock runs from here.
   final DateTime? rideStartedAt;
+
+  /// House shifting: what the mover is asked to do (items, floors, helpers, packing).
+  final ShiftingDetails? shifting;
+  bool get isShifting => shifting != null;
 
   final String id;
   final TripKind kind;
@@ -368,6 +374,7 @@ class RideRequest {
     DateTime? scheduledAt,
     FareQuote? quote,
     DateTime? rideStartedAt,
+    ShiftingDetails? shifting,
   }) =>
       RideRequest(
         id: id ?? this.id,
@@ -394,5 +401,6 @@ class RideRequest {
         scheduledAt: scheduledAt ?? this.scheduledAt,
         quote: quote ?? this.quote,
         rideStartedAt: rideStartedAt ?? this.rideStartedAt,
+        shifting: shifting ?? this.shifting,
       );
 }

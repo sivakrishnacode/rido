@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
 
+import '../goods_modes.dart';
 import '../models/driver.dart';
 import '../models/people.dart';
 import '../models/place.dart';
@@ -281,7 +282,26 @@ class ApiParcelRepository implements ParcelRepository {
   List<VehicleType> get goodsVehicles => Seed.goodsVehicles;
 
   @override
-  Future<List<FareQuote>> quotes(Place from, Place to) => _quotes(api, from, to, 'PARCEL');
+  Future<List<FareQuote>> quotes(Place from, Place to, {bool outstation = false}) async {
+    if (!outstation) return _quotes(api, from, to, 'PARCEL');
+    final res = _map(await api.post(
+        '/fares/quote', {'pickup': pointJson(from), 'drop': pointJson(to), 'kind': 'PARCEL', 'rideMode': 'OUTSTATION'}, true));
+    return [for (final q in _list(res['quotes'])) quoteFromJson(q)];
+  }
+
+  /// `POST /fares/shifting-quote`.
+  @override
+  Future<ShiftingQuote> shiftingQuote(Place from, Place to, ShiftingDetails d, {VehicleKind? vehicle, required DateTime at}) async =>
+      shiftingQuoteFromJson(_map(await api.post(
+          '/fares/shifting-quote',
+          {
+            'pickup': pointJson(from),
+            'drop': pointJson(to),
+            'shifting': d.toJson(withItems: false),
+            if (vehicle != null) 'vehicleKind': enumToApi(vehicle),
+            'at': at.toUtc().toIso8601String(),
+          },
+          true)));
 
   @override
   Future<List<Trip>> recentParcels() async =>

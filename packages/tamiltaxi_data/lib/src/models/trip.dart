@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'people.dart';
 import 'place.dart';
+import '../goods_modes.dart';
 import '../ride_modes.dart';
 import 'vehicle.dart';
 
@@ -140,6 +141,7 @@ class Trip {
     this.rideMode = RideMode.local,
     this.modeTerms,
     this.scheduledAt,
+    this.shifting,
   });
 
   final String id;
@@ -149,8 +151,11 @@ class Trip {
   final RideMode rideMode;
   final ModeTerms? modeTerms;
 
-  /// Pickup time of a trip booked for later.
+  /// Pickup time of a trip booked for later (a house shift's slot start).
   final DateTime? scheduledAt;
+
+  /// House shifting: the home, the items as typed, floors, packing, extras and the price lines.
+  final ShiftingDetails? shifting;
   final VehicleKind vehicle;
   final Place pickup;
   final Place drop;
@@ -173,6 +178,7 @@ class Trip {
   final String? dropLabel;
 
   bool get isParcel => kind == TripKind.parcel;
+  bool get isShifting => shifting != null;
   String get fromLabel => pickupLabel ?? pickup.name;
 
   /// A rental has no drop: "Rental · 4 hrs · 40 km".
@@ -200,6 +206,7 @@ class Trip {
     RideMode? rideMode,
     ModeTerms? modeTerms,
     DateTime? scheduledAt,
+    ShiftingDetails? shifting,
   }) =>
       Trip(
         id: id ?? this.id,
@@ -223,6 +230,7 @@ class Trip {
         rideMode: rideMode ?? this.rideMode,
         modeTerms: modeTerms ?? this.modeTerms,
         scheduledAt: scheduledAt ?? this.scheduledAt,
+        shifting: shifting ?? this.shifting,
       );
 }
 

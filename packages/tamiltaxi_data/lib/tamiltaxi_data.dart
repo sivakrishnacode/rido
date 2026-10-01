@@ -6,7 +6,15 @@ export 'package:latlong2/latlong.dart' show LatLng;
 export 'src/api/api_client.dart';
 export 'src/api/api_config.dart';
 export 'src/api/api_mappers.dart'
-    show apiPhone, enumToApi, rideRequestFromOffer, rideRequestFromTrip, tripFromJson, vehicleKindFromApi, womenDriverFromApi;
+    show
+        apiPhone,
+        enumToApi,
+        rideRequestFromOffer,
+        rideRequestFromTrip,
+        shiftingQuoteFromJson,
+        tripFromJson,
+        vehicleKindFromApi,
+        womenDriverFromApi;
 export 'src/api/api_repositories.dart';
 export 'src/api/app_config.dart';
 export 'src/api/demand_map.dart';
@@ -18,6 +26,7 @@ export 'src/api/service_cities.dart';
 export 'src/demo_settings.dart';
 export 'src/fare_engine.dart';
 export 'src/geo/hex_grid.dart';
+export 'src/goods_modes.dart';
 export 'src/identity/identity.dart';
 export 'src/maps/google_http.dart' show GoogleApiException;
 export 'src/maps/google_maps_config.dart';

@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../demo_settings.dart';
 import '../fare_engine.dart';
+import '../goods_modes.dart';
 import '../maps/google_maps_config.dart';
 import '../maps/google_places_client.dart';
 import '../models/driver.dart';
@@ -298,9 +299,16 @@ class MockParcelRepository with _Latency implements ParcelRepository {
   List<VehicleType> get goodsVehicles => Seed.goodsVehicles;
 
   @override
-  Future<List<FareQuote>> quotes(Place from, Place to) async {
+  Future<List<FareQuote>> quotes(Place from, Place to, {bool outstation = false}) async {
     await delay();
+    if (outstation) return GoodsModeRates.outstationQuotes(from, to);
     return FareEngine.quoteAll(goodsVehicles, FareEngine.estimate(from, to));
+  }
+
+  @override
+  Future<ShiftingQuote> shiftingQuote(Place from, Place to, ShiftingDetails d, {VehicleKind? vehicle, required DateTime at}) async {
+    await delay();
+    return GoodsModeRates.quote(from, to, d, vehicle: vehicle, at: at);
   }
 
   @override
