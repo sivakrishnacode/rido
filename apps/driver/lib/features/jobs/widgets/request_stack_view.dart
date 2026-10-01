@@ -16,6 +16,9 @@ enum RequestPerk {
   /// Butterfly: a woman rider asked for a woman driver (first or only). The rail shows the butterfly on pink.
   butterfly('Butterfly', Symbols.female_rounded, TtColors.butterfly600, TtColors.butterfly50),
 
+  /// House shifting: a goods truck with helpers for a slot (the card has a band with the home and the team).
+  shifting('House shifting', Symbols.home_rounded, TtColors.coral700, TtColors.coral50),
+
   /// A cab by the hour, or a trip to another town (the card has a band saying which, and when for later).
   rental('Rental', Symbols.timer_rounded, TtColors.navy900, TtColors.infoTint),
   outstation('Outstation', Symbols.route_rounded, TtColors.navy900, TtColors.infoTint),
@@ -52,15 +55,18 @@ Map<String, List<RequestPerk>> requestPerks(List<RideRequest> requests) {
 
   final mixed = requests.any((r) => r.isDelivery) && requests.any((r) => !r.isDelivery);
   // Local rides only: a rental is priced by the hour, an outstation trip includes the driver's allowance.
-  final bestRate = only((r) => r.rideMode == RideMode.local && r.tripKm > 0 ? (r.fare / r.tripKm).round() : null, highest: true);
+  final bestRate = only(
+      (r) => r.rideMode == RideMode.local && !r.isShifting && r.tripKm > 0 ? (r.fare / r.tripKm).round() : null,
+      highest: true);
   final closest = only((r) => (r.pickupDistanceKm * 10).round(), highest: false);
   return {
     for (final r in requests)
       r.id: [
         if (r.isButterfly) RequestPerk.butterfly,
+        if (r.isShifting) RequestPerk.shifting,
         if (r.isRental) RequestPerk.rental,
         if (r.isOutstation) RequestPerk.outstation,
-        if (mixed && r.isDelivery) RequestPerk.parcel,
+        if (mixed && r.isDelivery && !r.isShifting) RequestPerk.parcel,
         if (r.id == bestRate) RequestPerk.bestRate,
         if (r.id == closest) RequestPerk.closest,
         if (r.isCustomerVerified) RequestPerk.verified,
@@ -225,6 +231,7 @@ class _RequestStackViewState extends State<RequestStackView> {
   /// "New ride request", "New rental request", "2 delivery requests", or "3 requests" when rides and parcels are
   /// mixed.
   String _title(List<StackEntry> entries) {
+    if (entries.length == 1 && entries.single.request.isShifting) return 'New house shifting request';
     if (entries.length == 1 && entries.single.request.isRental) return 'New rental request';
     if (entries.length == 1 && entries.single.request.isOutstation) return 'New outstation request';
     final deliveries = entries.where((e) => e.request.isDelivery).length;
@@ -336,7 +343,8 @@ class _RequestCard extends StatelessWidget {
     final rate = _rateOf(r);
     final parcel = r.parcel;
     final butterfly = r.isButterfly;
-    final mode = r.rideMode != RideMode.local;
+    final shift = r.shifting;
+    final mode = r.rideMode != RideMode.local || shift != null;
     final terms = r.modeTerms;
     const radius = BorderRadius.all(Radius.circular(TtRadii.sheet));
     return Container(
@@ -362,7 +370,11 @@ class _RequestCard extends StatelessWidget {
                     if (p.comparative) _Tag(icon: p.icon, label: p.label, bg: p.bg, fg: p.fg),
                   if (r.isCustomerVerified)
                     const _Tag(icon: Symbols.verified_rounded, label: 'Verified', bg: TtColors.successTint, fg: TtColors.successText),
-                  if (parcel != null) ...[
+                  if (shift != null) ...[
+                    _Tag(icon: Symbols.checklist_rounded, label: '${shift.itemCount} items', bg: TtColors.coral50, fg: TtColors.coral700),
+                    if (shift.packing != PackingLevel.none)
+                      _Tag(icon: Symbols.package_2_rounded, label: '${shift.packing.label} packing', bg: TtColors.inputBg, fg: TtColors.navy900),
+                  ] else if (parcel != null) ...[
                     _Tag(icon: Symbols.package_2_rounded, label: '${parcel.category.label} · ${parcel.weight.label}', bg: TtColors.coral50, fg: TtColors.coral700),
                     _Tag(
                       icon: Symbols.person_pin_circle_rounded,
@@ -438,6 +450,7 @@ class _RequestCard extends StatelessWidget {
               ].join(' · '),
               name: r.pickup.name,
               address: r.pickup.address,
+              note: shift == null ? null : floorLabel(shift.pickupFloor, shift.pickupLift),
               line: true,
             ),
             if (r.isRental)
@@ -452,6 +465,7 @@ class _RequestCard extends StatelessWidget {
                 },
                 name: r.drop.name,
                 address: r.drop.address,
+                note: shift == null ? null : floorLabel(shift.dropFloor, shift.dropLift),
               ),
             const SizedBox(height: TtSpacing.s),
             Text(
@@ -483,7 +497,7 @@ class _RequestCard extends StatelessWidget {
 
 /// "₹9/km" for a local ride; "₹245/hr" for a rental (the package by its hours); for an outstation trip the fare
 /// over the km it charges or includes.
-String? _rateOf(RideRequest r) => switch (r.modeTerms) {
+String? _rateOf(RideRequest r) => r.isShifting ? null : switch (r.modeTerms) {
       RentalTerms t when t.hours > 0 => '₹${(r.fare / t.hours).round()}/hr',
       OutstationTerms t when t.includedKm > 0 => '₹${(r.fare / t.includedKm).round()}/km',
       _ => r.tripKm > 0 && r.rideMode == RideMode.local ? '₹${(r.fare / r.tripKm).round()}/km' : null,
@@ -500,7 +514,13 @@ class _ModeBand extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     final r = request;
+    final shift = r.shifting;
     final (label, icon, what) = switch (r.modeTerms) {
+      _ when shift != null => (
+          'House shifting',
+          Symbols.home_rounded,
+          [shift.homeSize.label, if (shift.lines case final l?) '${l.helperCount} helpers', if (r.isOutstation) 'another town'].join(' · '),
+        ),
       RentalTerms t => ('Rental', Symbols.timer_rounded, '${t.package.label} package'),
       OutstationTerms(roundTrip: true, :final days) =>
         ('Outstation', Symbols.route_rounded, 'Round trip · ${days == 1 ? 'same day' : '$days days'}'),
@@ -536,7 +556,7 @@ class _ModeBand extends StatelessWidget {
             const Icon(Symbols.event_rounded, size: 18, color: TtColors.coral700, fill: 1),
             const SizedBox(width: 6),
             Expanded(
-              child: Text('Pickup ${formatWhen(at)}',
+              child: Text(shift == null ? 'Pickup ${formatWhen(at)}' : 'Pickup ${formatWhen(at).split(', ').first}, ${slotRangeLabel(at.hour)}',
                   style: t.bodySemibold.copyWith(color: TtColors.coral700), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
           ]),
@@ -721,11 +741,14 @@ class _Tag extends StatelessWidget {
 
 /// A pickup / drop line: "0.8 km away · 3 min" in bold, then the place and its address.
 class _Stop extends StatelessWidget {
-  const _Stop({required this.dot, required this.headline, required this.name, required this.address, this.line = false});
+  const _Stop({required this.dot, required this.headline, required this.name, required this.address, this.note, this.line = false});
   final Color dot;
   final String headline;
   final String name;
   final String address;
+
+  /// A house shift's floor and lift there ("2nd floor · no lift").
+  final String? note;
   final bool line;
 
   @override
@@ -756,6 +779,15 @@ class _Stop extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (note case final n?)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(children: [
+                    const Icon(Symbols.stairs_2_rounded, size: 16, color: TtColors.coral700),
+                    const SizedBox(width: 4),
+                    Text(n, style: t.bodySmallMedium.copyWith(color: TtColors.coral700, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
             ]),
           ),
         ),

@@ -587,8 +587,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   }
 
   /// Mock mode and an older API without waiting terms: the default free minutes and cap, the vehicle's rate.
-  /// None for rentals and outstation trips (no waiting charge there).
-  WaitingTerms? _defaultWaiting(RideRequest job) => job.rideMode != RideMode.local
+  /// None for rentals, outstation trips and house shifts (no waiting charge there).
+  WaitingTerms? _defaultWaiting(RideRequest job) => job.rideMode != RideMode.local || job.isShifting
       ? null
       : WaitingTerms(arrivedAt: DateTime.now(), perMin: Seed.vehicle(job.vehicle).fareRule.waitPerMin);
 

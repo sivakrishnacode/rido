@@ -241,4 +241,18 @@ void main() {
     expect(find.text('New rental request'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('a house shift: band with the home and team, the slot, items and floors at both ends', (tester) async {
+    final r = Seed.shiftingRequest;
+    await pump(tester, [(request: r, expiresAt: DateTime.now().add(const Duration(seconds: 12)))]);
+    expect(find.text('New house shifting request'), findsOneWidget);
+    expect(find.text('1 BHK · 2 helpers'), findsOneWidget);
+    expect(find.text('Pickup Tomorrow, 9–11 AM'), findsOneWidget);
+    expect(find.text('16 items'), findsOneWidget);
+    expect(find.text('2nd floor · no lift'), findsOneWidget);
+    expect(find.text('5th floor · lift'), findsOneWidget);
+    // No ₹/km on a shift (helpers and packing are in the price).
+    expect(find.textContaining('/km'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

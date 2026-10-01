@@ -41,6 +41,12 @@ void main() {
     expect(RequestSpeech.of(o, VoiceLanguage.tamil), startsWith('புதிய வெளியூர் சவாரி, Ooty, போய் வர. பிக்கப் நாளை 6:00 AM.'));
   });
 
+  test('a house shift says the home and how many helpers to bring', () {
+    final en = RequestSpeech.of(Seed.shiftingRequest, VoiceLanguage.english);
+    expect(en, startsWith('New house shifting, 1 BHK, bring 2 helpers. Pickup tomorrow at 9:00 AM.'));
+    expect(RequestSpeech.of(Seed.shiftingRequest, VoiceLanguage.tamil), startsWith('புதிய வீடு மாற்றம், 1 BHK, 2 உதவியாளர்கள்.'));
+  });
+
   test("the rider's extra is read after the fare", () {
     final r = Seed.rideRequest.copyWith(fare: 70, extra: 20);
     expect(RequestSpeech.of(r, VoiceLanguage.english), startsWith('New ride. 50 rupees plus 20 extra.'));

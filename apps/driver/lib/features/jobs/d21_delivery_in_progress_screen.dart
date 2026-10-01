@@ -10,6 +10,7 @@ import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'widgets/job_common.dart';
+import 'widgets/shifting_sheet.dart';
 import 'widgets/too_far_sheet.dart';
 import 'widgets/job_map.dart';
 
@@ -17,12 +18,17 @@ import 'widgets/job_map.dart';
 /// driven by the session phase. One swipe per step: "Reached pickup", "Picked up",
 /// "Reached drop location" (→ D-22a). Back asks before leaving.
 /// Live API: "Reached pickup" and "Picked up" are API calls ("Reached drop" is local), Call dials the
-/// sender / receiver and Navigate opens Google Maps.
+/// sender / receiver and Navigate opens Google Maps. A house shift shows the floor and lift at this end, the team to
+/// bring and "See items" (the customer's typed list, [showShiftingDetails]).
 class D21DeliveryInProgressScreen extends ConsumerStatefulWidget {
-  const D21DeliveryInProgressScreen({super.key, this.showcase = false});
+  const D21DeliveryInProgressScreen({super.key, this.showcase = false, this.sample, this.samplePhase = JobPhase.toDrop});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
+
+  /// Design gallery: the job shown (default: the parcel) and its step.
+  final RideRequest? sample;
+  final JobPhase samplePhase;
 
   @override
   ConsumerState<D21DeliveryInProgressScreen> createState() => _D21DeliveryInProgressScreenState();
@@ -31,10 +37,10 @@ class D21DeliveryInProgressScreen extends ConsumerStatefulWidget {
 class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgressScreen> {
   static const _steps = ['Go to pickup', 'Picked up', 'Go to drop', 'Delivered'];
 
-  late final RideRequest _job = ref.read(driverSessionProvider).job ?? Seed.deliveryRequest;
+  late final RideRequest _job = ref.read(driverSessionProvider).job ?? widget.sample ?? Seed.deliveryRequest;
 
   /// Phase used when there is no live job (showcase / opened directly): the D-21 frame.
-  JobPhase _localPhase = JobPhase.toDrop;
+  late JobPhase _localPhase = widget.samplePhase;
   late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
   bool _busy = false;
 
@@ -97,6 +103,8 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
         ? (parcel?.dropNote.isNotEmpty ?? false ? parcel!.dropNote : 'House 14, near walking track')
         : (parcel?.pickupNote.isNotEmpty ?? false ? parcel!.pickupNote : place.address);
     final byReceiver = parcel?.payer != ParcelPayer.sender;
+    final shift = _job.shifting;
+    final helpers = shift?.lines?.helperCount;
     // Live API: early hint when the GPS is already outside the stop's radius (the API decides).
     final farM = _api && (phase == JobPhase.toPickup || phase == JobPhase.toDrop)
         ? ref.read(driverSessionProvider.notifier).metresTo(place.location)
@@ -124,7 +132,9 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(
-                      phase == JobPhase.atPickup ? 'Load the parcel' : (toDrop ? 'Go to drop' : 'Go to pickup'),
+                      phase == JobPhase.atPickup
+                          ? (shift == null ? 'Load the parcel' : 'Load up${helpers == null ? '' : ' · $helpers helpers'}')
+                          : (toDrop ? 'Go to drop' : 'Go to pickup'),
                       style: t.bodySmall.copyWith(color: Colors.white70),
                     ),
                     Text(
@@ -167,7 +177,14 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(contactName, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(contactNote, style: t.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                        shift == null
+                            ? contactNote
+                            : (toDrop ? floorLabel(shift.dropFloor, shift.dropLift) : floorLabel(shift.pickupFloor, shift.pickupLift)),
+                        style: t.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ]),
                   ),
                   const SizedBox(width: TtSpacing.s),
@@ -183,7 +200,21 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
                 ]),
                 const SizedBox(height: TtSpacing.m),
                 Wrap(spacing: TtSpacing.s, runSpacing: TtSpacing.s, children: [
-                  if (parcel != null)
+                  if (shift != null) ...[
+                    _Chip(
+                      icon: Symbols.home_rounded,
+                      text: [shift.homeSize.label, if (helpers != null) '$helpers helpers'].join(' · '),
+                      bg: TtColors.coral50,
+                      fg: TtColors.coral700,
+                    ),
+                    _Chip(
+                      icon: Symbols.checklist_rounded,
+                      text: 'See ${shift.items.length} items',
+                      bg: TtColors.infoTint,
+                      fg: TtColors.navy900,
+                      onTap: () => showShiftingDetails(context, _job),
+                    ),
+                  ] else if (parcel != null)
                     _Chip(
                       icon: Symbols.checkroom_rounded,
                       text: '${parcel.category.label} · ${parcel.weight.label}',
@@ -191,7 +222,11 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
                       fg: TtColors.navy700,
                     ),
                   _Chip(
-                    text: byReceiver ? 'Collect ${formatInr(_job.fare)} from receiver' : 'Collect ${formatInr(_job.fare)} from sender',
+                    text: shift != null
+                        ? 'Collect ${formatInr(_job.fare)} after the move'
+                        : byReceiver
+                            ? 'Collect ${formatInr(_job.fare)} from receiver'
+                            : 'Collect ${formatInr(_job.fare)} from sender',
                     bg: TtColors.warningTint,
                     fg: TtColors.warningText,
                   ),
@@ -217,19 +252,28 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.text, required this.bg, required this.fg, this.icon});
+  const _Chip({required this.text, required this.bg, required this.fg, this.icon, this.onTap});
   final String text;
   final Color bg;
   final Color fg;
   final IconData? icon;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: 6),
-        decoration: BoxDecoration(color: bg, borderRadius: TtRadii.pillRadius),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (icon != null) ...[Icon(icon, size: 18, color: fg), const SizedBox(width: 6)],
-          Flexible(child: Text(text, style: context.type.bodySmallMedium.copyWith(color: fg, fontWeight: FontWeight.w600))),
-        ]),
+  Widget build(BuildContext context) => Material(
+        color: bg,
+        borderRadius: TtRadii.pillRadius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: TtRadii.pillRadius,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: TtSpacing.m, vertical: onTap == null ? 6 : 10),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (icon != null) ...[Icon(icon, size: 18, color: fg), const SizedBox(width: 6)],
+              Flexible(child: Text(text, style: context.type.bodySmallMedium.copyWith(color: fg, fontWeight: FontWeight.w600))),
+              if (onTap != null) ...[const SizedBox(width: 2), Icon(Symbols.chevron_right_rounded, size: 18, color: fg)],
+            ]),
+          ),
+        ),
       );
 }

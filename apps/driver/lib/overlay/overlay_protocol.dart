@@ -52,6 +52,7 @@ class OverlayOffer {
     this.rideMode = RideMode.local,
     this.modeTerms,
     this.scheduledAt,
+    this.shifting,
   });
 
   factory OverlayOffer.fromRequest(RideRequest r, DateTime expiresAt) => OverlayOffer(
@@ -78,6 +79,7 @@ class OverlayOffer {
         rideMode: r.rideMode,
         modeTerms: r.modeTerms,
         scheduledAt: r.scheduledAt,
+        shifting: r.shifting,
       );
 
   /// Null when [json] isn't an offer (e.g. a message from an older build).
@@ -112,6 +114,7 @@ class OverlayOffer {
       rideMode: RideMode.values.asNameMap()[json['rideMode']] ?? RideMode.local,
       modeTerms: ModeTerms.fromJson(json['modeTerms']),
       scheduledAt: json['scheduledAtMs'] is num ? DateTime.fromMillisecondsSinceEpoch((json['scheduledAtMs'] as num).round()) : null,
+      shifting: ShiftingDetails.fromJson(json['shifting']),
     );
   }
 
@@ -129,6 +132,9 @@ class OverlayOffer {
   final RideMode rideMode;
   final ModeTerms? modeTerms;
   final DateTime? scheduledAt;
+
+  /// House shifting: the home, items, floors and the team.
+  final ShiftingDetails? shifting;
 
   /// Back to a [RideRequest] for the shared card widgets (no coordinates: the overlay draws no map).
   RideRequest toRequest() => RideRequest(
@@ -150,6 +156,7 @@ class OverlayOffer {
         rideMode: rideMode,
         modeTerms: modeTerms,
         scheduledAt: scheduledAt,
+        shifting: shifting,
       );
 
   DateTime get expiresAt => DateTime.fromMillisecondsSinceEpoch(expiresAtMs);
@@ -199,6 +206,7 @@ class OverlayOffer {
         'rideMode': rideMode.name,
         'modeTerms': ?modeTerms?.toJson(),
         'scheduledAtMs': ?scheduledAt?.millisecondsSinceEpoch,
+        'shifting': ?shifting?.toJson(withLines: true),
       };
 }
 

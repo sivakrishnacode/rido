@@ -102,13 +102,7 @@ class ShiftingFlowState {
 }
 
 /// "7–9 AM", "11 AM–1 PM", "4–6 PM".
-String slotLabel(int startHour) {
-  String h(int x) => '${x % 12 == 0 ? 12 : x % 12}';
-  final end = startHour + 2;
-  final a = startHour < 12 ? 'AM' : 'PM';
-  final b = end < 12 ? 'AM' : 'PM';
-  return a == b ? '${h(startHour)}–${h(end)} $b' : '${h(startHour)} $a–${h(end)} $b';
-}
+String slotLabel(int startHour) => slotRangeLabel(startHour);
 
 /// Plans and books a house shift. Every change that moves the price asks for a new quote (mock: priced here like the
 /// API; live: `POST /fares/shifting-quote`, the latest answer wins).

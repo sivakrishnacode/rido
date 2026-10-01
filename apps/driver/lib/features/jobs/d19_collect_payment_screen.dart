@@ -107,7 +107,7 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
                     child: Text('Collect ${formatInr(_job.fare)}', style: t.heroSmall.copyWith(color: Colors.white)),
                   ),
                   Text(
-                    _isDelivery ? 'from ${fromReceiver ? 'receiver' : 'sender'} · Cash or UPI' : 'Cash or UPI',
+                    _isDelivery && !_job.isShifting ? 'from ${fromReceiver ? 'receiver' : 'sender'} · Cash or UPI' : 'Cash or UPI',
                     style: t.body.copyWith(color: Colors.white),
                   ),
                 ]),
@@ -117,7 +117,23 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.l),
                 child: Column(children: [
-                  if (_modeQuote() case final q?) ...[
+                  if (_job.shifting case ShiftingDetails(lines: final l?)) ...[
+                    Container(
+                      padding: const EdgeInsets.all(TtSpacing.l),
+                      decoration: BoxDecoration(
+                        color: TtColors.background,
+                        borderRadius: TtRadii.cardRadius,
+                        border: Border.all(color: TtColors.divider),
+                      ),
+                      child: FareBreakdown.fromShifting(
+                        l,
+                        vehicle: _job.vehicle,
+                        between: _job.shifting!.between,
+                        title: 'House shifting · ${_job.shifting!.homeSize.label}',
+                      ),
+                    ),
+                    const SizedBox(height: TtSpacing.l),
+                  ] else if (_modeQuote() case final q?) ...[
                     Container(
                       padding: const EdgeInsets.all(TtSpacing.l),
                       decoration: BoxDecoration(

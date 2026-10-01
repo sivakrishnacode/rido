@@ -41,6 +41,12 @@ void main() {
         expect(o.modeLabel, r.modeLabel);
         expect(o.scheduledAt, r.scheduledAt == null ? isNull : DateTime.fromMillisecondsSinceEpoch(r.scheduledAt!.millisecondsSinceEpoch));
       }
+      final shift = OverlayOffer.fromJson(jsonDecode(jsonEncode(OverlayOffer.fromRequest(Seed.shiftingRequest, expiresAt).toJson())))!
+          .toRequest()
+          .shifting!;
+      expect(shift.items, Seed.shiftingRequest.shifting!.items);
+      expect(shift.lines!.helperCount, 2);
+      expect((shift.pickupFloor, shift.pickupLift, shift.dropFloor, shift.dropLift), (2, false, 5, true));
       final back = OverlayOffer.fromJson(
               jsonDecode(jsonEncode(OverlayOffer.fromRequest(Seed.outstationRequest, expiresAt).toJson())))!
           .toRequest()

@@ -4,6 +4,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import '../format.dart';
 import '../theme/tt_colors.dart';
 import '../theme/tt_tokens.dart';
+import '../vehicle_ui.dart';
 
 /// One line in a [FareBreakdown].
 class FareLine {
@@ -57,6 +58,30 @@ class FareBreakdown extends StatelessWidget {
         if (q.hasWaiting) waitingLine(q),
         if (q.hasCancellationFee) cancellationFeeLine(q),
         if (q.hasExtra) extraLine(q),
+        const FareLine('Tamil Taxi commission', 0, tag: '0%'),
+      ],
+    );
+  }
+
+  /// A house shift's lines: the vehicle, helpers, stairs, packing, taking apart, unpacking, the weekend share.
+  factory FareBreakdown.fromShifting(ShiftingLines l, {required VehicleKind vehicle, bool between = false, Key? key, String? title, String? subtitle, Widget? footer}) {
+    final rate = between ? GoodsModeRates.helperBetween : GoodsModeRates.helperCity;
+    return FareBreakdown(
+      key: key,
+      title: title,
+      subtitle: subtitle,
+      footer: footer,
+      total: l.total,
+      lines: [
+        FareLine(vehicle.label, l.transport, note: between ? 'one way, by the km' : 'on the route'),
+        FareLine('Helpers', l.helpers, note: '${l.helperCount} × ${formatInr(rate)}'),
+        if (l.stairs > 0) FareLine('Stairs', l.stairs, note: '${l.stairs ~/ GoodsModeRates.stairsPerFloor} floors without a lift'),
+        if (l.packing > 0) FareLine('Packing', l.packing),
+        if (l.dismantle > 0)
+          FareLine('Taking apart', l.dismantle,
+              note: '${l.dismantle ~/ GoodsModeRates.dismantlePerPiece} × ${formatInr(GoodsModeRates.dismantlePerPiece)}'),
+        if (l.unpack > 0) FareLine('Unpacking', l.unpack),
+        if (l.weekend > 0) FareLine('Weekend', l.weekend, tag: '+${GoodsModeRates.weekendPct}%', signed: true),
         const FareLine('Tamil Taxi commission', 0, tag: '0%'),
       ],
     );

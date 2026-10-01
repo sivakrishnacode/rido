@@ -186,8 +186,9 @@ class ShiftingDetails {
         lines: lines ?? this.lines,
       );
 
-  /// The API's `shifting` body ([withItems]: to book; a quote doesn't need them).
-  Map<String, Object> toJson({bool withItems = true}) => {
+  /// The API's `shifting` body ([withItems]: to book; a quote doesn't need them). [withLines]: the price lines too
+  /// (the driver's overlay; never sent to the API, which prices it itself).
+  Map<String, Object> toJson({bool withItems = true, bool withLines = false}) => {
         'homeSize': homeSize.api,
         'between': between,
         if (withItems) 'items': [for (final i in items) i.toJson()],
@@ -199,7 +200,16 @@ class ShiftingDetails {
         'dismantlePieces': dismantlePieces,
         'unpack': unpack,
         'extraHelpers': extraHelpers,
+        if (withLines && lines != null) 'lines': lines!.toJson(),
       };
+
+  /// "Basic packing · 2 pieces taken apart · unpacking · 1 extra helper"; empty when none.
+  List<String> get extrasLabels => [
+        if (packing != PackingLevel.none) '${packing.label} packing',
+        if (dismantlePieces > 0) '$dismantlePieces piece${dismantlePieces == 1 ? '' : 's'} taken apart',
+        if (unpack) 'Unpacking',
+        if (extraHelpers > 0) '$extraHelpers extra helper${extraHelpers == 1 ? '' : 's'}',
+      ];
 
   static ShiftingDetails? fromJson(Object? raw) {
     if (raw is! Map) return null;
@@ -237,6 +247,15 @@ String floorLabel(int floor, bool lift) {
           _ => 'th',
         };
   return '$floor$suffix floor · ${lift ? 'lift' : 'no lift'}';
+}
+
+/// A two-hour slot from [startHour]: "7–9 AM", "11 AM–1 PM", "4–6 PM".
+String slotRangeLabel(int startHour) {
+  String h(int x) => '${x % 12 == 0 ? 12 : x % 12}';
+  final end = startHour + 2;
+  final a = startHour < 12 ? 'AM' : 'PM';
+  final b = end < 12 ? 'AM' : 'PM';
+  return a == b ? '${h(startHour)}–${h(end)} $b' : '${h(startHour)} $a–${h(end)} $b';
 }
 
 /// A house shift priced for one vehicle and slot, with every goods truck's total and the next 7 days' totals.

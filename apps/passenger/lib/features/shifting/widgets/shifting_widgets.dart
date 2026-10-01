@@ -448,24 +448,8 @@ class ShiftingPriceBar extends StatelessWidget {
 }
 
 /// The price lines of a shift, in the fare-breakdown style.
-FareBreakdown shiftingBreakdown(ShiftingLines l, {required VehicleKind vehicle, String? title, String? subtitle, bool between = false}) {
-  final rate = between ? GoodsModeRates.helperBetween : GoodsModeRates.helperCity;
-  return FareBreakdown(
-    title: title,
-    subtitle: subtitle,
-    total: l.total,
-    lines: [
-      FareLine(vehicle.label, l.transport, note: between ? 'one way, by the km' : 'on the route'),
-      FareLine('Helpers', l.helpers, note: '${l.helperCount} × ${formatInr(rate)}'),
-      if (l.stairs > 0) FareLine('Stairs', l.stairs, note: '${l.stairs ~/ GoodsModeRates.stairsPerFloor} floors without a lift'),
-      if (l.packing > 0) FareLine('Packing', l.packing),
-      if (l.dismantle > 0) FareLine('Taking apart', l.dismantle, note: '${l.dismantle ~/ GoodsModeRates.dismantlePerPiece} × ${formatInr(GoodsModeRates.dismantlePerPiece)}'),
-      if (l.unpack > 0) FareLine('Unpacking', l.unpack),
-      if (l.weekend > 0) FareLine('Weekend', l.weekend, tag: '+${GoodsModeRates.weekendPct}%', signed: true),
-      const FareLine('Tamil Taxi commission', 0, tag: '0%'),
-    ],
-  );
-}
+FareBreakdown shiftingBreakdown(ShiftingLines l, {required VehicleKind vehicle, String? title, String? subtitle, bool between = false}) =>
+    FareBreakdown.fromShifting(l, vehicle: vehicle, between: between, title: title, subtitle: subtitle);
 
 /// Opens the price lines in a sheet.
 Future<void> showShiftingPrice(BuildContext context, ShiftingQuote q, {required bool between}) => showTtSheet<void>(

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../state/driver_session.dart' show JobPhase;
 import '../../router/routes.dart';
 import '../account/d26_account_screen.dart';
 import '../earnings/d23_earnings_screen.dart';
@@ -111,9 +112,15 @@ final List<GalleryEntry> galleryEntries = [
   _e('D-19c', 'Collect payment · rental with extra km and time', _p6,
       (_) => D19CollectPaymentScreen(showcase: true, sample: _settledRental())),
   _e('D-20', 'Incoming delivery request', _p6, (_) => const D20DeliveryRequestScreen(showcase: true)),
+  _e('D-20c', 'Incoming request · house shifting', _p6,
+      (_) => D20DeliveryRequestScreen(showcase: true, sample: Seed.shiftingRequest)),
   _e('D-21', 'Delivery in progress', _p6, (_) => const D21DeliveryInProgressScreen(showcase: true)),
+  _e('D-21c', 'House shifting · at the pickup', _p6,
+      (_) => D21DeliveryInProgressScreen(showcase: true, sample: Seed.shiftingRequest, samplePhase: JobPhase.atPickup)),
   _e('D-22a', 'Complete delivery with OTP', _p6, (_) => const D22DeliveryOtpScreen(showcase: true)),
   _e('D-22b', 'Collect from receiver', _p6, (_) => const D19CollectPaymentScreen(delivery: true, showcase: true)),
+  _e('D-22c', 'Collect · house shifting', _p6,
+      (_) => D19CollectPaymentScreen(delivery: true, showcase: true, sample: Seed.shiftingRequest)),
   _e('D-23', 'Earnings', _p6, (_) => const D23EarningsScreen(showcase: true)),
   _e('D-23b', 'Earnings · trip detail sheet', _p6,
       (_) => const ShowcaseFrame.sheet(title: 'D-23b Trip detail', child: D23bTripDetailSheet(showcase: true))),

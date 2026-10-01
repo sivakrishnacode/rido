@@ -6,6 +6,7 @@ import 'models/people.dart';
 import 'models/place.dart';
 import 'models/trip.dart';
 import 'models/vehicle.dart';
+import 'goods_modes.dart';
 import 'ride_modes.dart';
 
 /// The prototype runs on a fixed calendar day (24 Sep 2026) so seed dates, the free trial and
@@ -651,6 +652,54 @@ abstract final class Seed {
       rideMode: RideMode.outstation,
       modeTerms: terms,
       scheduledAt: leave,
+    );
+  }
+
+  /// A 1 BHK house shift booked for tomorrow 9–11 am by pickup truck (D-20c, D-21c, D-19e frames).
+  static RideRequest get shiftingRequest {
+    final now = DateTime.now();
+    final slot = DateTime(now.year, now.month, now.day + 1, 9);
+    const details = ShiftingDetails(
+      homeSize: HomeSize.oneBhk,
+      items: [
+        ShiftingItem(name: 'Double cot', note: 'Wooden, comes apart'),
+        ShiftingItem(name: 'Fridge', note: 'Single door'),
+        ShiftingItem(name: '3-seater sofa'),
+        ShiftingItem(name: 'Cartons', qty: 12, note: 'Kitchen things and books'),
+        ShiftingItem(name: 'Washing machine', note: 'Top load'),
+      ],
+      pickupFloor: 2,
+      dropFloor: 5,
+      dropLift: true,
+      packing: PackingLevel.basic,
+      dismantlePieces: 1,
+    );
+    final lines = GoodsModeRates.lines(details, 1236, slot);
+    return RideRequest(
+      id: 'REQ-H1',
+      kind: TripKind.parcel,
+      vehicle: VehicleKind.pickup,
+      fare: lines.total,
+      pickup: peelamedu,
+      drop: raceCourse,
+      pickupDistanceKm: 1.8,
+      pickupEtaMin: 7,
+      tripKm: 6.8,
+      tripMin: 23,
+      customerName: 'Meena Ravi',
+      customerRating: 4.8,
+      customerPhone: receiverPhone,
+      parcel: const ParcelDetails(
+        category: ParcelCategory.household,
+        weight: WeightBand.over500,
+        senderName: 'Meena Ravi',
+        senderPhone: receiverPhone,
+        receiverName: 'Meena Ravi',
+        receiverPhone: receiverPhone,
+        deliveryOtp: deliveryOtp,
+      ),
+      scheduledAt: slot,
+      shifting: details.copyWith(lines: lines),
     );
   }
 

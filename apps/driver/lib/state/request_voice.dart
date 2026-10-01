@@ -115,8 +115,11 @@ abstract final class RequestSpeech {
     final terms = r.modeTerms;
     final roundTrip = terms is OutstationTerms && terms.roundTrip;
     final at = r.scheduledAt;
+    final shift = r.shifting;
+    final helpers = shift?.lines?.helperCount;
     return switch (language) {
       VoiceLanguage.english => '${switch (terms) {
+            _ when shift != null => 'New house shifting, ${shift.homeSize.label}${helpers == null ? '' : ', bring $helpers helpers'}',
             RentalTerms t => 'New rental, ${t.hours} ${t.hours == 1 ? 'hour' : 'hours'}',
             OutstationTerms() => 'New outstation trip to ${r.drop.name}${roundTrip ? ', round trip' : ''}',
             null => r.isDelivery ? 'New delivery' : 'New ride',
@@ -125,6 +128,7 @@ abstract final class RequestSpeech {
           '${r.extra > 0 ? '$base rupees plus ${r.extra} extra' : '${r.fare} rupees'}. '
           'Pickup $pickupKm kilometres, ${r.pickup.name}.${r.isRental ? '' : ' Trip $tripKm kilometres.'}',
       VoiceLanguage.tamil => '${switch (terms) {
+            _ when shift != null => 'புதிய வீடு மாற்றம், ${shift.homeSize.label}${helpers == null ? '' : ', $helpers உதவியாளர்கள்'}',
             RentalTerms t => 'புதிய வாடகை சவாரி, ${t.hours} மணி நேரம்',
             OutstationTerms() => 'புதிய வெளியூர் சவாரி, ${r.drop.name}${roundTrip ? ', போய் வர' : ''}',
             null => r.isDelivery ? 'புதிய டெலிவரி' : 'புதிய சவாரி',
