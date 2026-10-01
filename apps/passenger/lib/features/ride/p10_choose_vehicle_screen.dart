@@ -28,8 +28,15 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
   @override
   void initState() {
     super.initState();
-    // Live API: the fares shown and booked are the server's quotes.
-    if (!widget.showcase) Future.microtask(() => ref.read(rideFlowProvider.notifier).loadQuotes());
+    // Live API: the fares shown and booked are the server's quotes. P-10 is always a local ride (rentals and
+    // outstation have their own screens).
+    if (!widget.showcase) {
+      Future.microtask(() {
+        final flow = ref.read(rideFlowProvider.notifier)..clearMode();
+        // Back from a rental / outstation screen: the cab tiers alone were selectable, keep the choice valid.
+        return flow.loadQuotes();
+      });
+    }
   }
 
   Future<void> _book() async {

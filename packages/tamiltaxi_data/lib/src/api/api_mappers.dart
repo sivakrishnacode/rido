@@ -6,6 +6,7 @@ import '../models/people.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
 import '../models/vehicle.dart';
+import '../ride_modes.dart';
 import '../seed.dart';
 import 'service_cities.dart';
 
@@ -102,6 +103,9 @@ FareQuote quoteFromJson(Json j) => FareQuote(
       waitMaxCharge: _i(j['waitMaxCharge'], FareEngine.waitMaxCharge),
       previousCancellationFee: _i(j['previousCancellationFee']),
       extra: _i(j['extra']),
+      modeTerms: ModeTerms.fromJson(j['modeTerms']),
+      extraKmCharge: _i(j['extraKmCharge']),
+      extraTimeCharge: _i(j['extraTimeCharge']),
     );
 
 /// A driver (`Driver` with its `user`).
@@ -127,6 +131,7 @@ DriverProfile driverFromJson(Json j) {
 }
 
 TripStatus tripStatusFromApi(Object? raw) => switch (raw) {
+      'SCHEDULED' => TripStatus.scheduled,
       'SEARCHING' => TripStatus.searching,
       'DRIVER_ASSIGNED' => TripStatus.driverAssigned,
       'DRIVER_ARRIVED' => TripStatus.driverArrived,
@@ -197,6 +202,10 @@ Trip tripFromJson(Json j) {
     paymentMode: enumFromApi(PaymentMode.values, j['paymentMode'], PaymentMode.cash),
     parcel: parcel == null ? null : parcelFromJson(parcel, otp: otp, payer: payer),
     rating: j['rating'] is num ? _i(j['rating']) : null,
+    rideMode: enumFromApi(RideMode.values, j['rideMode'], RideMode.local),
+    // The trip's own terms; a quote's fare JSON doesn't repeat them.
+    modeTerms: ModeTerms.fromJson(j['modeTerms']),
+    scheduledAt: j['scheduledAt'] is String ? DateTime.tryParse(j['scheduledAt'] as String)?.toLocal() : null,
   );
 }
 
@@ -227,6 +236,9 @@ RideRequest rideRequestFromOffer(Json offer) {
     parcel: trip.parcel,
     otp: '',
     extra: trip.quote?.extra ?? 0,
+    rideMode: trip.rideMode,
+    modeTerms: trip.modeTerms,
+    scheduledAt: trip.scheduledAt,
   );
 }
 
@@ -255,6 +267,9 @@ RideRequest rideRequestFromTrip(Json j) {
     parcel: trip.parcel,
     otp: '',
     extra: trip.quote?.extra ?? 0,
+    rideMode: trip.rideMode,
+    modeTerms: trip.modeTerms,
+    scheduledAt: trip.scheduledAt,
   );
 }
 

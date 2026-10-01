@@ -5,6 +5,7 @@ import '../models/people.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
 import '../models/vehicle.dart';
+import '../ride_modes.dart';
 
 /// Thrown by repositories when Demo control "Offline mode" is on (or a real network call fails).
 class OfflineException implements Exception {
@@ -47,8 +48,9 @@ abstract interface class AuthRepository {
 abstract interface class PlacesRepository {
   Place get currentLocation;
 
-  /// Places matching [query]. [origin] (the pickup): live suggestions then carry [Place.distanceKm].
-  Future<List<Place>> search(String query, {LatLng? origin});
+  /// Places matching [query]. [origin] (the pickup): live suggestions then carry [Place.distanceKm]. [anywhere]:
+  /// outstation search, beyond the service area (other towns).
+  Future<List<Place>> search(String query, {LatLng? origin, bool anywhere = false});
 
   /// Completes a [search] result before it is used as a pickup / drop: Google suggestions
   /// (id `g:…`) only carry a placeholder location until their details are fetched. Seed places
@@ -73,6 +75,16 @@ abstract interface class RideRepository {
 
   /// Null when Demo control "No drivers nearby" is on.
   Future<DriverProfile?> findDriver(VehicleKind kind);
+
+  /// Rental / outstation quotes for the cab tiers ([request]), each with its [FareQuote.modeTerms]. [drop]: not for a
+  /// rental.
+  Future<List<FareQuote>> modeQuotes(Place pickup, Place? drop, ModeRequest request);
+
+  /// The passenger's trips booked for later, soonest first.
+  Future<List<Trip>> upcomingTrips();
+
+  /// Popular outstation drops around [at] (live: from past trips; empty until there are some).
+  Future<List<Place>> outstationDestinations(LatLng at);
 
   /// Free vehicles around [at] for the map (a few of each kind, nearest first). [parcels]: goods vehicles and
   /// two-wheelers instead of ride vehicles. Empty when nobody is near (or Demo control "No drivers").

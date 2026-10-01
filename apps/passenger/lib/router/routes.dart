@@ -18,6 +18,12 @@ abstract final class Routes {
   static const pinPickupOnMap = '/ride/pin?for=pickup';
   static const pinPickOnMap = '/ride/pin?for=pick';
   static const chooseVehicle = '/ride/choose-vehicle';
+  static const rental = '/ride/rental';
+  static const outstation = '/ride/outstation';
+  static const outstationSearch = '/ride/outstation-where';
+
+  /// A rental / outstation trip booked for later (route `extra`: the [Trip]).
+  static const bookedLater = '/ride/booked';
   static const findingDriver = '/ride/finding';
   static const driverAssigned = '/ride/driver';
   static const chat = '/ride/chat';

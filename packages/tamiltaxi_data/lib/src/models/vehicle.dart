@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../ride_modes.dart';
+
 /// Every vehicle Tamil Taxi supports, in the order the apps list them. Ride tiers carry passengers ([cab] is "Mini",
 /// the hatchback; [autoPriority] is a booking tier served by auto drivers, never a driver's vehicle); goods vehicles
 /// carry parcels. Ride tiers must stay before [goodsBike] ([isGoods]).
@@ -165,9 +167,19 @@ class FareQuote {
     this.waitMaxCharge = 30,
     this.previousCancellationFee = 0,
     this.extra = 0,
+    this.modeTerms,
+    this.extraKmCharge = 0,
+    this.extraTimeCharge = 0,
   });
 
   final VehicleType vehicle;
+
+  /// Rental / outstation: what the trip agreed to (package or per-km terms); null for local rides and parcels.
+  final ModeTerms? modeTerms;
+
+  /// Rental / round trip, settled at the end: km (and, for rentals, minutes) past what was included.
+  final int extraKmCharge;
+  final int extraTimeCharge;
   final double distanceKm;
 
   /// Fare minutes (distance at 18 km/h): what [timeCharge] is billed on.
@@ -246,6 +258,9 @@ class FareQuote {
     int? waitMaxCharge,
     int? previousCancellationFee,
     int? extra,
+    ModeTerms? modeTerms,
+    int? extraKmCharge,
+    int? extraTimeCharge,
   }) =>
       FareQuote(
         vehicle: vehicle ?? this.vehicle,
@@ -267,6 +282,9 @@ class FareQuote {
         waitMaxCharge: waitMaxCharge ?? this.waitMaxCharge,
         previousCancellationFee: previousCancellationFee ?? this.previousCancellationFee,
         extra: extra ?? this.extra,
+        modeTerms: modeTerms ?? this.modeTerms,
+        extraKmCharge: extraKmCharge ?? this.extraKmCharge,
+        extraTimeCharge: extraTimeCharge ?? this.extraTimeCharge,
       );
 }
 

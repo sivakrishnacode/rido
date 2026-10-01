@@ -31,6 +31,18 @@ String formatRelativeDay(DateTime d, {bool withTime = false}) {
   return withTime ? '$label, ${formatTime(d)}' : label;
 }
 
+/// A pickup time ahead: "Today, 6:00 AM", "Tomorrow, 9:30 AM", "Tue 7 Oct, 6:00 AM" (against the real clock).
+String formatWhen(DateTime t, {DateTime? now}) {
+  final n = now ?? DateTime.now();
+  final today = DateTime(n.year, n.month, n.day);
+  final day = DateTime(t.year, t.month, t.day);
+  final diff = day.difference(today).inDays;
+  final time = DateFormat('h:mm a').format(t);
+  if (diff == 0) return 'Today, $time';
+  if (diff == 1) return 'Tomorrow, $time';
+  return '${DateFormat('EEE d MMM').format(t)}, $time';
+}
+
 /// "4.2 km"
 String formatKm(double km) => '${km.toStringAsFixed(1)} km';
 

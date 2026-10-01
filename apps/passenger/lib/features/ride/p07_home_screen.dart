@@ -7,18 +7,19 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/async_view.dart';
-import '../../common/trip_routes.dart';
 import '../../common/device_location.dart';
 import '../../common/map_insets.dart';
+import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
-import '../../state/parcel_flow.dart';
 import '../../state/nearby_vehicles.dart';
+import '../../state/parcel_flow.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
 import '../states/s05_location_denied_screen.dart';
 import '../states/s07_loading_skeletons.dart';
 import '../states/s08_service_unavailable_screen.dart';
 import 'widgets/dashed_border.dart';
+import 'widgets/upcoming_trip_card.dart';
 
 /// P-07 Home (Ride tab): full map around the pickup with nearby vehicles, greeting card,
 /// SOS, and a half-height sheet with search, saved places, recent destinations and a promo, ending in the
@@ -144,7 +145,9 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   }
 
   void _chooseDrop(Place place) {
-    ref.read(rideFlowProvider.notifier).setDrop(place);
+    ref.read(rideFlowProvider.notifier)
+      ..clearMode()
+      ..setDrop(place);
     context.push(Routes.chooseVehicle);
   }
 
@@ -290,6 +293,14 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
               places: profile.savedPlaces,
               onPlace: (p) => _chooseDrop(p.place),
               onAdd: () => context.push(Routes.savedPlaceEditor()),
+            ),
+            const SizedBox(height: TtSpacing.l),
+            if (!widget.showcase) ...[
+              const _UpcomingOnHome(),
+            ],
+            _MoreWaysRow(
+              onRental: () => context.push(Routes.rental),
+              onOutstation: () => context.push(Routes.outstation),
             ),
             const SizedBox(height: TtSpacing.s),
             for (var i = 0; i < places.length; i++) ...[
@@ -668,5 +679,101 @@ class _LocationBanners extends ConsumerWidget {
     };
     if (banner == null) return const SizedBox.shrink();
     return Padding(padding: const EdgeInsets.only(top: TtSpacing.s), child: banner);
+  }
+}
+
+/// "More ways to travel": a cab by the hour (P-34) or to another town (P-35), side by side.
+class _MoreWaysRow extends StatelessWidget {
+  const _MoreWaysRow({required this.onRental, required this.onOutstation});
+  final VoidCallback onRental;
+  final VoidCallback onOutstation;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('MORE WAYS TO TRAVEL', style: t.overline),
+        const SizedBox(height: TtSpacing.s),
+        // Same height side by side, whatever the subtitles wrap to.
+        IntrinsicHeight(
+          child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _WayTile(
+                title: 'Rental',
+                subtitle: 'By the hour · from ${formatInr(RideModeRates.rentalTerms(VehicleKind.cab, '1h')!.price)}',
+                kind: VehicleKind.sedan,
+                onTap: onRental,
+              ),
+            ),
+            const SizedBox(width: TtSpacing.s),
+            Expanded(
+              child: _WayTile(title: 'Outstation', subtitle: 'To other towns · one way or return', kind: VehicleKind.suv, onTap: onOutstation),
+            ),
+          ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WayTile extends StatelessWidget {
+  const _WayTile({required this.title, required this.subtitle, required this.kind, required this.onTap});
+  final String title;
+  final String subtitle;
+  final VehicleKind kind;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Semantics(
+      button: true,
+      label: '$title, $subtitle',
+      excludeSemantics: true,
+      child: Material(
+        color: TtColors.background,
+        borderRadius: TtRadii.cardRadius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(TtSpacing.m, TtSpacing.m, TtSpacing.s, TtSpacing.s),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Expanded(child: Text(title, style: t.bodySemibold.copyWith(fontSize: 17))),
+                  const Icon(Symbols.arrow_forward_rounded, size: 18, color: TtColors.navy500),
+                ]),
+                Text(subtitle, style: t.caption.copyWith(color: TtColors.navy500), maxLines: 2),
+                const Spacer(),
+                const SizedBox(height: TtSpacing.xs),
+                Align(alignment: Alignment.bottomRight, child: VehicleArt(kind, width: 96, height: 50)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The next trip booked for later, if any: tap → Activity (details and Cancel).
+class _UpcomingOnHome extends ConsumerWidget {
+  const _UpcomingOnHome();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trips = ref.watch(upcomingTripsProvider).value ?? const <Trip>[];
+    if (trips.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: TtSpacing.l),
+      child: UpcomingTripCard(trip: trips.first, compact: true, onTap: () => context.go(Routes.activity)),
+    );
   }
 }

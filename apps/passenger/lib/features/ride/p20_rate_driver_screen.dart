@@ -74,7 +74,9 @@ class _P20RateDriverScreenState extends ConsumerState<P20RateDriverScreen> {
                   Text('How was your ride with ${driver.firstName}?', style: t.h1, textAlign: TextAlign.center),
                   const SizedBox(height: 6),
                   Text(
-                    '${ride.vehicle.label} · ${shortPlaceName(ride.pickup.name)} → ${shortPlaceName(ride.drop.name)}',
+                    ride.isRental
+                        ? '${ride.vehicle.label} · ${ride.dropTitle}'
+                        : '${ride.vehicle.label} · ${shortPlaceName(ride.pickup.name)} → ${shortPlaceName(ride.drop.name)}',
                     style: t.body.copyWith(color: TtColors.navy500),
                     textAlign: TextAlign.center,
                   ),

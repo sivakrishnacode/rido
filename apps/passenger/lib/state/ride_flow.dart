@@ -71,7 +71,24 @@ class RideFlowState {
     this.alsoVehicles = const [],
     this.alternatives = const [],
     this.arrivedAt,
+    this.mode,
   });
+
+  /// Rental or outstation booking (P-34 / P-35); null for a local ride.
+  final ModeRequest? mode;
+
+  bool get isRental => mode?.mode == RideMode.rental;
+  bool get isOutstation => mode?.mode == RideMode.outstation;
+
+  /// "Rental · 4 hrs · 40 km" for a rental (it has no drop), else the drop's name.
+  String get dropTitle {
+    final terms = quote.modeTerms;
+    if (isRental || terms is RentalTerms) {
+      final pkg = terms is RentalTerms ? terms.package : RideModeRates.package(mode?.packageId ?? '');
+      return pkg == null ? 'Rental' : 'Rental · ${pkg.label}';
+    }
+    return drop.name;
+  }
 
   final Place pickup;
   final Place drop;
@@ -127,13 +144,24 @@ class RideFlowState {
 
   RouteEstimate get estimate {
     final q = tripQuote ?? (serverQuotes?.isNotEmpty ?? false ? serverQuotes!.first : null);
-    return q != null
-        ? RouteEstimate(distanceKm: q.distanceKm, durationMin: q.durationMin, travelMin: q.travelMin)
-        : FareEngine.estimate(pickup, drop);
+    if (q != null) return RouteEstimate(distanceKm: q.distanceKm, durationMin: q.durationMin, travelMin: q.travelMin);
+    final m = mode;
+    if (m != null && m.mode != RideMode.local) {
+      final first = RideModeRates.quotesFor(pickup, drop, m).first;
+      return RouteEstimate(distanceKm: first.distanceKm, durationMin: first.durationMin);
+    }
+    return FareEngine.estimate(pickup, drop);
   }
 
-  /// Quotes for Bike, Auto, Cab on the current route: the server's when live, else the pure fare engine.
-  List<FareQuote> get quotes => serverQuotes ?? FareEngine.quoteAll(Seed.rideVehicles, estimate);
+  /// Quotes on the current route: the server's when live, else the pure fare engine (every ride tier) or, for a
+  /// rental / outstation booking, the cab tiers at their package or per-km rates.
+  List<FareQuote> get quotes {
+    final live = serverQuotes;
+    if (live != null) return live;
+    final m = mode;
+    if (m != null && m.mode != RideMode.local) return RideModeRates.quotesFor(pickup, drop, m);
+    return FareEngine.quoteAll(Seed.rideVehicles, estimate);
+  }
 
   FareQuote get quote {
     final booked = tripQuote;
@@ -145,9 +173,11 @@ class RideFlowState {
   /// True while a booked ride has not been paid and rated yet.
   bool get isActive => phase != RidePhase.planning && phase != RidePhase.noDrivers;
 
-  /// Pickup → drop route, or a generated one if none has been built yet.
-  List<LatLng> get routeOrDefault =>
-      route.isNotEmpty ? route : roadPath(pickup.location, drop.location, mode: travelModeFor(vehicle));
+  /// Pickup → drop route, or a generated one if none has been built yet. A rental has no route (no drop).
+  List<LatLng> get routeOrDefault {
+    if (isRental) return const [];
+    return route.isNotEmpty ? route : roadPath(pickup.location, drop.location, mode: travelModeFor(vehicle));
+  }
 
   RideFlowState copyWith({
     Place? pickup,
@@ -172,6 +202,7 @@ class RideFlowState {
     List<VehicleKind>? alsoVehicles,
     List<VehicleAlternative>? alternatives,
     Object? arrivedAt = _keep,
+    Object? mode = _keep,
   }) => RideFlowState(
     pickup: pickup ?? this.pickup,
     drop: drop ?? this.drop,
@@ -195,6 +226,7 @@ class RideFlowState {
     alsoVehicles: alsoVehicles ?? this.alsoVehicles,
     alternatives: alternatives ?? this.alternatives,
     arrivedAt: identical(arrivedAt, _keep) ? this.arrivedAt : arrivedAt as DateTime?,
+    mode: identical(mode, _keep) ? this.mode : mode as ModeRequest?,
   );
 }
 
@@ -296,6 +328,91 @@ class RideFlowController extends Notifier<RideFlowState> {
 
   void selectVehicle(VehicleKind v) => state = state.copyWith(vehicle: v);
 
+  /// P-34 Rental / P-35 Outstation: books the cab tiers with [m] (a Sedan to start with); fares reload.
+  void startMode(ModeRequest m) {
+    final cab = RideModeRates.cabTiers.contains(state.vehicle) ? state.vehicle : VehicleKind.sedan;
+    state = state.copyWith(mode: m, vehicle: cab, serverQuotes: null, quotesError: null, tripQuote: null);
+    unawaited(loadQuotes());
+  }
+
+  /// The rider changed the package, trip type or times: new fares.
+  void updateMode(ModeRequest m) {
+    if (state.mode == null) return startMode(m);
+    state = state.copyWith(mode: m, serverQuotes: null, quotesError: null);
+    unawaited(loadQuotes());
+  }
+
+  /// Back to a local ride (Home's search, P-10).
+  void clearMode() {
+    if (state.mode == null) return;
+    state = state.copyWith(mode: null, serverQuotes: null, quotesError: null);
+  }
+
+  /// Books the rental / outstation trip for later ([ModeRequest.leaveAt]). Returns a user-facing error, or the
+  /// scheduled trip (it searches for a driver shortly before its time; see P-36 and Upcoming).
+  Future<({String? error, Trip? trip})> bookForLater() async {
+    final m = state.mode;
+    if (m == null || !m.isLater) return (error: 'Choose a pickup time', trip: null);
+    if (state.busy) return (error: null, trip: null);
+    state = state.copyWith(busy: true);
+    try {
+      Trip trip;
+      if (_live) {
+        final update = await ref.read(liveTripsProvider).book(
+              kind: TripKind.ride,
+              vehicle: state.vehicle,
+              pickup: state.pickup,
+              drop: state.isRental ? state.pickup : state.drop,
+              womenDriver: womenDriver,
+              rider: state.rider,
+              mode: m,
+            );
+        trip = update.trip;
+      } else {
+        final q = state.quote;
+        trip = Trip(
+          id: 'RD-L${DateTime.now().millisecondsSinceEpoch % 10000000}',
+          kind: TripKind.ride,
+          vehicle: state.vehicle,
+          pickup: state.pickup,
+          drop: state.isRental ? state.pickup : state.drop,
+          fare: q.total,
+          quote: q,
+          status: TripStatus.scheduled,
+          startedAt: DateTime.now(),
+          distanceKm: q.distanceKm,
+          durationMin: q.durationMin,
+          rideMode: m.mode,
+          modeTerms: q.modeTerms,
+          scheduledAt: m.leaveAt,
+        );
+        ref.read(mockDatabaseProvider).upcoming.add(trip);
+      }
+      if (!ref.mounted) return (error: null, trip: trip);
+      state = state.copyWith(busy: false);
+      ref.invalidate(upcomingTripsProvider);
+      return (error: null, trip: trip);
+    } catch (e) {
+      if (ref.mounted) state = state.copyWith(busy: false);
+      return (error: apiErrorMessage(e), trip: null);
+    }
+  }
+
+  /// Cancels a trip booked for later (free until its search starts).
+  Future<String?> cancelUpcoming(String tripId) async {
+    try {
+      if (_live) {
+        await ref.read(liveTripsProvider).cancel(tripId, code: CancelCode.changedMind);
+      } else {
+        ref.read(mockDatabaseProvider).upcoming.removeWhere((t) => t.id == tripId);
+      }
+      ref.invalidate(upcomingTripsProvider);
+      return null;
+    } catch (e) {
+      return apiErrorMessage(e);
+    }
+  }
+
   /// Butterfly is offered to women riders only: the account holder (profile gender), or the woman they book for.
   bool get canUseButterfly {
     final rider = state.rider;
@@ -328,8 +445,14 @@ class RideFlowController extends Notifier<RideFlowState> {
     if (!_live) return;
     final a = state.pickup, b = state.drop;
     state = state.copyWith(serverQuotes: null, quotesError: null);
+    final m = state.mode;
     try {
-      final quotes = await ref.read(rideRepositoryProvider).quotes(a, b, womenOnly: womenDriver == WomenDriverPref.only);
+      final repo = ref.read(rideRepositoryProvider);
+      final quotes = m != null && m.mode != RideMode.local
+          ? await repo.modeQuotes(a, m.mode == RideMode.rental ? null : b, m)
+          : await repo.quotes(a, b, womenOnly: womenDriver == WomenDriverPref.only);
+      // The rider changed the package / dates meanwhile: their newer request answers instead.
+      if (!identical(state.mode, m)) return;
       if (!ref.mounted) return; // Fares answered after the ride flow was disposed.
       // The pickup / drop moved meanwhile (e.g. GPS resolved): fetch fares for the new points instead of
       // leaving the screen on the loading skeleton.
@@ -363,7 +486,10 @@ class RideFlowController extends Notifier<RideFlowState> {
       phase: RidePhase.searching,
       tripId: 'RD-${now.millisecondsSinceEpoch % 100000000}',
       bookedAt: now,
-      route: roadPath(state.pickup.location, state.drop.location),
+      // A rental has no drop: the demo drives a short loop near the pickup.
+      route: state.isRental
+          ? roadPath(state.pickup.location, offsetPoint(state.pickup.location, 2200, 60))
+          : roadPath(state.pickup.location, state.drop.location),
       driverCancelledOnce: false,
       chat: ref.read(rideRepositoryProvider).chatSeed(),
       arrivedAt: null,
@@ -446,9 +572,10 @@ class RideFlowController extends Notifier<RideFlowState> {
             kind: TripKind.ride,
             vehicle: state.vehicle,
             pickup: state.pickup,
-            drop: state.drop,
+            drop: state.isRental ? state.pickup : state.drop,
             womenDriver: womenDriver,
             rider: state.rider,
+            mode: state.mode,
           );
       _startFollowing(update, restoring: false);
       return null;
@@ -826,3 +953,14 @@ final rideFlowProvider = NotifierProvider<RideFlowController, RideFlowState>(Rid
 
 /// Same place for fares: `Place ==` only compares ids, and the current location keeps its id as it moves.
 bool _samePlace(Place a, Place b) => a.id == b.id && a.location == b.location;
+
+/// The passenger's trips booked for later (Home's Upcoming card, Activity).
+final upcomingTripsProvider = FutureProvider.autoDispose<List<Trip>>((ref) {
+  ref.watch(mockDatabaseProvider);
+  return ref.watch(rideRepositoryProvider).upcomingTrips();
+});
+
+/// Popular outstation drops around a pickup (P-35b).
+final outstationDestinationsProvider = FutureProvider.autoDispose.family<List<Place>, LatLng>(
+  (ref, at) => ref.watch(rideRepositoryProvider).outstationDestinations(at),
+);

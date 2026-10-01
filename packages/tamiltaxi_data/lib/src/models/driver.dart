@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'people.dart';
 import 'place.dart';
 import 'trip.dart';
+import '../ride_modes.dart';
 import 'vehicle.dart';
 
 /// Driver subscription status. [paused] and [cancelled] back the D-24b / D-24c frames.
@@ -272,7 +273,19 @@ class RideRequest {
     this.parcel,
     this.otp = '4829',
     this.extra = 0,
+    this.rideMode = RideMode.local,
+    this.modeTerms,
+    this.scheduledAt,
   });
+
+  /// Rental (by the hour, no fixed drop) or outstation (another town); local otherwise.
+  final RideMode rideMode;
+  final ModeTerms? modeTerms;
+
+  /// Pickup time of a trip booked for later (the driver accepts it ahead).
+  final DateTime? scheduledAt;
+
+  bool get isRental => rideMode == RideMode.rental;
 
   final String id;
   final TripKind kind;
@@ -335,6 +348,9 @@ class RideRequest {
     ParcelDetails? parcel,
     String? otp,
     int? extra,
+    RideMode? rideMode,
+    ModeTerms? modeTerms,
+    DateTime? scheduledAt,
   }) =>
       RideRequest(
         id: id ?? this.id,
@@ -356,5 +372,8 @@ class RideRequest {
         parcel: parcel ?? this.parcel,
         otp: otp ?? this.otp,
         extra: extra ?? this.extra,
+        rideMode: rideMode ?? this.rideMode,
+        modeTerms: modeTerms ?? this.modeTerms,
+        scheduledAt: scheduledAt ?? this.scheduledAt,
       );
 }

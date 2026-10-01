@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tamiltaxi_data/tamiltaxi_data.dart' show LatLng;
+import 'package:tamiltaxi_data/tamiltaxi_data.dart' show LatLng, Trip;
 
 import '../common/passenger_shell.dart';
 import '../features/account/about_screen.dart';
@@ -48,6 +48,10 @@ import '../features/ride/p20_rate_driver_screen.dart';
 import '../features/states/s01_no_drivers_screen.dart';
 import '../features/states/s02_driver_cancelled_screen.dart';
 import '../features/states/s05_location_denied_screen.dart';
+import '../features/ride/p34_rental_screen.dart';
+import '../features/ride/p35_outstation_screen.dart';
+import '../features/ride/p35b_outstation_search_screen.dart';
+import '../features/ride/p36_booked_later_screen.dart';
 import '../features/states/s08_service_unavailable_screen.dart';
 import 'routes.dart';
 
@@ -103,6 +107,10 @@ GoRouter createPassengerRouter({String initialLocation = Routes.splash}) => GoRo
                   ),
                 ),
                 _sub('choose-vehicle', (_) => const P10ChooseVehicleScreen()),
+                _sub('rental', (_) => const P34RentalScreen()),
+                _sub('outstation', (_) => const P35OutstationScreen()),
+                _sub('outstation-where', (_) => const P35bOutstationSearchScreen()),
+                _sub('booked', (s) => P36BookedLaterScreen(trip: s.extra is Trip ? s.extra as Trip : null)),
                 _sub('finding', (_) => const P12FindingDriverScreen()),
                 _sub('driver', (_) => const P13DriverAssignedScreen()),
                 _sub('chat', (_) => const P14ChatScreen()),

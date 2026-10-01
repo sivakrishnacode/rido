@@ -13,6 +13,9 @@ class MockDatabase {
   bool passengerIsNew = true;
   PassengerProfile passenger = Seed.priya;
   List<Trip> trips = Seed.passengerHistory();
+
+  /// Trips booked for later (rentals, outstation).
+  List<Trip> upcoming = [];
   List<SupportTicket> tickets = Seed.tickets();
 
   // Driver

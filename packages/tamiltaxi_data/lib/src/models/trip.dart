@@ -2,13 +2,15 @@ import 'package:flutter/foundation.dart';
 
 import 'people.dart';
 import 'place.dart';
+import '../ride_modes.dart';
 import 'vehicle.dart';
 
 enum TripKind { ride, parcel }
 
 /// Lifecycle of a ride or parcel. Parcel trips use [atPickup] and [pickedUp];
-/// rides use [driverArrived] and [inProgress].
+/// rides use [driverArrived] and [inProgress]. [scheduled]: booked for later (rental, outstation), not yet searching.
 enum TripStatus {
+  scheduled,
   searching,
   driverAssigned,
   driverArrived,
@@ -20,7 +22,7 @@ enum TripStatus {
   cancelled;
 
   bool get isFinished => this == completed || this == delivered || this == cancelled;
-  bool get isActive => !isFinished && this != searching;
+  bool get isActive => !isFinished && this != searching && this != scheduled;
 }
 
 enum PaymentMode { cash, upi }
@@ -135,10 +137,20 @@ class Trip {
     this.rating,
     this.pickupLabel,
     this.dropLabel,
+    this.rideMode = RideMode.local,
+    this.modeTerms,
+    this.scheduledAt,
   });
 
   final String id;
   final TripKind kind;
+
+  /// Local, rental (a cab by the hour) or outstation (another town).
+  final RideMode rideMode;
+  final ModeTerms? modeTerms;
+
+  /// Pickup time of a trip booked for later.
+  final DateTime? scheduledAt;
   final VehicleKind vehicle;
   final Place pickup;
   final Place drop;
@@ -162,7 +174,9 @@ class Trip {
 
   bool get isParcel => kind == TripKind.parcel;
   String get fromLabel => pickupLabel ?? pickup.name;
-  String get toLabel => dropLabel ?? drop.name;
+
+  /// A rental has no drop: "Rental · 4 hrs · 40 km".
+  String get toLabel => dropLabel ?? (modeTerms is RentalTerms ? 'Rental · ${(modeTerms! as RentalTerms).package.label}' : drop.name);
 
   Trip copyWith({
     String? id,
@@ -183,6 +197,9 @@ class Trip {
     int? rating,
     String? pickupLabel,
     String? dropLabel,
+    RideMode? rideMode,
+    ModeTerms? modeTerms,
+    DateTime? scheduledAt,
   }) =>
       Trip(
         id: id ?? this.id,
@@ -203,6 +220,9 @@ class Trip {
         rating: rating ?? this.rating,
         pickupLabel: pickupLabel ?? this.pickupLabel,
         dropLabel: dropLabel ?? this.dropLabel,
+        rideMode: rideMode ?? this.rideMode,
+        modeTerms: modeTerms ?? this.modeTerms,
+        scheduledAt: scheduledAt ?? this.scheduledAt,
       );
 }
 

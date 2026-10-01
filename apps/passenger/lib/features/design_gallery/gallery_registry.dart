@@ -41,6 +41,10 @@ import '../ride/p17_sos_screen.dart';
 import '../ride/p18_share_trip_sheet.dart';
 import '../ride/p19_ride_completed_screen.dart';
 import '../ride/p20_rate_driver_screen.dart';
+import '../ride/p34_rental_screen.dart';
+import '../ride/p35_outstation_screen.dart';
+import '../ride/p35b_outstation_search_screen.dart';
+import '../ride/p36_booked_later_screen.dart';
 import '../states/s01_no_drivers_screen.dart';
 import '../states/s02_driver_cancelled_screen.dart';
 import '../states/s03_cancel_ride_dialog.dart';
@@ -103,6 +107,10 @@ final List<GalleryEntry> galleryEntries = [
   _e('P-08', 'Search pickup and drop', _p2, (_) => const P08SearchScreen(showcase: true)),
   _e('P-09', 'Pin on map', _p2, (_) => const P09PinOnMapScreen(showcase: true)),
   _e('P-10', 'Choose vehicle', _p2, (_) => const P10ChooseVehicleScreen(showcase: true)),
+  _e('P-34', 'Rent a cab · by the hour', _p2, (_) => const P34RentalScreen(showcase: true)),
+  _e('P-35', 'Outstation · one way or round trip', _p2, (_) => const P35OutstationScreen(showcase: true)),
+  _e('P-35b', 'Outstation · where to', _p2, (_) => const P35bOutstationSearchScreen(showcase: true)),
+  _e('P-36', 'Booked for later', _p2, (_) => const P36BookedLaterScreen(showcase: true)),
   _e('P-11', 'Fare details (sheet)', _p2,
       (_) => const ShowcaseFrame.sheet(title: 'P-11 Fare details', child: P11FareDetailsSheet(showcase: true))),
   _e('P-12', 'Finding your driver', _p2, (_) => const P12FindingDriverScreen(showcase: true)),

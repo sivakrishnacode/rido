@@ -44,7 +44,7 @@ class _DistancePlaces extends MockPlacesRepository {
   final origins = <LatLng?>[];
 
   @override
-  Future<List<Place>> search(String query, {LatLng? origin}) async {
+  Future<List<Place>> search(String query, {LatLng? origin, bool anywhere = false}) async {
     origins.add(origin);
     return [
       const Place(id: 'api:u1', name: 'Ukkadam Bus stand', address: 'Ukkadam, Coimbatore', location: LatLng(11.0168, 76.9658), distanceKm: 8.7),

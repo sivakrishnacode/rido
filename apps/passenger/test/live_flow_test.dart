@@ -131,10 +131,12 @@ class _FakeTrips extends LiveTrips {
     ParcelDetails? parcel,
     WomenDriverPref womenDriver = WomenDriverPref.none,
     OtherRider? rider,
+    ModeRequest? mode,
   }) async {
     calls.add('book:${kind.name}:${vehicle.name}${parcel != null ? ':${parcel.receiverName}' : ''}'
-        '${womenDriver.isOn ? ':${womenDriver.name}' : ''}${rider != null ? ':for ${rider.name}' : ''}');
-    return update('SEARCHING');
+        '${womenDriver.isOn ? ':${womenDriver.name}' : ''}${rider != null ? ':for ${rider.name}' : ''}'
+        '${mode != null && mode.mode != RideMode.local ? ':${mode.mode.name}${mode.isLater ? ':later' : ''}' : ''}');
+    return update(mode?.isLater ?? false ? 'SCHEDULED' : 'SEARCHING');
   }
 
   @override

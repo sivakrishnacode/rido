@@ -166,8 +166,8 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
                 child: PickupDropConnector(
                   pickupTitle: state.pickup.name.split(' ').first,
                   pickupSubtitle: 'Current location',
-                  dropTitle: state.drop.name,
-                  dropSubtitle: state.drop.address,
+                  dropTitle: state.dropTitle,
+                  dropSubtitle: state.isRental ? 'Stop anywhere on the way' : state.drop.address,
                 ),
               ),
               const SizedBox(width: TtSpacing.s),

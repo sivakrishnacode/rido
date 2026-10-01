@@ -12,6 +12,7 @@ import '../models/place.dart';
 import '../models/trip.dart';
 import '../models/vehicle.dart';
 import '../repositories/repositories.dart';
+import '../ride_modes.dart';
 import '../seed.dart';
 import '../simulation/trip_simulator.dart';
 import 'mock_database.dart';
@@ -95,8 +96,13 @@ class MockPlacesRepository with _Latency implements PlacesRepository {
   Place get currentLocation => settings().outsideServiceArea ? Seed.outsideArea : Seed.gandhipuram;
 
   @override
-  Future<List<Place>> search(String query, {LatLng? origin}) async {
+  Future<List<Place>> search(String query, {LatLng? origin, bool anywhere = false}) async {
     final q = query.trim().toLowerCase();
+    if (anywhere) {
+      await delay();
+      final all = [...Seed.outstationTowns, ...Seed.places.where((p) => p.id != 'gandhipuram')];
+      return q.isEmpty ? Seed.outstationTowns : all.where((p) => p.name.toLowerCase().contains(q) || p.address.toLowerCase().contains(q)).toList();
+    }
     final google = _client;
     final useGoogle = google != null && q.length >= GooglePlacesClient.minQueryLength;
     // A real network call has its own latency; the fake one is only for seed results.
@@ -197,6 +203,27 @@ class MockRideRepository with _Latency implements RideRepository {
   Future<List<FareQuote>> quotes(Place from, Place to, {bool womenOnly = false}) async {
     await delay();
     return FareEngine.quoteAll(rideVehicles, FareEngine.estimate(from, to));
+  }
+
+  @override
+  Future<List<FareQuote>> modeQuotes(Place pickup, Place? drop, ModeRequest request) async {
+    await delay();
+    return RideModeRates.quotesFor(pickup, drop, request);
+  }
+
+  @override
+  Future<List<Trip>> upcomingTrips() async {
+    await delay();
+    return [...db.upcoming]..sort((a, b) => (a.scheduledAt ?? a.startedAt).compareTo(b.scheduledAt ?? b.startedAt));
+  }
+
+  @override
+  Future<List<Place>> outstationDestinations(LatLng at) async {
+    await delay();
+    return [
+      for (final t in Seed.outstationTowns)
+        t.copyWith(distanceKm: (const Distance().as(LengthUnit.Meter, at, t.location) / 100).round() / 10),
+    ];
   }
 
   /// A fixed mix around [at] (same spots every time, so screenshots are stable).

@@ -65,6 +65,10 @@ Notes:
 | P-08 | Search pickup and drop | In the app | [passenger/P-08.png](passenger/P-08.png) |
 | P-09 | Pin on map | In the app | [passenger/P-09.png](passenger/P-09.png) |
 | P-10 | Choose vehicle | In the app | [passenger/P-10.png](passenger/P-10.png) |
+| P-34 | Rent a cab · by the hour | Added after the design | [passenger/P-34.png](passenger/P-34.png) |
+| P-35 | Outstation · one way or round trip | Added after the design | [passenger/P-35.png](passenger/P-35.png) |
+| P-35b | Outstation · where to | Added after the design | [passenger/P-35b.png](passenger/P-35b.png) |
+| P-36 | Booked for later | Added after the design | [passenger/P-36.png](passenger/P-36.png) |
 | P-11 | Fare details (sheet) | In the app | [passenger/P-11.png](passenger/P-11.png) |
 | P-12 | Finding your driver | In the app | [passenger/P-12.png](passenger/P-12.png) |
 | P-13 | Driver assigned · arriving | In the app | [passenger/P-13.png](passenger/P-13.png) |

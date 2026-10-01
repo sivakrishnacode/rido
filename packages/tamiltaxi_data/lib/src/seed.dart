@@ -118,6 +118,16 @@ abstract final class Seed {
     location: LatLng(11.0112, 76.9575),
   );
 
+  /// Demo outstation destinations (mock mode only; the live app suggests where riders actually went).
+  static const outstationTowns = [
+    Place(id: 'os-tiruppur', name: 'Tiruppur', address: 'Tiruppur, Tamil Nadu', location: LatLng(11.1085, 77.3411)),
+    Place(id: 'os-ooty', name: 'Ooty', address: 'Udhagamandalam, The Nilgiris, Tamil Nadu', location: LatLng(11.4102, 76.6950)),
+    Place(id: 'os-pollachi', name: 'Pollachi', address: 'Pollachi, Tamil Nadu', location: LatLng(10.6609, 77.0048)),
+    Place(id: 'os-palakkad', name: 'Palakkad', address: 'Palakkad, Kerala', location: LatLng(10.7867, 76.6548)),
+    Place(id: 'os-erode', name: 'Erode', address: 'Erode, Tamil Nadu', location: LatLng(11.3410, 77.7172)),
+    Place(id: 'os-coonoor', name: 'Coonoor', address: 'Coonoor, The Nilgiris, Tamil Nadu', location: LatLng(11.3530, 76.7959)),
+  ];
+
   /// A pin just outside the service area (for S-08).
   static const outsideArea = Place(
     id: 'outside',

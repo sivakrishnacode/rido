@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { VehicleKind } from '../../generated/prisma/enums.js';
 import { istDays, modeQuote, outstationTerms, rentalTerms, settleMode, withSettlement } from './ride-modes.js';
 
@@ -41,5 +43,28 @@ describe('outstation', () => {
     expect(settleMode(t, 512.3, 2000)).toMatchObject({ extraKm: 12.3, extraKmCharge: 135, extraTimeCharge: 0 });
     // A long route: twice the route beats the daily allowance.
     expect(outstationTerms({ kind: 'SUV', routeKm: 300, roundTrip: true, leaveAt: leave, returnAt: leave }).includedKm).toBe(600);
+  });
+});
+
+describe('shared ride-mode cases (same as the apps)', () => {
+  const cases = JSON.parse(readFileSync(new URL('../../../../../packages/tamiltaxi_data/test/fixtures/ride_mode_cases.json', import.meta.url), 'utf8')) as {
+    rental: { name: string; input: { kind: 'CAB' | 'SEDAN' | 'SUV'; packageId: string; actualKm: number | null; actualMin: number }; expected: Record<string, unknown> }[];
+    outstation: {
+      name: string;
+      input: { kind: 'CAB' | 'SEDAN' | 'SUV'; routeKm: number; roundTrip: boolean; leaveAt: string; returnAt: string | null; actualKm: number };
+      expected: Record<string, unknown>;
+    }[];
+  };
+
+  it.each(cases.rental)('$name', ({ input, expected }) => {
+    const t = rentalTerms(input.kind, input.packageId)!;
+    const q = modeQuote(input.kind as VehicleKind, t, { distanceKm: t.km, durationMin: t.hours * 60 });
+    expect({ price: t.price, extraKmRate: t.extraKmRate, extraMinRate: t.extraMinRate, total: q.total, settlement: settleMode(t, input.actualKm, input.actualMin) }).toEqual(expected);
+  });
+
+  it.each(cases.outstation)('$name', ({ input, expected }) => {
+    const t = outstationTerms({ kind: input.kind, routeKm: input.routeKm, roundTrip: input.roundTrip, leaveAt: new Date(input.leaveAt), returnAt: input.returnAt ? new Date(input.returnAt) : null });
+    const q = modeQuote(input.kind as VehicleKind, t, { distanceKm: input.routeKm, durationMin: 60 });
+    expect({ days: t.days, includedKm: t.includedKm, perKm: t.perKm, allowancePerDay: t.allowancePerDay, total: q.total, settlement: settleMode(t, input.actualKm, 600) }).toEqual(expected);
   });
 });

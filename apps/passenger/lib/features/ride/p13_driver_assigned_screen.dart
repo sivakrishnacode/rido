@@ -177,7 +177,7 @@ class P13DriverAssignedScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             const Divider(height: 1),
             const SizedBox(height: 12),
-            TripRouteSummary(pickup: ride.pickup.name, drop: ride.drop.name, fare: ride.quote.total),
+            TripRouteSummary(pickup: ride.pickup.name, drop: ride.dropTitle, fare: ride.quote.total),
           ],
         ),
       ),

@@ -8,6 +8,7 @@ import '../models/place.dart';
 import '../models/trip.dart';
 import '../models/vehicle.dart';
 import '../repositories/repositories.dart';
+import '../ride_modes.dart';
 import '../seed.dart';
 import 'api_client.dart';
 import 'api_mappers.dart';
@@ -96,15 +97,16 @@ class ApiPlacesRepository implements PlacesRepository {
   set currentLocation(Place place) => _current = place;
 
   @override
-  Future<List<Place>> search(String query, {LatLng? origin}) async {
+  Future<List<Place>> search(String query, {LatLng? origin, bool anywhere = false}) async {
     final q = query.trim();
-    if (q.isEmpty) return recentDestinations();
+    if (q.isEmpty) return anywhere ? const [] : recentDestinations();
     // The same session token for every keystroke until [resolve]; the pickup as origin adds each distance.
     final res = _map(await api.get('/places/autocomplete', query: {
       'q': q,
       'session': _session,
       if (origin != null) 'lat': origin.latitude.toStringAsFixed(5),
       if (origin != null) 'lng': origin.longitude.toStringAsFixed(5),
+      if (anywhere) 'scope': 'outstation',
     }));
     return [for (final r in _list(res['results'])) suggestionFromJson(r)];
   }
@@ -188,6 +190,40 @@ class ApiRideRepository implements RideRepository {
   /// Not used with the live API: dispatch assigns a driver and pushes `trip.updated`.
   @override
   Future<DriverProfile?> findDriver(VehicleKind kind) async => null;
+
+  /// `POST /fares/quote` with the rental / outstation fields: the cab tiers with their terms.
+  @override
+  Future<List<FareQuote>> modeQuotes(Place pickup, Place? drop, ModeRequest request) async {
+    final res = _map(await api.post('/fares/quote', {
+      'pickup': pointJson(pickup),
+      if (drop != null && request.mode != RideMode.rental) 'drop': pointJson(drop),
+      ...request.toJson(),
+    }));
+    return [for (final q in _list(res['quotes'])) quoteFromJson(q)];
+  }
+
+  /// `GET /trips/upcoming`.
+  @override
+  Future<List<Trip>> upcomingTrips() async => _list(await api.get('/trips/upcoming')).map(tripFromJson).toList();
+
+  /// `GET /places/outstation-destinations`.
+  @override
+  Future<List<Place>> outstationDestinations(LatLng at) async {
+    final res = _map(await api.get('/places/outstation-destinations', query: {
+      'lat': at.latitude.toStringAsFixed(5),
+      'lng': at.longitude.toStringAsFixed(5),
+    }));
+    return [
+      for (final d in _list(res['destinations']))
+        Place(
+          id: 'os-${d['name']}',
+          name: '${d['name']}',
+          address: '${d['address'] ?? ''}',
+          location: LatLng((d['lat'] as num).toDouble(), (d['lng'] as num).toDouble()),
+          distanceKm: (d['distanceKm'] as num?)?.toDouble(),
+        ),
+    ];
+  }
 
   /// `GET /drivers/nearby` (signed-in riders).
   @override

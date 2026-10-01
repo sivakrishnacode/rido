@@ -7,6 +7,8 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../common/async_view.dart';
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
+import '../../state/ride_flow.dart';
+import '../ride/widgets/upcoming_trip_card.dart';
 import '../states/s06_empty_activity_screen.dart';
 import '../states/s07b_activity_skeleton.dart';
 import 'widgets/activity_header.dart';
@@ -32,11 +34,15 @@ class _P21ActivityScreenState extends ConsumerState<P21ActivityScreen> with Sing
     super.dispose();
   }
 
-  List<Trip> _filter(List<Trip> trips, int tab) => switch (tab) {
-        1 => trips.where((t) => !t.isParcel).toList(),
-        2 => trips.where((t) => t.isParcel).toList(),
-        _ => trips,
-      };
+  /// Trips booked for later are listed under Upcoming, not in the history.
+  List<Trip> _filter(List<Trip> trips, int tab) {
+    final past = trips.where((t) => t.status != TripStatus.scheduled);
+    return switch (tab) {
+      1 => past.where((t) => !t.isParcel).toList(),
+      2 => past.where((t) => t.isParcel).toList(),
+      _ => past.toList(),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +62,8 @@ class _P21ActivityScreenState extends ConsumerState<P21ActivityScreen> with Sing
                   for (var i = 0; i < activityTabs.length; i++)
                     _TripList(
                       trips: _filter(trips, i),
+                      // Rentals and outstation trips booked for later (rides only).
+                      showUpcoming: i != 2,
                       emptyTitle: switch (i) {
                         1 => 'No rides yet',
                         2 => 'No parcels yet',
@@ -73,26 +81,39 @@ class _P21ActivityScreenState extends ConsumerState<P21ActivityScreen> with Sing
   }
 }
 
-class _TripList extends StatelessWidget {
-  const _TripList({required this.trips, required this.emptyTitle, required this.onRefresh});
+class _TripList extends ConsumerWidget {
+  const _TripList({required this.trips, required this.emptyTitle, required this.onRefresh, this.showUpcoming = false});
 
   final List<Trip> trips;
   final String emptyTitle;
   final Future<void> Function() onRefresh;
+  final bool showUpcoming;
 
   @override
-  Widget build(BuildContext context) {
-    if (trips.isEmpty) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final upcoming = showUpcoming ? (ref.watch(upcomingTripsProvider).value ?? const <Trip>[]) : const <Trip>[];
+    if (trips.isEmpty && upcoming.isEmpty) {
       return S06EmptyActivityView(title: emptyTitle, onBookRide: () => context.go(Routes.ride));
     }
     return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView.separated(
+      onRefresh: () async {
+        ref.invalidate(upcomingTripsProvider);
+        await onRefresh();
+      },
+      child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
-        itemCount: trips.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, i) => TripHistoryCard(trip: trips[i]),
+        children: [
+          if (upcoming.isNotEmpty) ...[
+            const UpcomingTripsSection(),
+            if (trips.isNotEmpty) Text('PAST', style: context.type.overline),
+            const SizedBox(height: 8),
+          ],
+          for (var i = 0; i < trips.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            TripHistoryCard(trip: trips[i]),
+          ],
+        ],
       ),
     );
   }

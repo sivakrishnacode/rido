@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:latlong2/latlong.dart';
 
+import '../ride_modes.dart';
 import '../models/booking_prefs.dart';
 import '../models/cancellation.dart';
 import '../models/driver.dart';
@@ -80,6 +81,7 @@ class LiveTrips {
   final ApiClient api;
   final RealtimeClient realtime;
 
+  /// Books a trip. [mode]: a rental (no drop sent) or outstation trip, maybe for later (`SCHEDULED`).
   Future<LiveTripUpdate> book({
     required TripKind kind,
     required VehicleKind vehicle,
@@ -89,13 +91,15 @@ class LiveTrips {
     ParcelDetails? parcel,
     WomenDriverPref womenDriver = WomenDriverPref.none,
     OtherRider? rider,
+    ModeRequest? mode,
   }) async {
     realtime.connect();
     final res = _map(await api.post('/trips', {
       'kind': kind == TripKind.parcel ? 'PARCEL' : 'RIDE',
       'vehicleKind': enumToApi(vehicle),
       'pickup': pointJson(pickup),
-      'drop': pointJson(drop),
+      if (mode?.mode != RideMode.rental) 'drop': pointJson(drop),
+      if (mode != null && mode.mode != RideMode.local) ...mode.toJson(),
       // Only a server that sends landmarks gets one back (older servers reject unknown fields).
       if (pickup.landmark != null) 'pickupLandmark': pickup.landmark!.length > 120 ? pickup.landmark!.substring(0, 120) : pickup.landmark,
       'paymentMode': enumToApi(paymentMode),

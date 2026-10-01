@@ -35,6 +35,7 @@ export 'src/models/trip.dart';
 export 'src/models/vehicle.dart';
 export 'src/providers.dart';
 export 'src/repositories/repositories.dart';
+export 'src/ride_modes.dart';
 export 'src/seed.dart';
 export 'src/simulation/trip_simulator.dart';
 export 'src/simulation/road_router.dart';

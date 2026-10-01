@@ -14,4 +14,11 @@ void main() {
     expect(formatCountdown(const Duration(seconds: 24)), '0:24');
     expect(formatCountdown(const Duration(seconds: 165)), '2:45');
   });
+
+  test('formatWhen', () {
+    final now = DateTime(2026, 10, 5, 14);
+    expect(formatWhen(DateTime(2026, 10, 5, 18, 30), now: now), 'Today, 6:30 PM');
+    expect(formatWhen(DateTime(2026, 10, 6, 6), now: now), 'Tomorrow, 6:00 AM');
+    expect(formatWhen(DateTime(2026, 10, 9, 9, 15), now: now), 'Fri 9 Oct, 9:15 AM');
+  });
 }

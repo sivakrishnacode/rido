@@ -116,8 +116,9 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('On the way to', style: t.bodySmall.copyWith(color: TtColors.navy500)),
-                    Text(ride.drop.name, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    // A rental has no drop: the package instead.
+                    Text(ride.isRental ? 'Your rental' : 'On the way to', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+                    Text(ride.dropTitle, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -226,8 +227,8 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(ride.drop.name, style: t.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            Text(ride.drop.address,
+                            Text(ride.dropTitle, style: t.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(ride.isRental ? 'Stop anywhere on the way; tell your driver where to go' : ride.drop.address,
                                 style: t.bodySmall.copyWith(color: TtColors.navy500),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),

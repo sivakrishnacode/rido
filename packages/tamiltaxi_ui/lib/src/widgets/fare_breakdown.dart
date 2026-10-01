@@ -32,6 +32,8 @@ class FareBreakdown extends StatelessWidget {
 
   /// Builds the standard lines from a [FareQuote]: base, distance, time, subtotal, peak, waiting (when charged).
   factory FareBreakdown.fromQuote(FareQuote q, {Key? key, String? title, String? subtitle, Widget? footer}) {
+    final terms = q.modeTerms;
+    if (terms != null) return FareBreakdown._mode(q, terms, key: key, title: title, subtitle: subtitle, footer: footer);
     final perKm = q.vehicle.fareRule.perKm;
     final perKmText = perKm == perKm.roundToDouble() ? perKm.toStringAsFixed(0) : perKm.toStringAsFixed(1);
     return FareBreakdown(
@@ -53,6 +55,35 @@ class FareBreakdown extends StatelessWidget {
         FareLine('Subtotal', q.subtotal, emphasis: true),
         if (q.hasPeak) FareLine('Peak time', q.peakCharge, tag: '${q.multiplier.toStringAsFixed(1)}x', signed: true),
         if (q.hasWaiting) waitingLine(q),
+        if (q.hasCancellationFee) cancellationFeeLine(q),
+        if (q.hasExtra) extraLine(q),
+        const FareLine('Tamil Taxi commission', 0, tag: '0%'),
+      ],
+    );
+  }
+
+  /// A rental (package, then km / minutes past it) or outstation fare (km, driver allowance, extra km).
+  factory FareBreakdown._mode(FareQuote q, ModeTerms terms, {Key? key, String? title, String? subtitle, Widget? footer}) {
+    String rate(double r) => r == r.roundToDouble() ? '₹${r.toStringAsFixed(0)}' : '₹${r.toStringAsFixed(1)}';
+    return FareBreakdown(
+      key: key,
+      title: title,
+      subtitle: subtitle,
+      footer: footer,
+      total: q.total,
+      lines: [
+        ...switch (terms) {
+          RentalTerms t => [
+              FareLine('Package', q.base, note: t.package.label),
+              if (q.extraKmCharge > 0) FareLine('Extra distance', q.extraKmCharge, note: '${rate(t.extraKmRate)} a km', signed: true),
+              if (q.extraTimeCharge > 0) FareLine('Extra time', q.extraTimeCharge, note: '${rate(t.extraMinRate)} a min', signed: true),
+            ],
+          OutstationTerms t => [
+              FareLine(t.roundTrip ? 'Round trip' : 'One way', q.base, note: '${formatCount(t.includedKm)} km × ${rate(t.perKm)}'),
+              FareLine("Driver's allowance", q.timeCharge, note: t.days == 1 ? '1 day' : '${t.days} days'),
+              if (q.extraKmCharge > 0) FareLine('Extra distance', q.extraKmCharge, note: '${rate(t.perKm)} a km', signed: true),
+            ],
+        },
         if (q.hasCancellationFee) cancellationFeeLine(q),
         if (q.hasExtra) extraLine(q),
         const FareLine('Tamil Taxi commission', 0, tag: '0%'),

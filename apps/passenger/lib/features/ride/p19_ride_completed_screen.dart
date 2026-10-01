@@ -59,10 +59,10 @@ class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen>
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Text("You've arrived!", style: t.display, textAlign: TextAlign.center),
+                    Text(ride.isRental ? 'Rental complete' : "You've arrived!", style: t.display, textAlign: TextAlign.center),
                     const SizedBox(height: 4),
                     Text(
-                      '${ride.drop.name} · ${formatTime(_arrivedAt)}',
+                      '${ride.isRental ? ride.dropTitle : ride.drop.name} · ${formatTime(_arrivedAt)}',
                       style: TtTextStyles.tabular(t.body.copyWith(color: TtColors.navy500)),
                       textAlign: TextAlign.center,
                     ),
@@ -104,7 +104,7 @@ class _P19RideCompletedScreenState extends ConsumerState<P19RideCompletedScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${shortPlaceName(ride.pickup.name)} → ${shortPlaceName(ride.drop.name)}',
+                                  ride.isRental ? 'From ${shortPlaceName(ride.pickup.name)}' : '${shortPlaceName(ride.pickup.name)} → ${shortPlaceName(ride.drop.name)}',
                                   style: t.bodyMedium,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
