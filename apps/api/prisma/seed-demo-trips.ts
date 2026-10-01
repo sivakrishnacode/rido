@@ -29,7 +29,10 @@ const HOTSPOTS = [
 
 /** Relative bookings per IST hour (morning and evening peaks). */
 const HOUR_WEIGHT = [1, 0.5, 0.3, 0.2, 0.3, 1, 3, 6, 9, 8, 5, 4, 5, 5, 4, 4, 5, 8, 10, 9, 7, 5, 3, 2];
-const VEHICLES: [VehicleKind, number][] = [['BIKE', 50], ['AUTO', 30], ['CAB', 12], ['GOODS_BIKE', 4], ['THREE_WHEELER', 3], ['MINI_TRUCK', 1]];
+const VEHICLES: [VehicleKind, number][] = [
+  ['BIKE', 44], ['SCOOTY', 6], ['AUTO', 26], ['AUTO_PRIORITY', 4], ['CAB', 8], ['SEDAN', 3], ['SUV', 1],
+  ['GOODS_BIKE', 4], ['THREE_WHEELER', 3], ['MINI_TRUCK', 1],
+];
 
 function pick<T>(items: readonly T[], weight: (t: T) => number): T {
   const total = items.reduce((a, t) => a + weight(t), 0);

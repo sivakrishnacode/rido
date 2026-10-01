@@ -1,6 +1,7 @@
-import { IsEnum, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 import { Gender, VehicleKind, WorkType } from '../../../generated/prisma/enums.js';
+import { DRIVER_VEHICLE_KINDS } from '../vehicle-match.js';
 
 /** POST /drivers body (D-04 … D-06). */
 export class RegisterDriverDto {
@@ -11,7 +12,8 @@ export class RegisterDriverDto {
   @IsEnum(WorkType)
   workType: WorkType;
 
-  @IsEnum(VehicleKind)
+  /** Any vehicle except booking tiers (Auto Priority is served by autos). */
+  @IsIn(DRIVER_VEHICLE_KINDS, { message: 'Choose your vehicle' })
   vehicleKind: VehicleKind;
 
   @IsString()

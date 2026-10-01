@@ -39,6 +39,24 @@ describe('FaresService', () => {
     expect(bike?.total).toBe(withoutTraffic.total);
   });
 
+  it('lists every ride tier in order: Bike, Scooty, Auto, Auto Priority, Mini, Sedan, SUV', async () => {
+    const { fares } = service();
+    const quotes = await fares.quoteAll({ pickup, drop, kind: TripKind.RIDE });
+    expect(quotes.map((q) => q.vehicleKind)).toEqual([
+      VehicleKind.BIKE,
+      VehicleKind.SCOOTY,
+      VehicleKind.AUTO,
+      VehicleKind.AUTO_PRIORITY,
+      VehicleKind.CAB,
+      VehicleKind.SEDAN,
+      VehicleKind.SUV,
+    ]);
+    const total = Object.fromEntries(quotes.map((q) => [q.vehicleKind, q.total]));
+    expect(total[VehicleKind.AUTO_PRIORITY]).toBeGreaterThan(total[VehicleKind.AUTO]);
+    expect(total[VehicleKind.SEDAN]).toBeGreaterThan(total[VehicleKind.CAB]);
+    expect(total[VehicleKind.SUV]).toBeGreaterThan(total[VehicleKind.SEDAN]);
+  });
+
   it('prices goods on the three-wheeler route, booked or listed', async () => {
     const { fares, estimate } = service();
     await fares.quoteAll({ pickup, drop, kind: TripKind.PARCEL });
@@ -48,7 +66,8 @@ describe('FaresService', () => {
 
   it("measures every vehicle's nearest drivers with one ETA lookup", async () => {
     const { fares } = service();
-    const quotes = await fares.quoteAll({ pickup, drop, kind: TripKind.RIDE });
+    const three: VehicleKind[] = [VehicleKind.BIKE, VehicleKind.AUTO, VehicleKind.CAB];
+    const quotes = (await fares.quoteAll({ pickup, drop, kind: TripKind.RIDE })).filter((q) => three.includes(q.vehicleKind));
     const nearby = vi.fn(async (p: { kind: VehicleKind }) =>
       p.kind === VehicleKind.CAB ? [] : [{ driverId: `${p.kind}-1`, lat: 11.0, lng: 77.0, distanceKm: 2 }, { driverId: `${p.kind}-2`, lat: 10.99, lng: 77.02, distanceKm: 1 }],
     );

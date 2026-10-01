@@ -121,7 +121,9 @@ describe('Tamil Taxi API (e2e)', () => {
 
   it('quotes fares with no peak markup by default', async () => {
     const res = await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200);
-    expect(res.body.quotes.map((q: { total: number }) => q.total)).toEqual([35, 66, 132]);
+    // Bike, Scooty, Auto, Auto Priority, Mini, Sedan, SUV.
+    expect(res.body.quotes.map((q: { vehicleKind: string }) => q.vehicleKind)).toEqual(['BIKE', 'SCOOTY', 'AUTO', 'AUTO_PRIORITY', 'CAB', 'SEDAN', 'SUV']);
+    expect(res.body.quotes.map((q: { total: number }) => q.total)).toEqual([35, 39, 66, 80, 132, 158, 210]);
   });
 
   it('runs a bike ride end to end', async () => {
@@ -216,6 +218,40 @@ describe('Tamil Taxi API (e2e)', () => {
     }
     return res;
   }
+
+  it('Auto Priority goes to an auto at its own fare; a scooter takes a Bike ride; nobody registers as Auto Priority', async () => {
+    const user = await login();
+    const reg = { name: 'Test Driver', workType: 'RIDES', vehicleKind: 'AUTO_PRIORITY', vehicleModel: 'Test', vehicleColor: 'White', plate: randomPlate(), upiId: 'test@okaxis' };
+    await http.post('/v1/drivers').set('Authorization', `Bearer ${user}`).send(reg).expect(400);
+
+    // Away from the Gandhipuram tests, so these bookings don't count as demand (surge) there.
+    const pickup = { lat: 11.0004, lng: 77.028, name: 'Singanallur' };
+    const near = { lat: 11.0007, lng: 77.0284 };
+    const quotes = (await http.post('/v1/fares/quote').send({ pickup, drop: BROOKEFIELDS }).expect(200)).body.quotes as { vehicleKind: string; total: number }[];
+    const fare = (kind: string): number => quotes.find((q) => q.vehicleKind === kind)!.total;
+    expect(fare('AUTO_PRIORITY')).toBeGreaterThan(fare('AUTO'));
+
+    const rider = await login();
+    const pax = { Authorization: `Bearer ${rider}` };
+    const auto = await onlineDriver('AUTO', near);
+    const priority = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'AUTO_PRIORITY', pickup, drop: BROOKEFIELDS }).expect(201)).body;
+    expect(priority.fareTotal).toBe(fare('AUTO_PRIORITY'));
+    expect((await acceptWhenOffered(priority.id, auto)).status).toBe(200);
+    // The auto takes it as Auto Priority, at the priority fare.
+    expect(await prisma.trip.findUniqueOrThrow({ where: { id: priority.id }, select: { vehicleKind: true, fareTotal: true } })).toEqual({
+      vehicleKind: 'AUTO_PRIORITY',
+      fareTotal: fare('AUTO_PRIORITY'),
+    });
+    await http.post(`/v1/trips/${priority.id}/cancel`).set(pax).send({}).expect(200);
+    await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${auto}`).expect(200);
+
+    const scooty = await onlineDriver('SCOOTY', near);
+    const bike = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup, drop: BROOKEFIELDS }).expect(201)).body;
+    expect((await acceptWhenOffered(bike.id, scooty)).status).toBe(200);
+    expect((await prisma.trip.findUniqueOrThrow({ where: { id: bike.id } })).fareTotal).toBe(fare('BIKE'));
+    await http.post(`/v1/trips/${bike.id}/cancel`).set(pax).send({}).expect(200);
+    await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${scooty}`).expect(200);
+  });
 
   it('quotes carry the nearest driver\'s pickup ETA (null when nobody is near)', async () => {
     const bikeDriver = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
@@ -824,6 +860,18 @@ describe('Tamil Taxi API (e2e)', () => {
   }, 90_000);
 
   it('charges waiting past the free minutes at start, as its own fare line (not surged)', async () => {
+    // The suite's bookings at Gandhipuram can surge it, depending on when the demand tick runs: this test is about
+    // waiting, so live surge is off while it runs.
+    const settings = app.get(SettingsService);
+    await settings.update({ dynamicSurgeEnabled: false });
+    try {
+      await waitingCharges();
+    } finally {
+      await settings.update({ dynamicSurgeEnabled: true });
+    }
+  }, 45_000);
+
+  async function waitingCharges(): Promise<void> {
     const { trip, driver } = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
     expect(trip.fare).toMatchObject({ waitingCharge: 0, freeWaitMin: 3, waitPerMin: 1, waitMaxCharge: 30 });
     await http.post(`/v1/trips/${trip.id}/arrived`).set(driver).expect(200);
@@ -847,7 +895,7 @@ describe('Tamil Taxi API (e2e)', () => {
     await http.post('/v1/drivers/me/location').set(quick.driver).send({ lat: BROOKEFIELDS.lat, lng: BROOKEFIELDS.lng }).expect(204);
     await http.post(`/v1/trips/${quick.trip.id}/complete`).set(quick.driver).send({}).expect(200);
     for (const d of [driver, quick.driver]) await http.post('/v1/drivers/me/offline').set(d);
-  }, 45_000);
+  }
 
   it('a driver who is not moving is nudged, then the ride goes to another driver', async () => {
     const jobs = app.get(JobsService);

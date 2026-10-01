@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { adminApi, docFileHref } from "@/lib/api";
 import { displayName, formatCount, formatDate, formatPhone, humanize, initials, kycProgress, vehicleLabel } from "@/lib/format";
 import { param, pageSizeParam, parsePage, parsePageSize, withQuery } from "@/lib/paging";
-import { DRIVER_STATUSES, VEHICLE_KINDS, type DriverStatus } from "@/lib/types";
+import { DRIVER_STATUSES, DRIVER_VEHICLE_KINDS, type DriverStatus } from "@/lib/types";
 
 export const metadata: Metadata = { title: "All drivers" };
 
@@ -85,7 +85,7 @@ export default async function DriversPage({ searchParams }: PageProps<"/drivers"
       <ListFilters
         searchPlaceholder="Name, phone or plate"
         filters={[
-          { name: "vehicle", label: "Vehicles", options: VEHICLE_KINDS.map((v) => ({ value: v, label: vehicleLabel(v) })) },
+          { name: "vehicle", label: "Vehicles", options: DRIVER_VEHICLE_KINDS.map((v) => ({ value: v, label: vehicleLabel(v) })) },
           { name: "online", label: "Online & offline", options: [{ value: "true", label: "Online now" }, { value: "false", label: "Offline" }] },
           { name: "gender", label: "Genders", options: [{ value: "FEMALE", label: "Women drivers" }, { value: "MALE", label: "Men" }] },
           { name: "sort", label: "Sort", options: DRIVER_SORT_OPTIONS, defaultValue: "newest" },

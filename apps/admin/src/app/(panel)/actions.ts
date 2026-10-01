@@ -13,6 +13,7 @@ import {
   KYC_DOC_TYPES,
   ROLES,
   TICKET_STATUSES,
+  DRIVER_VEHICLE_KINDS,
   VEHICLE_KINDS,
   ZONE_KINDS,
   type City,
@@ -278,7 +279,7 @@ const UPI = /^[\w.-]{2,}@[a-z]{2,}$/i;
 
 /** Fixes a driver's vehicle / payout details (only the changed fields are sent). */
 export async function updateDriverProfile(driverId: string, userId: string, input: DriverProfileInput): Promise<ActionResult> {
-  if (input.vehicleKind !== undefined && !VEHICLE_KINDS.includes(input.vehicleKind)) return { ok: false, error: "Unknown vehicle" };
+  if (input.vehicleKind !== undefined && !DRIVER_VEHICLE_KINDS.includes(input.vehicleKind)) return { ok: false, error: "Unknown vehicle" };
   if (input.workType !== undefined && !WORK_TYPES.includes(input.workType)) return { ok: false, error: "Unknown work type" };
   if (input.vehicleModel !== undefined && (input.vehicleModel.trim().length < 2 || input.vehicleModel.trim().length > 60)) {
     return { ok: false, error: "Model must be 2–60 characters" };

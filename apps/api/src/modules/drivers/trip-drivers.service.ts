@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
-import type { VehicleKind } from '../../generated/prisma/enums.js';
+import { VehicleKind } from '../../generated/prisma/enums.js';
 import { DriverLocationService, type NearbyDriver } from './driver-location.service.js';
-import { driverKindsFor, parcelsOffAmong } from './parcel-bikes.js';
+import { driverKindsFor, parcelsOffAmong } from './vehicle-match.js';
 
 /** A free driver who can take the trip, with their own vehicle ([kind], for the ETA and the fare they take it at). */
 export interface CapableDriver extends NearbyDriver {
@@ -11,8 +11,9 @@ export interface CapableDriver extends NearbyDriver {
 }
 
 /**
- * Who can take a trip booked as a vehicle: that vehicle's free drivers, plus bike drivers for a goods-bike parcel
- * (parcel-bikes.ts) unless they turned parcels off. Used by dispatch, the vehicle list's pickup ETAs and "Book any".
+ * Who can take a trip booked as a vehicle: that vehicle's free drivers, plus the others vehicle-match.ts allows (bikes
+ * and scooters for a goods-bike parcel unless they turned parcels off, scooters for a Bike ride, autos for Auto
+ * Priority). Used by dispatch, the vehicle list's pickup ETAs and "Book any".
  */
 @Injectable()
 export class TripDriversService {
@@ -29,7 +30,8 @@ export class TripDriversService {
     const [own, ...others] = perKind;
     const extra = others.flat();
     if (extra.length === 0) return own;
-    const off = await parcelsOffAmong(this.prisma, extra.map((d) => d.driverId));
+    // Parcels too is a booking preference: two-wheelers that turned it off don't get goods-bike parcels.
+    const off = params.kind === VehicleKind.GOODS_BIKE ? await parcelsOffAmong(this.prisma, extra.map((d) => d.driverId)) : new Set<string>();
     return [...own, ...extra.filter((d) => !off.has(d.driverId))].sort((a, b) => a.ring - b.ring || a.distanceKm - b.distanceKm);
   }
 }

@@ -1,4 +1,4 @@
-import { assignBatch } from './batch-assign.js';
+import { assignBatch, PRIORITY_HEAD_START_MIN } from './batch-assign.js';
 
 const t = (s: number): Date => new Date(2026, 8, 25, 10, 0, s);
 
@@ -27,6 +27,21 @@ describe('assignBatch', () => {
     ]);
     expect(out.get('early')).toEqual(['d1']);
     expect(out.get('late')).toEqual(['d3', 'd1']);
+  });
+
+  it('gives an Auto Priority trip the contested driver over a normal auto booked earlier (within the head start)', () => {
+    const out = assignBatch([
+      { tripId: 'auto', createdAt: t(0), candidates: [{ driverId: 'd1', etaMin: 2 }, { driverId: 'd2', etaMin: 9 }] },
+      { tripId: 'priority', createdAt: t(1), priority: true, candidates: [{ driverId: 'd1', etaMin: 4 }] },
+    ]);
+    expect(out.get('priority')?.[0]).toBe('d1');
+    expect(out.get('auto')?.[0]).toBe('d2');
+    // Beyond the head start the nearer trip still wins.
+    const far = assignBatch([
+      { tripId: 'auto', createdAt: t(0), candidates: [{ driverId: 'd1', etaMin: 1 }] },
+      { tripId: 'priority', createdAt: t(1), priority: true, candidates: [{ driverId: 'd1', etaMin: 1 + PRIORITY_HEAD_START_MIN + 1 }] },
+    ]);
+    expect(far.get('auto')?.[0]).toBe('d1');
   });
 
   it('returns an empty queue when a trip has no candidates', () => {

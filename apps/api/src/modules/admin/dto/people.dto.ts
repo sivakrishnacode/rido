@@ -1,6 +1,7 @@
 import { IsEnum, IsIn, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 import { VehicleKind, WorkType } from '../../../generated/prisma/enums.js';
+import { DRIVER_VEHICLE_KINDS } from '../../drivers/vehicle-match.js';
 
 /** POST /admin/users/:id/notes body. */
 export class CreateNoteDto {
@@ -29,7 +30,7 @@ export class MessageDto {
 export class AdminDriverProfileDto {
   /** Only while the driver is offline (live locations are indexed per vehicle). */
   @IsOptional()
-  @IsEnum(VehicleKind)
+  @IsIn(DRIVER_VEHICLE_KINDS, { message: 'Choose a vehicle (Auto Priority is served by autos)' })
   vehicleKind?: VehicleKind;
 
   @IsOptional()

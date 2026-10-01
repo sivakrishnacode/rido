@@ -14,18 +14,31 @@ export interface BatchRequest {
   /** Earlier bookings win ties. */
   readonly createdAt: Date;
   readonly candidates: readonly Candidate[];
+  /** Auto Priority: wins a contested driver over a normal trip up to [PRIORITY_HEAD_START_MIN] ranking minutes away. */
+  readonly priority?: boolean;
 }
+
+/** Ranking minutes a priority trip is ahead of normal trips in the batch (what the rider pays more for). */
+export const PRIORITY_HEAD_START_MIN = 4;
 
 /**
  * Assigns drivers across a whole batch (not one rider at a time): all (trip, driver) pairs are
- * sorted by ranking minutes (ETA as scored) and each trip takes the fastest driver nobody else has taken yet. Each trip's
+ * sorted by ranking minutes (ETA as scored, minus a head start for priority trips) and each trip takes the fastest
+ * driver nobody else has taken yet. Each trip's
  * remaining candidates follow as fallbacks, with drivers promised to other trips moved last.
  * Returns the ordered offer queue per trip.
  */
 export function assignBatch(requests: readonly BatchRequest[]): Map<string, string[]> {
   const pairs = requests
-    .flatMap((r) => r.candidates.map((c) => ({ tripId: r.tripId, createdAt: r.createdAt.getTime(), ...c })))
-    .sort((a, b) => a.etaMin - b.etaMin || a.createdAt - b.createdAt);
+    .flatMap((r) =>
+      r.candidates.map((c) => ({
+        tripId: r.tripId,
+        createdAt: r.createdAt.getTime(),
+        ...c,
+        order: c.etaMin - (r.priority ? PRIORITY_HEAD_START_MIN : 0),
+      })),
+    )
+    .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
   const primary = new Map<string, string>();
   const takenDrivers = new Set<string>();
   for (const p of pairs) {

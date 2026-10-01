@@ -150,8 +150,8 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
   delivery OTP `7153`.
 - **Fare engine** (same in the apps and the API): `max(minFare, (base + perKm·km + perMin·min) × multiplier)`,
   multiplier ≤ `maxMultiplier` (1.5) and never applied to the minimum-fare top-up,
-  each line rounded down. No peak by default (`currentMultiplier` 1.0): demo quotes ₹35 / ₹66 / ₹132 (the design
-  frames show ₹38 / ₹72 / ₹145 at 1.1x).
+  each line rounded down. No peak by default (`currentMultiplier` 1.0): demo quotes Bike ₹35, Scooty ₹39, Auto ₹66,
+  Auto Priority ₹80, Mini ₹132, Sedan ₹158, SUV ₹210 (tiers: `using.tech.md` 6f; `CAB` is "Mini").
 - **H3:** res 8 for service areas, zones, the driver index and heatmaps; res 7 for demand and surge; res 9/8/7 for
   learned ETA.
 - **Android:** Impeller is forced to OpenGL ES (Vulkan lagged on MediaTek/Mali). Release signing uses debug keys for now.

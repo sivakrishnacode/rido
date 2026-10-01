@@ -26,10 +26,16 @@ enum WorkType {
   DELIVERIES
 }
 
+/// Ride tiers BIKE … SUV (CAB is the "Mini" hatchback; AUTO_PRIORITY is a booking tier served by AUTO drivers,
+/// never a driver's vehicle), then goods vehicles.
 enum VehicleKind {
   BIKE
+  SCOOTY
   AUTO
+  AUTO_PRIORITY
   CAB
+  SEDAN
+  SUV
   GOODS_BIKE
   THREE_WHEELER
   MINI_TRUCK

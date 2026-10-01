@@ -13,16 +13,21 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: proc
 const FIRST = ['Arun', 'Priya', 'Karthik', 'Divya', 'Suresh', 'Lakshmi', 'Vignesh', 'Meena', 'Rajesh', 'Kavya', 'Prakash', 'Anitha', 'Senthil', 'Revathi', 'Mani', 'Deepa', 'Gokul', 'Nandhini', 'Bala', 'Sangeetha'];
 const LAST = ['Kumar', 'Raj', 'Subramani', 'Murugan', 'Selvam', 'Natarajan', 'Krishnan', 'Pandian', 'Ramasamy', 'Velu'];
 const MODELS: Record<string, string[]> = {
-  BIKE: ['Honda Activa 6G', 'TVS Jupiter', 'Hero Splendor+', 'Bajaj Pulsar 150'],
+  BIKE: ['Hero Splendor+', 'Bajaj Pulsar 150', 'Honda Shine'],
+  SCOOTY: ['Honda Activa 6G', 'TVS Jupiter', 'Suzuki Access'],
   AUTO: ['Bajaj RE Compact', 'Piaggio Ape City', 'TVS King'],
-  CAB: ['Maruti Dzire', 'Hyundai Aura', 'Toyota Etios'],
+  CAB: ['Maruti Swift', 'Hyundai i10', 'Tata Tiago'],
+  SEDAN: ['Maruti Dzire', 'Hyundai Aura', 'Honda Amaze'],
+  SUV: ['Maruti Ertiga', 'Kia Carens', 'Mahindra Marazzo'],
   GOODS_BIKE: ['TVS XL100', 'Hero Splendor+'],
   THREE_WHEELER: ['Piaggio Ape Xtra', 'Bajaj Maxima Cargo'],
   MINI_TRUCK: ['Tata Ace Gold', 'Mahindra Jeeto'],
 };
 const COLORS = ['White', 'Black', 'Red', 'Blue', 'Grey', 'Yellow'];
 // [vehicle, count] - approved drivers are needed for every vehicle the demo trips use.
-const FLEET: [VehicleKind, number][] = [['BIKE', 12], ['AUTO', 8], ['CAB', 5], ['GOODS_BIKE', 3], ['THREE_WHEELER', 2], ['MINI_TRUCK', 2]];
+const FLEET: [VehicleKind, number][] = [
+  ['BIKE', 10], ['SCOOTY', 2], ['AUTO', 8], ['CAB', 3], ['SEDAN', 1], ['SUV', 1], ['GOODS_BIKE', 3], ['THREE_WHEELER', 2], ['MINI_TRUCK', 2],
+];
 const DOCS: KycDocType[] = ['DRIVING_LICENCE', 'AADHAAR', 'VEHICLE_RC', 'INSURANCE', 'POLICE_VERIFICATION'];
 const TOPICS: [string, string][] = [
   ['Fare issue', 'I was charged more than the quoted fare.'],

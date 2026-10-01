@@ -91,8 +91,12 @@ export function humanize(value: string | null | undefined): string {
 
 const VEHICLE_LABELS: Record<VehicleKind, string> = {
   BIKE: "Bike",
+  SCOOTY: "Scooty",
   AUTO: "Auto",
-  CAB: "Cab",
+  AUTO_PRIORITY: "Auto Priority",
+  CAB: "Mini",
+  SEDAN: "Sedan",
+  SUV: "SUV",
   GOODS_BIKE: "Goods bike",
   THREE_WHEELER: "3-wheeler",
   MINI_TRUCK: "Mini truck",

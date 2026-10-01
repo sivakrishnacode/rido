@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { vehicleLabel } from "@/lib/format";
-import { VEHICLE_KINDS, type DriverProfileInput, type VehicleKind, type WorkType } from "@/lib/types";
+import { DRIVER_VEHICLE_KINDS, type DriverProfileInput, type VehicleKind, type WorkType } from "@/lib/types";
 
 import { setUserBlocked, takeDriverOffline, updateDriverProfile, updateUserDetails, type ActionResult } from "@/app/(panel)/actions";
 
@@ -213,7 +213,7 @@ function EditDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {VEHICLE_KINDS.map((k) => (
+                    {DRIVER_VEHICLE_KINDS.map((k) => (
                       <SelectItem key={k} value={k}>
                         {vehicleLabel(k)}
                       </SelectItem>
