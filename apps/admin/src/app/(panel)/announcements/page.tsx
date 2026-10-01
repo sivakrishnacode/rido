@@ -16,7 +16,7 @@ function hasEnded(endsAt: string | null): boolean {
   return !!endsAt && new Date(endsAt).getTime() <= Date.now();
 }
 
-const AUDIENCE = { ALL: "Everyone", PASSENGER: "Passengers", DRIVER: "Drivers" } as const;
+const AUDIENCE = { ALL: "Everyone", PASSENGER: "Riders", DRIVER: "Drivers" } as const;
 
 export default async function AnnouncementsPage() {
   const [items, cities] = await Promise.all([adminApi.announcements(), adminApi.cities()]);

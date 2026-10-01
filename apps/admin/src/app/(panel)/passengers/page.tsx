@@ -13,7 +13,7 @@ import { adminApi } from "@/lib/api";
 import { formatCount, formatDate, formatPhone, initials } from "@/lib/format";
 import { DEFAULT_PAGE_SIZE, param, parsePage } from "@/lib/paging";
 
-export const metadata: Metadata = { title: "Passengers" };
+export const metadata: Metadata = { title: "Riders" };
 
 export default async function PassengersPage({ searchParams }: PageProps<"/passengers">) {
   const sp = await searchParams;
@@ -23,14 +23,14 @@ export default async function PassengersPage({ searchParams }: PageProps<"/passe
 
   return (
     <>
-      <PageHeader title="Passengers" description={`${formatCount(data.total)} ${query.q ? "matching" : "registered"} passengers.`} />
+      <PageHeader title="Riders" description={`${formatCount(data.total)} ${query.q ? "matching" : "registered"} riders. Open one to see their trips, account and safety contacts.`} />
       <ListFilters searchPlaceholder="Name or phone" />
       <Card className="gap-0 py-0">
         {data.items.length === 0 ? (
           <EmptyState
             icon={UsersIcon}
-            title={query.q ? "No passengers match" : "No passengers yet"}
-            description={query.q ? "Try another name or phone number." : "Passengers appear after their first sign-in."}
+            title={query.q ? "No riders match" : "No riders yet"}
+            description={query.q ? "Try another name or phone number." : "Riders appear after their first sign-in."}
           />
         ) : (
           <Table>
@@ -74,7 +74,7 @@ export default async function PassengersPage({ searchParams }: PageProps<"/passe
             </TableBody>
           </Table>
         )}
-        <Pager path="/passengers" query={query} page={data.page} pageSize={data.pageSize} total={data.total} noun="passengers" />
+        <Pager path="/passengers" query={query} page={data.page} pageSize={data.pageSize} total={data.total} noun="riders" />
       </Card>
       <p className="mt-3 text-xs text-muted-foreground">
         Open{" "}

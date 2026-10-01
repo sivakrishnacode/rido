@@ -25,7 +25,7 @@ import { createAnnouncement, deleteAnnouncement, setAnnouncementActive } from ".
 
 const AUDIENCE_LABEL: Record<AnnouncementAudience, string> = {
   ALL: "Everyone",
-  PASSENGER: "Passengers",
+  PASSENGER: "Riders",
   DRIVER: "Drivers",
 };
 

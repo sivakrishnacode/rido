@@ -15,7 +15,7 @@ import { KYC_STATUSES, type KycStatus } from "@/lib/types";
 
 import { DocumentActions } from "../drivers/[id]/driver-actions";
 
-export const metadata: Metadata = { title: "KYC" };
+export const metadata: Metadata = { title: "Documents" };
 
 const TAB_LABEL: Record<KycStatus, string> = {
   UNDER_REVIEW: "Waiting for review",
@@ -38,7 +38,7 @@ export default async function KycPage({ searchParams }: PageProps<"/kyc">) {
   return (
     <>
       <PageHeader
-        title="KYC review"
+        title="Documents"
         description="Driver documents, oldest first. Verifying all five approves the driver; one rejection marks them rejected."
       />
       <LinkTabs

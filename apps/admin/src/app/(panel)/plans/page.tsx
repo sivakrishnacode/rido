@@ -9,7 +9,7 @@ import { PLAN_PERIODS, VEHICLE_KINDS } from "@/lib/types";
 
 import { PlanCell } from "./plan-cell";
 
-export const metadata: Metadata = { title: "Plans" };
+export const metadata: Metadata = { title: "Driver plans" };
 
 const DAYS = { DAILY: 1, WEEKLY: 7, MONTHLY: 30 } as const;
 
@@ -20,7 +20,7 @@ export default async function PlansPage() {
   return (
     <>
       <PageHeader
-        title="Plans"
+        title="Driver plans"
         description="Drivers pay a flat daily, weekly or monthly plan and keep 100% of every fare. Changes apply to new purchases."
       />
       {plans.length === 0 ? (

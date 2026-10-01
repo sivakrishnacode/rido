@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -40,6 +40,16 @@ async function ApprovalsBadge() {
   );
 }
 
+/** One settings read per render for the badges below. */
+const settingsOnce = cache(() => adminApi.settings().catch(() => null));
+
+/** "Off" next to the plan pages while paid driver plans are switched off (the free app). */
+async function PlansOffBadge() {
+  const settings = await settingsOnce();
+  if (!settings || settings.driverPlansEnabled) return null;
+  return <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Off</span>;
+}
+
 /** Open SOS alerts, shown in red next to "SOS". Never breaks the layout. */
 async function SosBadge() {
   const open = await adminApi
@@ -76,6 +86,18 @@ export default function PanelLayout({ children }: LayoutProps<"/">) {
         "/safety": (
           <Suspense fallback={null}>
             <SosBadge />
+          </Suspense>
+        ),
+      }}
+      tags={{
+        "/plans": (
+          <Suspense fallback={null}>
+            <PlansOffBadge />
+          </Suspense>
+        ),
+        "/payments": (
+          <Suspense fallback={null}>
+            <PlansOffBadge />
           </Suspense>
         ),
       }}

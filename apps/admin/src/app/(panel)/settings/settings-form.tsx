@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2Icon, SaveIcon } from "lucide-react";
+import { Loader2Icon, SaveIcon, SearchIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -171,6 +171,20 @@ const GROUPS: readonly Group[] = [
 
 const KNOWN = new Set(GROUPS.flatMap((g) => g.fields.map((f) => f.key)));
 
+/** Anchor id of a settings section ("Pricing & surge" → "settings-pricing-surge"). */
+function sectionId(group: string): string {
+  return `settings-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
+
+/** Fields whose label, hint or key contain every word of [query] (whole group when its name matches). */
+function matchFields(g: Group, query: string): readonly FieldDef[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return g.fields;
+  const has = (text: string) => words.every((w) => text.toLowerCase().includes(w));
+  if (has(g.group)) return g.fields;
+  return g.fields.filter((f) => has(`${f.label} ${f.hint} ${f.key}`));
+}
+
 type Draft = Record<string, string | boolean>;
 
 function toDraft(s: Record<string, SettingValue>): Draft {
@@ -198,6 +212,7 @@ export function SettingsForm({ initial }: { initial: SettingsRecord }) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(types));
   const [saved, setSaved] = useState<Draft>(() => toDraft(types));
   const [isPending, startTransition] = useTransition();
+  const [find, setFind] = useState("");
   const parsed = fromDraft(draft, types);
   const errors = validateSettings(parsed);
   const hasErrors = Object.keys(errors).length > 0;
@@ -209,7 +224,10 @@ export function SettingsForm({ initial }: { initial: SettingsRecord }) {
       ? { group: "Other", description: "Settings added in newer API versions.", fields: keys.map((k) => ({ key: k, label: humanize(k.replace(/([a-z])([A-Z])/g, "$1_$2")), hint: k })) }
       : null;
   })();
-  const groups = [...GROUPS.map((g) => ({ ...g, fields: g.fields.filter((f) => f.key in types) })), ...(other ? [other] : [])].filter((g) => g.fields.length);
+  const allGroups = [...GROUPS.map((g) => ({ ...g, fields: g.fields.filter((f) => f.key in types) })), ...(other ? [other] : [])].filter((g) => g.fields.length);
+  const groups = allGroups.map((g) => ({ ...g, fields: matchFields(g, find) })).filter((g) => g.fields.length);
+  // Unsaved changes per section, so a filtered view never hides an edit.
+  const changedIn = (g: Group) => g.fields.filter((f) => changed.includes(f.key)).length;
 
   const sens = Number(draft.surgeSensitivity);
   const cap = Number(draft.maxMultiplier);
@@ -232,8 +250,45 @@ export function SettingsForm({ initial }: { initial: SettingsRecord }) {
       }}
       className="grid gap-4 lg:grid-cols-2"
     >
+      <div className="sticky top-16 z-20 -mx-1 flex flex-col gap-2 rounded-xl border bg-background/95 p-2 backdrop-blur lg:col-span-2">
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+            placeholder="Find a setting, e.g. radius, surge, OTP, pause"
+            aria-label="Find a setting"
+            className="h-9 bg-card pl-9"
+          />
+        </div>
+        <nav aria-label="Settings sections" className="flex gap-1.5 overflow-x-auto pb-0.5">
+          {allGroups.map((g) => {
+            const isShown = groups.some((x) => x.group === g.group);
+            const edits = changedIn(g);
+            return (
+              <a
+                key={g.group}
+                href={`#${sectionId(g.group)}`}
+                aria-disabled={!isShown}
+                className={
+                  isShown
+                    ? "inline-flex shrink-0 items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-xs font-medium whitespace-nowrap text-navy-700 hover:border-coral-500/40 hover:text-coral-600"
+                    : "pointer-events-none inline-flex shrink-0 items-center rounded-full border border-dashed px-2.5 py-1 text-xs whitespace-nowrap text-muted-foreground/60"
+                }
+              >
+                {g.group}
+                {edits > 0 && <span className="rounded-full bg-coral-600 px-1.5 text-[10px] font-semibold text-white">{edits}</span>}
+              </a>
+            );
+          })}
+        </nav>
+      </div>
+      {groups.length === 0 && (
+        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground lg:col-span-2">No setting matches “{find}”.</p>
+      )}
       {groups.map((g) => (
-        <Card key={g.group} className={g.group === "Pricing & surge" || g.group === "Dispatch & ETA" ? "lg:row-span-1" : undefined}>
+        <Card key={g.group} id={sectionId(g.group)} className="scroll-mt-40">
           <CardHeader>
             <CardTitle className="font-semibold">{g.group}</CardTitle>
             <CardDescription>{g.description}</CardDescription>
@@ -288,7 +343,7 @@ export function SettingsForm({ initial }: { initial: SettingsRecord }) {
           </CardContent>
         </Card>
       ))}
-      <Card className="lg:col-span-2">
+      <Card className={changed.length ? "sticky bottom-3 z-20 shadow-lg lg:col-span-2" : "lg:col-span-2"}>
         <CardFooter className="justify-between gap-3 border-t-0 bg-transparent">
           <p className="text-sm text-muted-foreground">
             {hasErrors ? "Fix the highlighted fields to save." : changed.length ? `${changed.length} unsaved change${changed.length > 1 ? "s" : ""}.` : "All changes saved."}

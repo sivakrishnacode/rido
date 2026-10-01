@@ -14,7 +14,7 @@ import { displayName, formatCount, formatDateTime, formatInr, formatPhone, human
 import { DEFAULT_PAGE_SIZE, param, parsePage } from "@/lib/paging";
 import { PAYMENT_STATUSES } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Payments" };
+export const metadata: Metadata = { title: "Plan payments" };
 
 export default async function PaymentsPage({ searchParams }: PageProps<"/payments">) {
   const sp = await searchParams;
@@ -26,7 +26,7 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/payment
   return (
     <>
       <PageHeader
-        title="Payments"
+        title="Plan payments"
         description={`${formatCount(data.total)} plan payments from drivers (UPI Autopay). Tamil Taxi earns from plans only, never from fares.`}
         actions={<ExportButton entity="payments" />}
       />

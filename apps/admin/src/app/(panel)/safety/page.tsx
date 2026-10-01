@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { AutoRefresh } from "./auto-refresh";
 import { SosActions } from "./sos-actions";
 
-export const metadata: Metadata = { title: "SOS" };
+export const metadata: Metadata = { title: "SOS alerts" };
 
 export default async function SafetyPage({ searchParams }: PageProps<"/safety">) {
   const sp = await searchParams;
@@ -29,7 +29,7 @@ export default async function SafetyPage({ searchParams }: PageProps<"/safety">)
     <>
       <AutoRefresh ms={SOS_REFRESH_MS} />
       <PageHeader
-        title="SOS"
+        title="SOS alerts"
         description={`${formatCount(data.open)} open · ${formatCount(data.total)} ${query.status ? humanize(query.status).toLowerCase() : ""} alerts from riders and drivers. Refreshes every 10 s; admins' phones also get a push.`}
       />
       <ListFilters

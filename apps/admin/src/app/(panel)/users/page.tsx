@@ -16,11 +16,11 @@ import { formatCount, formatDate, formatPhone, humanize, initials } from "@/lib/
 import { DEFAULT_PAGE_SIZE, param, parsePage, withQuery } from "@/lib/paging";
 import { ROLES, type AdminUser, type Paged, type Role } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Users" };
+export const metadata: Metadata = { title: "All accounts" };
 
 const ROLE_TABS: { value: Role | "ALL"; label: string }[] = [
   { value: "ALL", label: "All" },
-  { value: "PASSENGER", label: "Passengers" },
+  { value: "PASSENGER", label: "Riders" },
   { value: "DRIVER", label: "Drivers" },
   { value: "ADMIN", label: "Admins" },
 ];
@@ -46,7 +46,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
 
   return (
     <>
-      <PageHeader title="Users" description={`${formatCount(data.total)} accounts. Block abusive users or change roles.`} />
+      <PageHeader title="All accounts" description={`${formatCount(data.total)} accounts: riders, drivers and admins. Block abusive users or change roles.`} />
       <LinkTabs
         active={role ?? "ALL"}
         tabs={ROLE_TABS.map((t) => ({

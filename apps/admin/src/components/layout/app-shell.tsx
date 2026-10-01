@@ -1,9 +1,9 @@
 "use client";
 
-import { MenuIcon, SearchIcon } from "lucide-react";
+import { ChevronDownIcon, MenuIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState, useSyncExternalStore } from "react";
 
 import { Wordmark } from "@/components/common/wordmark";
 import { Button } from "@/components/ui/button";
@@ -11,45 +11,111 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-import { DEFAULT_SEARCH, NAV_GROUPS, activeNav } from "./nav";
+import { DEFAULT_SEARCH, NAV_GROUPS, activeNav, groupOf } from "./nav";
+
+// Collapsed sidebar groups, per browser (a convenience: everything works without storage).
+const COLLAPSED_KEY = "tt-admin-nav-collapsed";
+const COLLAPSED_EVENT = "tt-admin-nav-collapsed";
+
+function subscribeCollapsed(onChange: () => void): () => void {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(COLLAPSED_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(COLLAPSED_EVENT, onChange);
+  };
+}
+
+function readCollapsed(): string {
+  try {
+    return window.localStorage.getItem(COLLAPSED_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeCollapsed(labels: ReadonlySet<string>): void {
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, [...labels].join("|"));
+  } catch {
+    // Private window or blocked storage: the group still toggles until the next render.
+  }
+  window.dispatchEvent(new Event(COLLAPSED_EVENT));
+}
 
 function SidebarNav({
   pathname,
   badges,
+  tags,
   onNavigate,
 }: {
   pathname: string;
   badges?: Record<string, React.ReactNode>;
+  tags?: Record<string, React.ReactNode>;
   onNavigate?: () => void;
 }) {
   const current = activeNav(pathname);
+  const currentGroup = groupOf(current);
+  const raw = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => "");
+  const collapsed = useMemo(() => new Set(raw ? raw.split("|") : []), [raw]);
+
   return (
-    <nav aria-label="Main" className="flex flex-col gap-5">
-      {NAV_GROUPS.map((group) => (
-        <div key={group.label} className="flex flex-col gap-0.5">
-          <p className="px-3 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{group.label}</p>
-          {group.items.map((item) => {
-            const isActive = item.href === current.href;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onNavigate}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium text-navy-700 transition-colors hover:bg-muted hover:text-navy-900",
-                  isActive && "bg-coral-50 text-coral-600 hover:bg-coral-50 hover:text-coral-600",
-                )}
-              >
-                <Icon className="size-4.5" aria-hidden />
-                <span className="flex-1">{item.label}</span>
-                {badges?.[item.href]}
-              </Link>
-            );
-          })}
-        </div>
-      ))}
+    <nav aria-label="Main" className="flex flex-col gap-3">
+      {NAV_GROUPS.map((group) => {
+        // The collection holding the open page always stays open.
+        const isOpen = group === currentGroup || !collapsed.has(group.label);
+        const listId = `nav-${group.label.toLowerCase().replace(/\W+/g, "-")}`;
+        return (
+          <div key={group.label} className="flex flex-col gap-0.5">
+            <button
+              type="button"
+              aria-expanded={isOpen}
+              aria-controls={listId}
+              disabled={group === currentGroup}
+              onClick={() => {
+                const next = new Set(collapsed);
+                if (next.has(group.label)) next.delete(group.label);
+                else next.add(group.label);
+                writeCollapsed(next);
+              }}
+              className="group/nav flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase hover:text-navy-900 disabled:cursor-default disabled:hover:text-muted-foreground"
+            >
+              <span className="flex-1 text-left">{group.label}</span>
+              {/* Badges of a closed collection move to its header, so nothing urgent is hidden. */}
+              {!isOpen && group.items.map((item) => <span key={item.href}>{badges?.[item.href]}</span>)}
+              {group !== currentGroup && (
+                <ChevronDownIcon className={cn("size-3.5 transition-transform", !isOpen && "-rotate-90")} aria-hidden />
+              )}
+            </button>
+            {isOpen && (
+              <ul id={listId} className="flex flex-col gap-0.5">
+                {group.items.map((item) => {
+                  const isActive = item.href === current.href;
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={onNavigate}
+                        aria-current={isActive ? "page" : undefined}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium text-navy-700 transition-colors hover:bg-muted hover:text-navy-900",
+                          isActive && "bg-coral-50 text-coral-600 hover:bg-coral-50 hover:text-coral-600",
+                        )}
+                      >
+                        <Icon className="size-4.5" aria-hidden />
+                        <span className="flex-1">{item.label}</span>
+                        {tags?.[item.href]}
+                        {badges?.[item.href]}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        );
+      })}
     </nav>
   );
 }
@@ -99,11 +165,14 @@ function TopSearch({ pathname }: { pathname: string }) {
 export function AppShell({
   userMenu,
   badges,
+  tags,
   children,
 }: {
   userMenu: React.ReactNode;
-  /** Server-rendered counters next to nav items, keyed by href (e.g. pending KYC). */
+  /** Server-rendered counters next to nav items, keyed by href (e.g. pending KYC); shown on a collapsed group too. */
   badges?: Record<string, React.ReactNode>;
+  /** Quiet labels next to nav items (e.g. "Off"), only on the item itself. */
+  tags?: Record<string, React.ReactNode>;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -117,7 +186,7 @@ export function AppShell({
           <Wordmark className="text-[28px]" />
           <span className="mt-1 block text-xs font-medium tracking-wide text-muted-foreground uppercase">Admin</span>
         </Link>
-        <SidebarNav pathname={pathname} badges={badges} />
+        <SidebarNav pathname={pathname} badges={badges} tags={tags} />
         <p className="mt-auto px-3 pt-6 text-xs text-muted-foreground">Zero-commission rides &amp; parcels · Coimbatore</p>
       </aside>
 
@@ -129,7 +198,7 @@ export function AppShell({
             </SheetTitle>
             <SheetDescription>Admin</SheetDescription>
           </SheetHeader>
-          <SidebarNav pathname={pathname} badges={badges} onNavigate={() => setMenuOpen(false)} />
+          <SidebarNav pathname={pathname} badges={badges} tags={tags} onNavigate={() => setMenuOpen(false)} />
         </SheetContent>
       </Sheet>
 

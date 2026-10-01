@@ -5,13 +5,13 @@ import { adminApi } from "@/lib/api";
 
 import { LiveView } from "./live-view";
 
-export const metadata: Metadata = { title: "Live" };
+export const metadata: Metadata = { title: "Live map" };
 
 export default async function LivePage() {
   const [live, cities, demand] = await Promise.all([adminApi.live(), adminApi.cities(), adminApi.demand().catch(() => null)]);
   return (
     <>
-      <PageHeader title="Live" description="Online drivers, active trips and live demand vs supply (surge) per area." />
+      <PageHeader title="Live map" description="Online drivers, active trips and live demand vs supply (surge) per area." />
       <LiveView
         initial={live}
         initialDemand={demand}

@@ -131,7 +131,7 @@ export default async function DashboardPage() {
           isHighlighted={surging.length > 0}
         />
         <Kpi label="Online now" value={formatCount(drivers.online)} hint="Drivers taking jobs" icon={RadioIcon} />
-        <Kpi label="Passengers" value={formatCount(stats.passengers)} hint="Registered riders" icon={UsersIcon} href="/passengers" />
+        <Kpi label="Riders" value={formatCount(stats.passengers)} hint="Registered riders" icon={UsersIcon} href="/passengers" />
         <Kpi
           label="Trips today"
           value={formatCount(trips.today)}
