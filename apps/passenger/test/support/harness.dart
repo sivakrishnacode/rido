@@ -60,6 +60,16 @@ Future<ProviderContainer> pumpRoute(
   return container;
 }
 
+/// Decodes every on-screen [Image] (asset images don't load on their own in widget tests), then repaints.
+Future<void> precacheImages(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    for (final element in find.byType(Image).evaluate()) {
+      await precacheImage((element.widget as Image).image, element);
+    }
+  });
+  await tester.pump();
+}
+
 /// Saves what is on screen as a PNG (780 × 1688), e.g. to compare with docs/design/*.png.
 Future<void> saveScreenshot(WidgetTester tester, String path) async {
   await tester.runAsync(() async {

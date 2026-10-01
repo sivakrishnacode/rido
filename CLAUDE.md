@@ -98,7 +98,7 @@ docs/tech-docs/using.tech.md     technical reference (source of truth)
 docs/COST_AND_SCALING.md         running cost per trip, free tiers, P-10 ETA + OSRM plans, scaling stages
 docs/private/                    owner-only business docs (git-ignored, never publish)
 .github/                         CI workflow, issue + PR templates
-docs/design/                     exported design frames + index
+docs/design/                     screenshots of every app screen + index (scripts/export_design.py)
 scripts/                         flutter.sh / dart.sh (SDK lookup), build_apks.sh
 docker-compose.yml               postgres + redis + api + admin (+ `tools` profile: Adminer, Redis Insight)
 ```
@@ -119,6 +119,7 @@ npm install && npm run get            # deps + flutter pub get + prisma generate
 npm run check                         # analyze + test everything (Turborepo, cached)
 npm run passenger | npm run driver    # flutter run
 ./scripts/build_apks.sh [passenger|driver]   # one release APK per app → dist/
+python3 scripts/export_design.py      # screenshot every app screen → docs/design/ (+ index)
 
 docker compose up -d                  # full backend stack: API :3000, admin :3001
 docker compose up -d postgres redis   # DBs only, then:
@@ -166,3 +167,4 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
 | 29 Sep 2026 | Open source (AGPL-3.0): contributor note, `DEV_OTP_CODE`, new docs and folders in the map |
 | 30 Sep 2026 | Website `apps/web` (static Next.js): `web` scope, checks row, repo map, dev command |
 | 29 Sep 2026 | Renamed Rido → Tamil Taxi: `@tamiltaxi/*`, `tamiltaxi_ui` / `tamiltaxi_data`, `Tt*` classes, `com.tamiltaxi.*`, DB `tamiltaxi` |
+| 1 Oct 2026 | `docs/design` is now screenshots of the apps: `scripts/export_design.py` command, repo map line |

@@ -15,7 +15,7 @@ improve it, or run it in their own city.
 |---|---|---|---|
 | <img src="docs/design/passenger/P-10.png" width="200" alt="Passenger app, choose vehicle"> | <img src="docs/design/passenger/P-16.png" width="200" alt="Passenger app, ride in progress"> | <img src="docs/design/driver/D-15.png" width="200" alt="Driver app, incoming ride request"> | <img src="docs/design/driver/D-23.png" width="200" alt="Driver app, earnings"> |
 
-<sub>Design frames from <a href="docs/design/index.md">docs/design</a>. The apps follow them closely.</sub>
+<sub>Screens from the apps, in <a href="docs/design/index.md">docs/design</a> (refreshed with <code>scripts/export_design.py</code>).</sub>
 
 ## What's in it
 
@@ -152,7 +152,7 @@ the Flutter tasks in dependency order and caches them.
 | [docs/tech-docs/using.tech.md](docs/tech-docs/using.tech.md) | Every module, endpoint, env var, Redis key, algorithm and deployment step |
 | [docs/COST_AND_SCALING.md](docs/COST_AND_SCALING.md) | What it costs per trip, the free tiers, the plan to self-host maps |
 | [docs/GOOGLE_MAPS_SETUP.md](docs/GOOGLE_MAPS_SETUP.md) | Creating and restricting the Google Maps keys |
-| [docs/design/index.md](docs/design/index.md) | Every designed screen, by frame ID |
+| [docs/design/index.md](docs/design/index.md) | Every app screen, by frame ID |
 | [apps/api/README.md](apps/api/README.md), [apps/admin/AGENTS.md](apps/admin/AGENTS.md) | Per-app notes |
 
 ## Status

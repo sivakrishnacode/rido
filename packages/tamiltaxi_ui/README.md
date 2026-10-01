@@ -5,7 +5,7 @@ The Tamil Taxi design system for both Flutter apps (`@tamiltaxi/ui`, not publish
 - `theme/`: colours (`TtColors`), tokens (spacing, radius, type scale), `TtTheme`; fonts Poppins + Inter are bundled in `assets/google_fonts`
 - `widgets/`: `TtMap` (Google Maps or flutter_map + CARTO tiles), `TtButton`, sheets, markers, countdown ring…
 - `illustrations/`: vector illustrations drawn in code
-- `design_system_board.dart`: the DS-00…DS-07 frames from [docs/design/system](../../docs/design/system)
+- `design_system_board.dart`: the live design-system board (screenshots in [docs/design/system](../../docs/design/system))
 
 Screens must use these tokens and widgets, not literal colours or one-off styles.
 

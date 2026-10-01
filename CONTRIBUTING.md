@@ -80,7 +80,7 @@ distances. To use Google, see [docs/GOOGLE_MAPS_SETUP.md](docs/GOOGLE_MAPS_SETUP
 2. **Keep it to one logical change per pull request.** Split unrelated fixes into separate PRs.
 3. **Match the code around you:** naming, comment density, file layout.
    - Flutter screens live in `lib/features/<feature>/`, one file per screen, named after its design frame ID
-     (`P10ChooseVehicleScreen`). The frames are in [docs/design/](docs/design/index.md).
+     (`P10ChooseVehicleScreen`). Screenshots of every screen are in [docs/design/](docs/design/index.md) (`python3 scripts/export_design.py` refreshes them).
    - State lives in Riverpod controllers in `lib/state/`.
    - One NestJS module per domain in `apps/api/src/modules/`.
 4. **Add or update tests** for what you change (see the table below).
