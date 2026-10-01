@@ -7,6 +7,7 @@ import '../models/place.dart';
 import '../models/trip.dart';
 import '../models/vehicle.dart';
 import '../seed.dart';
+import 'service_cities.dart';
 
 /// JSON from the Tamil Taxi API ↔ app models. API enums are SCREAMING_SNAKE (`GOODS_BIKE`), app enums camelCase.
 typedef Json = Map<String, dynamic>;
@@ -50,8 +51,9 @@ Json pointJson(Place p) => {
       if (p.address.isNotEmpty) 'address': p.address.length > 200 ? p.address.substring(0, 200) : p.address,
     };
 
-/// Coimbatore centre: placeholder location for a search suggestion until [PlacesRepository.resolve] runs.
-const LatLng kCityCentre = LatLng(11.0168, 76.9658);
+/// Placeholder location for a search suggestion until [PlacesRepository.resolve] runs: the first service city's
+/// centre ([CityDefaults]).
+LatLng get kCityCentre => CityDefaults.center;
 
 /// Search suggestion ids from the API are prefixed so [resolve] knows to fetch their details.
 const String kApiPlacePrefix = 'api:';

@@ -141,6 +141,12 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
     context.push(Routes.documents);
   }
 
+  /// The service city the driver signs up in (the API's cities; empty until they load).
+  String get _city {
+    final cities = ref.watch(serviceCitiesProvider).value ?? const <ServiceCity>[];
+    return nearestCity(cities, CityDefaults.center)?.name ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.type;
@@ -189,12 +195,14 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                         ),
                       ),
                       const SizedBox(width: TtSpacing.m),
-                      const Expanded(
+                      Expanded(
                         child: TtTextField(
+                          // The service city from the API (nearest to the city default); none is built in.
+                          key: ValueKey('city-$_city'),
                           label: 'City',
-                          initialValue: 'Coimbatore',
+                          initialValue: _city,
                           enabled: false,
-                          suffix: Icon(Symbols.lock_rounded, color: TtColors.navy500, semanticLabel: 'Locked'),
+                          suffix: const Icon(Symbols.lock_rounded, color: TtColors.navy500, semanticLabel: 'Locked'),
                         ),
                       ),
                     ],

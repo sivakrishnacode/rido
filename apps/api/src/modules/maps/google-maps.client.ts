@@ -145,17 +145,20 @@ export class GoogleMapsClient {
   /**
    * Places Autocomplete (New). Pass the same [sessionToken] until [placeDetails] ends the session.
    * [restriction]: only places inside this rectangle (the service area; `locationRestriction`, not a bias, so
-   * nothing Tamil Taxi can't serve is suggested). [origin]: the pickup, so each suggestion carries `distanceMeters`.
-   * Neither changes the SKU (Autocomplete per session, ended by Place Details).
+   * nothing Tamil Taxi can't serve is suggested). Without one, results lean towards [origin] (50 km bias).
+   * [origin]: the pickup, so each suggestion carries `distanceMeters`. Neither changes the SKU (Autocomplete per
+   * session, ended by Place Details).
    */
-  async autocomplete(params: { input: string; sessionToken: string; restriction: LatLngBounds; origin?: LatLngLiteral }): Promise<PlaceSuggestion[] | null> {
-    const { low, high } = params.restriction;
+  async autocomplete(params: { input: string; sessionToken: string; restriction?: LatLngBounds | null; origin?: LatLngLiteral }): Promise<PlaceSuggestion[] | null> {
+    const r = params.restriction;
+    const o = params.origin;
     const body = {
       input: params.input,
       sessionToken: params.sessionToken,
       includedRegionCodes: ['in'],
-      locationRestriction: { rectangle: { low: { latitude: low.lat, longitude: low.lng }, high: { latitude: high.lat, longitude: high.lng } } },
-      ...(params.origin && { origin: { latitude: params.origin.lat, longitude: params.origin.lng } }),
+      ...(r && { locationRestriction: { rectangle: { low: { latitude: r.low.lat, longitude: r.low.lng }, high: { latitude: r.high.lat, longitude: r.high.lng } } } }),
+      ...(!r && o && { locationBias: { circle: { center: { latitude: o.lat, longitude: o.lng }, radius: 50_000 } } }),
+      ...(o && { origin: { latitude: o.lat, longitude: o.lng } }),
     };
     const json = await this.call<{ suggestions?: { placePrediction?: { placeId: string; distanceMeters?: number; structuredFormat?: { mainText?: { text: string }; secondaryText?: { text: string } } } }[] }>(
       'https://places.googleapis.com/v1/places:autocomplete',
@@ -201,7 +204,7 @@ export class GoogleMapsClient {
       url,
       { method: 'GET', isKeyInUrl: true },
     );
-    // The first result can be a plus code ("7Q6M+2X Coimbatore", typed plus_code or not: "X2JR+9H, ELGI Nagar, …")
+    // The first result can be a plus code ("7Q6M+2X <city>", typed plus_code or not: "X2JR+9H, ELGI Nagar, …")
     // or an unnamed road: take the first real address; if there is none, drop the code from the front.
     const results = json?.status === 'OK' ? (json.results ?? []) : [];
     const isReal = (r: (typeof results)[number]): boolean =>

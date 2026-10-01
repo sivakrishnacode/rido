@@ -34,12 +34,14 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
   Future<void> _book() async {
     final state = ref.read(rideFlowProvider);
     final places = ref.read(placesRepositoryProvider);
-    final outside =
-        ref.read(demoSettingsProvider).outsideServiceArea ||
-        !places.isInServiceArea(state.pickup.location) ||
-        !places.isInServiceArea(state.drop.location);
-    if (outside) {
-      context.push(Routes.serviceUnavailable);
+    final demoOutside = ref.read(demoSettingsProvider).outsideServiceArea;
+    final outsidePoint = !places.isInServiceArea(state.pickup.location)
+        ? state.pickup.location
+        : !places.isInServiceArea(state.drop.location)
+            ? state.drop.location
+            : null;
+    if (demoOutside || outsidePoint != null) {
+      context.push(Routes.serviceUnavailable, extra: demoOutside ? null : outsidePoint);
       return;
     }
     final error = await ref.read(rideFlowProvider.notifier).book();

@@ -1,6 +1,6 @@
 import { KYC_DOC_TYPES, type IdentityStatus, type KycDocType, type KycDocument, type VehicleKind } from "./types";
 
-/** Coimbatore: every date is shown in IST regardless of where the server runs. */
+/** Every date is shown in IST (Tamil Taxi runs in India) regardless of where the server runs. */
 export const TIME_ZONE = "Asia/Kolkata";
 
 const inr = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });

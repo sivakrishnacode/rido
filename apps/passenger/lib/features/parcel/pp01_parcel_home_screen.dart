@@ -37,7 +37,7 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Send anything, anywhere in Coimbatore', style: t.display),
+                  Text('Send anything, anywhere in town', style: t.display),
                   const SizedBox(height: 20),
                   if (flow.isActive && !showcase) ...[
                     TtBanner(

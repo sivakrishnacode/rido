@@ -146,7 +146,7 @@ export function AppShell({
           <span className="mt-1 block text-xs font-medium tracking-wide text-muted-foreground uppercase">Admin</span>
         </Link>
         <SidebarNav pathname={pathname} badges={badges} tags={tags} />
-        <p className="mt-auto px-3 pt-6 text-xs text-muted-foreground">Zero-commission rides &amp; parcels · Coimbatore</p>
+        <p className="mt-auto px-3 pt-6 text-xs text-muted-foreground">Zero-commission rides &amp; parcels</p>
       </aside>
 
       <Sheet open={isMenuOpen} onOpenChange={setMenuOpen}>

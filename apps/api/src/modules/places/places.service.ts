@@ -40,13 +40,16 @@ export class PlacesService {
     return { source: 'local', results: local.map((p) => ({ placeId: `local:${p.id}`, name: p.name, address: p.address, distanceKm: km(p) })) };
   }
 
-  /** Coordinates for an autocomplete result (ends the Google session). */
-  async details(params: { placeId: string; sessionToken?: string }): Promise<ResolvedPlace | null> {
+  /** Coordinates for an autocomplete result (ends the Google session), and whether Tamil Taxi serves that point. */
+  async details(params: { placeId: string; sessionToken?: string }): Promise<(ResolvedPlace & { isInServiceArea: boolean }) | null> {
+    let place: ResolvedPlace | null;
     if (params.placeId.startsWith('local:')) {
       const p = await this.prisma.place.findUnique({ where: { id: params.placeId.slice(6) } });
-      return p ? { placeId: `local:${p.id}`, name: p.name, address: p.address, lat: p.lat, lng: p.lng } : null;
+      place = p ? { placeId: `local:${p.id}`, name: p.name, address: p.address, lat: p.lat, lng: p.lng } : null;
+    } else {
+      place = await this.maps.details(params);
     }
-    return this.maps.details(params);
+    return place && { ...place, isInServiceArea: (await this.geo.locate(place)).isServiceable };
   }
 
   async reverse(point: { lat: number; lng: number }): Promise<{ place: ResolvedPlace | null; isInServiceArea: boolean }> {

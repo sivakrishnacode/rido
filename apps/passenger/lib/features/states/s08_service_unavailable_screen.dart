@@ -7,16 +7,19 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 
-/// S-08 Service not available: the pin is outside Coimbatore.
+/// S-08 Service not available: the pin is outside every service city.
 class S08ServiceUnavailableScreen extends StatelessWidget {
-  const S08ServiceUnavailableScreen({super.key, this.showcase = false});
+  const S08ServiceUnavailableScreen({super.key, this.showcase = false, this.pin});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
 
+  /// The point that is outside (route `extra`); the demo pin when not given.
+  final LatLng? pin;
+
   @override
   Widget build(BuildContext context) =>
-      const Scaffold(backgroundColor: TtColors.surface, body: S08ServiceUnavailableView());
+      Scaffold(backgroundColor: TtColors.surface, body: S08ServiceUnavailableView(pin: pin));
 }
 
 /// The service-area outline: live, the real H3 outline from the public `/demand/hotspots` (none if it can't be
@@ -37,13 +40,19 @@ final _serviceAreaProvider = FutureProvider.autoDispose<List<List<LatLng>>>((ref
 /// "Change location" clears that demo switch, then goes back to where the pin was chosen
 /// (or to Home when shown there).
 class S08ServiceUnavailableView extends ConsumerWidget {
-  const S08ServiceUnavailableView({super.key});
+  const S08ServiceUnavailableView({super.key, this.pin});
+
+  /// The point that is outside; the demo pin when null.
+  final LatLng? pin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
-    final pin = Seed.outsideArea.location;
-    final southEdge = offsetPoint(Seed.cityCentre, Seed.serviceRadiusKm * 1000, 180);
+    final pin = this.pin ?? Seed.outsideArea.location;
+    final cities = ref.watch(serviceCitiesProvider).value ?? const <ServiceCity>[];
+    // The nearest service city (from the API; the demo city in mock mode).
+    final centre = nearestCity(cities, pin)?.center ?? CityDefaults.center;
+    final southEdge = offsetPoint(centre, Seed.serviceRadiusKm * 1000, 180);
     return LayoutBuilder(
       builder: (context, c) {
         const sheetMin = 330.0;
@@ -56,7 +65,7 @@ class S08ServiceUnavailableView extends ConsumerWidget {
               top: 0,
               height: mapBottom + TtSpacing.xl,
               child: TtMap(
-                center: Seed.cityCentre,
+                center: centre,
                 zoom: 10,
                 fitPoints: [pin, southEdge],
                 // The pin's label draws ~70 px above its point: leave room for it below the status bar.
@@ -73,7 +82,7 @@ class S08ServiceUnavailableView extends ConsumerWidget {
                 ],
                 extraMarkers: [
                   Marker(
-                    point: Seed.cityCentre,
+                    point: centre,
                     width: 200,
                     height: 40,
                     child: Center(
@@ -142,7 +151,7 @@ class S08ServiceUnavailableView extends ConsumerWidget {
                         Text("Tamil Taxi isn't in this area yet", style: t.h1, textAlign: TextAlign.center),
                         const SizedBox(height: TtSpacing.s),
                         Text(
-                          "We're live across Coimbatore. More cities coming soon.",
+                          "We're live in ${ref.watch(serviceCitiesLabelProvider)}. More cities coming soon.",
                           style: t.body.copyWith(color: TtColors.navy700),
                           textAlign: TextAlign.center,
                         ),
@@ -153,7 +162,7 @@ class S08ServiceUnavailableView extends ConsumerWidget {
                             ref
                                 .read(demoSettingsProvider.notifier)
                                 .update((s) => s.copyWith(outsideServiceArea: false));
-                            showTtSnack(context, 'Choose a place inside Coimbatore');
+                            showTtSnack(context, 'Choose a place inside ${ref.read(serviceCitiesLabelProvider)}');
                             if (context.canPop()) {
                               context.pop();
                             } else {

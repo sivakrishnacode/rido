@@ -133,8 +133,8 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
         showTtSnack(
           context,
           ref.read(isLiveApiProvider)
-              ? "Tamil Taxi isn't in your area yet. Choose a pickup in Coimbatore."
-              : "You're outside Coimbatore. The demo keeps Gandhipuram as pickup.",
+              ? "Tamil Taxi isn't in your area yet. Choose a pickup in ${ref.read(serviceCitiesLabelProvider)}."
+              : "You're outside ${Seed.demoCity.name}. The demo keeps ${Seed.gandhipuram.name} as pickup.",
         );
       case LocateResult.denied:
         // Live: the banner explains and its button fixes it; the demo keeps S-05.
@@ -666,11 +666,12 @@ class _LocationBanners extends ConsumerWidget {
           onAction: onFix,
         ),
       LocationAccess.granted || LocationAccess.unknown => outsideArea
-          ? const TtBanner(
+          ? TtBanner(
               type: TtBannerType.info,
               icon: Symbols.wrong_location_rounded,
               title: "Tamil Taxi isn't in your area yet",
-              message: 'You can still book a trip inside Coimbatore by choosing the pickup yourself.',
+              message:
+                  'You can still book a trip inside ${ref.watch(serviceCitiesLabelProvider)} by choosing the pickup yourself.',
             )
           : null,
     };

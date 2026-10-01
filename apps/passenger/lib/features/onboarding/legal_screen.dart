@@ -10,7 +10,7 @@ class _Section {
 const _terms = [
   _Section(
     '1. About Tamil Taxi',
-    'Tamil Taxi is a technology platform that connects passengers and senders in Coimbatore with independent '
+    'Tamil Taxi is a technology platform that connects passengers and senders in the cities it serves with independent '
         'drivers of bikes, autos, cabs and goods vehicles. Tamil Taxi does not own vehicles or employ drivers.',
   ),
   _Section(
@@ -40,7 +40,7 @@ const _terms = [
   ),
   _Section(
     '7. Service area',
-    'Tamil Taxi currently operates across Coimbatore. Bookings with a pickup outside the service area cannot be made.',
+    'Tamil Taxi operates in the cities shown in the app. Bookings with a pickup outside the service area cannot be made.',
   ),
   _Section(
     '8. Contact',
@@ -111,7 +111,7 @@ class LegalScreen extends StatelessWidget {
             Text(
               isPrivacy
                   ? 'Your privacy matters to us. This policy explains what Tamil Taxi collects and why.'
-                  : 'These terms apply when you use the Tamil Taxi app to book rides or send parcels in Coimbatore.',
+                  : 'These terms apply when you use the Tamil Taxi app to book rides or send parcels.',
               style: t.body.copyWith(color: TtColors.navy700),
             ),
             for (final s in sections) ...[

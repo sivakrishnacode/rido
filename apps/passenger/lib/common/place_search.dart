@@ -135,7 +135,7 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
       children: [
         Text(widget.title, style: t.h2),
         const SizedBox(height: 12),
-        SearchField(hint: 'Search a place in Coimbatore', showMic: false, autofocus: true, onChanged: _onChanged),
+        SearchField(hint: 'Search for a place', showMic: false, autofocus: true, onChanged: _onChanged),
         const SizedBox(height: 8),
         if (widget.offerMap)
           LocationRow(

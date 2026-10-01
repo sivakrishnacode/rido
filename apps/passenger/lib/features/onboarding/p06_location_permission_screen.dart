@@ -66,8 +66,8 @@ class P06LocationPermissionScreen extends ConsumerWidget {
                         showTtSnack(
                           context,
                           ref.read(isLiveApiProvider)
-                              ? "Tamil Taxi isn't in your area yet. Choose a pickup in Coimbatore."
-                              : "You're outside Coimbatore, so the demo uses Gandhipuram as pickup.",
+                              ? "Tamil Taxi isn't in your area yet. Choose a pickup in ${ref.read(serviceCitiesLabelProvider)}."
+                              : "You're outside ${Seed.demoCity.name}, so the demo uses ${Seed.gandhipuram.name} as pickup.",
                         );
                       }
                       context.go(Routes.ride);

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
 
+import '../api/service_cities.dart';
 import '../models/place.dart';
 import 'google_http.dart';
 import 'google_maps_config.dart';
@@ -32,8 +33,8 @@ class GooglePlacesClient {
   static const autocompleteFieldMask =
       'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat';
 
-  /// Coimbatore city centre, 30 km bias circle.
-  static const biasCentre = LatLng(11.0168, 76.9658);
+  /// Search bias centre (30 km circle): the first service city's centre ([CityDefaults]).
+  static LatLng get biasCentre => CityDefaults.center;
   static const biasRadiusM = 30000.0;
   static const minQueryLength = 3;
 

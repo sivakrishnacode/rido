@@ -5,7 +5,7 @@ import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Announcement } from '../../generated/prisma/client.js';
 import { AnnouncementAudience } from '../../generated/prisma/enums.js';
 
-/** Active announcements for the apps: GET /announcements?audience=PASSENGER|DRIVER&cityId=coimbatore */
+/** Active announcements for the apps: GET /announcements?audience=PASSENGER|DRIVER&cityId=<city id> */
 @Public()
 @Controller('announcements')
 export class AnnouncementsController {

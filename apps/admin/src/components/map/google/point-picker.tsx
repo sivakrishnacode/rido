@@ -4,6 +4,7 @@ import { useMap } from "@vis.gl/react-google-maps";
 import { useEffect, useRef } from "react";
 
 import { TtMap } from "./tamiltaxi-map";
+import { NO_CITY_VIEW } from "@/lib/map-view";
 
 function Picker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (lat: number, lng: number) => void }) {
   const map = useMap();
@@ -38,7 +39,7 @@ function Picker({ lat, lng, onPick }: { lat: number; lng: number; onPick: (lat: 
 export function PointPicker({ lat, lng, onPick, className }: { lat: number; lng: number; onPick: (lat: number, lng: number) => void; className?: string }) {
   const isSet = Number.isFinite(lat) && Number.isFinite(lng);
   return (
-    <TtMap center={isSet ? { lat, lng } : { lat: 11.0168, lng: 76.9658 }} zoom={isSet ? 11 : 7} className={className ?? "h-full"}>
+    <TtMap center={isSet ? { lat, lng } : NO_CITY_VIEW.center} zoom={isSet ? 11 : NO_CITY_VIEW.zoom} className={className ?? "h-full"}>
       <Picker lat={lat} lng={lng} onPick={onPick} />
     </TtMap>
   );

@@ -1,6 +1,5 @@
 import type { RedisService } from '../../core/redis/redis.service.js';
 import type { GoogleMapsClient, RoadRoute } from './google-maps.client.js';
-import { COIMBATORE_BOUNDS } from '../geo/geo.service.js';
 import { MapsService } from './maps.service.js';
 
 /** In-memory stand-in for the Redis commands MapsService uses ([store] lets a test expire keys). */
@@ -18,6 +17,9 @@ const road: RoadRoute = { distanceKm: 9.1, durationMin: 20, encodedPolyline: 'ab
 const gandhipuram = { lat: 11.0183, lng: 76.9725, placeId: 'gandhipuram' };
 const brookefields = { lat: 11.009, lng: 76.96, placeId: 'brookefields' };
 const vellalore = { lat: 10.9545, lng: 77.0076 };
+
+/** Any service-area rectangle (cities come from the database). */
+const AREA = { low: { lat: 10.75, lng: 76.69 }, high: { lat: 11.29, lng: 77.24 } };
 
 describe('MapsService', () => {
   it('uses the local estimate when Google is off', async () => {
@@ -81,8 +83,8 @@ describe('MapsService', () => {
     const autocomplete = vi.fn(async () => [{ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore' }]);
     const placeDetails = vi.fn(async () => ({ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore', lat: 10.99, lng: 76.96 }));
     const maps = new MapsService({ isEnabled: true, autocomplete, placeDetails } as unknown as GoogleMapsClient, fakeRedis());
-    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's', restriction: COIMBATORE_BOUNDS });
-    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's', restriction: COIMBATORE_BOUNDS });
+    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's', restriction: AREA });
+    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's', restriction: AREA });
     await maps.details({ placeId: 'p1', sessionToken: 's' });
     await maps.details({ placeId: 'p1', sessionToken: 's' });
     expect(autocomplete).toHaveBeenCalledTimes(2);

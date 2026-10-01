@@ -36,6 +36,8 @@ class _TtPassengerAppState extends ConsumerState<TtPassengerApp> {
   @override
   void initState() {
     super.initState();
+    // Service cities (names for messages, the maps' first view) come from the API; nothing is built in.
+    ref.read(serviceCitiesProvider);
     // Live API: a rejected token (expired, or the account was blocked) sends the passenger to sign in.
     if (ref.read(isLiveApiProvider)) {
       _unauthorized = ref.read(apiClientProvider).onUnauthorized.listen((_) {

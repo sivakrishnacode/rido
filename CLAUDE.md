@@ -77,6 +77,9 @@ Examples: `feat(driver): show H3 demand hexes on home map`, `fix(api): await Pri
 - **Admin is on a new Next.js (16):** read [apps/admin/AGENTS.md](apps/admin/AGENTS.md) and the docs in
   `node_modules/next/dist/docs/` before writing admin code.
 - **Prisma queries are lazy:** `void prisma.x.create(...)` never runs. Always `await` or attach `.catch()`.
+- **No built-in city:** Tamil Taxi scales city by city. Never hard-code a city name, centre or bounds in runtime code:
+  read the `City` rows (API `GeoService`, apps `serviceCitiesProvider` / `CityDefaults`, admin `cityView`). Seed and
+  demo data may name Coimbatore.
 
 ---
 
@@ -169,3 +172,4 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
 | 1 Oct 2026 | Repo map: `scripts/footer_art` (passenger home footer line art) |
 | 29 Sep 2026 | Renamed Rido → Tamil Taxi: `@tamiltaxi/*`, `tamiltaxi_ui` / `tamiltaxi_data`, `Tt*` classes, `com.tamiltaxi.*`, DB `tamiltaxi` |
 | 1 Oct 2026 | `docs/design` is now screenshots of the apps: `scripts/export_design.py` command, repo map line |
+| 1 Oct 2026 | Rule: no built-in city (cities come from the database) |

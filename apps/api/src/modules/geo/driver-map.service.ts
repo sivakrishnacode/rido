@@ -26,7 +26,7 @@ export interface Hotspot {
   /** Live surge on this hex (1 = none). */
   multiplier: number;
   centre: LatLngPair;
-  /** The area most of its pickups are in ("Gandhipuram"), from the trips' own addresses; absent without trips. */
+  /** The area most of its pickups are in (e.g. "Gandhipuram"), from the trips' own addresses; absent without trips. */
   name?: string;
   boundary: LatLngPair[];
   /** Busy res-8 hexes inside (only those with pickups): where in the area the orders come from. */
@@ -130,9 +130,11 @@ export class DriverMapService {
       orderBy: { createdAt: 'desc' },
       take: NAME_SAMPLE,
     });
+    const cities = await this.geo.activeCities();
+    const notAreas = new Set(cities.flatMap((c) => [c.name, c.state]).map((n) => n.trim().toLowerCase()).filter(Boolean));
     const counts = new Map<string, Map<string, number>>();
     for (const r of rows) {
-      const area = areaName(r.pickupAddr) ?? areaName(r.pickupName);
+      const area = areaName(r.pickupAddr, notAreas) ?? areaName(r.pickupName, notAreas);
       if (!area || !r.pickupCell) continue;
       const parent = cellToParent(r.pickupCell, DEMAND_RES);
       const byName = counts.get(parent) ?? new Map<string, number>();
@@ -177,19 +179,26 @@ export class DriverMapService {
 }
 
 const PLUS_CODE = /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{0,3}\b/i;
-const NOT_AREA = /^(india|tamil nadu.*|coimbatore.*|\d{6})$/i;
+
+/** "India", a PIN, or one of [notAreas] (lower-case city and state names, from the database) or one plus a PIN. */
+function isNotArea(part: string, notAreas: ReadonlySet<string>): boolean {
+  const p = part.toLowerCase().replace(/\s*\d{6}$/, '').trim();
+  if (p === 'india' || /^\d{6}$/.test(part) || notAreas.has(p)) return true;
+  for (const n of notAreas) if (p.startsWith(`${n} `)) return true;
+  return false;
+}
 
 /**
- * The locality of a Google-style address: "12, Cross Cut Rd, Gandhipuram, Coimbatore, Tamil Nadu 641012, India" →
- * "Gandhipuram". Drops the country, state, city, PIN and plus codes, then takes the last part left (Google lists
- * street → locality). Null when nothing usable is left.
+ * The locality of a Google-style address: "12, Cross Cut Rd, Gandhipuram, <city>, <state> 641012, India" →
+ * "Gandhipuram". Drops the country, the [notAreas] (city and state names, lower case), PIN and plus codes, then
+ * takes the last part left (Google lists street → locality). Null when nothing usable is left.
  */
-export function areaName(address: string | null | undefined): string | null {
+export function areaName(address: string | null | undefined, notAreas: ReadonlySet<string> = new Set()): string | null {
   if (!address) return null;
   const parts = address
     .split(',')
     .map((p) => p.trim().replace(PLUS_CODE, '').trim())
-    .filter((p) => p.length > 1 && !NOT_AREA.test(p) && !/^\d+[a-z]?$/i.test(p));
+    .filter((p) => p.length > 1 && !isNotArea(p, notAreas) && !/^\d+[a-z]?$/i.test(p));
   const last = parts.at(-1);
   return last ? last.slice(0, 40) : null;
 }

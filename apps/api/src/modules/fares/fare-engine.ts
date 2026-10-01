@@ -52,7 +52,7 @@ export const MAX_MULTIPLIER = 1.5;
 const EPS = 1e-9;
 const EARTH_RADIUS_M = 6_371_000;
 
-/** Measured distances for the demo routes (same as the apps). */
+/** Measured distances for the seeded demo places (ids from prisma/seed.ts; same as the apps' mock data). */
 const KNOWN_ROUTES_KM: Readonly<Record<string, number>> = {
   'gandhipuram|brookefields': 4.2,
   'gandhipuram|brookefields-plaza': 4.4,

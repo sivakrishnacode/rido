@@ -8,10 +8,10 @@ import '../state/ride_flow.dart';
 
 /// Outcome of asking for the phone's location.
 enum LocateResult {
-  /// Location found inside Coimbatore; the pickup was set to it.
+  /// Location found inside a service city; the pickup was set to it.
   inArea,
 
-  /// Location found but outside the service area; the demo keeps its Coimbatore pickup.
+  /// Location found but outside the service area; the demo keeps its seeded pickup.
   outsideArea,
 
   /// Permission denied (once or forever) or location services are off.
@@ -97,7 +97,7 @@ class DeviceLocationController extends Notifier<LatLng?> {
     // Live API: reverse geocode first; the API's answer also says whether the point is in the service area.
     final geocoded = live ? await places.reverseGeocode(point) : null;
     final inArea = places.isInServiceArea(point);
-    // The seeded demo keeps its Coimbatore pickup outside the area; the live app always shows where you are.
+    // The seeded demo keeps its seeded pickup outside the area; the live app always shows where you are.
     if (!inArea && !live) return LocateResult.outsideArea;
     final place = geocoded ?? await places.reverseGeocode(point);
     final here = place.copyWith(id: 'current', name: 'Current location', address: place.fullAddress);

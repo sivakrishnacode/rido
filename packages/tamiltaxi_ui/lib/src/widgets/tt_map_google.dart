@@ -243,7 +243,7 @@ class _GoogleTtMapState extends State<_GoogleTtMap> with WidgetsBindingObserver 
       final (centre, zoom) = _Mercator.fit(fit, m.mapPadding.deflateSize(size), m.fitPadding);
       return gm.CameraPosition(target: _g(centre), zoom: zoom);
     }
-    return gm.CameraPosition(target: _g(m.center ?? m.pickup ?? const LatLng(11.0168, 76.9658)), zoom: m.zoom);
+    return gm.CameraPosition(target: _g(m.center ?? m.pickup ?? CityDefaults.center), zoom: m.zoom);
   }
 
   // ---- markers ----

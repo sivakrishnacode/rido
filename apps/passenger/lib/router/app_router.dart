@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart' show LatLng;
 
 import '../common/passenger_shell.dart';
 import '../features/account/about_screen.dart';
@@ -74,7 +75,7 @@ GoRouter createPassengerRouter({String initialLocation = Routes.splash}) => GoRo
     _full(Routes.profileSetup, (_) => const P05ProfileSetupScreen()),
     _full(Routes.locationPermission, (_) => const P06LocationPermissionScreen()),
     _full(Routes.locationDenied, (_) => const S05LocationDeniedScreen()),
-    _full(Routes.serviceUnavailable, (_) => const S08ServiceUnavailableScreen()),
+    _full(Routes.serviceUnavailable, (s) => S08ServiceUnavailableScreen(pin: s.extra is LatLng ? s.extra as LatLng : null)),
     _full('/legal/:doc', (s) => LegalScreen(doc: s.pathParameters['doc'] ?? 'terms')),
     _full(Routes.sos, (_) => const P17SosScreen(), fullscreenDialog: true),
     _full('/help', (s) => P25HelpScreen(tripId: s.uri.queryParameters['trip'])),

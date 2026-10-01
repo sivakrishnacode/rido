@@ -24,7 +24,11 @@ export default async function TravelSpeedsPage({ searchParams }: PageProps<"/tra
   const hour = h !== undefined && /^\d{1,2}$/.test(h) && Number(h) <= 23 ? Number(h) : undefined;
   const sort = SORTS.find((x) => x === param(sp.sort)) ?? "busiest";
   const used = param(sp.used) === "true";
-  const [stats, settings] = await Promise.all([adminApi.hexStats({ res, hour, sort, used, limit: 50 }), adminApi.settings()]);
+  const [stats, settings, cities] = await Promise.all([
+    adminApi.hexStats({ res, hour, sort, used, limit: 50 }),
+    adminApi.settings(),
+    adminApi.cities(),
+  ]);
   // Names for every listed hex (reverse geocode of the fixed hex centre: cached by the API and here for a day).
   const cells = [...new Set(stats.top.flatMap((r) => [r.fromCell, r.toCell]))];
   const names = Object.fromEntries(
@@ -56,6 +60,7 @@ export default async function TravelSpeedsPage({ searchParams }: PageProps<"/tra
         names={names}
         minTrips={Number(settings.historicalEtaMinTrips ?? 0)}
         filters={{ hour, sort, used }}
+        cities={cities.filter((c) => c.isActive)}
       />
     </>
   );

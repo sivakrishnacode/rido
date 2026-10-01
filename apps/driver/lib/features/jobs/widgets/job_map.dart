@@ -64,8 +64,8 @@ class LiveVehicleMap extends ConsumerWidget {
     return ValueListenableBuilder<VehicleFix?>(
       valueListenable: notifier.vehicle,
       builder: (context, fix, _) => fix == null && ref.read(isLiveApiProvider)
-          // Live, no GPS fix yet: the city without a made-up car position.
-          ? _map(const LatLng(11.0168, 76.9658), 0, showVehicle: false)
+          // Live, no GPS fix yet: the service city without a made-up car position.
+          ? _map(CityDefaults.center, 0, showVehicle: false)
           : _map(fix?.position ?? Seed.driverHome, fix?.heading ?? 0),
     );
   }

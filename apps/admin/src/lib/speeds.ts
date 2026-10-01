@@ -4,7 +4,7 @@ export function hourLabel(h: number): string {
   return `${String(h).padStart(2, "0")}:00`;
 }
 
-/** Rush hours in Coimbatore (IST): 8–10 am and 5–8 pm. */
+/** Rush hours (IST): 8–10 am and 5–8 pm. */
 export const PEAK_HOURS: readonly number[] = [8, 9, 10, 17, 18, 19, 20];
 
 /** Peak vs off-peak speed (total km / total time) and how much slower the peak is, in %. */

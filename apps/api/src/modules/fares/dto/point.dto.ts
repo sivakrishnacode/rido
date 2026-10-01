@@ -1,6 +1,6 @@
 import { IsLatitude, IsLongitude, IsOptional, IsString, MaxLength } from 'class-validator';
 
-/** A map point, optionally tied to a known place id (e.g. "gandhipuram"). */
+/** A map point, optionally tied to a known place id (a seeded place id). */
 export class PointDto {
   @IsLatitude()
   lat: number;

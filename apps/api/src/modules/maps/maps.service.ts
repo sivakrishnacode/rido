@@ -31,7 +31,7 @@ export class MapsService {
     return this.google.isEnabled;
   }
 
-  async autocomplete(params: { input: string; sessionToken: string; restriction: LatLngBounds; origin?: LatLngLiteral }): Promise<PlaceSuggestion[] | null> {
+  async autocomplete(params: { input: string; sessionToken: string; restriction?: LatLngBounds | null; origin?: LatLngLiteral }): Promise<PlaceSuggestion[] | null> {
     const input = params.input.trim().toLowerCase();
     if (input.length < 3) return [];
     return this.google.autocomplete({ ...params, input });

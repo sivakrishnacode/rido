@@ -11,6 +11,7 @@ import '../repositories/repositories.dart';
 import '../seed.dart';
 import 'api_client.dart';
 import 'api_mappers.dart';
+import 'service_cities.dart';
 
 List<Json> _list(dynamic body) => [for (final e in (body as List? ?? const [])) (e as Map).cast<String, dynamic>()];
 Json _map(dynamic body) => (body as Map).cast<String, dynamic>();
@@ -76,8 +77,9 @@ class ApiPlacesRepository implements PlacesRepository {
   ApiPlacesRepository(this.api);
   final ApiClient api;
 
-  /// Last known device / pin location (set by the apps when the GPS answers).
-  Place _current = Seed.gandhipuram;
+  /// Last known device / pin location (set by the apps when the GPS answers); until then the first service city's
+  /// centre.
+  Place? _current;
   String _session = _newSession();
   final Map<String, bool> _serviceArea = {};
 
@@ -87,7 +89,8 @@ class ApiPlacesRepository implements PlacesRepository {
   }
 
   @override
-  Place get currentLocation => _current;
+  Place get currentLocation =>
+      _current ?? Place(id: 'current', name: 'Current location', address: '', location: CityDefaults.center);
 
   /// Remembers the device location (used as the default pickup).
   set currentLocation(Place place) => _current = place;
@@ -113,7 +116,9 @@ class ApiPlacesRepository implements PlacesRepository {
     final res = await api.get('/places/details/${Uri.encodeComponent(id)}', query: {'session': _session});
     _session = _newSession(); // Place Details ends the autocomplete session (one billable session).
     if (res == null) throw const OfflineException();
-    final resolved = resolvedPlaceFromJson(_map(res));
+    final json = _map(res);
+    final resolved = resolvedPlaceFromJson(json);
+    if (json['isInServiceArea'] is bool) _serviceArea[_key(resolved.location)] = json['isInServiceArea'] as bool;
     return resolved.copyWith(name: place.name.isNotEmpty ? place.name : resolved.name);
   }
 
@@ -160,11 +165,10 @@ class ApiPlacesRepository implements PlacesRepository {
         : resolvedPlaceFromJson(_map(place)).copyWith(id: 'pin-${_key(point)}', location: point);
   }
 
-  /// From the last reverse geocode near [point]; otherwise within 18 km of Coimbatore (the seeded service area).
-  /// Booking is checked again by the API.
+  /// The API's answer for [point] (from a reverse geocode or a resolved search result); true while unknown, since
+  /// booking is checked again by the API. No city or radius is built in.
   @override
-  bool isInServiceArea(LatLng point) =>
-      _serviceArea[_key(point)] ?? const Distance().as(LengthUnit.Kilometer, point, kCityCentre) <= 18;
+  bool isInServiceArea(LatLng point) => _serviceArea[_key(point)] ?? true;
 
   static String _key(LatLng p) => '${p.latitude.toStringAsFixed(4)},${p.longitude.toStringAsFixed(4)}';
 }

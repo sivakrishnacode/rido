@@ -34,6 +34,7 @@ import { presetRange } from "@/lib/heat";
 import { cellCentre } from "@/lib/hex";
 import { displayName, formatAgo, formatCount, formatInr, vehicleLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { cityView } from "@/lib/map-view";
 
 import { MiniLiveMap } from "./mini-live-map";
 import { TripsChart } from "./trips-chart";
@@ -148,7 +149,8 @@ export default async function DashboardPage() {
     }),
   );
   const activeCities = cities.filter((c) => c.isActive);
-  const mapCenter: [number, number] = activeCities[0] ? [activeCities[0].centerLat, activeCities[0].centerLng] : [11.0168, 76.9658];
+  const { center: c0 } = cityView(activeCities);
+  const mapCenter: [number, number] = [c0.lat, c0.lng];
   const { drivers, trips, revenue } = stats;
   const weekTotal = stats.tripsLast7Days.reduce((a, d) => a + d.count, 0);
 

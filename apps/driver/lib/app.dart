@@ -41,6 +41,8 @@ class _TtDriverAppState extends ConsumerState<TtDriverApp> with WidgetsBindingOb
   @override
   void initState() {
     super.initState();
+    // Service cities (sign-up city, the maps' first view) come from the API; nothing is built in.
+    ref.read(serviceCitiesProvider);
     if (!_live) return;
     WidgetsBinding.instance.addObserver(this);
     _unauthorized = ref.read(apiClientProvider).onUnauthorized.listen((_) => _signedOut());

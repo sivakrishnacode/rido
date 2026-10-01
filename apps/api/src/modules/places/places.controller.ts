@@ -40,7 +40,7 @@ export class PlacesController {
   }
 
   @Get('details/:placeId')
-  details(@Param('placeId') placeId: string, @Query('session') session?: string): Promise<ResolvedPlace | null> {
+  details(@Param('placeId') placeId: string, @Query('session') session?: string): Promise<(ResolvedPlace & { isInServiceArea: boolean }) | null> {
     return this.places.details({ placeId, sessionToken: session });
   }
 

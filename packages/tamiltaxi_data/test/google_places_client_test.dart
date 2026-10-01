@@ -108,7 +108,7 @@ void main() {
     final repo = MockPlacesRepository(MockDatabase(), () => const DemoSettings());
     expect(await repo.resolve(Seed.brookefields), same(Seed.brookefields));
     await expectLater(
-      repo.resolve(const Place(id: 'g:abc', name: 'X', address: 'Y', location: GooglePlacesClient.biasCentre)),
+      repo.resolve(Place(id: 'g:abc', name: 'X', address: 'Y', location: GooglePlacesClient.biasCentre)),
       throwsA(isA<OfflineException>()),
     );
   });

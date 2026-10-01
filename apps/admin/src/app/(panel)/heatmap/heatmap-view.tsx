@@ -32,6 +32,7 @@ import { applyCells, cellAt, cellCentre, toResolution } from "@/lib/hex";
 import { HEATMAP_METRICS, VEHICLE_KINDS, type Heatmap, type HeatmapMetric, type HeatmapQuery, type TripKind, type VehicleKind } from "@/lib/types";
 import { useHeatmap } from "@/lib/use-heatmap";
 import { cn } from "@/lib/utils";
+import { cityView } from "@/lib/map-view";
 
 import { createZone, saveServiceCells } from "../actions";
 
@@ -295,7 +296,8 @@ export function HeatmapView({ initial, cities }: { initial: Heatmap; cities: Hea
         </Card>
 
         <TtMap
-          center={cities[0] ? { lat: cities[0].centerLat, lng: cities[0].centerLng } : { lat: 11.0168, lng: 76.9658 }}
+          center={cityView(cities).center}
+          zoom={cityView(cities).zoom}
           mapType={mapType}
           className="h-[calc(100vh-19rem)] min-h-[560px] border"
           overlay={

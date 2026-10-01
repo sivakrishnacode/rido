@@ -16,6 +16,7 @@ import { METRIC_LABEL } from "@/lib/heat";
 import { demandColor, type DemandHover } from "@/components/map/google/demand-layer";
 import { Switch } from "@/components/ui/switch";
 import { HEATMAP_METRICS, type DemandSnapshot, type HeatmapMetric, type LiveData, type ServiceArea, type VehicleKind } from "@/lib/types";
+import { cityView } from "@/lib/map-view";
 
 const POLL_MS = 10_000;
 /** The API recomputes demand every 60 s; poll a bit faster so the map is never more than ~a minute old. */
@@ -108,7 +109,8 @@ export function LiveView({
   }, [load, cityId]);
 
   const city = cities.find((c) => c.id === cityId);
-  const center: [number, number] = city ? [city.centerLat, city.centerLng] : [11.0168, 76.9658];
+  const view = cityView(city ? [city] : cities);
+  const center: [number, number] = [view.center.lat, view.center.lng];
   const busy = data.drivers.filter((d) => d.activeTripId).length;
   const kinds = [...new Set(data.drivers.map((d) => d.vehicleKind))] as VehicleKind[];
 

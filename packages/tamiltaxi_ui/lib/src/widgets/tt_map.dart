@@ -9,7 +9,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:latlong2/latlong.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:tamiltaxi_data/tamiltaxi_data.dart' show isGoogleMapsEnabled;
+import 'package:tamiltaxi_data/tamiltaxi_data.dart' show CityDefaults, isGoogleMapsEnabled;
 
 import '../theme/tt_colors.dart';
 import '../theme/tt_tokens.dart';
@@ -237,7 +237,7 @@ class _FlutterTtMapState extends State<_FlutterTtMap> {
       child: FlutterMap(
         mapController: _mapController,
         options: MapOptions(
-          initialCenter: m.center ?? m.pickup ?? const LatLng(11.0168, 76.9658),
+          initialCenter: m.center ?? m.pickup ?? CityDefaults.center,
           initialZoom: m.zoom,
           initialCameraFit: fit,
           backgroundColor: TtColors.inputBg,

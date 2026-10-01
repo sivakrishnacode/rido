@@ -1,5 +1,6 @@
 import 'package:latlong2/latlong.dart';
 
+import 'api/service_cities.dart';
 import 'models/driver.dart';
 import 'models/people.dart';
 import 'models/place.dart';
@@ -146,6 +147,9 @@ abstract final class Seed {
 
   /// Map centre for the whole city.
   static const LatLng cityCentre = LatLng(11.0168, 76.9658);
+
+  /// The demo data's one city (mock mode). The live apps get every city from `GET /cities`.
+  static const demoCity = ServiceCity(id: 'coimbatore', name: 'Coimbatore', state: 'Tamil Nadu', center: cityCentre);
 
   /// Service area radius around [cityCentre].
   static const double serviceRadiusKm = 18;

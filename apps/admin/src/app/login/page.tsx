@@ -17,7 +17,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       <section className="relative hidden overflow-hidden bg-navy-900 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <Wordmark tone="white" stacked className="text-5xl" />
         <div className="max-w-md space-y-4">
-          <p className="text-sm font-medium tracking-wide text-coral-100 uppercase">Coimbatore · zero commission</p>
+          <p className="text-sm font-medium tracking-wide text-coral-100 uppercase">Zero commission</p>
           <h1 className="text-3xl leading-tight font-semibold">
             Drivers keep 100% of every fare. You keep the city moving.
           </h1>

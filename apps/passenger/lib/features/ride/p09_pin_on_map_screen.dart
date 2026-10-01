@@ -80,7 +80,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
     final places = ref.read(placesRepositoryProvider);
     final demo = ref.read(demoSettingsProvider);
     if (demo.outsideServiceArea || !places.isInServiceArea(_place.location)) {
-      context.push(Routes.serviceUnavailable);
+      context.push(Routes.serviceUnavailable, extra: demo.outsideServiceArea ? null : _place.location);
       return;
     }
     if (widget.pickOnly) {
@@ -243,7 +243,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                                   ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${_place.address}, Coimbatore',
+                                  _place.address,
                                   style: t.bodySmall.copyWith(color: TtColors.navy700),
                                   maxLines: 2,
                                 ),
