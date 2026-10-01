@@ -25,7 +25,7 @@ class DriverHelpScreen extends ConsumerWidget {
       backgroundColor: TtColors.background,
       appBar: const TtAppBar(title: 'Help & support'),
       body: SupportHomeView(
-        topics: ref.read(supportRepositoryProvider).topics(driver: true),
+        topics: driverHelpTopics(ref),
         tickets: tickets.hasError ? const [] : tickets.value,
         recentTrip: latest == null
             ? null
@@ -42,4 +42,13 @@ class DriverHelpScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The driver's help topics, without "Plan & Autopay" while paid plans are off (the app is free).
+List<String> driverHelpTopics(WidgetRef ref) {
+  final plansOn = ref.watch(driverPlansEnabledProvider);
+  return [
+    for (final t in ref.read(supportRepositoryProvider).topics(driver: true))
+      if (plansOn || t != 'Plan & Autopay') t,
+  ];
 }

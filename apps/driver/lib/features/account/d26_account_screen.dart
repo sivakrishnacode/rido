@@ -47,16 +47,22 @@ class D26AccountScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final profile = ref.watch(driverProfileProvider).value ?? Seed.karthik;
-    final kyc = ref.watch(kycProvider).value;
     final contact = ref.watch(driverEmergencyContactProvider).value;
-    final verified = kyc?.where((d) => d.status == KycStatus.verified).length;
     final prefs = ref.watch(bookingPrefsProvider).value;
     final prefsSub = prefs == null || !prefs.hasFilters ? 'Every request · voice, Go To, Stay In, parcels' : _cap(prefs.summary);
-    final docsSub = kyc == null
+    // Counted as Account › Documents (D-07 read-only) counts them: the uploads plus the identity check, from the
+    // same source (mock: every upload verified). It used to count every KYC record and skip the identity step.
+    final kyc = ref.watch(isLiveApiProvider) ? ref.watch(kycProvider).value : Seed.kycAllVerified;
+    final identity = ref.watch(identityProvider).value;
+    final uploads = kyc?.where((d) => driverUploadDocs.contains(d.type)).toList();
+    final steps = (uploads?.length ?? 0) + (identity?.isEnabled == true ? 1 : 0);
+    final verified = (uploads?.where((d) => d.status == KycStatus.verified).length ?? 0) +
+        (identity?.isApproved == true ? 1 : 0);
+    final docsSub = uploads == null
         ? 'Driving licence, RC, insurance…'
-        : verified == kyc.length
-            ? 'All ${kyc.length} verified'
-            : '$verified of ${kyc.length} verified';
+        : verified == steps
+            ? 'All $steps verified'
+            : '$verified of $steps verified';
 
     return Scaffold(
       backgroundColor: TtColors.background,

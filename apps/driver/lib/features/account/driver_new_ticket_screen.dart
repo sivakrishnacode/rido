@@ -5,6 +5,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/driver_account.dart';
+import 'driver_help_screen.dart';
 
 /// Account › Raise a ticket: topic chips + description → "My tickets" as Open.
 class DriverNewTicketScreen extends ConsumerWidget {
@@ -22,7 +23,7 @@ class DriverNewTicketScreen extends ConsumerWidget {
       backgroundColor: TtColors.background,
       appBar: const TtAppBar(title: 'Raise a ticket'),
       body: NewTicketView(
-        topics: repo.topics(driver: true),
+        topics: driverHelpTopics(ref),
         initialTopic: topic,
         onSubmit: (topic, description) async {
           try {
