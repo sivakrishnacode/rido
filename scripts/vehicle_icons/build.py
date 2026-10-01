@@ -6,7 +6,7 @@
 Each render is a transparent PNG. The script trims it to the vehicle, paints a plain dark badge over a real car
 maker's logo (the repo is public: no trademarks in the app), and saves a small WebP (alpha kept) for
 `VehicleArt` in packages/tamiltaxi_ui. Renders that aren't listed here (van, MPV, luxury, roof-sign taxi) are kept
-for tiers that may come later.
+for tiers that may come later. Pickup and truck have no render yet (the apps show their symbol).
 """
 import os
 import sys
@@ -26,6 +26,8 @@ VEHICLES = {
     'mini': ('White Compact Taxi Car Render.png', []),
     'sedan': ('White Sedan Taxi Cutout.png', [(1302, 584, 31, 27)]),
     'suv': ('White SUV Taxi with Yellow Stripe.png', []),
+    'three_wheeler': ('Yellow Cargo Tuk-Tuk Delivery Vehicle.png', []),
+    'mini_truck': ('White and Yellow Mini Cargo Truck.png', []),
 }
 
 WIDTH = 360  # px; cards draw them at up to ~96 logical px wide, so this is enough for 3x screens

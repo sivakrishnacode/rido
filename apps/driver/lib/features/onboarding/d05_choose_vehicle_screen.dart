@@ -25,11 +25,11 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
   late final SignupDraft _draft = widget.showcase ? const SignupDraft() : ref.read(signupProvider);
   late VehicleKind _selected = _draft.vehicle;
 
-  /// Rides: every vehicle a driver can register with (Auto Priority is a booking tier autos serve, not a vehicle).
+  /// Rides: every passenger vehicle (Auto Priority is a booking tier autos serve, not a vehicle); bikes and scooties
+  /// get small parcels too ("Parcels too"). Deliveries: the goods vehicles.
   List<VehicleKind> get _options => _draft.workType == WorkType.rides
       ? const [VehicleKind.bike, VehicleKind.scooty, VehicleKind.auto, VehicleKind.cab, VehicleKind.sedan, VehicleKind.suv]
       : const [
-          VehicleKind.goodsBike,
           VehicleKind.threeWheeler,
           VehicleKind.miniTruck,
           VehicleKind.pickup,

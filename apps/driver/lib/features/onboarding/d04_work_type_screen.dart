@@ -8,7 +8,8 @@ import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import 'widgets/signup_widgets.dart';
 
-/// D-04 Choose work type: "Rides: carry passengers" or "Deliveries: carry goods". Step 1 of 3 from the D-07
+/// D-04 Choose work type: "Rides: carry passengers" (bikes and scooties also get small parcels, "Parcels too") or
+/// "Deliveries: carry goods" (3-wheeler, mini truck, pickup, truck). Step 1 of 3 from the D-07
 /// registration page (work type → vehicle → details).
 class D04WorkTypeScreen extends ConsumerStatefulWidget {
   const D04WorkTypeScreen({super.key, this.showcase = false});
@@ -50,7 +51,7 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
                   const SizedBox(height: TtSpacing.l),
                   _WorkCard(
                     title: 'Rides: carry passengers',
-                    subtitle: 'Bike, scooty, auto or car',
+                    subtitle: 'Bike, scooty, auto or car. Bikes and scooties carry small parcels too',
                     vehicles: const [
                       VehicleKind.bike,
                       VehicleKind.scooty,
@@ -65,9 +66,9 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
                   const SizedBox(height: TtSpacing.l),
                   _WorkCard(
                     title: 'Deliveries: carry goods',
-                    subtitle: 'Parcels, shop stock, house moves',
+                    subtitle: 'Shop stock, furniture, house moves',
+                    // Two-wheelers aren't here: a bike or scooty driver gets parcels as well as rides (Rides above).
                     vehicles: const [
-                      VehicleKind.goodsBike,
                       VehicleKind.threeWheeler,
                       VehicleKind.miniTruck,
                       VehicleKind.pickup,
@@ -165,6 +166,10 @@ class _WorkCard extends StatelessWidget {
                                       const SizedBox(height: TtSpacing.xs),
                                       Text(vehicles[i] == VehicleKind.truck ? 'Truck' : vehicles[i].label,
                                           style: t.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      // The tag line is kept on every tile of the card so the tiles stay one height.
+                                      if (vehicles.any((v) => v.isTwoWheeler))
+                                        Text(vehicles[i].isTwoWheeler ? '+ Parcels' : '',
+                                            style: t.caption.copyWith(color: TtColors.successText, fontWeight: FontWeight.w600)),
                                     ],
                                   ),
                                 ),

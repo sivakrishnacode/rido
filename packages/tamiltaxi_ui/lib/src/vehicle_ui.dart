@@ -32,7 +32,7 @@ extension VehicleKindUi on VehicleKind {
       };
 
   /// The 3/4 render in `assets/vehicles/` (built by scripts/vehicle_icons/build.py), or null for vehicles that have
-  /// none yet (goods vehicles other than the bike), which show [icon] instead.
+  /// none yet (pickup, truck), which show [icon] instead.
   String? get artAsset => switch (this) {
         VehicleKind.bike || VehicleKind.goodsBike => 'packages/tamiltaxi_ui/assets/vehicles/bike.webp',
         VehicleKind.scooty => 'packages/tamiltaxi_ui/assets/vehicles/scooty.webp',
@@ -41,7 +41,9 @@ extension VehicleKindUi on VehicleKind {
         VehicleKind.cab => 'packages/tamiltaxi_ui/assets/vehicles/mini.webp',
         VehicleKind.sedan => 'packages/tamiltaxi_ui/assets/vehicles/sedan.webp',
         VehicleKind.suv => 'packages/tamiltaxi_ui/assets/vehicles/suv.webp',
-        VehicleKind.threeWheeler || VehicleKind.miniTruck || VehicleKind.pickup || VehicleKind.truck => null,
+        VehicleKind.threeWheeler => 'packages/tamiltaxi_ui/assets/vehicles/three_wheeler.webp',
+        VehicleKind.miniTruck => 'packages/tamiltaxi_ui/assets/vehicles/mini_truck.webp',
+        VehicleKind.pickup || VehicleKind.truck => null,
       };
 
   /// Marker glyph class for the map.

@@ -42,14 +42,17 @@ class ParcelVehicleArt extends StatelessWidget {
   final double height;
   final Color tile;
 
+  /// The vehicle's render when it has one ([VehicleArt]); otherwise the coral symbol on a [tile].
   @override
-  Widget build(BuildContext context) => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(color: tile, borderRadius: TtRadii.cardRadius),
-        alignment: Alignment.center,
-        child: Icon(kind.icon, fill: 1, color: TtColors.coral500, size: math.min(width, height) * 0.66),
-      );
+  Widget build(BuildContext context) => kind.artAsset != null
+      ? VehicleArt(kind, width: width, height: height)
+      : Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(color: tile, borderRadius: TtRadii.cardRadius),
+          alignment: Alignment.center,
+          child: Icon(kind.icon, fill: 1, color: TtColors.coral500, size: math.min(width, height) * 0.66),
+        );
 }
 
 /// Passenger app bar with a "Step x of 3" caption on the right (PP-02 … PP-04).

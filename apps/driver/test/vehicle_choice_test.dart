@@ -16,10 +16,12 @@ void main() {
     expect(find.byType(VehicleArt, skipOffstage: false), findsNWidgets(6));
   });
 
-  testWidgets('D-04 shows every ride and goods vehicle, three to a row', (tester) async {
+  testWidgets('D-04: two-wheelers once, under Rides with "+ Parcels"; Deliveries lists the goods vehicles', (tester) async {
     await pumpRoute(tester, Routes.workType);
-    expect(find.byType(VehicleArt), findsNWidgets(11));
+    expect(find.byType(VehicleArt), findsNWidgets(10));
+    expect(find.text('Bike'), findsOneWidget);
     expect(find.text('Scooty'), findsOneWidget);
+    expect(find.text('+ Parcels'), findsNWidgets(2));
     expect(find.text('Mini truck'), findsOneWidget);
   });
 }

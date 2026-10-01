@@ -143,6 +143,8 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                           for (final q in quotes) ...[
                             VehicleOptionCard(
                               icon: q.vehicle.kind.icon,
+                              // Pictures where there are renders (bike, 3-wheeler, mini truck); the symbol tile else.
+                              art: q.vehicle.kind.artAsset != null ? VehicleArt(q.vehicle.kind) : null,
                               name: q.vehicle.name,
                               subtitle: '${q.vehicle.etaMin} min away · ${q.vehicle.capacityLabel.toLowerCase()}',
                               fare: q.total,

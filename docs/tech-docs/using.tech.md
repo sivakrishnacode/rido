@@ -693,6 +693,8 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
   pending, ready ones and returns `{approved, skipped: [{id, reason}]}`. `PATCH /v1/admin/drivers/:id` takes an
   optional `reason` (3–200 chars, kept in the audit log) and pushes the decision to the driver
   (`NotifierService.driverStatus`). `GET /v1/admin/drivers/:id` adds `checklist` and `identityRequired`.
+- **Work type (D-04):** bikes and scooties are listed once, under Rides, tagged "+ Parcels" (they get goods-bike parcels
+  too, "Parcels too"); Deliveries lists the goods vehicles (3-wheeler, mini truck, pickup, truck). D-05 follows.
 - **Driver app, one registration page:** after the OTP a new or unapproved driver only ever sees **D-07
   Registration** (`applicationRoute`: approved → Home, anything else → D-07; the splash, the OTP and a KYC push all
   use it). It has a vehicle card (plate or "Your vehicle", name and phone, vehicle art, a pill: "n to do" / "Under
@@ -1012,9 +1014,10 @@ tier per city (City › Fares).
   shows all ride and goods vehicles three to a row, D-05 offers Bike, Scooty, Auto, Mini, Sedan and SUV (never Auto
   Priority); S-01 suggests the two nearest tiers.
 - **Vehicle pictures:** `VehicleArt(kind)` (tamiltaxi_ui) draws the 3/4 render from `assets/vehicles/<kind>.webp`
-  (`VehicleKindUi.artAsset`) or, for goods vehicles without one yet (3-wheeler, mini truck, pickup, truck), the coral
-  symbol over a ground shadow. Used on P-10 (`VehicleOptionCard.art`), P-11, P-12, D-02, D-04, D-05, D-07, D-11 and
-  the design board. The renders are the owner's (`docs/design/vechile/`, kept local: some show real makers' logos);
+  (`VehicleKindUi.artAsset`) or, for goods vehicles without one yet (pickup, truck), the coral
+  symbol over a ground shadow. Used on P-10 (`VehicleOptionCard.art`), P-11, P-12, PP-01 / PP-06 / PP-07
+  (`ParcelVehicleArt`), D-02, D-04, D-05, D-07, D-11 and the design board. Renders exist for every ride tier, the goods
+  bike (the bike), the 3-wheeler and the mini truck; pickup and truck still show the symbol. The renders are the owner's (`docs/design/vechile/`, kept local: some show real makers' logos);
   `scripts/vehicle_icons/build.py` trims them, paints a plain badge over a real logo and writes 360 px WebPs (~20–35
   KB each).
 - **Nearby vehicles on the rider's maps (RedTaxi / Rapido style):** `GET /v1/drivers/nearby?lat&lng[&trip=PARCEL]`
