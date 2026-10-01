@@ -1222,6 +1222,9 @@ describe('Tamil Taxi API (e2e)', () => {
       expect(res).toEqual({ approved: [driverId], skipped: [{ id: 'missing', reason: 'Not found' }] });
       expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('APPROVED');
       expect((await http.post('/v1/admin/drivers/approve').set(admin).send({ ids: [driverId] }).expect(200)).body.skipped).toEqual([{ id: driverId, reason: 'Already approved' }]);
+      // One approval in the driver's history, though the second request named them too.
+      const history = (await http.get(`/v1/admin/users/${reg.body.driver.userId as string}/activity`).set(admin).expect(200)).body as { summary: string }[];
+      expect(history.filter((h) => h.summary === 'Approved (bulk approval)')).toHaveLength(1);
 
       // Hold with a reason (kept in the audit log); a too-short reason is refused.
       await http.patch(`/v1/admin/drivers/${driverId}`).set(admin).send({ status: 'ON_HOLD', reason: 'ab' }).expect(400);

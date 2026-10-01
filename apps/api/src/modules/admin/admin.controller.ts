@@ -60,8 +60,8 @@ export class AdminController {
   /** Approves several ready drivers (pending, every check done); the others come back in `skipped`. */
   @Post('drivers/approve')
   @HttpCode(200)
-  approveDrivers(@Body() body: ApproveDriversDto): Promise<{ approved: string[]; skipped: { id: string; reason: string }[] }> {
-    return this.approvals.approveMany(body.ids);
+  approveDrivers(@Body() body: ApproveDriversDto, @CurrentUser() user: AuthUser): Promise<{ approved: string[]; skipped: { id: string; reason: string }[] }> {
+    return this.approvals.approveMany(body.ids, user.userId);
   }
 
   @Get('drivers/:id')

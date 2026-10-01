@@ -673,8 +673,8 @@ nothing is ever billed. Docs: https://docs.didit.me (API: `/v3/session/`, webhoo
 - **Looking after one person (1 Oct 2026, `admin/admin-people.service.ts`):** `AdminNote` (internal notes keyed by
   user, so a driver's driver and account pages share them; author kept, set null if their account goes; migration
   `20261001110000_admin_notes`): `GET|POST /v1/admin/users/:id/notes {body 2–1000}`, `DELETE /v1/admin/notes/:id`.
-  `GET /v1/admin/users/:id/activity?limit=` = the person's audit rows (account, driver profile, bulk approvals that
-  included them) as readable lines (`admin/activity.ts`, e.g. "Put on hold: Insurance expired", "Vehicle RC verified")
+  `GET /v1/admin/users/:id/activity?limit=` = the person's audit rows (account, driver profile; a bulk approval writes
+  one row per driver it approved, so skipped drivers get none) as readable lines (`admin/activity.ts`, e.g. "Put on hold: Insurance expired", "Vehicle RC verified")
   with the admin who did it. `POST /v1/admin/users/:id/message {title 3–65, body 3–240, app?: DRIVER|PASSENGER|BOTH}`
   pushes on the `account` channel (`type: admin_message`) and returns `{devices}` (0 = no phone registered, nothing
   sent). `PATCH /v1/admin/drivers/:id/profile` fixes vehicle kind (offline only, else 409), work type, model, colour,

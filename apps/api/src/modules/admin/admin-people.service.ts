@@ -59,15 +59,12 @@ export class AdminPeopleService {
 
   /**
    * The person's admin history, newest first: changes to their account and, for a driver, to their driver profile
-   * (status, documents, photo, pause, edits, bulk approvals that included them), with who made each change.
+   * (status, documents, photo, pause, edits, bulk approvals: one row per approved driver), with who made each change.
    */
   async activity(userId: string, limit = 50): Promise<ActivityEntry[]> {
     const driver = await this.prisma.driver.findUnique({ where: { userId }, select: { id: true } });
     const or: Prisma.AuditLogWhereInput[] = [{ entity: 'users', entityId: userId }];
-    if (driver) {
-      or.push({ entity: 'drivers', entityId: driver.id });
-      or.push({ entity: 'drivers', entityId: null, action: { endsWith: '/admin/drivers/approve' }, data: { path: ['body', 'ids'], array_contains: [driver.id] } });
-    }
+    if (driver) or.push({ entity: 'drivers', entityId: driver.id });
     const rows = await this.prisma.auditLog.findMany({ where: { OR: or }, orderBy: { createdAt: 'desc' }, take: Math.min(limit, 200) });
     const actorIds = [...new Set(rows.map((r) => r.actorId))];
     const actors = await this.prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true, phone: true } });

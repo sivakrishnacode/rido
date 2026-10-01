@@ -103,8 +103,11 @@ export class AdminApprovalsService {
     };
   }
 
-  /** Approves the pending drivers whose every check is done; the rest are skipped with the reason. */
-  async approveMany(ids: readonly string[]): Promise<{ approved: string[]; skipped: { id: string; reason: string }[] }> {
+  /**
+   * Approves the pending drivers whose every check is done; the rest are skipped with the reason. Each approval gets its
+   * own audit row on the driver (the request's row has no driver id), so a driver's history shows only real approvals.
+   */
+  async approveMany(ids: readonly string[], actorId: string): Promise<{ approved: string[]; skipped: { id: string; reason: string }[] }> {
     const unique = [...new Set(ids)];
     const drivers = await this.prisma.driver.findMany({
       where: { id: { in: unique } },
@@ -130,6 +133,9 @@ export class AdminApprovalsService {
       }
       await this.driverState.invalidate(d.id);
       void this.notifier.kycReviewed({ driverId: d.id, status: 'APPROVED' });
+      await this.prisma.auditLog.create({
+        data: { actorId, action: 'POST /v1/admin/drivers/approve', entity: 'drivers', entityId: d.id, data: { body: { status: 'APPROVED' }, bulk: true } },
+      });
       approved.push(d.id);
     }
     return { approved, skipped };
