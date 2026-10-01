@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LinkTabs } from "@/components/common/link-tabs";
+import { ListFilters } from "@/components/common/list-filters";
 import { EmptyState, PageHeader } from "@/components/common/page";
 import { Pager } from "@/components/common/pager";
 import { PlateBadge, StatusBadge } from "@/components/common/status";
@@ -10,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { adminApi, docFileHref } from "@/lib/api";
 import { displayName, docLabel, formatCount, formatDateTime, formatPhone, humanize, vehicleLabel } from "@/lib/format";
-import { DEFAULT_PAGE_SIZE, param, parsePage, withQuery } from "@/lib/paging";
+import { param, pageSizeParam, parsePage, parsePageSize, withQuery } from "@/lib/paging";
 import { KYC_STATUSES, type KycStatus } from "@/lib/types";
 
 import { DocumentActions } from "../drivers/[id]/driver-actions";
@@ -29,8 +30,10 @@ export default async function KycPage({ searchParams }: PageProps<"/kyc">) {
   const requested = param(sp.status) as KycStatus | undefined;
   const status: KycStatus = requested && KYC_STATUSES.includes(requested) ? requested : "UNDER_REVIEW";
   const page = parsePage(sp.page);
+  const pageSize = parsePageSize(sp.pageSize);
+  const q = param(sp.q);
   const [data, pending] = await Promise.all([
-    adminApi.kyc({ status, page, pageSize: DEFAULT_PAGE_SIZE }),
+    adminApi.kyc({ status, q, page, pageSize }),
     status === "UNDER_REVIEW" ? null : adminApi.kyc({ status: "UNDER_REVIEW", pageSize: 1 }),
   ]);
   const pendingTotal = pending?.total ?? data.total;
@@ -46,18 +49,19 @@ export default async function KycPage({ searchParams }: PageProps<"/kyc">) {
         tabs={KYC_STATUSES.map((s) => ({
           value: s,
           label: TAB_LABEL[s],
-          href: withQuery("/kyc", { status: s === "UNDER_REVIEW" ? undefined : s }),
+          href: withQuery("/kyc", { status: s === "UNDER_REVIEW" ? undefined : s, q, pageSize: pageSizeParam(pageSize) }),
           count:
             s === "UNDER_REVIEW" && pendingTotal > 0 ? (
               <span className="rounded-full bg-coral-600 px-1.5 text-[11px] font-semibold text-white">{formatCount(pendingTotal)}</span>
             ) : undefined,
         }))}
       />
+      <ListFilters searchPlaceholder="Driver name, phone or plate" />
       <Card className="gap-0 py-0">
         {data.items.length === 0 ? (
           <EmptyState
             icon={ClipboardCheckIcon}
-            title={status === "UNDER_REVIEW" ? "Queue is empty" : `No ${TAB_LABEL[status].toLowerCase()} documents`}
+            title={q ? "No documents match" : status === "UNDER_REVIEW" ? "Queue is empty" : `No ${TAB_LABEL[status].toLowerCase()} documents`}
             description={
               status === "UNDER_REVIEW" ? "New uploads from the Tamil Taxi Driver app land here for review." : "Nothing in this list right now."
             }
@@ -122,7 +126,15 @@ export default async function KycPage({ searchParams }: PageProps<"/kyc">) {
             </TableBody>
           </Table>
         )}
-        <Pager path="/kyc" query={{ status: status === "UNDER_REVIEW" ? undefined : status }} page={data.page} pageSize={data.pageSize} total={data.total} noun={`${humanize(status).toLowerCase()} documents`} />
+        <Pager
+          path="/kyc"
+          query={{ status: status === "UNDER_REVIEW" ? undefined : status, q, pageSize: pageSizeParam(pageSize) }}
+          page={data.page}
+          pageSize={data.pageSize}
+          total={data.total}
+          noun={`${humanize(status).toLowerCase()} documents`}
+          canResize
+        />
       </Card>
     </>
   );

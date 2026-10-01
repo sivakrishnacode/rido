@@ -3,6 +3,19 @@ export type QueryValue = string | number | boolean | null | undefined;
 export type QueryInput = Record<string, QueryValue | QueryValue[]>;
 
 export const DEFAULT_PAGE_SIZE = 20;
+/** Rows-per-page choices on list pages (the API allows up to 100). */
+export const PAGE_SIZES = [20, 50, 100] as const;
+
+/** ?pageSize=50 → 50; anything not in [PAGE_SIZES] → the default (20). */
+export function parsePageSize(value: string | string[] | undefined): number {
+  const n = Number(Array.isArray(value) ? value[0] : value);
+  return (PAGE_SIZES as readonly number[]).includes(n) ? n : DEFAULT_PAGE_SIZE;
+}
+
+/** ?pageSize in a URL: omitted for the default so links stay short. */
+export function pageSizeParam(pageSize: number): number | undefined {
+  return pageSize === DEFAULT_PAGE_SIZE ? undefined : pageSize;
+}
 
 /**
  * Builds "path?a=1&b=2", skipping empty values (undefined, null, "", "ALL") so URLs stay clean.

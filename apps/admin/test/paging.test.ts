@@ -2,7 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import { apiBaseUrl, apiUrl, errorMessage, safeNext } from "@/lib/api-core";
 import { decodeJwt, isUsableAdminToken } from "@/lib/jwt";
-import { pageHref, pageInfo, pageWindow, parsePage, withQuery } from "@/lib/paging";
+import { DEFAULT_PAGE_SIZE, pageHref, pageInfo, pageSizeParam, pageWindow, parsePage, parsePageSize, withQuery } from "@/lib/paging";
+
+describe("page size", () => {
+  it("accepts only the offered sizes", () => {
+    expect(parsePageSize("50")).toBe(50);
+    expect(parsePageSize(["100"])).toBe(100);
+    expect(parsePageSize("37")).toBe(DEFAULT_PAGE_SIZE);
+    expect(parsePageSize(undefined)).toBe(DEFAULT_PAGE_SIZE);
+    expect(pageSizeParam(DEFAULT_PAGE_SIZE)).toBeUndefined();
+    expect(pageSizeParam(50)).toBe(50);
+  });
+});
 
 describe("paging URL builder", () => {
   it("skips empty values and ALL", () => {

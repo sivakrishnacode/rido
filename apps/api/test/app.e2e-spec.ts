@@ -1087,6 +1087,23 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(heat.body.cells[0].intensity).toBe(1);
     await http.get('/v1/admin/heatmap?metric=unmet&hourFrom=7&hourTo=10&resolution=7').set(auth).expect(200);
     await http.get('/v1/admin/plans').set(auth).expect(200);
+
+    // List filters, sorting and counts; phone search ignores spaces and +91.
+    const autos = (await http.get('/v1/admin/drivers?vehicle=AUTO&online=false&sort=rating&pageSize=100').set(auth).expect(200)).body;
+    expect(autos.items.every((d: { vehicleKind: string; isOnline: boolean }) => d.vehicleKind === 'AUTO' && !d.isOnline)).toBe(true);
+    expect(Object.keys(autos.counts).sort()).toEqual(['APPROVED', 'ON_HOLD', 'PENDING', 'REJECTED']);
+    expect(autos.items[0]).not.toHaveProperty('upiId');
+    const one = drivers.body.items[0] as { user: { phone: string } };
+    const spaced = `+91 ${one.user.phone.slice(-10, -5)} ${one.user.phone.slice(-5)}`;
+    const byPhone = (await http.get(`/v1/admin/drivers?q=${encodeURIComponent(spaced)}`).set(auth).expect(200)).body;
+    expect(byPhone.items.map((d: { id: string }) => d.id)).toContain(driverId);
+    await http.get('/v1/admin/drivers?sort=bogus').set(auth).expect(400);
+    await http.get('/v1/admin/passengers?sort=trips&blocked=false&women=true').set(auth).expect(200);
+    const since = new Date(Date.now() - 86_400_000).toISOString();
+    const recent = (await http.get(`/v1/admin/trips?sort=fare&from=${since}&pageSize=100`).set(auth).expect(200)).body;
+    const fares = recent.items.map((t: { fareTotal: number }) => t.fareTotal);
+    expect(fares).toEqual([...fares].sort((a, b) => b - a));
+    expect(recent.items.every((t: { createdAt: string }) => t.createdAt >= since)).toBe(true);
   });
 
   it('uses H3 service areas: outside is refused, admins add cities, zones and blocks', async () => {

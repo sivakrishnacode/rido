@@ -40,6 +40,7 @@ import type {
   ZoneKind,
   Driver,
   DriverDetail,
+  DriverListItem,
   DriverOfferStats,
   DriverStatus,
   KycDocType,
@@ -141,10 +142,41 @@ export interface ListQuery {
   readonly blocked?: string;
   /** Trips: "true" = flagged for review only. */
   readonly review?: string;
+  /** Drivers: newest | oldest | rating | trips | name; riders: newest | oldest | trips | name; trips: newest | oldest | fare. */
+  readonly sort?: string;
+  /** Drivers and trips: one vehicle kind. */
+  readonly vehicle?: string;
+  /** Drivers: "true" | "false". */
+  readonly online?: string;
+  /** Drivers: FEMALE = women drivers. */
+  readonly gender?: string;
+  /** Riders: "true" = prefers women drivers / identity verified. */
+  readonly women?: string;
+  readonly verified?: string;
+  /** Trips booked from / before (ISO). */
+  readonly from?: string;
+  readonly to?: string;
 }
 
 function listQuery(q: ListQuery): QueryInput {
-  return { page: q.page, pageSize: q.pageSize, q: q.q, status: q.status, kind: q.kind, role: q.role, blocked: q.blocked, review: q.review };
+  return {
+    page: q.page,
+    pageSize: q.pageSize,
+    q: q.q,
+    status: q.status,
+    kind: q.kind,
+    role: q.role,
+    blocked: q.blocked,
+    review: q.review,
+    sort: q.sort,
+    vehicle: q.vehicle,
+    online: q.online,
+    gender: q.gender,
+    women: q.women,
+    verified: q.verified,
+    from: q.from,
+    to: q.to,
+  };
 }
 
 const enc = encodeURIComponent;
@@ -189,7 +221,9 @@ export interface AnnouncementInput {
 export const adminApi = {
   stats: () => apiFetch<AdminStats>("/admin/stats"),
 
-  drivers: (q: ListQuery = {}) => apiFetch<Paged<Driver>>("/admin/drivers", { query: listQuery(q) }),
+  /** With `counts` per status (older APIs: absent). */
+  drivers: (q: ListQuery = {}) =>
+    apiFetch<Paged<DriverListItem> & { counts?: Record<DriverStatus, number> }>("/admin/drivers", { query: listQuery(q) }),
   driver: (id: string) => orNotFound(apiFetch<DriverDetail>(`/admin/drivers/${encodeURIComponent(id)}`)),
   driverOfferStats: (id: string) => apiFetch<DriverOfferStats>(`/admin/drivers/${encodeURIComponent(id)}/offer-stats`),
   liftDriverBlock: (id: string) => apiFetch<DriverBlock>(`/admin/drivers/${encodeURIComponent(id)}/lift-block`, { method: "POST" }),

@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, adminApi } from "@/lib/api";
 import { formatCount, formatDate, formatPhone, humanize, initials } from "@/lib/format";
-import { DEFAULT_PAGE_SIZE, param, parsePage, withQuery } from "@/lib/paging";
+import { param, pageSizeParam, parsePage, parsePageSize, withQuery } from "@/lib/paging";
 import { ROLES, type AdminUser, type Paged, type Role } from "@/lib/types";
 
 export const metadata: Metadata = { title: "All accounts" };
@@ -33,15 +33,16 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
   const blocked = blockedParam === "true" || blockedParam === "false" ? blockedParam : undefined;
   const query = { q: param(sp.q), role, blocked };
   const page = parsePage(sp.page);
+  const pageSize = parsePageSize(sp.pageSize);
   let data: Paged<AdminUser>;
   let filterError: string | null = null;
   try {
-    data = await adminApi.users({ ...query, page, pageSize: DEFAULT_PAGE_SIZE });
+    data = await adminApi.users({ ...query, page, pageSize });
   } catch (e) {
     // Older API builds reject ?role / ?blocked (ListQueryDto whitelist): fall back to the unfiltered list.
     if (!(e instanceof ApiError && e.status === 400 && (role || blocked))) throw e;
     filterError = e.message;
-    data = await adminApi.users({ q: query.q, page, pageSize: DEFAULT_PAGE_SIZE });
+    data = await adminApi.users({ q: query.q, page, pageSize });
   }
 
   return (
@@ -52,7 +53,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
         tabs={ROLE_TABS.map((t) => ({
           value: t.value,
           label: t.label,
-          href: withQuery("/users", { q: query.q, blocked, role: t.value === "ALL" ? undefined : t.value }),
+          href: withQuery("/users", { q: query.q, blocked, role: t.value === "ALL" ? undefined : t.value, pageSize: pageSizeParam(pageSize) }),
         }))}
       />
       <ListFilters
@@ -132,7 +133,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/users">) {
             </TableBody>
           </Table>
         )}
-        <Pager path="/users" query={query} page={data.page} pageSize={data.pageSize} total={data.total} noun="users" />
+        <Pager path="/users" query={{ ...query, pageSize: pageSizeParam(pageSize) }} page={data.page} pageSize={data.pageSize} total={data.total} noun="accounts" canResize />
       </Card>
     </>
   );

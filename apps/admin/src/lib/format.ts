@@ -117,7 +117,7 @@ export function docLabel(type: KycDocType): string {
 }
 
 /** KYC progress: verified RC + insurance, plus the identity check when [identity] is given. */
-export function kycProgress(docs: readonly KycDocument[], identity?: IdentityStatus): { verified: number; total: number } {
+export function kycProgress(docs: readonly Pick<KycDocument, "type" | "status">[], identity?: IdentityStatus): { verified: number; total: number } {
   const verified = docs.filter((d) => KYC_DOC_TYPES.includes(d.type) && d.status === "VERIFIED").length;
   if (identity === undefined) return { verified, total: KYC_DOC_TYPES.length };
   return { verified: verified + (identity === "APPROVED" ? 1 : 0), total: KYC_DOC_TYPES.length + 1 };

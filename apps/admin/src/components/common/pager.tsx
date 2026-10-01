@@ -4,9 +4,13 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from "@/components/ui/pagination";
 import { formatCount } from "@/lib/format";
-import { pageHref, pageInfo, pageWindow, type QueryInput } from "@/lib/paging";
+import { PAGE_SIZES, pageHref, pageInfo, pageSizeParam, pageWindow, withQuery, type QueryInput } from "@/lib/paging";
+import { cn } from "@/lib/utils";
 
-/** "Showing 1–20 of 57" + page links that keep the current filters. */
+/**
+ * "Showing 1–20 of 57" + page links that keep the current filters, and (with [canResize]) a 20 / 50 / 100 rows choice
+ * kept in ?pageSize. Pass the page size in [query] too (`pageSizeParam`) so page links keep it.
+ */
 export function Pager({
   path,
   query,
@@ -14,6 +18,7 @@ export function Pager({
   pageSize,
   total,
   noun = "results",
+  canResize = false,
 }: {
   path: string;
   query: QueryInput;
@@ -21,16 +26,37 @@ export function Pager({
   pageSize: number;
   total: number;
   noun?: string;
+  canResize?: boolean;
 }) {
   const info = pageInfo({ page, pageSize, total });
   if (total === 0) return null;
   return (
     <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row">
-      <p className="text-sm text-muted-foreground">
-        Showing <span className="font-medium text-navy-900">{formatCount(info.from)}</span>–
-        <span className="font-medium text-navy-900">{formatCount(info.to)}</span> of{" "}
-        <span className="font-medium text-navy-900">{formatCount(total)}</span> {noun}
-      </p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <p>
+          Showing <span className="font-medium text-navy-900">{formatCount(info.from)}</span>–
+          <span className="font-medium text-navy-900">{formatCount(info.to)}</span> of{" "}
+          <span className="font-medium text-navy-900">{formatCount(total)}</span> {noun}
+        </p>
+        {canResize && total > PAGE_SIZES[0] && (
+          <p className="flex items-center gap-1" aria-label="Rows per page">
+            Rows
+            {PAGE_SIZES.map((size) => (
+              <Link
+                key={size}
+                href={withQuery(path, { ...query, page: undefined, pageSize: pageSizeParam(size) })}
+                aria-current={size === pageSize ? "true" : undefined}
+                className={cn(
+                  "rounded-md px-1.5 py-0.5 tabular-nums hover:bg-muted hover:text-navy-900",
+                  size === pageSize && "bg-muted font-semibold text-navy-900",
+                )}
+              >
+                {size}
+              </Link>
+            ))}
+          </p>
+        )}
+      </div>
       {info.pageCount > 1 && (
         <Pagination className="mx-0 w-auto">
           <PaginationContent>

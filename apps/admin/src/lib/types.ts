@@ -191,6 +191,15 @@ export interface Driver extends DriverBase {
   readonly subscriptions: Subscription[];
 }
 
+/** GET /admin/drivers item: no UPI id; the user's name, phone, gender, identity and block flag; latest plan. */
+export interface DriverListItem extends Omit<DriverBase, "upiId"> {
+  readonly ratingCount?: number;
+  readonly blockedUntil?: string | null;
+  readonly user: Pick<User, "id" | "name" | "phone" | "gender" | "identityStatus" | "isBlocked">;
+  readonly documents: Pick<KycDocument, "id" | "type" | "status">[];
+  readonly subscriptions: (Pick<Subscription, "id" | "status" | "endsAt"> & { readonly plan: Pick<Plan, "period" | "vehicleKind" | "price"> })[];
+}
+
 /** GET /admin/drivers/:id: all subscriptions with payments, last 20 trips. */
 /** Why a driver was paused (API `DriverBlockReason`). */
 export type DriverBlockReason = "CANCELLATION_RATE";

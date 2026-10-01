@@ -9,6 +9,7 @@ import { approvalChecklist, type ApprovalChecklist, REQUIRED_DOCS } from '../kyc
 import { NotifierService } from '../notifications/notifier.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { Paged } from './admin.types.js';
+import { driverSearch } from './list-filters.js';
 import { APPROVAL_STAGES, type ApprovalStage, type ApprovalsQueryDto } from './dto/approvals.dto.js';
 
 const ITEM_SELECT = {
@@ -81,9 +82,7 @@ export class AdminApprovalsService {
     const stage = q.stage ?? 'ready';
     const page = q.page ?? 1;
     const pageSize = q.pageSize ?? 20;
-    const search: Prisma.DriverWhereInput | undefined = q.q
-      ? { OR: [{ plate: { contains: q.q, mode: 'insensitive' } }, { user: { name: { contains: q.q, mode: 'insensitive' } } }, { user: { phone: { contains: q.q } } }] }
-      : undefined;
+    const search = driverSearch(q.q);
     const where: Prisma.DriverWhereInput = search ? { AND: [this.where(stage), search] } : this.where(stage);
     const [rows, total, counts, autoApprove] = await Promise.all([
       this.prisma.driver.findMany({ where, select: ITEM_SELECT, orderBy: { updatedAt: 'asc' }, skip: (page - 1) * pageSize, take: pageSize }),

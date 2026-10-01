@@ -1,5 +1,8 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+
+import { Gender, VehicleKind } from '../../../generated/prisma/enums.js';
+import { LIST_SORTS } from '../list-filters.js';
 
 /** Common list query: ?page=1&pageSize=20&q=…&status=… */
 export class ListQueryDto {
@@ -48,4 +51,43 @@ export class ListQueryDto {
   @IsString()
   @MaxLength(5)
   review?: string;
+
+  /** Drivers: newest | oldest | rating | trips | name; riders: newest | oldest | trips | name; trips: newest | oldest | fare. */
+  @IsOptional()
+  @IsIn(LIST_SORTS)
+  sort?: string;
+
+  /** Drivers and trips: one vehicle kind. */
+  @IsOptional()
+  @IsEnum(VehicleKind)
+  vehicle?: VehicleKind;
+
+  /** Drivers: "true" = online now, "false" = offline. */
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  online?: string;
+
+  /** Drivers: FEMALE for the women drivers (Butterfly rides). */
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
+
+  /** Riders: "true" = prefers women drivers. */
+  @IsOptional()
+  @IsIn(['true'])
+  women?: string;
+
+  /** Riders: "true" = identity verified (Didit). */
+  @IsOptional()
+  @IsIn(['true'])
+  verified?: string;
+
+  /** Trips: booked from / before (ISO dates). */
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
 }

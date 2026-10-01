@@ -13,6 +13,7 @@ import type { Paged } from './admin.types.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
 import type { UpdateUserDto } from './dto/update-user.dto.js';
 import { REQUIRED_DOCS } from '../kyc/driver-approval.js';
+import { driverSearch, flag, userSearch } from './list-filters.js';
 
 /** All accounts (passengers, drivers, admins): search, roles, block/unblock; plus the KYC review queue. */
 @Injectable()
@@ -29,8 +30,8 @@ export class AdminUsersService {
     const role = Object.values(Role).includes(q.role as Role) ? (q.role as Role) : undefined;
     const where: Prisma.UserWhereInput = {
       role,
-      isBlocked: q.blocked === 'true' ? true : q.blocked === 'false' ? false : undefined,
-      OR: q.q ? [{ name: { contains: q.q, mode: 'insensitive' } }, { phone: { contains: q.q } }, { email: { contains: q.q, mode: 'insensitive' } }] : undefined,
+      isBlocked: flag(q.blocked),
+      ...userSearch(q.q, true),
     };
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({
@@ -85,7 +86,7 @@ export class AdminUsersService {
     const page = q.page ?? 1;
     const pageSize = q.pageSize ?? 20;
     const status = Object.values(KycStatus).includes(q.status as KycStatus) ? (q.status as KycStatus) : KycStatus.UNDER_REVIEW;
-    const where: Prisma.KycDocumentWhereInput = { status, type: { in: [...REQUIRED_DOCS] } };
+    const where: Prisma.KycDocumentWhereInput = { status, type: { in: [...REQUIRED_DOCS] }, driver: driverSearch(q.q) };
     const [items, total] = await Promise.all([
       this.prisma.kycDocument.findMany({
         where, skip: (page - 1) * pageSize, take: pageSize, orderBy: { updatedAt: 'asc' },

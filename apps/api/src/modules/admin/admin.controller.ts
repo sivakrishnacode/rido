@@ -42,8 +42,9 @@ export class AdminController {
     return this.statsService.stats();
   }
 
+  /** ?status&vehicle&online&gender&q&sort=newest|oldest|rating|trips|name, plus `counts` per status (the other filters applied). */
   @Get('drivers')
-  drivers(@Query() q: ListQueryDto): Promise<Paged<Driver>> {
+  drivers(@Query() q: ListQueryDto): ReturnType<AdminService['drivers']> {
     return this.admin.drivers(q);
   }
 

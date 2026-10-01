@@ -12,9 +12,11 @@ export interface FilterDef {
   readonly name: string;
   readonly label: string;
   readonly options: readonly { value: string; label: string }[];
+  /** A choice that always has a value (e.g. sort): no "All …" item, and this value means "not in the URL". */
+  readonly defaultValue?: string;
 }
 
-/** Search box + select filters bound to the URL (?q, ?status, ?kind). Changing any of them resets ?page. */
+/** Search box + select filters bound to the URL (?q, ?status, ?kind, ?sort…). Changing any of them resets ?page. */
 export function ListFilters({
   searchPlaceholder,
   filters = [],
@@ -40,7 +42,8 @@ export function ListFilters({
   function update(changes: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
     for (const [key, value] of Object.entries(changes)) {
-      if (value && value !== "ALL") params.set(key, value);
+      const isDefault = filters.some((f) => f.name === key && f.defaultValue === value);
+      if (value && value !== "ALL" && !isDefault) params.set(key, value);
       else params.delete(key);
     }
     params.delete("page");
@@ -72,12 +75,12 @@ export function ListFilters({
         </div>
       )}
       {filters.map((f) => (
-        <Select key={f.name} value={searchParams.get(f.name) ?? "ALL"} onValueChange={(v) => update({ [f.name]: v })}>
+        <Select key={f.name} value={searchParams.get(f.name) ?? f.defaultValue ?? "ALL"} onValueChange={(v) => update({ [f.name]: v })}>
           <SelectTrigger className="h-9 w-full bg-card sm:w-44" aria-label={f.label}>
             <SelectValue placeholder={f.label} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">All {f.label.toLowerCase()}</SelectItem>
+            {f.defaultValue === undefined && <SelectItem value="ALL">All {f.label.toLowerCase()}</SelectItem>}
             {f.options.map((o) => (
               <SelectItem key={o.value} value={o.value}>
                 {o.label}

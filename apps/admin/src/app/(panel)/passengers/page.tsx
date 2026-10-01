@@ -1,4 +1,4 @@
-import { UsersIcon } from "lucide-react";
+import { BadgeCheckIcon, BanIcon, UsersIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -11,26 +11,46 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { adminApi } from "@/lib/api";
 import { formatCount, formatDate, formatPhone, initials } from "@/lib/format";
-import { DEFAULT_PAGE_SIZE, param, parsePage } from "@/lib/paging";
+import { param, pageSizeParam, parsePage, parsePageSize } from "@/lib/paging";
 
 export const metadata: Metadata = { title: "Riders" };
 
 export default async function PassengersPage({ searchParams }: PageProps<"/passengers">) {
   const sp = await searchParams;
-  const query = { q: param(sp.q) };
+  const query = { q: param(sp.q), blocked: param(sp.blocked), women: param(sp.women), verified: param(sp.verified), sort: param(sp.sort) };
   const page = parsePage(sp.page);
-  const data = await adminApi.passengers({ ...query, page, pageSize: DEFAULT_PAGE_SIZE });
+  const pageSize = parsePageSize(sp.pageSize);
+  const data = await adminApi.passengers({ ...query, page, pageSize });
+  const isFiltered = !!(query.q || query.blocked || query.women || query.verified);
 
   return (
     <>
-      <PageHeader title="Riders" description={`${formatCount(data.total)} ${query.q ? "matching" : "registered"} riders. Open one to see their trips, account and safety contacts.`} />
-      <ListFilters searchPlaceholder="Name or phone" />
+      <PageHeader title="Riders" description={`${formatCount(data.total)} ${isFiltered ? "matching" : "registered"} riders. Open one to see their trips, account and safety contacts.`} />
+      <ListFilters
+        searchPlaceholder="Name or phone"
+        filters={[
+          { name: "blocked", label: "Accounts", options: [{ value: "false", label: "Active" }, { value: "true", label: "Blocked" }] },
+          { name: "women", label: "Preferences", options: [{ value: "true", label: "Prefers women drivers" }] },
+          { name: "verified", label: "Identity", options: [{ value: "true", label: "Verified" }] },
+          {
+            name: "sort",
+            label: "Sort",
+            defaultValue: "newest",
+            options: [
+              { value: "newest", label: "Newest first" },
+              { value: "oldest", label: "Oldest first" },
+              { value: "trips", label: "Most trips" },
+              { value: "name", label: "Name A–Z" },
+            ],
+          },
+        ]}
+      />
       <Card className="gap-0 py-0">
         {data.items.length === 0 ? (
           <EmptyState
             icon={UsersIcon}
-            title={query.q ? "No riders match" : "No riders yet"}
-            description={query.q ? "Try another name or phone number." : "Riders appear after their first sign-in."}
+            title={isFiltered ? "No riders match" : "No riders yet"}
+            description={isFiltered ? "Try another name, phone number or filter." : "Riders appear after their first sign-in."}
           />
         ) : (
           <Table>
@@ -55,7 +75,21 @@ export default async function PassengersPage({ searchParams }: PageProps<"/passe
                       <Avatar className="size-8">
                         <AvatarFallback className="bg-coral-50 text-xs font-semibold text-coral-600">{initials(u.name)}</AvatarFallback>
                       </Avatar>
-                      {u.name ?? <span className="font-normal text-muted-foreground">No name yet</span>}
+                      <span className="min-w-0">
+                        <span className="block truncate">{u.name ?? <span className="font-normal text-muted-foreground">No name yet</span>}</span>
+                        <span className="flex flex-wrap gap-1">
+                          {u.identityStatus === "APPROVED" && (
+                            <Badge variant="secondary" className="h-4 bg-success-tint px-1.5 text-[10px] text-success-text">
+                              <BadgeCheckIcon /> Verified
+                            </Badge>
+                          )}
+                          {u.isBlocked && (
+                            <Badge variant="secondary" className="h-4 bg-error-tint px-1.5 text-[10px] text-error">
+                              <BanIcon /> Blocked
+                            </Badge>
+                          )}
+                        </span>
+                      </span>
                     </Link>
                   </TableCell>
                   <TableCell className="tabular-nums text-navy-700">{formatPhone(u.phone)}</TableCell>
@@ -74,14 +108,22 @@ export default async function PassengersPage({ searchParams }: PageProps<"/passe
             </TableBody>
           </Table>
         )}
-        <Pager path="/passengers" query={query} page={data.page} pageSize={data.pageSize} total={data.total} noun="riders" />
+        <Pager
+          path="/passengers"
+          query={{ ...query, pageSize: pageSizeParam(pageSize) }}
+          page={data.page}
+          pageSize={data.pageSize}
+          total={data.total}
+          noun="riders"
+          canResize
+        />
       </Card>
       <p className="mt-3 text-xs text-muted-foreground">
-        Open{" "}
+        Open a rider to block them or change their role. Drivers and admins are in{" "}
         <Link href="/users" className="text-coral-600 hover:underline">
-          Users
-        </Link>{" "}
-        to block accounts or change roles.
+          All accounts
+        </Link>
+        .
       </p>
     </>
   );

@@ -11,6 +11,32 @@ import { DriverApprovalService } from '../kyc/driver-approval.service.js';
 import { DiditClient } from '../kyc/didit.client.js';
 import { approvalChecklist, type ApprovalChecklist, REQUIRED_DOCS } from '../kyc/driver-approval.js';
 import { type CancelRateStats, DriverBlocksService } from '../trips/driver-blocks.service.js';
+import { driverOrder, driverSearch, flag, passengerOrder, tripOrder, userSearch } from './list-filters.js';
+
+/** What the drivers list shows (no UPI id, no booking prefs, latest plan only). */
+const DRIVER_LIST_SELECT = {
+  id: true,
+  userId: true,
+  workType: true,
+  vehicleKind: true,
+  vehicleModel: true,
+  vehicleColor: true,
+  plate: true,
+  rating: true,
+  ratingCount: true,
+  ridesCount: true,
+  status: true,
+  isOnline: true,
+  photoFile: true,
+  pendingPhotoFile: true,
+  blockedUntil: true,
+  createdAt: true,
+  updatedAt: true,
+  user: { select: { id: true, name: true, phone: true, gender: true, identityStatus: true, isBlocked: true } },
+  documents: { where: { type: { in: [...REQUIRED_DOCS] } }, select: { id: true, type: true, status: true } },
+  subscriptions: { orderBy: { endsAt: 'desc' }, take: 1, select: { id: true, status: true, endsAt: true, plan: { select: { period: true, vehicleKind: true, price: true } } } },
+} satisfies Prisma.DriverSelect;
+type DriverListItem = Prisma.DriverGetPayload<{ select: typeof DRIVER_LIST_SELECT }>;
 
 function paging(q: ListQueryDto): { skip: number; take: number; page: number; pageSize: number } {
   const page = q.page ?? 1;
@@ -34,22 +60,23 @@ export class AdminService {
     private readonly didit: DiditClient,
   ) {}
 
-  async drivers(q: ListQueryDto): Promise<Paged<Driver>> {
+  /** Filters (status, vehicle, online, gender, search) + sort, with the count per status for the tabs. */
+  async drivers(q: ListQueryDto): Promise<Paged<DriverListItem> & { counts: Record<DriverStatus, number> }> {
     const { skip, take, page, pageSize } = paging(q);
-    const where: Prisma.DriverWhereInput = {
-      status: isOneOf(q.status, Object.values(DriverStatus)) ? q.status : undefined,
-      OR: q.q
-        ? [{ plate: { contains: q.q, mode: 'insensitive' } }, { user: { name: { contains: q.q, mode: 'insensitive' } } }, { user: { phone: { contains: q.q } } }]
-        : undefined,
+    const base: Prisma.DriverWhereInput = {
+      vehicleKind: q.vehicle,
+      isOnline: flag(q.online),
+      user: q.gender ? { gender: q.gender } : undefined,
+      ...driverSearch(q.q),
     };
-    const [items, total] = await Promise.all([
-      this.prisma.driver.findMany({
-        where, skip, take, orderBy: { createdAt: 'desc' },
-        include: { user: true, documents: { where: { type: { in: [...REQUIRED_DOCS] } } }, subscriptions: { orderBy: { endsAt: 'desc' }, take: 1, include: { plan: true } } },
-      }),
+    const where: Prisma.DriverWhereInput = { ...base, status: isOneOf(q.status, Object.values(DriverStatus)) ? q.status : undefined };
+    const [items, total, byStatus] = await Promise.all([
+      this.prisma.driver.findMany({ where, skip, take, orderBy: driverOrder(q.sort), select: DRIVER_LIST_SELECT }),
       this.prisma.driver.count({ where }),
+      this.prisma.driver.groupBy({ by: ['status'], where: base, _count: true }),
     ]);
-    return { items, total, page, pageSize };
+    const counts = Object.fromEntries(Object.values(DriverStatus).map((s) => [s, byStatus.find((b) => b.status === s)?._count ?? 0])) as Record<DriverStatus, number>;
+    return { items, total, page, pageSize, counts };
   }
 
   /**
@@ -98,21 +125,23 @@ export class AdminService {
     const where: Prisma.TripWhereInput = {
       status: q.status ? (q.status as Trip['status']) : undefined,
       kind: q.kind === 'RIDE' || q.kind === 'PARCEL' ? q.kind : undefined,
+      vehicleKind: q.vehicle,
       needsReview: q.review === 'true' ? true : undefined,
+      createdAt: q.from || q.to ? { gte: q.from ? new Date(q.from) : undefined, lt: q.to ? new Date(q.to) : undefined } : undefined,
       OR: q.q ? [{ id: { contains: q.q } }, { pickupName: { contains: q.q, mode: 'insensitive' } }, { dropName: { contains: q.q, mode: 'insensitive' } }] : undefined,
     };
     const [items, total] = await Promise.all([
-      // The recorded path and the quoted route are only needed on the trip page.
+      // The recorded path and the quoted route are only needed on the trip page; people as names and phones only.
       // The last cancellation's verdict, for the fault column of cancelled trips.
       this.prisma.trip.findMany({
         where,
         skip,
         take,
-        orderBy: { createdAt: 'desc' },
+        orderBy: tripOrder(q.sort),
         omit: { pathPolyline: true, routePolyline: true },
         include: {
-          passenger: true,
-          driver: { include: { user: true } },
+          passenger: { select: { id: true, name: true, phone: true } },
+          driver: { select: { id: true, plate: true, vehicleKind: true, user: { select: { id: true, name: true, phone: true } } } },
           cancellations: { orderBy: { createdAt: 'desc' }, take: 1, select: { fault: true, faultRule: true, reassigned: true } },
         },
       }),
@@ -148,14 +177,18 @@ export class AdminService {
     });
   }
 
+  /** Riders: search (name, phone), blocked / women-driver preference / verified filters, sort. */
   async passengers(q: ListQueryDto): Promise<Paged<User>> {
     const { skip, take, page, pageSize } = paging(q);
     const where: Prisma.UserWhereInput = {
       role: Role.PASSENGER,
-      OR: q.q ? [{ name: { contains: q.q, mode: 'insensitive' } }, { phone: { contains: q.q } }] : undefined,
+      isBlocked: flag(q.blocked),
+      preferWomenDriver: q.women === 'true' ? true : undefined,
+      identityStatus: q.verified === 'true' ? 'APPROVED' : undefined,
+      ...userSearch(q.q),
     };
     const [items, total] = await Promise.all([
-      this.prisma.user.findMany({ where, skip, take, orderBy: { createdAt: 'desc' }, include: { _count: { select: { trips: true } } } }),
+      this.prisma.user.findMany({ where, skip, take, orderBy: passengerOrder(q.sort), include: { _count: { select: { trips: true } } } }),
       this.prisma.user.count({ where }),
     ]);
     return { items, total, page, pageSize };

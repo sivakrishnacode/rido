@@ -254,6 +254,9 @@ model User {
   identityChecks     IdentityVerification[]
   cancellationDues   CancellationDue[]
   sosAlerts          Sos[]
+
+  /// Admin lists: riders / accounts by role, newest first.
+  @@index([role, createdAt])
 }
 
 /// One Didit verification session. Only the last 4 digits of the document number are kept.
@@ -362,6 +365,10 @@ model Driver {
   /// Cancellation fees passengers owe this driver (they waited, the passenger cancelled).
   duesOwed          CancellationDue[]
   blocks            DriverBlock[]
+
+  /// Admin lists: by status (tabs, Approvals), newest first.
+  @@index([status, createdAt])
+  @@index([createdAt])
 }
 
 /// A temporary pause of a driver (like Namma Yatri's DriverBlockTransactions): from [fromAt] until [untilAt], lifted
@@ -393,6 +400,7 @@ model KycDocument {
   driver       Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
   @@unique([driverId, type])
+  @@index([status, updatedAt])
 }
 
 model Trip {
@@ -491,7 +499,9 @@ model Trip {
 
   @@index([passengerId, createdAt])
   @@index([driverId, createdAt])
-  @@index([status])
+  @@index([status, createdAt])
+  /// Admin trips list (newest first) and the dashboard's "today" counts.
+  @@index([createdAt])
   @@index([needsReview])
   @@index([pickupCell])
   @@index([dropCell])
