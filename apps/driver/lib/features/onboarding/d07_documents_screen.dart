@@ -41,6 +41,7 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
   Timer? _poll;
   Timer? _mockReview;
   bool _checking = false;
+  bool _loggingOut = false;
   late final bool _live = !widget.showcase && ref.read(isLiveApiProvider);
 
   bool get _isHub => !widget.readOnly && !widget.showcase;
@@ -136,14 +137,9 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
       icon: Symbols.logout_rounded,
     );
     if (!ok || !mounted) return;
-    await ref.read(driverRepositoryProvider).logout();
-    if (!mounted) return;
-    if (_live) {
-      ref.read(realtimeProvider).disconnect();
-      resetDriverData(ref);
-    }
-    ref.invalidate(signupProvider);
-    context.go(Routes.welcome);
+    setState(() => _loggingOut = true);
+    await signOutDriver(ref);
+    if (mounted) context.go(Routes.welcome);
   }
 
   @override
@@ -281,9 +277,11 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
                   if (!showcase)
                     Center(
                       child: TextButton.icon(
-                        onPressed: _logout,
-                        icon: const Icon(Symbols.logout_rounded, size: 20),
-                        label: const Text('Log out'),
+                        onPressed: _loggingOut ? null : _logout,
+                        icon: _loggingOut
+                            ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Symbols.logout_rounded, size: 20),
+                        label: Text(_loggingOut ? 'Logging out…' : 'Log out'),
                         style: TextButton.styleFrom(foregroundColor: TtColors.navy700, minimumSize: const Size(48, 48)),
                       ),
                     ),
