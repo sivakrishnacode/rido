@@ -81,3 +81,11 @@ Future<void> saveScreenshot(WidgetTester tester, String path) async {
       ..writeAsBytesSync(bytes!.buffer.asUint8List());
   });
 }
+
+/// Ends a test that pumped the app: closes it and its providers (Home's refresh timers stop) and lets snack bars
+/// time out, so no timer is left pending.
+Future<void> closeApp(WidgetTester tester, ProviderContainer container) async {
+  await tester.pumpWidget(const SizedBox());
+  container.dispose();
+  await tester.pump(const Duration(seconds: 10));
+}

@@ -1,7 +1,6 @@
 // The live (API) branch of DriverSessionController against fake LiveJobs / realtime / GPS: going online
 // needs a fix, offers become the request card with the server's countdown, accept / arrived / start
 // (server-checked OTP) / complete, GPS uploads, a passenger cancellation, and errors from the API.
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,212 +17,7 @@ import 'package:tamiltaxi_driver/state/driver_location.dart';
 import 'package:tamiltaxi_driver/state/driver_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const _here = LatLng(11.0168, 76.9558);
-
-LiveTripUpdate _update(String id, String status, {Map<String, Object?> extra = const {}}) {
-  final r = Seed.rideRequest;
-  return LiveTripUpdate(
-    Trip(
-      id: id,
-      kind: TripKind.ride,
-      vehicle: VehicleKind.bike,
-      pickup: r.pickup,
-      drop: r.drop,
-      fare: 64,
-      status: TripStatus.driverAssigned,
-      startedAt: DateTime(2026, 9, 26),
-      distanceKm: 6,
-      durationMin: 20,
-      otp: '',
-    ),
-    status,
-    {
-      ...extra,
-      'id': id,
-      'status': status,
-      'passenger': {'name': 'Priya', 'phone': '+919876543210'},
-    },
-  );
-}
-
-class FakeRealtime extends RealtimeClient {
-  FakeRealtime(super.api);
-  final sent = <LatLng>[];
-  final payloads = <Map<String, Object>>[];
-  final batches = <List<Map<String, Object>>>[];
-  bool connected = true;
-  bool batchAck = true;
-  final connectionCtl = StreamController<bool>.broadcast();
-
-  @override
-  bool get isConnected => connected;
-  @override
-  Stream<bool> get connection => connectionCtl.stream;
-  @override
-  void connect() {}
-  @override
-  void leaveTrip(String tripId) {}
-  @override
-  Future<bool> joinTrip(String tripId) async => true;
-  @override
-  void sendLocation(Map<String, Object> fix) {
-    payloads.add(fix);
-    sent.add(LatLng(fix['lat']! as double, fix['lng']! as double));
-  }
-
-  @override
-  Future<bool> sendLocations(List<Map<String, Object>> fixes) async {
-    batches.add(fixes);
-    return batchAck;
-  }
-}
-
-class FakeJobs extends LiveJobs {
-  FakeJobs(super.api, super.realtime);
-
-  final offersCtl = StreamController<LiveOffer>.broadcast();
-  final updatesCtl = StreamController<LiveTripUpdate>.broadcast();
-  final nudgesCtl = StreamController<TripNudge>.broadcast();
-  final pausesCtl = StreamController<DateTime>.broadcast();
-  @override
-  Stream<DateTime> pauses() => pausesCtl.stream;
-  @override
-  Stream<TripNudge> nudges(String tripId) => nudgesCtl.stream.where((n) => n.tripId == tripId);
-  final calls = <String>[];
-  Object? onlineError;
-  Object? acceptError;
-
-  /// Refuse arrived / complete without a far reason (the API's 422 TOO_FAR).
-  bool tooFar = false;
-  final positions = <LatLng?>[];
-
-  static ApiException _tooFar(String stop, int metres) => ApiException(
-        422,
-        "You're $metres m from the $stop point",
-        code: 'TOO_FAR',
-        details: {'stop': stop, 'distanceM': metres, 'radiusM': stop == 'pickup' ? 250 : 400, 'reasons': ['GPS is wrong', 'Passenger moved']},
-      );
-
-  @override
-  Future<void> goOnline(LatLng at) async {
-    calls.add('online');
-    if (onlineError != null) throw onlineError!;
-  }
-
-  @override
-  Future<void> goOffline() async => calls.add('offline');
-  @override
-  Stream<LiveOffer> offers() => offersCtl.stream;
-  @override
-  Future<LiveOffer?> currentOffer() async => null;
-  final closedCtl = StreamController<String>.broadcast();
-  final openOffers = <LiveOffer>[];
-  @override
-  Stream<String> closedOffers() => closedCtl.stream;
-  @override
-  Future<List<LiveOffer>> currentOffers() async => openOffers;
-  BookingPrefs prefs = const BookingPrefs();
-  @override
-  Future<BookingPrefs> bookingPrefs() async => prefs;
-  @override
-  Future<BookingPrefs> setBookingPrefs(BookingPrefs next) async => prefs = next;
-  @override
-  Stream<LiveTripUpdate> updates(String tripId) => updatesCtl.stream.where((u) => u.trip.id == tripId);
-
-  @override
-  Future<LiveTripUpdate> accept(String tripId) async {
-    calls.add('accept');
-    if (acceptError != null) throw acceptError!;
-    return _update(tripId, 'DRIVER_ASSIGNED');
-  }
-
-  @override
-  Future<void> decline(String tripId) async => calls.add('decline');
-
-  @override
-  Future<LiveTripUpdate> arrived(String tripId, {LatLng? at, String? farReason}) async {
-    positions.add(at);
-    if (tooFar && farReason == null) throw _tooFar('pickup', 850);
-    calls.add(farReason == null ? 'arrived' : 'arrived:$farReason');
-    return _update(tripId, 'DRIVER_ARRIVED');
-  }
-
-  @override
-  Future<LiveTripUpdate> start(String tripId, {String? otp}) async {
-    calls.add('start:$otp');
-    if (otp != '1234') throw const ApiException(400, 'Wrong OTP, please try again');
-    return _update(tripId, 'IN_PROGRESS');
-  }
-
-  @override
-  Future<LiveTripUpdate> complete(String tripId, {String? otp, LatLng? at, String? farReason}) async {
-    positions.add(at);
-    if (otp != null && otp != '5678') throw const ApiException(400, 'Wrong OTP, please try again');
-    if (tooFar && farReason == null) throw _tooFar('drop', 1200);
-    calls.add(farReason == null ? 'complete' : 'complete:$farReason');
-    return _update(tripId, 'COMPLETED');
-  }
-
-  @override
-  Future<LiveTripUpdate> cancel(String tripId, {CancelCode code = CancelCode.other, String? note}) async {
-    calls.add('cancel:${code.api}');
-    return _update(tripId, 'CANCELLED');
-  }
-
-  @override
-  Future<LiveTripUpdate?> active() async => null;
-  @override
-  Future<void> heartbeat(DriverFix fix) async => calls.add('heartbeat');
-}
-
-class FakeLocator extends DriverLocator {
-  final fixes = StreamController<GpsFix>.broadcast();
-  Object? problem;
-  LocationAccess accessResult = LocationAccess.granted;
-  int asked = 0;
-
-  @override
-  Future<LocationAccess> access({bool ask = false}) async {
-    if (ask) asked++;
-    return accessResult;
-  }
-
-  @override
-  Future<GpsFix?> lastKnownFix() async => GpsFix(offsetPoint(_here, 300, 90), at: DateTime.now());
-
-  int currentFixCalls = 0;
-
-  @override
-  Future<GpsFix> currentFix() async {
-    currentFixCalls++;
-    if (problem != null) throw problem!;
-    return GpsFix(_here, at: DateTime.now());
-  }
-
-  @override
-  Future<void> ensureReady() async {
-    if (problem != null) throw problem!;
-  }
-
-  @override
-  Future<void> requestNotificationPermission() async {}
-  int gpsListens = 0;
-  @override
-  Stream<GpsFix> positions() {
-    gpsListens++;
-    return fixes.stream;
-  }
-  final previewFixes = StreamController<GpsFix>.broadcast();
-  @override
-  Stream<GpsFix> previewPositions() => previewFixes.stream;
-  @override
-  Future<bool> isReadyWithoutPrompt() async => true;
-}
-
-LiveOffer _offer(String id, {int seconds = 15, int? fare}) => LiveOffer(
-      Seed.rideRequest.copyWith(id: id, customerName: 'Priya', customerPhone: '+919876543210', otp: '', fare: fare),
-      seconds,
-    );
+import 'support/live_fakes.dart';
 
 void main() {
   late FakeJobs jobs;
@@ -247,7 +41,7 @@ void main() {
       realtimeProvider.overrideWithValue(realtime),
       liveJobsProvider.overrideWithValue(jobs),
       driverLocatorProvider.overrideWithValue(locator),
-      requestSpeakerProvider.overrideWithValue(_SilentSpeaker()),
+      requestSpeakerProvider.overrideWithValue(SilentSpeaker()),
     ]);
     // Keep the provider alive between reads.
     container.listen(driverSessionProvider, (_, _) {});
@@ -300,9 +94,9 @@ void main() {
   test('stacked requests: the second waits behind the first; decline, close and switch move between them', () async {
     await session().goOnline();
     jobs.offersCtl
-      ..add(_offer('t1', seconds: 12))
-      ..add(_offer('t2', seconds: 14))
-      ..add(_offer('t3', seconds: 14));
+      ..add(liveOffer('t1', seconds: 12))
+      ..add(liveOffer('t2', seconds: 14))
+      ..add(liveOffer('t3', seconds: 14));
     await pumpEventQueue();
     expect(state().incoming?.id, 't1');
     expect(state().queued.map((q) => q.request.id), ['t2', 't3']);
@@ -331,15 +125,15 @@ void main() {
   test('stacked requests: accepting one clears the rest; a failed accept moves to the next', () async {
     await session().goOnline();
     jobs.offersCtl
-      ..add(_offer('t1'))
-      ..add(_offer('t2'));
+      ..add(liveOffer('t1'))
+      ..add(liveOffer('t2'));
     await pumpEventQueue();
     jobs.acceptError = const ApiException(409, 'This request is no longer available');
     await expectLater(session().acceptRequest(), throwsA(isA<ApiException>()));
     expect(state().incoming?.id, 't2');
 
     jobs.acceptError = null;
-    jobs.offersCtl.add(_offer('t3'));
+    jobs.offersCtl.add(liveOffer('t3'));
     await pumpEventQueue();
     expect(state().queued.map((q) => q.request.id), ['t3']);
     await session().acceptRequest();
@@ -351,15 +145,15 @@ void main() {
   test('the rider adds extra: the request on screen and the one stacked behind get the new fare, same countdown', () async {
     await session().goOnline();
     jobs.offersCtl
-      ..add(_offer('t1'))
-      ..add(_offer('t2'));
+      ..add(liveOffer('t1'))
+      ..add(liveOffer('t2'));
     await pumpEventQueue();
     final focusEnds = state().incomingExpiresAt;
     final stackedEnds = state().queued.single.expiresAt;
     final fare = Seed.rideRequest.fare;
     jobs.offersCtl
-      ..add(LiveOffer(_offer('t1').request.copyWith(fare: fare + 20, extra: 20), 4))
-      ..add(LiveOffer(_offer('t2').request.copyWith(fare: fare + 10, extra: 10), 4));
+      ..add(LiveOffer(liveOffer('t1').request.copyWith(fare: fare + 20, extra: 20), 4))
+      ..add(LiveOffer(liveOffer('t2').request.copyWith(fare: fare + 10, extra: 10), 4));
     await pumpEventQueue();
     expect(state().incoming?.fare, fare + 20);
     expect(state().incoming?.extra, 20);
@@ -370,7 +164,7 @@ void main() {
 
   test('going offline declines every open request; a resume recovers all of them', () async {
     await session().goOnline();
-    jobs.openOffers.addAll([_offer('t1'), _offer('t2')]);
+    jobs.openOffers.addAll([liveOffer('t1'), liveOffer('t2')]);
     session().onAppResumed();
     await pumpEventQueue();
     expect(state().incoming?.id, 't1');
@@ -385,7 +179,7 @@ void main() {
     expect(state().online, isTrue);
     expect(jobs.calls, ['online']);
 
-    jobs.offersCtl.add(_offer('t1', seconds: 12));
+    jobs.offersCtl.add(liveOffer('t1', seconds: 12));
     await pumpEventQueue();
     expect(state().incoming?.id, 't1');
     expect(session().incomingCountdown.inSeconds, inInclusiveRange(10, 12));
@@ -398,7 +192,7 @@ void main() {
     expect(state().route, isNotEmpty);
 
     // Another offer while on a job is ignored.
-    jobs.offersCtl.add(_offer('t2'));
+    jobs.offersCtl.add(liveOffer('t2'));
     await pumpEventQueue();
     expect(state().incoming, isNull);
 
@@ -426,7 +220,7 @@ void main() {
 
   test('GPS fixes move the marker and go up over the socket (throttled)', () async {
     await session().goOnline();
-    final next = offsetPoint(_here, 50, 0);
+    final next = offsetPoint(kHere, 50, 0);
     locator.fixes.add(GpsFix(next, at: DateTime.now()));
     await pumpEventQueue();
     expect(session().vehicle.value?.position, next);
@@ -440,7 +234,7 @@ void main() {
   test('fixes carry time, accuracy, speed, heading and the mock flag', () async {
     await session().goOnline();
     final at = DateTime.fromMillisecondsSinceEpoch(1800000000000);
-    locator.fixes.add(GpsFix(offsetPoint(_here, 50, 0), at: at, accuracy: 6.44, speed: 7.5, heading: 92.26, isMocked: true));
+    locator.fixes.add(GpsFix(offsetPoint(kHere, 50, 0), at: at, accuracy: 6.44, speed: 7.5, heading: 92.26, isMocked: true));
     await pumpEventQueue();
     expect(realtime.payloads.single, {
       'lat': realtime.sent.single.latitude,
@@ -456,7 +250,7 @@ void main() {
   test('socket down: fixes are buffered, then flushed as one batch on reconnect (kept if the flush fails)', () async {
     await session().goOnline();
     realtime.connected = false;
-    final next = offsetPoint(_here, 100, 0);
+    final next = offsetPoint(kHere, 100, 0);
     locator.fixes.add(GpsFix(next, at: DateTime.now(), accuracy: 5));
     await pumpEventQueue();
     expect(realtime.sent, isEmpty, reason: 'nothing goes up while the socket is down');
@@ -491,7 +285,7 @@ void main() {
     expect(locator.currentFixCalls, 1, reason: 'a one-shot fix does not wait for the stream');
     expect(state().gpsLost, isFalse);
     // The restarted stream keeps delivering.
-    final next = offsetPoint(_here, 80, 0);
+    final next = offsetPoint(kHere, 80, 0);
     locator.fixes.add(GpsFix(next, at: DateTime.now()));
     await pumpEventQueue();
     expect(session().vehicle.value?.position, next);
@@ -500,30 +294,30 @@ void main() {
   test('decline and timeout clear the card; a declined trip comes back only with more money, a timed-out one can be '
       're-offered', () async {
     await session().goOnline();
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     session().declineRequest();
     expect(state().incoming, isNull);
     await pumpEventQueue();
     expect(jobs.calls.last, 'decline');
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     expect(state().incoming, isNull, reason: 'declined: the same offer is not shown again');
     // The rider added extra: the server offers it to everyone again, this driver included.
-    jobs.offersCtl.add(_offer('t1', fare: Seed.rideRequest.fare + 20));
+    jobs.offersCtl.add(liveOffer('t1', fare: Seed.rideRequest.fare + 20));
     await pumpEventQueue();
     expect(state().incoming?.id, 't1');
     expect(state().incoming?.fare, Seed.rideRequest.fare + 20);
     session().declineRequest();
     await pumpEventQueue();
 
-    jobs.offersCtl.add(_offer('t2'));
+    jobs.offersCtl.add(liveOffer('t2'));
     await pumpEventQueue();
     session().requestTimedOut();
     expect(state().missedRequest, isTrue);
     expect(state().incoming, isNull);
     // Dispatch re-offers a timed-out trip to the same driver when nobody else is around.
-    jobs.offersCtl.add(_offer('t2'));
+    jobs.offersCtl.add(liveOffer('t2'));
     await pumpEventQueue();
     expect(state().incoming?.id, 't2');
   });
@@ -531,7 +325,7 @@ void main() {
   test('accepting a request someone else took clears it with a clear message', () async {
     await session().goOnline();
     jobs.acceptError = const ApiException(409, 'Trip is not open');
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     await expectLater(
       session().acceptRequest(),
@@ -543,10 +337,10 @@ void main() {
 
   test('the passenger cancelling ends the job with a notice', () async {
     await session().goOnline();
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     await session().acceptRequest();
-    jobs.updatesCtl.add(_update('t1', 'CANCELLED'));
+    jobs.updatesCtl.add(liveUpdate('t1', 'CANCELLED'));
     await pumpEventQueue();
     expect(state().job, isNull);
     expect(state().phase, JobPhase.none);
@@ -556,14 +350,14 @@ void main() {
 
   test('the server giving the ride to another driver ends the job with its own notice', () async {
     await session().goOnline();
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     await session().acceptRequest();
     jobs.nudgesCtl.add(const TripNudge(tripId: 't1', kind: 'NOT_MOVING', title: 'Are you on the way?', message: 'Please head to the pickup'));
     await pumpEventQueue();
     expect(state().job, isNotNull);
     expect(state().notice?.message, 'Are you on the way? Please head to the pickup');
-    jobs.updatesCtl.add(_update('t1', 'SEARCHING'));
+    jobs.updatesCtl.add(liveUpdate('t1', 'SEARCHING'));
     await pumpEventQueue();
     expect(state().job, isNull);
     expect(state().notice?.message, contains('went to another driver'));
@@ -571,17 +365,17 @@ void main() {
 
   test('a system cancel (never started) says so', () async {
     await session().goOnline();
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     await session().acceptRequest();
-    jobs.updatesCtl.add(_update('t1', 'CANCELLED', extra: {'cancelledBy': 'SYSTEM', 'cancelCode': 'STUCK'}));
+    jobs.updatesCtl.add(liveUpdate('t1', 'CANCELLED', extra: {'cancelledBy': 'SYSTEM', 'cancelCode': 'STUCK'}));
     await pumpEventQueue();
     expect(state().notice?.message, "The ride didn't start in time, so it was cancelled");
   });
 
   test('arriving stores when a no-show cancel is allowed', () async {
     await session().goOnline();
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     await session().acceptRequest();
     await session().arrivedAtPickup();
@@ -591,10 +385,10 @@ void main() {
 
   test('after a cancel the job steps refuse instead of carrying on without a job', () async {
     await session().goOnline();
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     await session().acceptRequest();
-    jobs.updatesCtl.add(_update('t1', 'CANCELLED'));
+    jobs.updatesCtl.add(liveUpdate('t1', 'CANCELLED'));
     await pumpEventQueue();
     final gone = throwsA(isA<ApiException>().having((e) => e.message, 'message', 'This trip was cancelled'));
     await expectLater(session().arrivedAtPickup(), gone);
@@ -667,7 +461,7 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(container: container, child: TtDriverApp(router: router)));
     await tester.runAsync(() async {
       await session().goOnline();
-      jobs.offersCtl.add(_offer('t1'));
+      jobs.offersCtl.add(liveOffer('t1'));
       await pumpEventQueue();
     });
     router.push('/driver/request');
@@ -707,7 +501,7 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(container: container, child: TtDriverApp(router: router)));
     await tester.runAsync(() async {
       await session().goOnline();
-      jobs.offersCtl.add(_offer('t1'));
+      jobs.offersCtl.add(liveOffer('t1'));
       await pumpEventQueue();
       await session().acceptRequest();
     });
@@ -716,7 +510,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Pickup screen'), findsOneWidget);
 
-    jobs.updatesCtl.add(_update('t1', 'CANCELLED'));
+    jobs.updatesCtl.add(liveUpdate('t1', 'CANCELLED'));
     await tester.pump();
     await tester.pumpAndSettle();
     expect(find.text('Pickup screen'), findsNothing);
@@ -727,7 +521,7 @@ void main() {
 
   test('the driver cancelling calls the API with the reason', () async {
     await session().goOnline();
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     await session().acceptRequest();
     await session().cancelJob(code: CancelCode.vehicleIssue);
@@ -740,7 +534,7 @@ void main() {
     await session().goOffline();
     expect(state().online, isFalse);
     expect(jobs.calls.last, 'offline');
-    jobs.offersCtl.add(_offer('t1'));
+    jobs.offersCtl.add(liveOffer('t1'));
     await pumpEventQueue();
     expect(state().incoming, isNull);
   });
@@ -748,7 +542,7 @@ void main() {
   group('too far from the stop', () {
     Future<void> onJob() async {
       await session().goOnline();
-      jobs.offersCtl.add(_offer('t1'));
+      jobs.offersCtl.add(liveOffer('t1'));
       await pumpEventQueue();
       await session().acceptRequest();
     }
@@ -765,7 +559,7 @@ void main() {
             .having((e) => e.message, 'message', "You're 850 m from the pickup point")),
       );
       expect(state().phase, JobPhase.toPickup);
-      expect(jobs.positions.last, _here);
+      expect(jobs.positions.last, kHere);
 
       await session().arrivedAtPickup(farReason: 'Passenger moved');
       expect(state().phase, JobPhase.atPickup);
@@ -833,10 +627,10 @@ void main() {
     await pumpEventQueue();
     expect(container.read(locationAccessProvider), LocationAccess.granted);
     expect(locator.asked, 1);
-    expect(session().vehicle.value?.position, offsetPoint(_here, 300, 90), reason: 'the last known fix shows at once');
-    locator.previewFixes.add(GpsFix(_here, at: DateTime.now()));
+    expect(session().vehicle.value?.position, offsetPoint(kHere, 300, 90), reason: 'the last known fix shows at once');
+    locator.previewFixes.add(GpsFix(kHere, at: DateTime.now()));
     await pumpEventQueue();
-    expect(session().vehicle.value?.position, _here, reason: 'the offline preview stream keeps it current');
+    expect(session().vehicle.value?.position, kHere, reason: 'the offline preview stream keeps it current');
     expect(state().online, isFalse);
     expect(realtime.sent, isEmpty);
     expect(jobs.calls, isNot(contains('online')));
@@ -871,11 +665,4 @@ void main() {
     expect(locator.currentFixCalls, 0);
     expect(jobs.calls, contains('online'));
   });
-}
-
-class _SilentSpeaker implements RequestSpeaker {
-  @override
-  Future<void> speak(String text, VoiceLanguage language) async {}
-  @override
-  Future<void> stop() async {}
 }
