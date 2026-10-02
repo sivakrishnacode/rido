@@ -99,10 +99,13 @@ class ApiPlacesRepository implements PlacesRepository {
   /// Remembers the device location (used as the default pickup).
   set currentLocation(Place place) => _current = place;
 
+  /// Empty: recent drops (none for an outstation search). Under [kMinPlaceQuery] characters: nothing, without asking
+  /// the API (Google autocomplete is billed per request, and the server answers [] below that anyway).
   @override
   Future<List<Place>> search(String query, {LatLng? origin, bool anywhere = false}) async {
     final q = query.trim();
     if (q.isEmpty) return anywhere ? const [] : recentDestinations();
+    if (q.length < kMinPlaceQuery) return const [];
     // The same session token for every keystroke until [resolve]; the pickup as origin adds each distance.
     final res = _map(await api.get('/places/autocomplete', query: {
       'q': q,
@@ -120,7 +123,8 @@ class ApiPlacesRepository implements PlacesRepository {
     final id = place.id.substring(kApiPlacePrefix.length);
     final res = await api.get('/places/details/${Uri.encodeComponent(id)}', query: {'session': _session});
     _session = _newSession(); // Place Details ends the autocomplete session (one billable session).
-    if (res == null) throw const OfflineException();
+    // The API answered: the place is gone from Google (not a connection problem).
+    if (res == null) throw const ApiException(404, "That place isn't listed any more. Search again or set it on the map.");
     final json = _map(res);
     final resolved = resolvedPlaceFromJson(json);
     if (json['isInServiceArea'] is bool) _serviceArea[_key(resolved.location)] = json['isInServiceArea'] as bool;
