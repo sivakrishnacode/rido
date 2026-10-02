@@ -8,3 +8,12 @@ export function publicUrl(request: { headers: Headers; url: string }, path: stri
   const proto = (request.headers.get("x-forwarded-proto") ?? fallback.protocol.replace(":", "")).split(",")[0].trim();
   return new URL(path, `${proto}://${host}`);
 }
+
+/**
+ * A request another site made the browser send (an image or link on another site), by Sec-Fetch-Site. Same-origin
+ * pages, redirects from them and a typed address ("none") are not; neither are old browsers without the header.
+ */
+export function isCrossSiteRequest(headers: Headers): boolean {
+  const site = headers.get("sec-fetch-site");
+  return site !== null && site !== "same-origin" && site !== "none";
+}
