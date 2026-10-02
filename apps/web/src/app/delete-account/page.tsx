@@ -19,36 +19,36 @@ export default function DeleteAccountPage() {
   return (
     <LegalShell
       title="Delete your account"
-      intro={`You can delete your ${site.apps.rider.name} or ${site.apps.driver.name} account at any time, with or without the app installed.`}
+      intro={`You can delete your ${site.apps.rider.name} or ${site.apps.driver.name} account at any time: in the app, or by email if you no longer have it.`}
     >
-      <LegalBlock heading="How to ask">
+      <LegalBlock heading="How to delete it">
         <ol className="space-y-4">
           <li className="rounded-2xl border border-divider p-5">
             <p className="font-semibold text-navy-900">In the app</p>
-            <p className="mt-1">Open Account › Help & support and send &quot;Please delete my account&quot;.</p>
+            <p className="mt-1">
+              Open Account › Delete account and confirm. If a trip is still going, finish or cancel it first.
+            </p>
           </li>
           <li className="rounded-2xl border border-divider p-5">
             <p className="font-semibold text-navy-900">By email</p>
             <p className="mt-1">
-              Write to{" "}
+              If you can&apos;t use the app, write to{" "}
               <a href={`mailto:${site.email}?subject=${subject}&body=${body}`} className="font-semibold text-coral-600 hover:text-coral-700">
                 {site.email}
               </a>{" "}
-              with the mobile number on your account and which app you use.
+              with the mobile number on your account and which app you use. We may contact you on that number to
+              check that the request is yours before we delete the account.
             </p>
           </li>
         </ol>
-        <p>
-          We confirm the request with you on that number before deleting anything. Deleting an account can&apos;t be
-          undone.
-        </p>
+        <p>Deleting an account can&apos;t be undone.</p>
       </LegalBlock>
 
-      <LegalBlock heading="What we delete">
+      <LegalBlock heading="What is deleted">
         <Bullets items={deletion.deleted} />
       </LegalBlock>
 
-      <LegalBlock heading="What we keep">
+      <LegalBlock heading="What is kept">
         <Bullets items={deletion.kept} />
         <p>
           See the{" "}
