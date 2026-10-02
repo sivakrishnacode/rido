@@ -124,6 +124,12 @@ export class KycService {
     const me = await this.prisma.user.findUniqueOrThrow({ where: { id: user.userId }, select: { name: true, identityStatus: true } });
     if (me.identityStatus === IdentityStatus.APPROVED) throw new ConflictException('Your identity is already verified');
     if (me.identityStatus === IdentityStatus.IN_REVIEW) throw new ConflictException('Your verification is being reviewed');
+    // Count before asking Didit: every session it creates is billed, even one we then refuse.
+    const since = new Date(Date.now() - 24 * 3600 * 1000);
+    const today = await this.prisma.identityVerification.count({ where: { userId: user.userId, createdAt: { gte: since } } });
+    if (today >= MAX_SESSIONS_PER_DAY) {
+      throw new HttpException('Too many attempts today. Please try again tomorrow', HttpStatus.TOO_MANY_REQUESTS);
+    }
     const [firstName, ...rest] = (me.name ?? '').trim().split(/\s+/).filter(Boolean);
     const session = await this.didit.createSession({
       workflowId,
@@ -133,11 +139,6 @@ export class KycService {
     });
     const existing = await this.prisma.identityVerification.findUnique({ where: { sessionId: session.sessionId } });
     if (!existing) {
-      const since = new Date(Date.now() - 24 * 3600 * 1000);
-      const today = await this.prisma.identityVerification.count({ where: { userId: user.userId, createdAt: { gte: since } } });
-      if (today >= MAX_SESSIONS_PER_DAY) {
-        throw new HttpException('Too many attempts today. Please try again tomorrow', HttpStatus.TOO_MANY_REQUESTS);
-      }
       await this.prisma.identityVerification.create({
         data: { userId: user.userId, purpose, sessionId: session.sessionId, providerStatus: session.status, status: toIdentityStatus(session.status) },
       });
