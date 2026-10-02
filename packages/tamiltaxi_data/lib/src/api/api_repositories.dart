@@ -409,6 +409,7 @@ class ApiDriverRepository implements DriverRepository {
     return switch (me['status']) {
       'APPROVED' => true,
       'REJECTED' => false,
+      'ON_HOLD' => throw const AccountOnHoldException(),
       _ => throw const StillUnderReviewException(),
     };
   }

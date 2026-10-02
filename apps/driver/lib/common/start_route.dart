@@ -10,13 +10,16 @@ String applicationRoute({required bool? approved}) =>
     approved == true ? Routes.home : Routes.documents;
 
 /// Asks the API for the driver's application status and picks the start route. Offline → Home
-/// (it shows its own offline state).
+/// (it shows its own offline state). On hold → Home too: the account, help and trips stay reachable, and Go online
+/// explains the hold (S-10) instead of D-07 claiming it is under review.
 Future<String> driverStartRoute(DriverRepository repo, IdentityRepository identity) async {
   bool? approved;
   try {
     approved = await repo.checkApplication();
   } on StillUnderReviewException {
     approved = null;
+  } on AccountOnHoldException {
+    return Routes.home;
   } on OfflineException {
     return Routes.home;
   }

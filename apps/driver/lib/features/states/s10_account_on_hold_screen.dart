@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart' show driverPlansEnabledProvider;
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
@@ -17,7 +19,7 @@ String pausedUntilLabel(DateTime until, DateTime now) {
 
 /// S-10 Account on hold (temporary): reason and "Contact support". S-10b with [pausedUntil]: paused for too many
 /// cancellations (403 `DRIVER_TEMP_BLOCKED` when going online), with the time it ends.
-class S10AccountOnHoldScreen extends StatelessWidget {
+class S10AccountOnHoldScreen extends ConsumerWidget {
   const S10AccountOnHoldScreen({super.key, this.showcase = false, this.pausedUntil});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
@@ -27,9 +29,10 @@ class S10AccountOnHoldScreen extends StatelessWidget {
   final DateTime? pausedUntil;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final until = pausedUntil;
+    final plans = ref.watch(driverPlansEnabledProvider);
     final isPaused = until != null;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -110,7 +113,8 @@ class S10AccountOnHoldScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(isPaused ? 'Too many cancelled rides' : 'Multiple ride complaints under review',
+                            // The API keeps no reason for an admin's hold, so this doesn't guess one.
+                            Text(isPaused ? 'Too many cancelled rides' : 'An admin has put your account on hold',
                                 style: t.bodySemibold),
                             const SizedBox(height: 2),
                             Text(
@@ -118,7 +122,8 @@ class S10AccountOnHoldScreen extends StatelessWidget {
                                     ? 'You cancelled half or more of the rides you accepted this week. You can go online again '
                                         '${pausedUntilLabel(until, DateTime.now())}. Only accept rides you can reach; '
                                         "a passenger who doesn't come after the wait doesn't count against you."
-                                    : "You can't go online until the review is complete. Your plan days are paused, not lost.",
+                                    : "You can't go online until it's sorted out. Contact support to find out why and what to "
+                                        "do.${plans ? ' Your plan days are paused, not lost.' : ''}",
                                 style: t.bodySmall.copyWith(color: TtColors.navy700)),
                           ],
                         ),

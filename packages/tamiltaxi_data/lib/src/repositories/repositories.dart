@@ -24,6 +24,13 @@ class PaymentFailedException implements Exception {
   String toString() => 'Your ₹$amount payment didn\'t go through';
 }
 
+/// An admin put the driver's account on hold (S-10): not "under review", and not something D-07 can fix.
+class AccountOnHoldException implements Exception {
+  const AccountOnHoldException();
+  @override
+  String toString() => 'Your account is on hold';
+}
+
 /// The driver's application is still being reviewed (D-10 "Check status" before an admin has decided).
 class StillUnderReviewException implements Exception {
   const StillUnderReviewException();
@@ -141,7 +148,7 @@ abstract interface class DriverRepository {
   Future<bool> uploadProfilePhoto(List<int> bytes, String filename);
 
   /// True when approved; false when rejected (Demo control "Reject KYC"). Throws [StillUnderReviewException]
-  /// while an admin hasn't decided yet.
+  /// while an admin hasn't decided yet, [AccountOnHoldException] when an admin put the account on hold.
   Future<bool> checkApplication();
   Future<EarningsSummary> earnings(EarningsPeriod period);
   Future<void> recordCompletedJob(EarningsTrip trip);

@@ -73,6 +73,9 @@ class KycController extends AsyncNotifier<List<KycDocument>> {
       ok = await ref.read(driverRepositoryProvider).checkApplication();
     } on StillUnderReviewException {
       ok = null;
+    } on AccountOnHoldException {
+      // Put on hold while registering: still waiting on an admin as far as D-07 can tell.
+      ok = null;
     }
     await reload();
     return ok;

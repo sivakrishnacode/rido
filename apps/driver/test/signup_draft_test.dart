@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/common/start_route.dart';
+import 'package:tamiltaxi_driver/router/routes.dart';
 import 'package:tamiltaxi_driver/state/driver_account.dart';
 
 const _json = {'content-type': 'application/json'};
@@ -53,5 +55,19 @@ void main() {
     await c.read(signupProvider.notifier).commit();
     expect(calls.where((x) => x.startsWith('PATCH')), ['PATCH /v1/drivers/me']);
     expect(calls.where((x) => x.contains('emergency-contacts')), isEmpty, reason: 'the contact is unchanged');
+  });
+
+  test('start route: on hold opens Home (S-10 on Go online), not "under review" on D-07', () async {
+    Future<String> routeFor(String status) async {
+      final client = MockClient((req) async => http.Response('{"id":"d1","status":"$status"}', 200, headers: _json));
+      SharedPreferences.setMockInitialValues({'tamiltaxi.accessToken': 'token', 'tamiltaxi.driverId': 'd1'});
+      final api = ApiClient(baseUrl: 'http://api.test/v1', session: await ApiSession.load(), client: client);
+      return driverStartRoute(ApiDriverRepository(api), ApiIdentityRepository(api));
+    }
+
+    expect(await routeFor('ON_HOLD'), Routes.home);
+    expect(await routeFor('APPROVED'), Routes.home);
+    expect(await routeFor('PENDING'), Routes.documents);
+    expect(await routeFor('REJECTED'), Routes.documents);
   });
 }
