@@ -233,6 +233,13 @@ class LiveJobs {
 
   Future<void> goOffline() => api.post('/drivers/me/offline');
 
+  /// Deletes the signed-in account (`DELETE /me`) and ends the session on the phone. Throws [ApiException] (409 while
+  /// a trip is unfinished; the message says so) and keeps the session then.
+  Future<void> deleteAccount() async {
+    await api.delete('/me');
+    await api.session.clear();
+  }
+
   /// The daily selfie before going online (`POST /drivers/me/selfie-check`, multipart `file`): the server matches it
   /// with the selfie from the identity check. Returns when it was checked. Throws [ApiException]: 422 no match or not
   /// exactly one face (retake), 409 no reference selfie yet, 429 too many tries today.

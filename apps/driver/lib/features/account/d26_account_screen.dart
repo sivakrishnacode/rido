@@ -8,12 +8,13 @@ import '../../common/flags.dart';
 import '../../router/routes.dart';
 import '../../state/booking_prefs.dart';
 import '../../state/driver_account.dart';
+import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'account_providers.dart';
 import 'refer_driver_sheet.dart';
 
 /// D-26 Driver account: profile header, Refer a driver, Documents, Vehicle details, UPI ID,
-/// Emergency contact, Contribute, Help & support, Terms, Design gallery and Log out.
+/// Emergency contact, Contribute, Help & support, Terms, Design gallery, Log out and Delete account.
 class D26AccountScreen extends ConsumerStatefulWidget {
   const D26AccountScreen({super.key, this.showcase = false});
 
@@ -25,7 +26,7 @@ class D26AccountScreen extends ConsumerStatefulWidget {
 }
 
 /// What D-26 is doing to leave the account (the rows show a spinner and can't be tapped twice).
-enum _Leaving { none, logout }
+enum _Leaving { none, logout, delete }
 
 class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
   _Leaving _leaving = _Leaving.none;
@@ -45,6 +46,39 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
     setState(() => _leaving = _Leaving.logout);
     await signOutDriver(ref);
     if (mounted) context.go(Routes.welcome);
+  }
+
+  /// Account deletion (`DELETE /me`): says what goes and what stays first. Refused while a trip is unfinished (409).
+  Future<void> _deleteAccount() async {
+    if (_leaving != _Leaving.none) return;
+    final ok = await showTtConfirm(
+      context,
+      title: 'Delete your account?',
+      message: 'This deletes your profile, vehicle details, documents, photos, identity check, UPI ID, booking '
+          'preferences and emergency contact, and logs you out. Trip records are kept for 3 years for safety and tax. '
+          "This can't be undone.",
+      confirmLabel: 'Delete account',
+      cancelLabel: 'Keep my account',
+      destructive: true,
+      icon: Symbols.delete_forever_rounded,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _leaving = _Leaving.delete);
+    final live = ref.read(isLiveApiProvider);
+    try {
+      if (live) await ref.read(liveJobsProvider).deleteAccount();
+    } on Exception catch (e) {
+      if (!mounted) return;
+      setState(() => _leaving = _Leaving.none);
+      showTtSnack(context, userMessage(e));
+      return;
+    }
+    if (!mounted) return;
+    // Mock mode has no server account: the demo just logs out.
+    await signOutDriver(ref, deleted: live);
+    if (!mounted) return;
+    context.go(Routes.welcome);
+    showTtSnack(context, 'Your account was deleted');
   }
 
   static const _spinner = SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: TtColors.error));
@@ -196,6 +230,15 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                   showChevron: false,
                   trailing: _leaving == _Leaving.logout ? _spinner : null,
                   onTap: _leaving == _Leaving.none ? _logout : null,
+                ),
+                TtListTile(
+                  icon: Symbols.delete_forever_rounded,
+                  title: _leaving == _Leaving.delete ? 'Deleting your account…' : 'Delete account',
+                  subtitle: 'Your profile, documents and photos',
+                  destructive: true,
+                  showChevron: false,
+                  trailing: _leaving == _Leaving.delete ? _spinner : null,
+                  onTap: _leaving == _Leaving.none ? _deleteAccount : null,
                 ),
               ]),
             ],
