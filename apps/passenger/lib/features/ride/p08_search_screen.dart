@@ -26,8 +26,8 @@ class P08SearchScreen extends ConsumerStatefulWidget {
 }
 
 class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
-  /// ≥ 300 ms so Google autocomplete is not called on every keystroke.
-  static const _debounce = Duration(milliseconds: 300);
+  /// ~350 ms so Google autocomplete is not called on every keystroke.
+  static const _debounce = Duration(milliseconds: 350);
 
   late final TextEditingController _drop = TextEditingController(text: widget.showcase ? 'Brook' : '');
   final TextEditingController _pickup = TextEditingController();
@@ -41,6 +41,17 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
   bool _loading = true;
   bool _offline = false;
   List<Place> _results = const [];
+
+  /// The text being searched (drop or pickup field).
+  String _query = '';
+
+  /// Live: the text is shorter than [kMinPlaceQuery]: the recent places stay listed, with a hint.
+  bool _tooShort = false;
+
+  /// What an empty search lists (recent drops), kept so short text doesn't ask again on every keystroke.
+  List<Place>? _recents;
+
+  bool get _live => ref.read(isLiveApiProvider);
 
   @override
   void initState() {
@@ -67,26 +78,46 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
     super.dispose();
   }
 
+  /// Live text under [kMinPlaceQuery] characters (but not empty): too short to search.
+  bool _isShort(String q) => _live && q.trim().isNotEmpty && q.trim().length < kMinPlaceQuery;
+
   void _onChanged(String q) {
     _timer?.cancel();
-    setState(() => _loading = true);
+    if (_isShort(q)) {
+      // Nothing is searched yet: the recent places, then the hint.
+      _search(q);
+      return;
+    }
+    // An answer still on its way is for older text: drop it.
+    _request++;
+    setState(() {
+      _query = q;
+      _tooShort = false;
+      _loading = true;
+    });
     _timer = Timer(_debounce, () => _search(q));
   }
 
   Future<void> _search(String q) async {
     final id = ++_request;
+    final short = _isShort(q);
+    final cached = q.trim().isEmpty || short ? _recents : null;
     setState(() {
-      _loading = true;
+      _query = q;
+      _tooShort = short;
+      _loading = cached == null;
       _offline = false;
+      if (cached != null) _results = _withoutPickup(cached);
     });
+    if (cached != null) return;
     try {
       final pickup = ref.read(rideFlowProvider).pickup.location;
-      // Searching the pickup itself: no distance from it.
-      final results = await ref.read(placesRepositoryProvider).search(q, origin: _editingPickup ? null : pickup);
+      // Searching the pickup itself: no distance from it. Short text lists the recents (the empty search).
+      final results = await ref.read(placesRepositoryProvider).search(short ? '' : q, origin: _editingPickup ? null : pickup);
       if (!mounted || id != _request) return;
       setState(() {
-        final pickupId = ref.read(rideFlowProvider).pickup.id;
-        _results = _editingPickup ? results : results.where((p) => p.id != pickupId).toList();
+        if (short || q.trim().isEmpty) _recents = results;
+        _results = _withoutPickup(results);
         _loading = false;
       });
     } on OfflineException {
@@ -103,6 +134,13 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
       });
       showTtSnack(context, e.message);
     }
+  }
+
+  /// The drop list leaves out the pickup itself.
+  List<Place> _withoutPickup(List<Place> places) {
+    if (_editingPickup) return places;
+    final pickupId = ref.read(rideFlowProvider).pickup.id;
+    return places.where((p) => p.id != pickupId).toList();
   }
 
   void _clear() {
@@ -266,7 +304,7 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
 
   Widget _resultsView() {
     final t = context.type;
-    if (_offline) return S04NoInternetView(onRetry: () => _search(_drop.text));
+    if (_offline) return S04NoInternetView(onRetry: () => _search(_query));
     if (_loading) {
       return SkeletonShimmer(
         child: ListView(
@@ -296,23 +334,31 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
         ),
       );
     }
+    const hint = Padding(
+      padding: EdgeInsets.symmetric(horizontal: TtSpacing.l),
+      child: SearchMinLengthHint(),
+    );
     if (_results.isEmpty) {
+      if (_tooShort) return const Align(alignment: Alignment.topCenter, child: hint);
+      final q = _query.trim();
       return Padding(
         padding: const EdgeInsets.all(TtSpacing.xl),
         child: Text(
-          'No places found for "${_drop.text.trim()}"',
+          q.isEmpty ? 'Type a place, area or landmark' : 'No places found for "$q"',
           style: t.body.copyWith(color: TtColors.navy500),
           textAlign: TextAlign.center,
         ),
       );
     }
     final pickup = ref.read(rideFlowProvider).pickup;
+    final lead = _tooShort ? 1 : 0;
     return ListView.separated(
       padding: EdgeInsets.zero,
-      itemCount: _results.length,
-      separatorBuilder: (_, _) => const Divider(height: 1, indent: 68),
-      itemBuilder: (context, i) {
-        final p = _results[i];
+      itemCount: _results.length + lead,
+      separatorBuilder: (_, i) => i < lead ? const SizedBox.shrink() : const Divider(height: 1, indent: 68),
+      itemBuilder: (context, index) {
+        if (index < lead) return hint;
+        final p = _results[index - lead];
         final icon = _iconFor(p);
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: TtSpacing.l),

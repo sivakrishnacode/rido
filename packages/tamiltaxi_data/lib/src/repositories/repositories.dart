@@ -53,17 +53,21 @@ abstract interface class AuthRepository {
   Future<PassengerProfile> updateProfile(PassengerProfile profile);
 }
 
+/// Live place search asks the API from this many characters (trimmed); the apps show recents and a hint below it.
+const int kMinPlaceQuery = 4;
+
 /// Search, saved places and reverse geocoding.
 abstract interface class PlacesRepository {
   Place get currentLocation;
 
   /// Places matching [query]. [origin] (the pickup): live suggestions then carry [Place.distanceKm]. [anywhere]:
-  /// outstation search, beyond the service area (other towns).
+  /// outstation search, beyond the service area (other towns). Live: nothing under [kMinPlaceQuery] characters.
   Future<List<Place>> search(String query, {LatLng? origin, bool anywhere = false});
 
   /// Completes a [search] result before it is used as a pickup / drop: Google suggestions
-  /// (id `g:…`) only carry a placeholder location until their details are fetched. Seed places
-  /// come back unchanged. Throws [OfflineException] if the place can't be resolved.
+  /// (id `api:…`) only carry a placeholder location until their details are fetched. Seed places
+  /// come back unchanged. Throws [OfflineException] when the API can't be reached, [ApiException] (404) when the
+  /// place is no longer listed.
   Future<Place> resolve(Place place);
   Future<List<Place>> recentDestinations();
   Future<List<SavedPlace>> savedPlaces();

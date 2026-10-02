@@ -47,6 +47,7 @@ void main() {
 
     // P-08: type "Brook" and pick Brookefields Mall.
     await tester.enterText(find.byType(TextField).hitTestable().last, 'Brook');
+    await tester.pump(); // the recents give way to the search (else waitFor sees them)
     await waitFor(tester, find.text('Brookefields Mall'));
     await advance(tester, const Duration(milliseconds: 500));
     await tester.tap(find.text('Brookefields Mall').hitTestable().first);

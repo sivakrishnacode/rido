@@ -24,10 +24,21 @@ class P35bOutstationSearchScreen extends ConsumerStatefulWidget {
 
 class _P35bOutstationSearchScreenState extends ConsumerState<P35bOutstationSearchScreen> {
   Timer? _debounce;
+  int _request = 0;
   String _query = '';
+
+  /// Null while a search is on its way.
   List<Place>? _results;
-  String? _error;
+
+  /// Why the search failed (shown with Retry instead of the list).
+  String? _searchError;
+
+  /// Why the tapped place couldn't be loaded.
+  String? _pickError;
   String? _resolving;
+
+  /// Live search starts at [kMinPlaceQuery] letters (each autocomplete request costs); the seed search at 2.
+  int get _minLength => ref.read(isLiveApiProvider) ? kMinPlaceQuery : 2;
 
   @override
   void dispose() {
@@ -36,31 +47,40 @@ class _P35bOutstationSearchScreenState extends ConsumerState<P35bOutstationSearc
   }
 
   void _onChanged(String q) {
-    setState(() => _query = q);
     _debounce?.cancel();
-    if (q.trim().length < 2) {
-      setState(() => _results = null);
-      return;
-    }
-    _debounce = Timer(const Duration(milliseconds: 300), () => _search(q));
+    _request++;
+    setState(() {
+      _query = q;
+      _results = null;
+      _searchError = null;
+      _pickError = null;
+    });
+    if (q.trim().length < _minLength) return;
+    _debounce = Timer(const Duration(milliseconds: 350), () => _search(q));
   }
 
   Future<void> _search(String q) async {
+    final id = ++_request;
+    setState(() {
+      _results = null;
+      _searchError = null;
+    });
     final pickup = ref.read(rideFlowProvider).pickup.location;
     try {
       final found = await ref.read(placesRepositoryProvider).search(q, origin: pickup, anywhere: true);
-      if (!mounted || q != _query) return;
-      setState(() {
-        _results = found;
-        _error = null;
-      });
+      if (!mounted || id != _request) return;
+      setState(() => _results = found);
     } on Exception catch (e) {
-      if (mounted) setState(() => _error = apiErrorMessage(e));
+      if (!mounted || id != _request) return;
+      setState(() => _searchError = apiErrorMessage(e));
     }
   }
 
   Future<void> _pick(Place p) async {
-    setState(() => _resolving = p.id);
+    setState(() {
+      _resolving = p.id;
+      _pickError = null;
+    });
     try {
       final resolved = await ref.read(placesRepositoryProvider).resolve(p);
       if (mounted) context.pop(resolved.copyWith(distanceKm: p.distanceKm));
@@ -68,7 +88,7 @@ class _P35bOutstationSearchScreenState extends ConsumerState<P35bOutstationSearc
       if (!mounted) return;
       setState(() {
         _resolving = null;
-        _error = "Couldn't load that place. ${apiErrorMessage(e)}";
+        _pickError = e is ApiException ? e.message : "Couldn't load that place. ${apiErrorMessage(e)}";
       });
     }
   }
@@ -86,7 +106,8 @@ class _P35bOutstationSearchScreenState extends ConsumerState<P35bOutstationSearc
             double.parse(pickup.latitude.toStringAsFixed(2)),
             double.parse(pickup.longitude.toStringAsFixed(2)),
           )));
-    final searching = _query.trim().length >= 2;
+    final typed = _query.trim();
+    final searching = typed.length >= _minLength;
     final list = searching ? (_results ?? const <Place>[]) : (popular.value ?? const <Place>[]);
 
     return Scaffold(
@@ -101,12 +122,13 @@ class _P35bOutstationSearchScreenState extends ConsumerState<P35bOutstationSearc
         children: [
           SearchField(hint: 'Search a town, city or place', showMic: false, autofocus: !widget.showcase, onChanged: _onChanged),
           const SizedBox(height: TtSpacing.l),
-          if (_error != null)
+          if (_pickError != null)
             Padding(
               padding: const EdgeInsets.only(bottom: TtSpacing.m),
-              child: Text(_error!, style: t.bodySmall.copyWith(color: TtColors.error)),
+              child: Text(_pickError!, style: t.bodySmall.copyWith(color: TtColors.error)),
             ),
           if (!searching) ...[
+            if (typed.isNotEmpty) const SearchMinLengthHint(padding: EdgeInsets.only(bottom: TtSpacing.m)),
             Text('POPULAR FROM HERE', style: t.overline),
             const SizedBox(height: TtSpacing.s),
             if (popular.isLoading)
@@ -117,7 +139,9 @@ class _P35bOutstationSearchScreenState extends ConsumerState<P35bOutstationSearc
                 child: Text('Search any town or city. Places people travel to from here will show up as trips are taken.',
                     style: t.bodySmall.copyWith(color: TtColors.navy500)),
               ),
-          ] else if (_results == null)
+          ] else if (_searchError != null)
+            _SearchFailed(message: _searchError!, onRetry: () => _search(_query))
+          else if (_results == null)
             for (var i = 0; i < 3; i++) const Padding(padding: EdgeInsets.only(bottom: TtSpacing.s), child: SkeletonBox(height: 56, radius: 12))
           else if (list.isEmpty)
             Padding(
@@ -139,6 +163,29 @@ class _P35bOutstationSearchScreenState extends ConsumerState<P35bOutstationSearc
               onTap: _resolving == null && !widget.showcase ? () => _pick(list[i]) : null,
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The search failed: why, and Retry (no skeleton rows under it).
+class _SearchFailed extends StatelessWidget {
+  const _SearchFailed({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: TtSpacing.s),
+      child: Row(
+        children: [
+          const Icon(Symbols.error_rounded, size: 20, color: TtColors.error, fill: 1),
+          const SizedBox(width: TtSpacing.s),
+          Expanded(child: Text(message, style: t.bodySmall.copyWith(color: TtColors.error))),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

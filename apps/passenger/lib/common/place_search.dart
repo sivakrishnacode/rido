@@ -45,11 +45,8 @@ class _PlaceSearchSheet extends ConsumerStatefulWidget {
 }
 
 class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
-  /// ≥ 300 ms so Google autocomplete is not called on every keystroke.
-  static const _debounce = Duration(milliseconds: 300);
-
-  /// Live API: autocomplete starts at 3 characters (tech doc cost rules).
-  static const _minLiveQuery = 3;
+  /// ~350 ms so Google autocomplete is not called on every keystroke.
+  static const _debounce = Duration(milliseconds: 350);
 
   Timer? _timer;
   int _request = 0;
@@ -58,6 +55,9 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
   String? _error;
   String? _resolving;
   List<Place> _results = const [];
+
+  /// What the empty search lists (recent places), shown again while the text is too short to search.
+  List<Place> _recents = const [];
 
   bool get _live => ref.read(isLiveApiProvider);
 
@@ -73,18 +73,29 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
     super.dispose();
   }
 
+  /// Live text under [kMinPlaceQuery] characters (but not empty): too short to search (live search starts there).
+  bool _isShort(String q) => _live && q.trim().isNotEmpty && q.trim().length < kMinPlaceQuery;
+
   void _onChanged(String q) {
     _timer?.cancel();
-    setState(() => _query = q);
-    final trimmed = q.trim();
-    if (_live && trimmed.isNotEmpty && trimmed.length < _minLiveQuery) {
+    final empty = q.trim().isEmpty;
+    if (empty || _isShort(q)) {
+      // Nothing to search yet: the recent places again (with the hint while typing).
+      _request++;
       setState(() {
+        _query = q;
         _loading = false;
-        _results = const [];
+        _error = null;
+        _results = _recents;
       });
       return;
     }
-    setState(() => _loading = true);
+    // An answer still on its way is for older text: drop it.
+    _request++;
+    setState(() {
+      _query = q;
+      _loading = true;
+    });
     _timer = Timer(_debounce, () => _search(q));
   }
 
@@ -98,6 +109,7 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
       final results = await ref.read(placesRepositoryProvider).search(q, anywhere: widget.anywhere);
       if (!mounted || id != _request) return;
       setState(() {
+        if (q.trim().isEmpty) _recents = results;
         _results = results;
         _loading = false;
       });
@@ -123,7 +135,8 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
       if (!mounted) return;
       setState(() {
         _resolving = null;
-        _error = "Couldn't load that place. ${apiErrorMessage(e)}";
+        // The API's own words when it answered (e.g. the place is no longer listed).
+        _error = e is ApiException ? e.message : "Couldn't load that place. ${apiErrorMessage(e)}";
       });
     }
   }
@@ -132,7 +145,7 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
   Widget build(BuildContext context) {
     final t = context.type;
     final q = _query.trim();
-    final tooShort = _live && q.isNotEmpty && q.length < _minLiveQuery;
+    final tooShort = _isShort(_query);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -172,11 +185,8 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
             padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(child: SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 3))),
           )
-        else if (tooShort)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text('Keep typing to search', style: t.bodySmall, textAlign: TextAlign.center),
-          )
+        else if (tooShort && _results.isEmpty)
+          const SearchMinLengthHint()
         else if (_results.isEmpty && _error == null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
@@ -186,10 +196,11 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
               textAlign: TextAlign.center,
             ),
           )
-        else
+        else ...[
+          if (tooShort) const SearchMinLengthHint(),
           for (final p in _results.take(8))
             LocationRow(
-              kind: q.isEmpty ? LocationRowKind.recent : LocationRowKind.search,
+              kind: q.isEmpty || tooShort ? LocationRowKind.recent : LocationRowKind.search,
               title: p.name,
               subtitle: p.address,
               trailingText: _resolving == p.id
@@ -197,6 +208,7 @@ class _PlaceSearchSheetState extends ConsumerState<_PlaceSearchSheet> {
                   : (widget.current != null && p.id == widget.current!.id ? '✓' : null),
               onTap: () => _pick(p),
             ),
+        ],
       ],
     );
   }

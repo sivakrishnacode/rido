@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart' show kMinPlaceQuery;
 
 import '../theme/tt_colors.dart';
 import '../theme/tt_tokens.dart';
@@ -67,6 +68,30 @@ class SearchField extends StatelessWidget {
                 )
               : null,
         ),
+      ),
+    );
+  }
+}
+
+/// "Type at least 4 letters to search": the quiet line a place search shows while the text is shorter than
+/// [kMinPlaceQuery] (live search starts there; recent and saved places stay listed meanwhile).
+class SearchMinLengthHint extends StatelessWidget {
+  const SearchMinLengthHint({super.key, this.padding = const EdgeInsets.symmetric(vertical: 10)});
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Padding(
+      padding: padding,
+      child: Row(
+        children: [
+          const Icon(Symbols.keyboard_rounded, size: 18, color: TtColors.navy500),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Type at least $kMinPlaceQuery letters to search', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+          ),
+        ],
       ),
     );
   }

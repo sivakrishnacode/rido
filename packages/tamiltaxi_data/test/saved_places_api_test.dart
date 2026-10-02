@@ -46,4 +46,36 @@ void main() {
     await expectLater(repo.saveSavedPlace(pinned), throwsA(isA<ApiException>()));
     expect(calls, ['GET /v1/me', 'POST /v1/me/saved-places']);
   });
+
+  test('search waits for 4 letters (no API call before), then keeps one session until a place is picked', () async {
+    final calls = <String>[];
+    final client = MockClient((req) async {
+      calls.add('${req.url.path} ${req.url.queryParameters['q'] ?? ''} ${req.url.queryParameters['session'] ?? ''}');
+      if (req.url.path.endsWith('/trips')) return http.Response('[]', 200, headers: _json);
+      if (req.url.path.contains('/details/')) return http.Response('', 200);
+      return http.Response('{"results":[{"placeId":"g1","name":"Brookefields Mall","address":"Krishnaswamy Rd"}]}', 200, headers: _json);
+    });
+    SharedPreferences.setMockInitialValues({});
+    final repo = ApiPlacesRepository(ApiClient(baseUrl: 'http://api.test/v1', session: await ApiSession.load(), client: client));
+    expect(await repo.search('  bro '), isEmpty);
+    expect(calls, isEmpty, reason: 'under 4 letters: Google is not asked');
+    expect(await repo.search(''), isEmpty, reason: 'empty: the recent drops');
+    expect(calls.single, startsWith('/v1/trips'));
+    calls.clear();
+
+    expect((await repo.search('broo')).single.name, 'Brookefields Mall');
+    await repo.search('brook');
+    final sessions = {for (final c in calls) c.split(' ').last};
+    expect(sessions, hasLength(1), reason: 'one session token per search session');
+
+    // Picked, but Google no longer has it: a clear message, not "You're offline".
+    final picked = (await repo.search('brookefields')).single;
+    await expectLater(
+      repo.resolve(picked),
+      throwsA(isA<ApiException>().having((e) => e.message, 'message', contains("isn't listed"))),
+    );
+    calls.clear();
+    await repo.search('race course');
+    expect(calls.single.split(' ').last, isNot(sessions.single), reason: 'details ended the session');
+  });
 }
