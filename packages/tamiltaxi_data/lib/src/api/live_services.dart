@@ -364,7 +364,7 @@ Stream<T> _merge<T>(List<Stream<T>> streams) {
 }
 
 /// [RoadRouter.backend] over `POST /maps/route`: two-wheeler routing for bike legs, Google only on the server.
-/// Returns null when the server only has an estimate (the router then tries OSRM).
+/// Returns null when the server only has an estimate (the map then draws the curved stand-in).
 BackendRouter backendRouter(ApiClient api) => (from, to, mode) async {
       final res = _map(await api.post('/maps/route', {
         'from': {'lat': from.latitude, 'lng': from.longitude},
