@@ -63,13 +63,21 @@ void main() {
     await tapText(tester, '2 BHK');
     expect(container.read(shiftingFlowProvider).vehicleOrSuggested, VehicleKind.truck);
     expect(find.textContaining('3 helpers to load and unload'), findsOneWidget);
-    // Second floor, no lift, at the old home.
-    final more = find.byTooltip('More');
-    await tester.tap(more.first);
+    // Second floor at the old home: one tap on its floor strip; stairs until Lift is chosen.
+    final second = find.bySemanticsLabel('2nd floor at the old home');
+    await tester.ensureVisible(second);
     await tester.pump();
-    await tester.tap(more.first);
+    await tester.tap(second);
     await advance(tester, const Duration(milliseconds: 300));
     expect(container.read(shiftingFlowProvider).details.pickupFloor, 2);
+    expect(container.read(shiftingFlowProvider).quote!.lines.stairs, 300);
+    expect(find.text('₹300 for 2 floors of stairs'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Lift for furniture at the old home'));
+    await advance(tester, const Duration(milliseconds: 300));
+    expect(container.read(shiftingFlowProvider).quote!.lines.stairs, 0);
+    expect(find.text('No stairs charge'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Stairs only at the old home'));
+    await advance(tester, const Duration(milliseconds: 300));
     expect(container.read(shiftingFlowProvider).quote!.lines.stairs, 300);
 
     await tapText(tester, 'Add items');

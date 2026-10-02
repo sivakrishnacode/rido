@@ -1139,8 +1139,9 @@ the shared `packages/tamiltaxi_data/test/fixtures/goods_mode_cases.json`. No sur
 - PP-06: each goods vehicle shows its load bed ("5 ft bed") and capacity; to another town each shows ₹/km and the
   km charged, with When? (now / schedule); a scheduled delivery goes to P-36 and Activity › Upcoming.
 - Packers & Movers, three steps and a review (`lib/features/shifting/`, `state/shifting_flow.dart`):
-  - PH-01 Moving details: in town / to another town, old and new home with a floor stepper and a "Lift for
-    furniture" switch (compact cards), home size tiles (the suggested vehicle and helpers show under them). Until
+  - PH-01 Moving details: in town / to another town, old and new home as compact cards: the floor on a strip of
+    round lift-panel buttons (G, 1, 2 … 30, scrolling sideways) and, above the ground floor, a Lift | Stairs switch
+    with what the stairs cost ("₹300 for 2 floors of stairs" / "No stairs charge"); home size tiles (the suggested vehicle and helpers show under them). Until
     the new home is chosen the price bar shows only "Choose the new home to see the price" (no placeholder).
   - PH-02 Items: no catalogue. Type an item, optional details and how many; or "Paste a list" (one per line,
     "2 chairs", "Cartons x10", "Fridge - single door"; `parseItemList`); tap an item to edit or remove it. Up to 60.
