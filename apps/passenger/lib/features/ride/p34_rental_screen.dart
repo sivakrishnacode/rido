@@ -121,7 +121,9 @@ class _P34RentalScreenState extends ConsumerState<P34RentalScreen> {
             (Symbols.more_time_rounded,
                 'Past ${terms.package.label}: ${formatInr(terms.extraKmRate)} a km and ${_perMin(terms.extraMinRate)} a minute, added at the end'),
           (Symbols.toll_rounded, 'Tolls and parking are paid by you on the way'),
-          if (later) (Symbols.event_available_rounded, 'Free to cancel until we start finding your driver, 30 min before'),
+          if (later)
+            (Symbols.event_available_rounded,
+                'Free to cancel until we start finding your driver, ${formatMinutes(ref.watch(dispatchLeadMinProvider))} before'),
         ]),
       ],
       bottom: TtButton(

@@ -181,7 +181,9 @@ class _P35OutstationScreenState extends ConsumerState<P35OutstationScreen> {
           if (terms is OutstationTerms && terms.roundTrip)
             (Symbols.route_rounded, '${formatCount(terms.includedKm)} km included; more is ${formatInr(terms.perKm)} a km, added at the end'),
           (Symbols.toll_rounded, 'Tolls, parking and state permits are paid by you on the way'),
-          if (mode.isLater) (Symbols.event_available_rounded, 'Free to cancel until we start finding your driver, 30 min before'),
+          if (mode.isLater)
+            (Symbols.event_available_rounded,
+                'Free to cancel until we start finding your driver, ${formatMinutes(ref.watch(dispatchLeadMinProvider))} before'),
         ]),
       ],
       bottom: TtButton(

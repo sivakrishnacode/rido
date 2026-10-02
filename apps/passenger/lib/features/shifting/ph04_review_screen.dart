@@ -171,7 +171,8 @@ class _PH04ReviewScreenState extends ConsumerState<PH04ReviewScreen> {
           ),
         const SizedBox(height: TtSpacing.xs),
         for (final (icon, text) in [
-          (Symbols.event_busy_rounded, 'Free to cancel until we start finding your movers, 30 minutes before the slot.'),
+          (Symbols.event_busy_rounded,
+              'Free to cancel until we start finding your movers, ${formatMinutes(ref.watch(dispatchLeadMinProvider))} before the slot.'),
           (Symbols.toll_rounded, 'Tolls, parking and building entry fees on the way are yours.'),
           (Symbols.shield_person_rounded, 'Tamil Taxi connects you with drivers and is not liable for lost or damaged goods.'),
         ])

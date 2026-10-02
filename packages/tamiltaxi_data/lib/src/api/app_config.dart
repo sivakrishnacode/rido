@@ -50,23 +50,40 @@ class ContributeInfo {
 /// `GET /v1/app-config`: public settings both apps read at start-up.
 @immutable
 class AppConfig {
-  const AppConfig({required this.driverPlansEnabled, required this.supportPhone, required this.contribute});
+  const AppConfig({
+    required this.driverPlansEnabled,
+    required this.supportPhone,
+    required this.contribute,
+    this.scheduledDispatchLeadMin = defaultDispatchLeadMin,
+  });
 
   /// Off = the app is free: drivers see no plans and can always go online.
   final bool driverPlansEnabled;
+
+  /// The support line (calls and WhatsApp). Empty when none is set up: the apps then offer no call.
   final String supportPhone;
   final ContributeInfo contribute;
+
+  /// Minutes before its pickup time that a trip booked for later starts looking for a driver.
+  final int scheduledDispatchLeadMin;
+
+  /// The API's default lead, for servers that don't send it.
+  static const defaultDispatchLeadMin = 30;
+
+  /// A real support number is set up (not empty).
+  bool get hasSupportPhone => supportPhone.replaceAll(RegExp(r'[^0-9]'), '').length >= 8;
 
   static const defaultNote = 'Tamil Taxi is free for drivers and riders: 0% commission and no subscription. '
       'Contributions pay for the servers, maps and SMS that keep it running.';
 
-  /// Used before the API answers, when it can't be reached, and in mock mode (with sample figures).
+  /// Used before the API answers and while it can't be reached: no support number (none is made up).
   static const fallback = AppConfig(
     driverPlansEnabled: false,
-    supportPhone: '+91 422 000 0000',
+    supportPhone: '',
     contribute: ContributeInfo(upiId: '', payeeName: 'Tamil Taxi', note: defaultNote),
   );
 
+  /// Mock mode (seed data, Design gallery): sample figures.
   static const demo = AppConfig(
     driverPlansEnabled: false,
     supportPhone: '+91 422 000 0000',
@@ -84,9 +101,11 @@ class AppConfig {
     final cost = (c['monthlyCost'] as Map?)?.cast<String, dynamic>();
     final name = '${c['payeeName'] ?? ''}'.trim();
     final note = '${c['note'] ?? ''}'.trim();
+    final lead = j['scheduledDispatchLeadMin'];
     return AppConfig(
       driverPlansEnabled: j['driverPlansEnabled'] == true,
-      supportPhone: '${j['supportPhone'] ?? fallback.supportPhone}',
+      supportPhone: j['supportPhone'] is String ? (j['supportPhone'] as String).trim() : fallback.supportPhone,
+      scheduledDispatchLeadMin: lead is num && lead >= 0 ? lead.round() : defaultDispatchLeadMin,
       contribute: ContributeInfo(
         upiId: '${c['upiId'] ?? ''}'.trim(),
         payeeName: name.isEmpty ? 'Tamil Taxi' : name,
@@ -120,6 +139,11 @@ final appConfigProvider = FutureProvider<AppConfig>((ref) async {
   }
   return ref.watch(_appConfigFetchProvider.future);
 });
+
+/// Minutes before its time that a trip booked for later starts finding a driver (the API's, else 30).
+final dispatchLeadMinProvider = Provider<int>(
+  (ref) => ref.watch(appConfigProvider).value?.scheduledDispatchLeadMin ?? AppConfig.defaultDispatchLeadMin,
+);
 
 /// Paid driver plans on? False until the config loads, so plan screens never flash for a free app.
 final driverPlansEnabledProvider = Provider<bool>((ref) => ref.watch(appConfigProvider).value?.driverPlansEnabled ?? false);

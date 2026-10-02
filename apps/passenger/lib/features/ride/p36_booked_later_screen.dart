@@ -8,7 +8,7 @@ import '../../router/routes.dart';
 import 'widgets/upcoming_trip_card.dart';
 
 /// P-36 Booked for later: the rental / outstation trip, goods to another town or house shift is booked for its time.
-/// What happens next (we find the driver or movers 30 min before; free to cancel until then), the booking, then Done
+/// What happens next (we find the driver or movers the dispatch lead before; free to cancel until then), the booking, then Done
 /// (Home, or the parcel tab) or See my trips (Activity).
 class P36BookedLaterScreen extends ConsumerWidget {
   const P36BookedLaterScreen({super.key, this.trip, this.showcase = false});
@@ -86,24 +86,25 @@ class P36BookedLaterScreen extends ConsumerWidget {
 }
 
 /// What happens before the trip.
-class _NextSteps extends StatelessWidget {
+class _NextSteps extends ConsumerWidget {
   const _NextSteps({this.movers = false});
 
   /// A house shift: the movers, their slot, keep the OTP for the new home.
   final bool movers;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
+    final lead = formatMinutes(ref.watch(dispatchLeadMinProvider));
     final steps = movers
-        ? const [
-            (Symbols.travel_explore_rounded, 'We start finding your movers 30 minutes before the slot starts.'),
+        ? [
+            (Symbols.travel_explore_rounded, 'We start finding your movers $lead before the slot starts.'),
             (Symbols.notifications_active_rounded, "You get a notification with the driver's name, vehicle and number plate."),
             (Symbols.pin_rounded, 'At the new home, give the driver the delivery OTP from the app once everything is in.'),
             (Symbols.event_busy_rounded, 'Plans changed? Cancel for free from Activity until the search starts.'),
           ]
-        : const [
-            (Symbols.travel_explore_rounded, 'We start finding your driver 30 minutes before the pickup time.'),
+        : [
+            (Symbols.travel_explore_rounded, 'We start finding your driver $lead before the pickup time.'),
             (Symbols.notifications_active_rounded, "You get a notification with the driver's name and number plate."),
             (Symbols.event_busy_rounded, 'Plans changed? Cancel for free from Activity until the search starts.'),
           ];
