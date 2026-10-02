@@ -172,8 +172,14 @@ class ApiClient {
         rethrow;
       }
     }
+    final ok = res.statusCode >= 200 && res.statusCode < 300;
     final body = res.body.isEmpty ? null : _decode(res.body);
-    if (res.statusCode >= 200 && res.statusCode < 300) return body;
+    if (ok) {
+      // A success that isn't JSON never came from the API: a captive-portal login page (hotel or station Wi-Fi) or a
+      // proxy answered instead. The API wasn't reached, so it is "offline" (screens know how to show that).
+      if (body is _NotJson) throw const OfflineException();
+      return body;
+    }
     if (res.statusCode == 401 && session.isLoggedIn) {
       await session.clear();
       _unauthorized.add(null);
@@ -193,7 +199,7 @@ class ApiClient {
     try {
       return jsonDecode(text);
     } on FormatException {
-      return text;
+      return const _NotJson();
     }
   }
 
@@ -215,4 +221,9 @@ class ApiClient {
       _ => null,
     };
   }
+}
+
+/// A response body that isn't JSON (an HTML error page, a portal's login page).
+class _NotJson {
+  const _NotJson();
 }
