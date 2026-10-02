@@ -613,7 +613,12 @@ export class TripsService {
   async cancel(user: AuthUser, tripId: string, body: CancelTripDto = {}): Promise<Trip> {
     let trip = await this.get(user, tripId);
     const by = user.driverId && trip.driverId === user.driverId ? CancelledBy.DRIVER : CancelledBy.PASSENGER;
-    const { code, note } = resolveCancel({ by, ...body });
+    const resolved = resolveCancel({ by, ...body });
+    // "Rider is not a woman" only means something on a Butterfly ride. Anywhere else it would end the trip without
+    // reassigning it, put the fault on the rider and skip the driver's cancel rate, so it counts as OTHER.
+    const isButterfly = trip.kind === TripKind.RIDE && trip.womenDriver !== WomenDriverPref.NONE;
+    const code = resolved.code === CancelCode.BUTTERFLY_MISMATCH && !isButterfly ? CancelCode.OTHER : resolved.code;
+    const { note } = resolved;
     for (let attempt = 1; ; attempt++) {
       if (trip.status === TripStatus.CANCELLED) return by === CancelledBy.DRIVER ? hideOtp(trip) : trip;
       if (code === CancelCode.PASSENGER_NO_SHOW) checkNoShowWait(trip);
@@ -683,6 +688,8 @@ export class TripsService {
     await this.clearTripJobs(trip.id);
     await this.location.releaseBusy(driverId, trip.id);
     await this.dispatch.restart(trip.id, driverId);
+    // The dropped driver still gets this update in their own room, then nothing more from the trip.
+    this.events.leaveTrip(trip.id, driverId);
     return this.publish(trip.id, c.by === CancelledBy.SYSTEM ? 'SYSTEM' : 'DRIVER', driverId);
   }
 

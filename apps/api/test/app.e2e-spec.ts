@@ -602,6 +602,11 @@ describe('Tamil Taxi API (e2e)', () => {
     await http.post('/v1/trips').set(pax).send({ ...book, rider: daughter }).expect(403);
     const plain = (await http.post('/v1/trips').set(pax).send({ ...book, womenDriver: undefined, rider: daughter }).expect(201)).body;
     expect(plain.womenDriver).toBe('NONE');
+    // On a ride that isn't Butterfly the report means nothing: it counts as OTHER and the ride finds another driver.
+    expect((await acceptWhenOffered(plain.id, woman)).status).toBe(200);
+    const dropped = (await http.post(`/v1/trips/${plain.id}/cancel`).set('Authorization', `Bearer ${woman}`).send({ code: 'BUTTERFLY_MISMATCH' }).expect(200)).body;
+    expect(dropped.status).toBe('SEARCHING');
+    expect(await prisma.tripCancellation.findMany({ where: { tripId: plain.id } })).toMatchObject([{ by: 'DRIVER', code: 'OTHER' }]);
     await http.post(`/v1/trips/${plain.id}/cancel`).set(pax).send({}).expect(200);
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${woman}`);
   });
