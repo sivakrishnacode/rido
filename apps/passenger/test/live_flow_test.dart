@@ -63,6 +63,12 @@ class _FakeTrips extends LiveTrips {
   TripKind kind = TripKind.ride;
   late LiveTripUpdate last;
 
+  /// What the last booking sent as parcel details.
+  ParcelDetails? bookedParcel;
+
+  /// The status a booking for later comes back in (SEARCHING: inside the server's dispatch lead).
+  String laterStatus = 'SCHEDULED';
+
   LiveTripUpdate update(
     String status, {
     DriverProfile? driver,
@@ -139,7 +145,8 @@ class _FakeTrips extends LiveTrips {
         '${womenDriver.isOn ? ':${womenDriver.name}' : ''}${rider != null ? ':for ${rider.name}' : ''}'
         '${mode != null && mode.mode != RideMode.local ? ':${mode.mode.name}${mode.isLater ? ':later' : ''}' : ''}'
         '${shifting != null ? ':shifting:${shifting.items.length} items' : ''}');
-    return update((mode?.isLater ?? false) || shifting != null ? 'SCHEDULED' : 'SEARCHING');
+    bookedParcel = parcel;
+    return update((mode?.isLater ?? false) || shifting != null ? laterStatus : 'SEARCHING');
   }
 
   @override
@@ -469,6 +476,34 @@ void main() {
     expect(container.read(parcelFlowProvider).quote.extra, 10);
   });
 
+  test('booked for later inside the dispatch lead: the search started, so the ride is followed', () async {
+    trips.laterStatus = 'SEARCHING';
+    flow().updateMode(ModeRequest(mode: RideMode.rental, packageId: '4h', leaveAt: DateTime.now().add(const Duration(minutes: 29))));
+    final r = await flow().bookForLater();
+    expect(r.error, isNull);
+    expect(r.trip?.status, isNot(TripStatus.scheduled));
+    expect(ride().phase, RidePhase.searching);
+    expect(ride().tripId, r.trip?.id);
+  });
+
+  test('a parcel with no sender is booked with the rider as the sender', () async {
+    final c = ProviderContainer(overrides: [
+      isLiveApiProvider.overrideWithValue(true),
+      realtimeProvider.overrideWithValue(realtime),
+      liveTripsProvider.overrideWithValue(trips),
+      passengerProfileProvider.overrideWith(_Me.new),
+    ]);
+    addTearDown(c.dispose);
+    await c.read(passengerProfileProvider.future);
+    trips.kind = TripKind.parcel;
+    final parcel = c.read(parcelFlowProvider.notifier);
+    parcel.updateDetails(kEmptyParcelDetails.copyWith(receiverName: 'Meena', receiverPhone: '+919843012345'));
+    parcel.setDrop(Seed.raceCourse);
+    expect(await parcel.book(), isNull);
+    expect(trips.bookedParcel?.senderName, 'Priya Raman');
+    expect(trips.bookedParcel?.senderPhone, '+919876543210');
+  });
+
   test('a parcel books with its details and shows the server delivery OTP', () async {
     trips.kind = TripKind.parcel;
     final parcel = container.read(parcelFlowProvider.notifier);
@@ -494,4 +529,10 @@ void main() {
     expect(container.read(parcelFlowProvider).phase, ParcelPhase.planning);
     expect(container.read(parcelFlowProvider).details.senderName, 'Priya', reason: 'the sender is kept for next time');
   });
+}
+
+class _Me extends PassengerProfileController {
+  @override
+  Future<PassengerProfile> build() async =>
+      const PassengerProfile(name: 'Priya Raman', phone: '+919876543210', gender: Gender.female);
 }

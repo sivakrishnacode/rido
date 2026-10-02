@@ -361,6 +361,18 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
     }
   }
 
+  /// The details as booked: a sender left empty (the "Deliver to" path never asks) is the rider, so the driver has
+  /// someone to call at the pickup.
+  ParcelDetails get _detailsToSend {
+    final d = state.details;
+    final me = ref.read(passengerProfileProvider).value;
+    if (me == null) return d;
+    return d.copyWith(
+      senderName: d.senderName.trim().isEmpty && me.name != kPlaceholderName ? me.name : d.senderName,
+      senderPhone: d.senderPhone.trim().isEmpty ? me.phone : d.senderPhone,
+    );
+  }
+
   /// Books the parcel. Returns a user-facing error, or null once the request is searching.
   Future<String?> book() async {
     if (_live) return _bookLive();
@@ -427,7 +439,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
             vehicle: state.vehicle,
             pickup: state.pickup,
             drop: state.drop,
-            parcel: state.details,
+            parcel: _detailsToSend,
             mode: state.outstation ? const ModeRequest(mode: RideMode.outstation) : null,
           );
       _startFollowing(update, restoring: false);
@@ -453,10 +465,15 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
               vehicle: state.vehicle,
               pickup: state.pickup,
               drop: state.drop,
-              parcel: state.details,
+              parcel: _detailsToSend,
               mode: ModeRequest(mode: RideMode.outstation, leaveAt: at),
             );
         trip = update.trip;
+        // Inside the server's dispatch lead it searches at once: follow it like a parcel booked now (PP-07).
+        if (update.status != 'SCHEDULED' && ref.mounted) {
+          _startFollowing(update, restoring: false);
+          return (error: null, trip: trip);
+        }
       } else {
         final q = state.quote;
         trip = Trip(

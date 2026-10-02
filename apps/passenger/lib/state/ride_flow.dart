@@ -349,7 +349,9 @@ class RideFlowController extends Notifier<RideFlowState> {
   }
 
   /// Books the rental / outstation trip for later ([ModeRequest.leaveAt]). Returns a user-facing error, or the
-  /// scheduled trip (it searches for a driver shortly before its time; see P-36 and Upcoming).
+  /// scheduled trip (it searches for a driver shortly before its time; see P-36 and Upcoming). A pickup inside the
+  /// server's dispatch lead starts searching at once: the trip then comes back not scheduled and is followed like a
+  /// ride booked now (the caller opens P-12).
   Future<({String? error, Trip? trip})> bookForLater() async {
     final m = state.mode;
     if (m == null || !m.isLater) return (error: 'Choose a pickup time', trip: null);
@@ -368,6 +370,10 @@ class RideFlowController extends Notifier<RideFlowState> {
               mode: m,
             );
         trip = update.trip;
+        if (update.status != 'SCHEDULED' && ref.mounted) {
+          _startFollowing(update, restoring: false);
+          return (error: null, trip: trip);
+        }
       } else {
         final q = state.quote;
         trip = Trip(

@@ -340,10 +340,11 @@ Future<DateTime?> pickTripTime(BuildContext context, {DateTime? initial, DateTim
   return picked.isAfter(last) ? last : picked;
 }
 
-/// [t] rounded up to the next quarter hour.
+/// [t] rounded up to the next quarter hour (never earlier than [t]: 10:15:40 → 10:30).
 DateTime roundUpToQuarter(DateTime t) {
-  final m = (t.minute / 15).ceil() * 15;
-  return DateTime(t.year, t.month, t.day, t.hour).add(Duration(minutes: m));
+  final hour = DateTime(t.year, t.month, t.day, t.hour);
+  final r = hour.add(Duration(minutes: (t.minute / 15).ceil() * 15));
+  return r.isBefore(t) ? r.add(const Duration(minutes: 15)) : r;
 }
 
 /// One cab tier for a rental / outstation quote: picture, name, seats, what the price includes, fare.

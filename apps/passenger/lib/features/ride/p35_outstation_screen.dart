@@ -71,7 +71,10 @@ class _P35OutstationScreenState extends ConsumerState<P35OutstationScreen> {
       final r = await flow.bookForLater();
       if (!mounted) return;
       if (r.error != null) return showTtSnack(context, r.error!);
-      if (r.trip != null) context.go(Routes.bookedLater, extra: r.trip);
+      final trip = r.trip;
+      if (trip == null) return;
+      // Too close to its time: the search already started.
+      context.go(trip.status == TripStatus.scheduled ? Routes.bookedLater : Routes.findingDriver, extra: trip.status == TripStatus.scheduled ? trip : null);
       return;
     }
     final error = await flow.book();

@@ -36,7 +36,10 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
       final r = await flow.bookForLater();
       if (!mounted) return;
       if (r.error != null) return showTtSnack(context, r.error!);
-      if (r.trip != null) context.go(Routes.parcelBooked, extra: r.trip);
+      final trip = r.trip;
+      if (trip == null) return;
+      // Too close to its time: the search already started.
+      context.go(trip.status == TripStatus.scheduled ? Routes.parcelBooked : Routes.parcelFinding, extra: trip.status == TripStatus.scheduled ? trip : null);
       return;
     }
     final error = await flow.book();
