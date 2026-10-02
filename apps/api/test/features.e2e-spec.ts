@@ -92,6 +92,33 @@ describe('Tamil Taxi features (e2e)', () => {
     return { auth: { Authorization: `Bearer ${res.body.accessToken as string}` }, driverId: res.body.driver.id, userId: res.body.driver.userId, plate };
   }
 
+  /** A trip row (no dispatch): [kind] between [passengerId] and [driverId] in [status]. */
+  async function tripRow(params: { passengerId: string; driverId?: string; kind?: 'RIDE' | 'PARCEL'; status: string }): Promise<string> {
+    const trip = await prisma.trip.create({
+      data: {
+        kind: params.kind ?? 'PARCEL',
+        status: params.status as 'SEARCHING',
+        passengerId: params.passengerId,
+        driverId: params.driverId,
+        vehicleKind: 'GOODS_BIKE',
+        pickupName: 'Gandhipuram',
+        pickupAddr: 'Gandhipuram, Coimbatore',
+        pickupLat: 11.0183,
+        pickupLng: 76.9725,
+        dropName: 'Brookefields',
+        dropAddr: 'Brookefields Mall, Coimbatore',
+        dropLat: 11.009,
+        dropLng: 76.96,
+        distanceKm: 2.1,
+        durationMin: 9,
+        fare: { total: 45 },
+        fareTotal: 45,
+        otp: '7153',
+      },
+    });
+    return trip.id;
+  }
+
   /** An approved driver with a photo (may go online). */
   async function approvedDriver(): Promise<{ auth: Auth; driverId: string; userId: string; plate: string }> {
     const d = await newDriver();
@@ -283,6 +310,60 @@ describe('Tamil Taxi features (e2e)', () => {
       } finally {
         await http.put('/v1/admin/settings').set(admin).send({ dailySelfieCheckEnabled: true }).expect(200);
       }
+    });
+  });
+
+  describe('parcel and delivery photos', () => {
+    const attach = (path: string, auth: Auth, type = 'image/jpeg') => http.post(path).set(auth).attach('file', JPEG, { filename: 'p.jpg', contentType: type });
+
+    it('the sender adds a parcel photo before pickup; the driver and admins see it, a stranger does not', async () => {
+      const sender = await login();
+      const d = await approvedDriver();
+      const tripId = await tripRow({ passengerId: sender.userId, driverId: d.driverId, status: 'DRIVER_ASSIGNED' });
+      expect((await http.get(`/v1/trips/${tripId}`).set(sender.auth).expect(200)).body.parcelPhotoFile).toBeNull();
+      expect((await attach(`/v1/trips/${tripId}/parcel-photo`, sender.auth).expect(200)).body).toEqual({ ok: true });
+
+      const forSender = (await http.get(`/v1/trips/${tripId}`).set(sender.auth).expect(200)).body;
+      expect(forSender.parcelPhotoFile).toMatch(/\.jpg$/);
+      expect((await http.get(`/v1/trips/${tripId}`).set(d.auth).expect(200)).body.parcelPhotoFile).toBe(forSender.parcelPhotoFile);
+      expect((await http.get(`/v1/admin/trips/${tripId}`).set(await adminAuth()).expect(200)).body.parcelPhotoFile).toBe(forSender.parcelPhotoFile);
+      const img = await http.get(`/v1/trips/${tripId}/parcel-photo`).set(d.auth).expect(200);
+      expect(img.headers['content-type']).toContain('image/jpeg');
+      await http.get(`/v1/trips/${tripId}/parcel-photo`).set(sender.auth).expect(200);
+      await http.get(`/v1/trips/${tripId}/parcel-photo`).set(await adminAuth()).expect(200);
+      const stranger = await login();
+      await http.get(`/v1/trips/${tripId}/parcel-photo`).set(stranger.auth).expect(404);
+      await attach(`/v1/trips/${tripId}/parcel-photo`, stranger.auth).expect(404);
+      // Only photos; only before pickup; only parcels.
+      await attach(`/v1/trips/${tripId}/parcel-photo`, sender.auth, 'application/pdf').expect(400);
+      await prisma.trip.update({ where: { id: tripId }, data: { status: 'PICKED_UP' } });
+      await attach(`/v1/trips/${tripId}/parcel-photo`, sender.auth).expect(409);
+      const ride = await tripRow({ passengerId: sender.userId, kind: 'RIDE', status: 'SEARCHING' });
+      await attach(`/v1/trips/${ride}/parcel-photo`, sender.auth).expect(400);
+    });
+
+    it('the driver adds the delivery photo at the drop; the sender and admins see it', async () => {
+      const sender = await login();
+      const d = await approvedDriver();
+      const other = await approvedDriver();
+      const tripId = await tripRow({ passengerId: sender.userId, driverId: d.driverId, status: 'DRIVER_ARRIVED' });
+      // Not before pickup, and not someone else's trip.
+      await attach(`/v1/trips/${tripId}/delivery-photo`, d.auth).expect(409);
+      await prisma.trip.update({ where: { id: tripId }, data: { status: 'PICKED_UP' } });
+      await attach(`/v1/trips/${tripId}/delivery-photo`, other.auth).expect(404);
+      await attach(`/v1/trips/${tripId}/delivery-photo`, sender.auth).expect(403);
+      expect((await attach(`/v1/trips/${tripId}/delivery-photo`, d.auth).expect(200)).body).toEqual({ ok: true });
+      // Delivered: still allowed (taken just after marking delivered).
+      await prisma.trip.update({ where: { id: tripId }, data: { status: 'DELIVERED' } });
+      await attach(`/v1/trips/${tripId}/delivery-photo`, d.auth).expect(200);
+
+      const trip = (await http.get(`/v1/trips/${tripId}`).set(sender.auth).expect(200)).body;
+      expect(trip.deliveryPhotoFile).toMatch(/\.jpg$/);
+      await http.get(`/v1/trips/${tripId}/delivery-photo`).set(sender.auth).expect(200);
+      await http.get(`/v1/trips/${tripId}/delivery-photo`).set(await adminAuth()).expect(200);
+      await http.get(`/v1/trips/${tripId}/delivery-photo`).set(other.auth).expect(404);
+      // Admins also open it through the file proxy (the panel's /files/:name).
+      await http.get(`/v1/admin/files/${trip.deliveryPhotoFile as string}`).set(await adminAuth()).expect(200);
     });
   });
 });
