@@ -31,18 +31,28 @@ abstract final class CityDefaults {
   static LatLng center = india;
 }
 
-/// The active service cities. Live: `GET /cities` (empty when unreachable). Mock: the seeded demo city.
+/// `GET /cities` itself. A failure is not kept: it is fetched again with [backgroundRetry].
+final _serviceCitiesFetchProvider = FutureProvider<List<ServiceCity>>((ref) async {
+  final json = await ref.watch(apiClientProvider).get('/cities');
+  return [for (final c in json as List) ServiceCity.fromJson((c as Map).cast<String, dynamic>())];
+}, retry: backgroundRetry);
+
+/// The active service cities. Live: `GET /cities` (empty while unreachable; the next successful fetch fills it).
+/// Mock: the seeded demo city.
 final serviceCitiesProvider = FutureProvider<List<ServiceCity>>((ref) async {
   List<ServiceCity> cities;
   if (!ref.watch(isLiveApiProvider)) {
     cities = const [Seed.demoCity];
   } else {
-    try {
-      final json = await ref.watch(apiClientProvider).get('/cities');
-      cities = [for (final c in json as List) ServiceCity.fromJson((c as Map).cast<String, dynamic>())];
-    } catch (e) {
-      debugPrint('Cities unavailable: $e');
+    final fetched = ref.watch(_serviceCitiesFetchProvider);
+    if (fetched case AsyncData(:final value)) {
+      cities = value;
+    } else if (fetched.hasError) {
+      // Failing (and being fetched again in the background): none known until a fetch works.
+      debugPrint('Cities unavailable: ${fetched.error}');
       cities = const [];
+    } else {
+      cities = await ref.watch(_serviceCitiesFetchProvider.future);
     }
   }
   if (cities.isNotEmpty) CityDefaults.center = cities.first.center;

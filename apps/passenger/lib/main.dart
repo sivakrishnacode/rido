@@ -16,7 +16,8 @@ Future<void> main() async {
     RoadRouter.backend = backendRouter(api);
     // Push notifications (FCM); null when this build has no google-services.json.
     final push = await TtPush.create(api, app: PushApp.passenger);
-    runApp(ProviderScope(overrides: liveApiOverrides(api, push: push), child: const TtPassengerApp()));
+    // A 4xx (429 above all) is shown, never retried in a loop; network trouble is retried with backoff.
+    runApp(ProviderScope(overrides: liveApiOverrides(api, push: push), retry: apiRetry, child: const TtPassengerApp()));
     return;
   }
   // Seed data + trip simulator (--dart-define=TT_LIVE_API=false). Road-following routes for the demo
