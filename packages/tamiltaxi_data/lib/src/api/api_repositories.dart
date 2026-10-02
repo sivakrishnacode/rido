@@ -143,12 +143,13 @@ class ApiPlacesRepository implements PlacesRepository {
     return [for (final p in _list(me['savedPlaces'])) savedPlaceFromJson(p)];
   }
 
-  /// Adds, or replaces (delete + add) when [place] already has a server id.
+  /// Adds, or replaces (add, then delete the old one) when [place] already has a server id, so a place the API
+  /// rejects leaves the old one in place.
   @override
   Future<List<SavedPlace>> saveSavedPlace(SavedPlace place) async {
     final existing = await savedPlaces();
-    if (existing.any((p) => p.id == place.id)) await api.delete('/me/saved-places/${place.id}');
     await api.post('/me/saved-places', savedPlaceToJson(place));
+    if (existing.any((p) => p.id == place.id)) await api.delete('/me/saved-places/${place.id}');
     return savedPlaces();
   }
 

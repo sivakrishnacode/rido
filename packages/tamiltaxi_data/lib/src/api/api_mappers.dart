@@ -302,14 +302,21 @@ SavedPlace savedPlaceFromJson(Json j) => SavedPlace(
       ),
     );
 
-Json savedPlaceToJson(SavedPlace p) => {
-      'label': p.label,
-      'kind': p.kind.name,
-      'name': p.place.name,
-      'address': p.place.address,
-      'lat': p.place.location.latitude,
-      'lng': p.place.location.longitude,
-    };
+/// Within the API's limits (label 40, name 120, address 200, none empty): a pinned spot has no address of its own.
+Json savedPlaceToJson(SavedPlace p) {
+  String cut(String s, int max) => s.length <= max ? s : s.substring(0, max).trimRight();
+  final label = p.label.trim().isEmpty ? 'Saved place' : p.label.trim();
+  final name = p.place.name.trim().isEmpty ? label : p.place.name.trim();
+  final address = p.place.address.trim().isEmpty ? name : p.place.address.trim();
+  return {
+    'label': cut(label, 40),
+    'kind': p.kind.name,
+    'name': cut(name, 120),
+    'address': cut(address, 200),
+    'lat': p.place.location.latitude,
+    'lng': p.place.location.longitude,
+  };
+}
 
 EmergencyContact contactFromJson(Json j) =>
     EmergencyContact(id: _s(j['id']), name: _s(j['name']), relation: _s(j['relation']), phone: _s(j['phone']));
