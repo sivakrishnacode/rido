@@ -3,7 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
-import { ApiError, apiBaseUrl, apiUrl, errorMessage } from "./api-core";
+import { ApiError, apiBaseUrl, apiUrl, errorMessage, isBlockedAccount } from "./api-core";
 import type { QueryInput } from "./paging";
 import type { SosPage, SosRecord } from "./safety";
 import { TOKEN_COOKIE, USER_COOKIE, getToken } from "./session";
@@ -76,8 +76,9 @@ interface RequestOptions {
 /**
  * Session is gone or rejected: clear the cookies and go to /login. Cookies can only be changed in Server Actions
  * and Route Handlers, so while rendering a page we hand over to the /auth/signout route handler instead.
+ * [reason] "blocked": the login page says the account is blocked instead of "session ended".
  */
-async function signOutAndRedirect(): Promise<never> {
+async function signOutAndRedirect(reason: "expired" | "blocked" = "expired"): Promise<never> {
   let isCleared = false;
   try {
     const store = await cookies();
@@ -87,7 +88,7 @@ async function signOutAndRedirect(): Promise<never> {
   } catch {
     // Rendering a Server Component: cookies are read-only here.
   }
-  redirect(isCleared ? "/login?expired=1" : "/auth/signout?expired=1");
+  redirect(isCleared ? `/login?${reason}=1` : `/auth/signout?${reason}=1`);
 }
 
 /** Typed fetch against the Tamil Taxi API. Server-side only: the JWT never reaches the browser. */
@@ -117,6 +118,8 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const text = await res.text();
   const data: unknown = text ? safeJson(text) : null;
   if (res.status === 401 && auth) return signOutAndRedirect();
+  // An admin blocked meanwhile gets 403 on every call: sign them out rather than show broken pages.
+  if (auth && isBlockedAccount(res.status, data)) return signOutAndRedirect("blocked");
   if (!res.ok) throw new ApiError(res.status, errorMessage(data, res.status));
   return data as T;
 }
