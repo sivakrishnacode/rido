@@ -598,15 +598,23 @@ describe('Tamil Taxi API (e2e)', () => {
     const trip = (await http.post('/v1/trips').set(pax).send({ ...book, rider: daughter }).expect(201)).body;
     expect(trip).toMatchObject({ womenDriver: 'ONLY', riderName: 'Anjali', riderPhone: '+919876512345', riderIsWoman: true });
 
-    // The driver's request card shows the rider, "booked by" the account holder.
-    let offer: { passenger: { name: string; phone: string; bookedBy?: string } } | null = null;
+    // The driver's request card shows the rider, "booked by" the account holder, but no phone number before accepting.
+    let offer: { passenger: Record<string, unknown>; trip: Record<string, unknown> } | null = null;
     for (let i = 0; i < 40 && !offer; i++) {
       const res = await http.get('/v1/trips/offer').set('Authorization', `Bearer ${woman}`);
       offer = res.status === 200 && res.body?.trip?.id === trip.id ? res.body : null;
       if (!offer) await new Promise((r) => setTimeout(r, 250));
     }
-    expect(offer?.passenger).toMatchObject({ name: 'Anjali', phone: '+919876512345' });
-    expect((await acceptWhenOffered(trip.id, woman)).status).toBe(200);
+    expect(offer?.passenger).toMatchObject({ name: 'Anjali' });
+    expect(offer?.passenger).not.toHaveProperty('phone');
+    expect(offer?.trip.riderPhone).toBeNull();
+    const open = (await http.get('/v1/trips/offers').set('Authorization', `Bearer ${woman}`).expect(200)).body as { passenger: object; trip: { riderPhone: unknown } }[];
+    expect(open.every((o) => !('phone' in o.passenger) && o.trip.riderPhone === null)).toBe(true);
+    // Once accepted: the rider's number and the account holder's, in the answer and on GET /trips/active.
+    const accepted = await acceptWhenOffered(trip.id, woman);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body).toMatchObject({ riderPhone: '+919876512345', passenger: { phone: expect.stringMatching(/^\+91\d{10}$/) }, otp: '' });
+    expect((await http.get('/v1/trips/active').set('Authorization', `Bearer ${woman}`).expect(200)).body).toMatchObject({ id: trip.id, riderPhone: '+919876512345', passenger: { phone: expect.stringMatching(/^\+91/) } });
     // An older driver app sends only the reason text: it becomes the Butterfly-mismatch code (no fault).
     const reported = (await http.post(`/v1/trips/${trip.id}/cancel`).set('Authorization', `Bearer ${woman}`).send({ reason: 'Rider is not a woman' }).expect(200)).body;
     expect(reported).toMatchObject({ status: 'CANCELLED', cancelledBy: 'DRIVER', cancelCode: 'BUTTERFLY_MISMATCH', cancelReason: 'Rider is not a woman' });
