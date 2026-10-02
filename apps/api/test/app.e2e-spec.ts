@@ -727,7 +727,7 @@ describe('Tamil Taxi API (e2e)', () => {
       open = (await http.get('/v1/trips/offers').set(auth).expect(200)).body.map((o: { trip: { id: string } }) => o.trip.id);
       if (open.length < 2) await new Promise((r) => setTimeout(r, 250));
     }
-    expect(open.sort()).toEqual([a.id, b.id].sort());
+    expect([...open].sort()).toEqual([a.id, b.id].sort());
     expect((await http.get('/v1/trips/offer').set(auth).expect(200)).body.trip.id).toBe(open[0]);
 
     // Assert: taking one hands the other straight back to dispatch; a second active trip is refused.
