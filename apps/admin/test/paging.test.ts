@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { apiBaseUrl, apiUrl, errorMessage, safeNext } from "@/lib/api-core";
+import { apiBaseUrl, apiUrl, errorMessage, isBlockedAccount, safeNext } from "@/lib/api-core";
 import { decodeJwt, isUsableAdminToken } from "@/lib/jwt";
 import { DEFAULT_PAGE_SIZE, pageHref, pageInfo, pageSizeParam, pageWindow, parsePage, parsePageSize, withQuery } from "@/lib/paging";
 
@@ -65,6 +65,13 @@ describe("api helpers", () => {
     expect(safeNext("https://evil.example")).toBe("/");
     expect(safeNext("/login")).toBe("/");
     expect(safeNext(undefined)).toBe("/");
+  });
+
+  it("treats the API's 403 for a blocked account as a dead session, not other 403s", () => {
+    expect(isBlockedAccount(403, { message: "Your account is blocked. Contact support." })).toBe(true);
+    expect(isBlockedAccount(403, { message: "Not allowed for your account type" })).toBe(false);
+    expect(isBlockedAccount(403, null)).toBe(false);
+    expect(isBlockedAccount(400, { message: "Your account is blocked" })).toBe(false);
   });
 
   it("checks admin JWTs optimistically", () => {

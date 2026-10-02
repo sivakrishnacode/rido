@@ -10,6 +10,7 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const sp = await searchParams;
   const isExpired = param(sp.expired) === "1";
+  const isBlocked = param(sp.blocked) === "1";
   const next = param(sp.next);
 
   return (
@@ -37,10 +38,16 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             <h2 className="text-2xl font-semibold text-navy-900">Sign in</h2>
             <p className="text-sm text-muted-foreground">Use the mobile number registered as a Tamil Taxi admin.</p>
           </div>
-          {isExpired && (
-            <p role="status" className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning-text">
-              Your session has ended. Please sign in again.
+          {isBlocked ? (
+            <p role="alert" className="rounded-lg bg-error-tint px-3 py-2 text-sm text-error">
+              This account is blocked, so it was signed out. Ask another admin to unblock it.
             </p>
+          ) : (
+            isExpired && (
+              <p role="status" className="rounded-lg bg-warning-tint px-3 py-2 text-sm text-warning-text">
+                Your session has ended. Please sign in again.
+              </p>
+            )
           )}
           <LoginForm next={next} />
         </div>

@@ -38,6 +38,14 @@ export function errorMessage(body: unknown, status: number): string {
 }
 
 /**
+ * The API refuses every call of a blocked account with 403 "Your account is blocked…" (JwtAuthGuard): for the admin
+ * panel that is a dead session, like a 401, not a page error.
+ */
+export function isBlockedAccount(status: number, body: unknown): boolean {
+  return status === 403 && /\bblocked\b/i.test(errorMessage(body, status));
+}
+
+/**
  * Only same-site relative paths are allowed as a post-login destination. Browsers read `\` as `/`, so `/\evil.com`
  * would leave the site: anything that doesn't resolve to this origin (or has control characters) goes to `/`.
  */
