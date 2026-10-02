@@ -118,7 +118,10 @@ describe('Tamil Taxi API (e2e)', () => {
 
   it('rejects the wrong OTP and protected routes without a token', async () => {
     const p = phone();
-    await http.post('/v1/auth/verify').send({ phone: p, code: '000000' }).expect(401);
+    // No code was sent to this phone: even a code dev mode would take is refused.
+    expect((await http.post('/v1/auth/verify').send({ phone: p, code: '123456' }).expect(401)).body.message).toBe('Request a new OTP first');
+    await http.post('/v1/auth/otp').send({ phone: p }).expect(200);
+    expect((await http.post('/v1/auth/verify').send({ phone: p, code: '000000' }).expect(401)).body.message).toBe('Incorrect OTP');
     await http.get('/v1/me').expect(401);
   });
 
