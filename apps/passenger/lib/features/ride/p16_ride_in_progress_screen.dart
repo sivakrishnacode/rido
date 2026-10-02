@@ -143,11 +143,14 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
           builder: (context, live, _) {
             final fix = widget.showcase || ride.phase != RidePhase.inProgress ? null : live;
             final progress = fix?.progress ?? (widget.showcase ? 0.35 : 0.0);
-            final pos = fix?.position ?? pointAlong(route, progress);
-            final ahead = pointAlong(route, (progress + 0.02).clamp(0.0, 1.0));
+            // A rental has no route: until the driver's first fix the car waits at the pickup (not at 0, 0).
+            final pos = fix?.position ?? (route.isEmpty ? ride.pickup.location : pointAlong(route, progress));
+            final ahead = route.isEmpty ? pos : pointAlong(route, (progress + 0.02).clamp(0.0, 1.0));
             final insets = sheetMapInsets(EdgeInsets.fromLTRB(40, 88, 40, h * 0.34), h * 0.34);
             return TtMap(
-              drop: ride.drop.location,
+              center: route.isEmpty ? pos : null,
+              zoom: 15,
+              drop: ride.isRental ? null : ride.drop.location,
               route: remainingPath(route, pos, progress),
               vehicles: [
                 MapVehicle(
@@ -157,7 +160,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
                   large: true,
                 ),
               ],
-              fitPoints: route,
+              fitPoints: route.isEmpty ? null : route,
               fitPadding: insets.fit,
               mapPadding: insets.map,
               attributionAlignment: Alignment.topRight,

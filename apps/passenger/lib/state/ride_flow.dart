@@ -77,7 +77,9 @@ class RideFlowState {
   /// Rental or outstation booking (P-34 / P-35); null for a local ride.
   final ModeRequest? mode;
 
-  bool get isRental => mode?.mode == RideMode.rental;
+  /// A rental: being booked ([mode]), or the booked trip's terms say so (also after an app restart, when [mode] is
+  /// not known).
+  bool get isRental => mode?.mode == RideMode.rental || tripQuote?.modeTerms is RentalTerms;
   bool get isOutstation => mode?.mode == RideMode.outstation;
 
   /// "Rental · 4 hrs · 40 km" for a rental (it has no drop), else the drop's name.
@@ -604,6 +606,8 @@ class RideFlowController extends Notifier<RideFlowState> {
   void _startFollowing(LiveTripUpdate update, {required bool restoring}) {
     _stopFollowing();
     final trip = update.trip;
+    // A rental has no drop (the server stores the pickup there): no pickup → drop route to draw or fetch.
+    final rental = trip.rideMode == RideMode.rental;
     _cancelledByMe = false;
     _lastStatus = null;
     _lastPoint = null;
@@ -615,7 +619,7 @@ class RideFlowController extends Notifier<RideFlowState> {
       pickup: restoring ? trip.pickup : null,
       drop: restoring ? trip.drop : null,
       vehicle: trip.vehicle,
-      route: roadPath(trip.pickup.location, trip.drop.location, mode: travelModeFor(trip.vehicle)),
+      route: rental ? const [] : roadPath(trip.pickup.location, trip.drop.location, mode: travelModeFor(trip.vehicle)),
       approach: const [],
       driverCancelledOnce: false,
       chat: const [],
@@ -625,7 +629,7 @@ class RideFlowController extends Notifier<RideFlowState> {
       alsoVehicles: update.alsoVehicles,
       alternatives: const [],
     );
-    _refreshRoute();
+    if (!rental) _refreshRoute();
     final session = LiveTripSession(
       trips: ref.read(liveTripsProvider),
       realtime: ref.read(realtimeProvider),
