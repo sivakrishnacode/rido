@@ -8,7 +8,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../common/launch.dart';
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
-import 'p21_activity_screen.dart';
+import 'widgets/trip_rows.dart';
 
 /// P-22 Trip details: static route map, date and status, pickup/drop times, driver, fare
 /// breakdown (every line adds up to the fare), trip ID, "Get help with this trip" and "Download receipt".
@@ -96,7 +96,7 @@ class _Details extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final (kind, label) = TripHistoryCard.statusOf(trip);
+    final (kind, label) = tripStatusOf(trip);
     final cancelled = trip.status == TripStatus.cancelled;
     final route = roadPath(trip.pickup.location, trip.drop.location, mode: travelModeFor(trip.vehicle));
     final end = trip.startedAt.add(Duration(minutes: trip.durationMin));
@@ -121,8 +121,10 @@ class _Details extends StatelessWidget {
                 pickup: trip.pickup.location,
                 drop: trip.drop.location,
                 route: route,
-                center: route[route.length ~/ 2],
-                zoom: switch (trip.distanceKm) { < 3 => 14.8, < 6 => 14.0, < 10 => 13.2, _ => 12.3 },
+                // Fit the whole route with room for the drop pin (drawn above its point) and the pickup dot; a zoom
+                // guessed from the distance cut them off at the card's edges.
+                fitPoints: route,
+                fitPadding: const EdgeInsets.fromLTRB(32, 48, 32, 20),
                 showAttribution: false,
               ),
             ),

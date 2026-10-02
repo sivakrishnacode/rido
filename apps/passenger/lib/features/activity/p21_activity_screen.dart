@@ -12,6 +12,7 @@ import '../ride/widgets/upcoming_trip_card.dart';
 import '../states/s06_empty_activity_screen.dart';
 import '../states/s07b_activity_skeleton.dart';
 import 'widgets/activity_header.dart';
+import 'widgets/trip_rows.dart';
 
 /// P-21 Activity: All · Rides · Parcels tabs over the trip history (newest first).
 /// Loading shows the S-07b skeleton, no trips shows S-06, offline shows S-04.
@@ -102,100 +103,14 @@ class _TripList extends ConsumerWidget {
       },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
           if (upcoming.isNotEmpty) ...[
             const UpcomingTripsSection(),
-            if (trips.isNotEmpty) Text('PAST', style: context.type.overline),
-            const SizedBox(height: 8),
+            if (trips.isNotEmpty) ...[Text('PAST', style: context.type.overline), const SizedBox(height: 8)],
           ],
-          for (var i = 0; i < trips.length; i++) ...[
-            if (i > 0) const SizedBox(height: 12),
-            TripHistoryCard(trip: trips[i]),
-          ],
+          if (trips.isNotEmpty) TripRowsGroup(trips: trips, byDay: true),
         ],
-      ),
-    );
-  }
-}
-
-/// One Activity card: date, status pill, vehicle icon, pickup → drop, subtitle and fare.
-class TripHistoryCard extends StatelessWidget {
-  const TripHistoryCard({super.key, required this.trip});
-  final Trip trip;
-
-  static (StatusKind, String) statusOf(Trip trip) => switch (trip.status) {
-        TripStatus.completed => (StatusKind.completed, 'Completed'),
-        TripStatus.delivered => (StatusKind.delivered, 'Delivered'),
-        TripStatus.cancelled => (StatusKind.cancelled, 'Cancelled'),
-        _ => (StatusKind.inProgress, 'In progress'),
-      };
-
-  static IconData iconOf(Trip trip) => trip.isParcel ? Symbols.package_2_rounded : trip.vehicle.icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.type;
-    final (kind, label) = statusOf(trip);
-    final cancelled = trip.status == TripStatus.cancelled;
-    final subtitle = trip.isParcel
-        ? 'Parcel · ${trip.vehicle.label}'
-        : cancelled
-            ? '${trip.vehicle.label} · No charge'
-            : '${trip.vehicle.label}${trip.driver == null ? '' : ' · ${trip.driver!.name}'}';
-    return Semantics(
-      button: true,
-      label: '${trip.fromLabel} to ${trip.toLabel}, ${formatInr(trip.fare)}, $label. Open trip details',
-      excludeSemantics: true,
-      child: TtCard(
-        onTap: () => context.push(Routes.tripDetails(trip.id)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    formatRelativeDay(trip.startedAt, withTime: true),
-                    style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500)),
-                  ),
-                ),
-                StatusPill(kind, label: label),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
-                  child: Icon(iconOf(trip), color: TtColors.coral500, fill: 1),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${trip.fromLabel} → ${trip.toLabel}', style: t.bodySemibold, maxLines: 2),
-                      Text(subtitle,
-                          style: t.bodySmall.copyWith(color: TtColors.navy500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  formatInr(trip.fare),
-                  style: TtTextStyles.tabular(
-                    t.h2.copyWith(color: cancelled ? TtColors.navy500 : TtColors.navy900),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

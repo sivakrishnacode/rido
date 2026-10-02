@@ -23,8 +23,8 @@ class ActivityHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-                child: Semantics(header: true, child: Text('Activity', style: context.type.display)),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Semantics(header: true, child: Text('Activity', style: context.type.h1)),
               ),
               TabBar(
                 controller: controller,
@@ -35,7 +35,7 @@ class ActivityHeader extends StatelessWidget {
                 labelStyle: context.type.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                 unselectedLabelStyle: context.type.bodyMedium,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-                tabs: [for (final t in activityTabs) Tab(height: 52, text: t)],
+                tabs: [for (final t in activityTabs) Tab(height: 44, text: t)],
               ),
             ],
           ),
