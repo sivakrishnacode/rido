@@ -128,6 +128,28 @@ void main() {
       expect(r.pickupDistanceKm, 1.2);
       expect(r.fare, offer.fare);
     });
+
+    test('keeps a rental, booked-for-later or house-shifting job what it is', () {
+      const terms = RentalTerms(packageId: '4h', hours: 4, km: 40, price: 899, extraKmRate: 14, extraMinRate: 2);
+      final at = DateTime(2026, 10, 3, 6);
+      final base = update();
+      final rental = LiveTripUpdate(
+        base.trip.copyWith(rideMode: RideMode.rental, modeTerms: terms, scheduledAt: at),
+        'IN_PROGRESS',
+        {...base.json, 'startedAt': '2026-10-03T00:45:00.000Z'},
+      );
+      final r = rideRequestFromUpdate(rental);
+      expect(r.rideMode, RideMode.rental);
+      expect(r.modeTerms, terms);
+      expect(r.scheduledAt, at);
+      expect(r.rideStartedAt, DateTime.utc(2026, 10, 3, 0, 45).toLocal());
+
+      // An accept answer without the mode keeps the offer's.
+      final offer = Seed.rideRequest.copyWith(rideMode: RideMode.outstation, scheduledAt: at);
+      final o = rideRequestFromUpdate(update(), offer: offer);
+      expect(o.rideMode, RideMode.outstation);
+      expect(o.scheduledAt, at);
+    });
   });
 
   group('formats', () {

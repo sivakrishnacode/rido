@@ -107,9 +107,21 @@ RideRequest rideRequestFromUpdate(LiveTripUpdate update, {RideRequest? offer}) {
         ? womenDriverFromApi(update.json['womenDriver'])
         : (offer?.womenDriver ?? WomenDriverPref.none),
     bookedBy: riderName != null ? (account ?? offer?.bookedBy) : offer?.bookedBy,
+    isCustomerVerified: riderName == null && (p['identityStatus'] == 'APPROVED' || (offer?.isCustomerVerified ?? false)),
     parcel: trip.parcel ?? offer?.parcel,
     // The driver never sees the ride OTP: the passenger reads it out and the API checks it.
     otp: '',
+    // Rental / outstation / booked for later / house shifting: the job screens, waiting charge and collect lines
+    // all read these, so they must survive the accept and a restart.
+    extra: trip.quote?.extra ?? offer?.extra ?? 0,
+    rideMode: trip.rideMode != RideMode.local ? trip.rideMode : (offer?.rideMode ?? RideMode.local),
+    modeTerms: trip.modeTerms ?? offer?.modeTerms,
+    scheduledAt: trip.scheduledAt ?? offer?.scheduledAt,
+    quote: trip.quote ?? offer?.quote,
+    rideStartedAt: update.json['startedAt'] is String
+        ? DateTime.tryParse(update.json['startedAt'] as String)?.toLocal()
+        : offer?.rideStartedAt,
+    shifting: trip.shifting ?? offer?.shifting,
   );
 }
 
