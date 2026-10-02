@@ -11,6 +11,7 @@ import { DriverApprovalService } from '../kyc/driver-approval.service.js';
 import { DiditClient } from '../kyc/didit.client.js';
 import { approvalChecklist, type ApprovalChecklist, REQUIRED_DOCS } from '../kyc/driver-approval.js';
 import { type CancelRateStats, DriverBlocksService } from '../trips/driver-blocks.service.js';
+import { DriverStatusSync } from './driver-status-sync.service.js';
 import { driverOrder, driverSearch, flag, passengerOrder, tripOrder, userSearch } from './list-filters.js';
 
 /** What the drivers list shows (no UPI id, no booking prefs, latest plan only). */
@@ -58,6 +59,7 @@ export class AdminService {
     private readonly driverState: DriverStateCache,
     private readonly blocks: DriverBlocksService,
     private readonly didit: DiditClient,
+    private readonly statusSync: DriverStatusSync,
   ) {}
 
   /** Filters (status, vehicle, online, gender, search) + sort, with the count per status for the tabs. */
@@ -99,11 +101,15 @@ export class AdminService {
     return { ...driver, cancelRate: await this.blocks.stats(id), checklist, identityRequired: this.didit.isEnabled };
   }
 
-  /** An admin decision (approve, hold, reject, back to pending). The driver gets a push, with the reason when given. */
+  /**
+   * An admin decision (approve, hold, reject, back to pending). The driver gets a push, with the reason when given;
+   * anything but APPROVED takes them out of dispatch at once, and the app hears `driver.status` (DriverStatusSync).
+   */
   async setDriverStatus(id: string, status: DriverStatus, reason?: string): Promise<Driver> {
     const before = await this.prisma.driver.findUniqueOrThrow({ where: { id }, select: { status: true } });
-    const driver = await this.prisma.driver.update({ where: { id }, data: { status, isOnline: status === DriverStatus.APPROVED ? undefined : false } });
+    await this.prisma.driver.update({ where: { id }, data: { status, isOnline: status === DriverStatus.APPROVED ? undefined : false } });
     await this.driverState.invalidate(id);
+    const driver = await this.statusSync.changed(id);
     if (before.status !== status) void this.notifier.driverStatus({ driverId: id, from: before.status, to: status, reason });
     return driver;
   }

@@ -11,6 +11,7 @@ import { SettingsService } from '../settings/settings.service.js';
 import type { Paged } from './admin.types.js';
 import { driverSearch } from './list-filters.js';
 import { APPROVAL_STAGES, type ApprovalStage, type ApprovalsQueryDto } from './dto/approvals.dto.js';
+import { DriverStatusSync } from './driver-status-sync.service.js';
 
 const ITEM_SELECT = {
   id: true,
@@ -51,6 +52,7 @@ export class AdminApprovalsService {
     private readonly settings: SettingsService,
     private readonly notifier: NotifierService,
     private readonly driverState: DriverStateCache,
+    private readonly statusSync: DriverStatusSync,
   ) {}
 
   /** Where clause of one bucket. Pending drivers fall in exactly one of ready / documents / identity / driver. */
@@ -132,6 +134,7 @@ export class AdminApprovalsService {
         continue;
       }
       await this.driverState.invalidate(d.id);
+      await this.statusSync.changed(d.id);
       void this.notifier.kycReviewed({ driverId: d.id, status: 'APPROVED' });
       await this.prisma.auditLog.create({
         data: { actorId, action: 'POST /v1/admin/drivers/approve', entity: 'drivers', entityId: d.id, data: { body: { status: 'APPROVED' }, bulk: true } },

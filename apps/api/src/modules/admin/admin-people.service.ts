@@ -4,9 +4,9 @@ import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js'
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, Prisma } from '../../generated/prisma/client.js';
 import { AppKind, Role } from '../../generated/prisma/enums.js';
-import { DriversService } from '../drivers/drivers.service.js';
 import { PushService } from '../notifications/push.service.js';
 import { describeAudit } from './activity.js';
+import { DriverStatusSync } from './driver-status-sync.service.js';
 import type { AdminDriverProfileDto, MessageDto } from './dto/people.dto.js';
 
 type Person = { id: string; name: string | null; phone: string } | null;
@@ -32,8 +32,8 @@ export class AdminPeopleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly push: PushService,
-    private readonly drivers: DriversService,
     private readonly driverState: DriverStateCache,
+    private readonly statusSync: DriverStatusSync,
   ) {}
 
   notes(userId: string): Promise<AdminNoteView[]> {
@@ -108,13 +108,14 @@ export class AdminPeopleService {
     }
   }
 
-  /** Takes an online driver offline now (out of dispatch); they can go online again unless held or blocked. */
+  /**
+   * Takes an online driver offline now (out of dispatch, and the app hears `driver.status`); they can go online again
+   * unless held or blocked.
+   */
   async takeOffline(driverId: string): Promise<Driver> {
     const driver = await this.prisma.driver.findUnique({ where: { id: driverId }, select: { isOnline: true } });
     if (!driver) throw new NotFoundException('Not found');
     if (!driver.isOnline) throw new ConflictException('The driver is already offline');
-    const offline = await this.drivers.goOffline(driverId);
-    await this.driverState.invalidate(driverId);
-    return offline;
+    return this.statusSync.changed(driverId, { offline: true });
   }
 }
