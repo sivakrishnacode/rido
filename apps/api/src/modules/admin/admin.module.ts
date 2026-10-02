@@ -15,14 +15,16 @@ import { AdminController } from './admin.controller.js';
 import { AdminService } from './admin.service.js';
 import { AnnouncementsController } from './announcements.controller.js';
 import { AuditInterceptor } from './audit.interceptor.js';
+import { DriverStatusSync } from './driver-status-sync.service.js';
 import { DriversModule } from '../drivers/drivers.module.js';
 import { KycModule } from '../kyc/kyc.module.js';
+import { RealtimeModule } from '../realtime/realtime.module.js';
 import { TripsModule } from '../trips/trips.module.js';
 
 /** Admin panel API (ADMIN role only) and public announcements. */
 @Module({
-  imports: [KycModule, TripsModule, DriversModule],
+  imports: [KycModule, TripsModule, DriversModule, RealtimeModule],
   controllers: [AdminController, AdminCitiesController, AdminUsersController, AdminOpsController, AnnouncementsController],
-  providers: [AdminService, AdminApprovalsService, AdminPeopleService, AdminSearchService, AdminStatsService, AdminCitiesService, AdminUsersService, AdminOpsService, AdminHeatmapService, AuditInterceptor],
+  providers: [AdminService, AdminApprovalsService, AdminPeopleService, AdminSearchService, AdminStatsService, AdminCitiesService, AdminUsersService, AdminOpsService, AdminHeatmapService, AuditInterceptor, DriverStatusSync],
 })
 export class AdminModule {}

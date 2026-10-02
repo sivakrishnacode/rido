@@ -8,6 +8,7 @@ import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/core/prisma/prisma.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
 import { DiditClient } from '../src/modules/kyc/didit.client.js';
+import { TripEventsService } from '../src/modules/realtime/trip-events.service.js';
 
 const ADMIN_PHONE = '9000000001';
 /** A stored photo so drivers approved directly in the database may go online (photo required with Didit on). */
@@ -163,6 +164,53 @@ describe('Tamil Taxi features (e2e)', () => {
       // Nothing uploaded yet: no reason shown on the RC.
       const rc = await prisma.kycDocument.findUniqueOrThrow({ where: { driverId_type: { driverId: d.driverId, type: 'VEHICLE_RC' } } });
       expect(rc).toMatchObject({ status: 'NOT_UPLOADED', rejectReason: null });
+    });
+  });
+
+  describe('admin decisions reach the driver app (driver.status)', () => {
+    /** `driver.status` events sent to [driverId]'s room while [act] runs. */
+    async function statusEvents(driverId: string, act: () => Promise<unknown>): Promise<unknown[]> {
+      const spy = vi.spyOn(app.get(TripEventsService), 'toDriver');
+      try {
+        await act();
+        return spy.mock.calls.filter(([id, event]) => id === driverId && event === 'driver.status').map(([, , payload]) => payload);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+
+    it('putting an online driver on hold takes them out of dispatch and tells the app', async () => {
+      const admin = await adminAuth();
+      const d = await approvedDriver();
+      await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(200);
+      const events = await statusEvents(d.driverId, () => http.patch(`/v1/admin/drivers/${d.driverId}`).set(admin).send({ status: 'ON_HOLD', reason: 'Insurance expired' }).expect(200));
+      expect(events).toEqual([{ status: 'ON_HOLD', isOnline: false }]);
+      expect(await redis.get(`driver:cell:${d.driverId}`)).toBeNull();
+      // Reactivated: approved, still offline until they go online again.
+      const back = await statusEvents(d.driverId, () => http.patch(`/v1/admin/drivers/${d.driverId}`).set(admin).send({ status: 'APPROVED' }).expect(200));
+      expect(back).toEqual([{ status: 'APPROVED', isOnline: false }]);
+    });
+
+    it('taking a driver offline tells the app', async () => {
+      const admin = await adminAuth();
+      const d = await approvedDriver();
+      await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(200);
+      const events = await statusEvents(d.driverId, () => http.post(`/v1/admin/drivers/${d.driverId}/offline`).set(admin).expect(200));
+      expect(events).toEqual([{ status: 'APPROVED', isOnline: false }]);
+      expect(await redis.get(`driver:cell:${d.driverId}`)).toBeNull();
+    });
+
+    it('a rejected document rejects an online driver, takes them offline and tells the app', async () => {
+      const admin = await adminAuth();
+      const d = await approvedDriver();
+      await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(200);
+      await prisma.kycDocument.update({ where: { driverId_type: { driverId: d.driverId, type: 'INSURANCE' } }, data: { status: 'UNDER_REVIEW', fileUrl: 'ins.jpg' } });
+      const events = await statusEvents(d.driverId, () =>
+        http.post(`/v1/admin/drivers/${d.driverId}/documents/INSURANCE`).set(admin).send({ status: 'REJECTED', reason: 'Policy expired' }).expect(201),
+      );
+      expect(events).toEqual([{ status: 'REJECTED', isOnline: false }]);
+      expect(await redis.get(`driver:cell:${d.driverId}`)).toBeNull();
+      expect((await http.get('/v1/drivers/me').set(d.auth).expect(200)).body).toMatchObject({ status: 'REJECTED', isOnline: false });
     });
   });
 });
