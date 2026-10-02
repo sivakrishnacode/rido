@@ -1,4 +1,4 @@
-import { fitsPrefs, MAX_AREAS, readPrefs } from './booking-prefs.js';
+import { fitsPrefs, MAX_AREAS, readPrefs, shiftHelpersOf, takesShift } from './booking-prefs.js';
 
 const now = new Date('2026-09-29T10:00:00Z');
 // Gandhipuram → the pickup is ~1.4 km away.
@@ -53,6 +53,8 @@ describe('readPrefs', () => {
       stayIn: null,
       parcels: true,
       areas: [],
+      shifting: false,
+      helpers: 2,
     });
     const goTo = { lat: 11, lng: 77, name: 'Home', until: '2026-09-29T09:00:00Z' };
     expect(readPrefs({ goTo }, now).goTo).toBeNull();
@@ -70,5 +72,23 @@ describe('readPrefs', () => {
     expect(read).toHaveLength(MAX_AREAS);
     expect(read[0]).toEqual({ name: 'Home', lat: 11.08, lng: 77 });
     expect(read.map((a) => a.name)).not.toContain('Broken');
+  });
+});
+
+describe('house shifting opt-in', () => {
+  it('reads shifting and the helpers a mover brings (2 when not said, out of range ignored)', () => {
+    expect(readPrefs({ shifting: true, helpers: 3 }, now)).toMatchObject({ shifting: true, helpers: 3 });
+    expect(readPrefs({ shifting: true }, now)).toMatchObject({ shifting: true, helpers: 2 });
+    expect(readPrefs({ shifting: 'yes', helpers: 99 }, now)).toMatchObject({ shifting: false, helpers: 2 });
+  });
+
+  it('a shift goes only to movers who switched it on with enough helpers', () => {
+    expect(takesShift(undefined, 2)).toBe(false);
+    expect(takesShift(readPrefs({ parcels: true }, now), 0)).toBe(false);
+    expect(takesShift(readPrefs({ shifting: true, helpers: 3 }, now), 3)).toBe(true);
+    expect(takesShift(readPrefs({ shifting: true, helpers: 2 }, now), 3)).toBe(false);
+    expect(shiftHelpersOf({ shifting: { lines: { helperCount: 4 } } })).toBe(4);
+    expect(shiftHelpersOf({ shifting: null })).toBeNull();
+    expect(shiftHelpersOf({})).toBeNull();
   });
 });

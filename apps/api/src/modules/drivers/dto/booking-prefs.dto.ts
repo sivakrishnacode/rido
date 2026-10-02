@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsInt,
   IsLatitude,
   IsLongitude,
   IsNumber,
@@ -14,7 +15,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { MAX_AREAS } from '../booking-prefs.js';
+import { MAX_AREAS, MAX_HELPERS } from '../booking-prefs.js';
 
 /** A saved place ("Home", the stand) for Go To / Stay In. */
 export class AreaDto {
@@ -77,6 +78,17 @@ export class BookingPrefsDto {
   @IsOptional()
   @IsBoolean()
   parcels?: boolean | null;
+
+  /** Goods trucks: house shifting jobs too (the driver brings [helpers] helpers). */
+  @IsOptional()
+  @IsBoolean()
+  shifting?: boolean | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MAX_HELPERS)
+  helpers?: number | null;
 
   @IsOptional()
   @IsArray()

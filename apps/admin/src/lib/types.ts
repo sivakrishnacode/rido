@@ -232,6 +232,8 @@ export interface DriverBase {
   readonly photoRejectReason?: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+  /** The driver's booking preferences; `shifting` / `helpers`: a goods-truck driver takes house shifting jobs. */
+  readonly bookingPrefs?: { readonly shifting?: boolean; readonly helpers?: number; readonly parcels?: boolean } | null;
 }
 
 /** GET /admin/drivers item: latest subscription only. */

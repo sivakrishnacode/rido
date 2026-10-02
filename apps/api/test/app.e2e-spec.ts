@@ -382,15 +382,32 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(trip.shifting.lines.total).toBe(q.lines.total);
     expect((await http.get('/v1/trips/upcoming').set(pax).expect(200)).body.map((t: { id: string }) => t.id)).toContain(trip.id);
 
-    // Its time comes: a pickup-truck driver is offered it with the items, floors and helpers.
-    const mover = await onlineDriver('PICKUP', { lat: 11.0255, lng: 77.0095 });
+    // Who gets it: only movers who switched house shifting on, with enough helpers. The closest pickup driver hasn't
+    // switched it on; the next brings 1 helper (2 needed); the one farther away brings 2.
+    const closest = await onlineDriver('PICKUP', { lat: 11.0253, lng: 77.0092 });
+    const short = await onlineDriver('PICKUP', { lat: 11.0254, lng: 77.0093 });
+    const mover = await onlineDriver('PICKUP', { lat: 11.0262, lng: 77.0102 });
+    const bike = await onlineDriver('BIKE', { lat: 11.03, lng: 77.02 });
+    await http.put('/v1/drivers/me/booking-preferences').set('Authorization', `Bearer ${bike}`).send({ shifting: true }).expect(400);
+    await http.put('/v1/drivers/me/booking-preferences').set('Authorization', `Bearer ${short}`).send({ shifting: true, helpers: 1 }).expect(200);
+    await http.put('/v1/drivers/me/booking-preferences').set('Authorization', `Bearer ${mover}`).send({ shifting: true, helpers: 9 }).expect(400);
+    const prefs = (await http.put('/v1/drivers/me/booking-preferences').set('Authorization', `Bearer ${mover}`).send({ shifting: true, helpers: 2 }).expect(200)).body;
+    expect(prefs).toMatchObject({ shifting: true, helpers: 2 });
+    expect((await http.get('/v1/drivers/me/booking-preferences').set('Authorization', `Bearer ${mover}`).expect(200)).body.helpers).toBe(2);
+
+    // Its time comes: the mover is offered it with the items, floors and helpers.
     const jobs = app.get(JobsService);
     await jobs.runDue((await jobs.scheduledAt('trip.scheduled-dispatch', trip.id))!);
     const accepted = await acceptWhenOffered(trip.id, mover);
     expect(accepted.status).toBe(200);
     expect(accepted.body.shifting).toMatchObject({ homeSize: 'ONE_BHK', pickupFloor: 2, pickupLift: false, lines: { helperCount: 2 } });
+    for (const other of [closest, short]) {
+      expect((await http.post(`/v1/trips/${trip.id}/accept`).set('Authorization', `Bearer ${other}`)).status).not.toBe(200);
+    }
     await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
-    await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${mover}`).expect(200);
+    // Off again: the test drivers are shared with other tests.
+    await http.put('/v1/drivers/me/booking-preferences').set('Authorization', `Bearer ${mover}`).send({ shifting: false }).expect(200);
+    for (const d of [closest, short, mover, bike]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`).expect(200);
   });
 
   it("admin pricing: a city's own rental, outstation, goods and shifting prices quote and book; reset goes back", async () => {

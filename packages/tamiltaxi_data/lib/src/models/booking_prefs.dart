@@ -77,6 +77,8 @@ class StayInArea {
 
 /// The driver's booking preferences (`/drivers/me/booking-preferences`). Null = no filter. [goTo] and [stayIn] are
 /// never on together. [parcels]: a bike driver also gets goods-bike parcels. [areas]: the saved places.
+/// [shifting]: a goods-truck driver takes house shifting jobs, bringing up to [helpers] helpers (off by default: a
+/// shift only goes to movers who switched it on with enough helpers).
 @immutable
 class BookingPrefs {
   const BookingPrefs({
@@ -87,6 +89,8 @@ class BookingPrefs {
     this.stayIn,
     this.parcels = true,
     this.areas = const [],
+    this.shifting = false,
+    this.helpers = defaultHelpers,
   });
   final double? maxPickupKm;
   final double? minTripKm;
@@ -95,6 +99,12 @@ class BookingPrefs {
   final StayInArea? stayIn;
   final bool parcels;
   final List<SavedArea> areas;
+  final bool shifting;
+  final int helpers;
+
+  /// Helpers a mover can say they bring (same as the API), and the start.
+  static const maxHelpers = 8;
+  static const defaultHelpers = 2;
 
   /// Saved areas a driver can keep (same as the API).
   static const maxAreas = 6;
@@ -112,6 +122,7 @@ class BookingPrefs {
         if (goTo != null) 'going to ${goTo!.name}',
         if (stayIn != null) 'staying in ${stayIn!.name}',
         if (hasTripFilters) tripFilterSummary,
+        if (shifting) 'house shifting with $helpers helper${helpers == 1 ? '' : 's'}',
       ].join(' · ');
 
   /// "Pickup ≤ 2 km · trips over 5 km": the limits alone (Home shows Go To / Stay In on their own strip).
@@ -136,6 +147,8 @@ class BookingPrefs {
     StayInArea? Function()? stayIn,
     bool? parcels,
     List<SavedArea>? areas,
+    bool? shifting,
+    int? helpers,
   }) =>
       BookingPrefs(
         maxPickupKm: maxPickupKm != null ? maxPickupKm() : this.maxPickupKm,
@@ -145,6 +158,8 @@ class BookingPrefs {
         stayIn: stayIn != null ? stayIn() : this.stayIn,
         parcels: parcels ?? this.parcels,
         areas: areas ?? this.areas,
+        shifting: shifting ?? this.shifting,
+        helpers: helpers ?? this.helpers,
       );
 
   /// Go To [area] (Stay In goes off), or neither when null.
@@ -167,6 +182,8 @@ class BookingPrefs {
         'stayIn': stayIn?.toJson(),
         'parcels': parcels,
         'areas': [for (final a in areas) a.toJson()],
+        'shifting': shifting,
+        'helpers': helpers,
       };
 
   factory BookingPrefs.fromJson(Map<String, dynamic> j) {
@@ -178,6 +195,8 @@ class BookingPrefs {
       goTo: GoToDestination.fromJson(j['goTo']),
       stayIn: StayInArea.fromJson(j['stayIn']),
       parcels: j['parcels'] != false,
+      shifting: j['shifting'] == true,
+      helpers: j['helpers'] is num ? (j['helpers'] as num).toInt().clamp(0, maxHelpers) : defaultHelpers,
       areas: [
         for (final a in (j['areas'] is List ? j['areas'] as List : const [])) ?SavedArea.fromJson(a),
       ],

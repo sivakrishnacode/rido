@@ -5,6 +5,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_driver/features/account/booking_preferences_screen.dart';
 import 'package:tamiltaxi_driver/features/home/widgets/direction_panel.dart';
 import 'package:tamiltaxi_driver/state/booking_prefs.dart';
+import 'package:tamiltaxi_driver/state/driver_account.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,6 +33,8 @@ void main() {
       'stayIn': null,
       'parcels': true,
       'areas': <Object>[],
+      'shifting': false,
+      'helpers': 2,
     });
 
     const prefs = BookingPrefs(
@@ -63,6 +66,11 @@ void main() {
     expect(back.areas, [home]);
     // An older server: no parcels field means parcels on.
     expect(BookingPrefs.fromJson(const {}).parcels, isTrue);
+    // House shifting: off unless switched on; helpers within 0–8.
+    expect(BookingPrefs.fromJson(const {}).shifting, isFalse);
+    final mover = BookingPrefs.fromJson(const {'shifting': true, 'helpers': 12});
+    expect((mover.shifting, mover.helpers), (true, 8));
+    expect(const BookingPrefs(shifting: true, helpers: 3).summary, 'house shifting with 3 helpers');
   });
 
   test('Go To and Stay In are never on together', () {
@@ -120,6 +128,32 @@ void main() {
     expect(saved.maxTripKm, isNull);
     expect(saved.parcels, isFalse);
     await tester.pump(const Duration(seconds: 5)); // snack
+  });
+
+  testWidgets('a goods-truck driver switches house shifting on and says how many helpers they bring', (tester) async {
+    final container = await pumpRoute(tester, '/account/booking-preferences', overrides: [driverProfileProvider.overrideWith(_Mover.new)]);
+    expect(find.text('Parcels too'), findsNothing, reason: 'bikes only');
+    await center(tester, find.text('House shifting jobs'));
+    expect(find.text('Helpers you bring'), findsNothing);
+    await tester.tap(find.byType(Switch).last);
+    await tester.pump();
+    await center(tester, find.text('Helpers you bring'));
+    expect(find.text('Moves needing up to 2. The customer pays for them in the price.'), findsOneWidget);
+    await tester.tap(find.byTooltip('More helpers'));
+    await tester.pump();
+    expect(find.text('Moves needing up to 3. The customer pays for them in the price.'), findsOneWidget);
+
+    await center(tester, find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pump(const Duration(milliseconds: 300));
+    final saved = container.read(bookingPrefsProvider).value!;
+    expect((saved.shifting, saved.helpers), (true, 3));
+    await tester.pump(const Duration(seconds: 5)); // snack
+  });
+
+  testWidgets('a bike driver has no house shifting', (tester) async {
+    await pumpRoute(tester, '/account/booking-preferences');
+    expect(find.text('House shifting jobs', skipOffstage: false), findsNothing);
   });
 
   testWidgets('add an area, turn Go To on, then Stay In there within 8 km (Go To goes off)', (tester) async {
@@ -216,4 +250,10 @@ void main() {
     expect(find.text('Go To'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
+}
+
+/// The demo goods driver (a three-wheeler) instead of the bike driver.
+class _Mover extends DriverProfileController {
+  @override
+  Future<DriverProfile> build() async => Seed.selvam;
 }

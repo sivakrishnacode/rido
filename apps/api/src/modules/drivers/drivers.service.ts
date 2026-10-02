@@ -3,7 +3,8 @@ import { FileStorageService, type UploadedBlob } from '../../core/storage/file-s
 import { DriverEarningsService } from './driver-earnings.service.js';
 import type { UpdateDriverDto } from './dto/update-driver.dto.js';
 import type { BookingPrefsDto } from './dto/booking-prefs.dto.js';
-import { type Area, type BookingPrefs, type GoTo, GO_TO_HOURS, readPrefs, type StayIn, STAY_IN_HOURS } from './booking-prefs.js';
+import { type Area, type BookingPrefs, DEFAULT_HELPERS, type GoTo, GO_TO_HOURS, readPrefs, type StayIn, STAY_IN_HOURS } from './booking-prefs.js';
+import { isGoodsTruck } from '../fares/goods-modes.js';
 
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
@@ -93,6 +94,10 @@ export class DriversService {
       throw new BadRequestException('Shortest trip must be less than the longest trip');
     }
     if (dto.goTo && dto.stayIn) throw new BadRequestException('Turn off Go To to use Stay In');
+    if (dto.shifting) {
+      const { vehicleKind } = await this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, select: { vehicleKind: true } });
+      if (!isGoodsTruck(vehicleKind)) throw new BadRequestException('House shifting is for three-wheeler, mini truck, pickup and truck drivers');
+    }
     const now = new Date();
     const current = await this.bookingPrefs(driverId);
     const until = (hours: number): string => new Date(now.getTime() + hours * 3_600_000).toISOString();
@@ -117,6 +122,9 @@ export class DriversService {
       stayIn,
       parcels: dto.parcels ?? current.parcels ?? true,
       areas: dto.areas === undefined ? (current.areas ?? []) : (dto.areas ?? []).map(place),
+      // Not sent (an older app): what is stored stays.
+      shifting: dto.shifting ?? current.shifting ?? false,
+      helpers: dto.helpers ?? current.helpers ?? DEFAULT_HELPERS,
     };
     await this.prisma.driver.update({ where: { id: driverId }, data: { bookingPrefs: prefs as Prisma.InputJsonValue } });
     return prefs;

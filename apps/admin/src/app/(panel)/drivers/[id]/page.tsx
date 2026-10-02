@@ -28,7 +28,7 @@ import {
   shortId,
   vehicleLabel,
 } from "@/lib/format";
-import { KYC_DOC_TYPES, type KycDocument } from "@/lib/types";
+import { GOODS_TRUCKS, KYC_DOC_TYPES, type GoodsTruck, type KycDocument } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { LiftBlockButton } from "./block-actions";
@@ -171,6 +171,13 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
               </Field>
               <Field label="Model">{d.vehicleModel}</Field>
               <Field label="Colour">{d.vehicleColor || "–"}</Field>
+              {GOODS_TRUCKS.includes(d.vehicleKind as GoodsTruck) && (
+                <Field label="House shifting" className="col-span-2">
+                  {d.bookingPrefs?.shifting
+                    ? `Takes moves · brings ${d.bookingPrefs.helpers ?? 2} helper${(d.bookingPrefs.helpers ?? 2) === 1 ? "" : "s"}`
+                    : "Not taking moves (switched off in the driver app)"}
+                </Field>
+              )}
               <Field label="UPI ID" className="col-span-2">
                 <span className="font-mono text-[13px]">{d.upiId}</span>
               </Field>

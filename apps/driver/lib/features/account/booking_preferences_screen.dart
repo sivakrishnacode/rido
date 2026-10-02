@@ -12,8 +12,9 @@ import '../home/widgets/direction_panel.dart';
 import 'widgets/edit_form_scaffold.dart';
 
 /// Account › Booking preferences (like Namma Yatri's): read requests aloud (and in which language), Go To / Stay In
-/// (the same sheet as Home, saved at once), parcels too (bike drivers), the farthest pickup, and trip length limits.
-/// Saved to the API; dispatch only offers trips that fit. Voice is saved on the phone at once.
+/// (the same sheet as Home, saved at once), parcels too (bike drivers), house shifting and the helpers they bring
+/// (goods trucks), the farthest pickup, and trip length limits. Saved to the API; dispatch only offers trips that fit.
+/// Voice is saved on the phone at once.
 class BookingPreferencesScreen extends ConsumerStatefulWidget {
   const BookingPreferencesScreen({super.key});
 
@@ -46,6 +47,8 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
             minTripKm: () => draft.minTripKm,
             maxTripKm: () => draft.maxTripKm,
             parcels: draft.parcels,
+            shifting: draft.shifting,
+            helpers: draft.helpers,
           ));
     } on Exception catch (e) {
       if (!mounted) return;
@@ -72,6 +75,8 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
     // Bikes and scooters can carry goods-bike parcels too.
     final kind = ref.watch(driverProfileProvider).value?.vehicleKind;
     final isBike = kind == VehicleKind.bike || kind == VehicleKind.scooty;
+    // Three-wheelers, mini trucks, pickups and trucks can take house shifting jobs.
+    final isTruck = kind != null && GoodsModeRates.isGoodsTruck(kind);
 
     void update(BookingPrefs next) => setState(() => _draft = next);
 
@@ -127,6 +132,39 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
                     value: draft.parcels,
                     onChanged: (v) => update(draft.copyWith(parcels: v)),
                   ),
+                ]),
+              ],
+              if (isTruck) ...[
+                const SizedBox(height: TtSpacing.m),
+                _Card(children: [
+                  _SwitchRow(
+                    icon: Symbols.home_rounded,
+                    title: 'House shifting jobs',
+                    subtitle: 'Moves booked for a day and slot, with your helpers',
+                    value: draft.shifting,
+                    onChanged: (v) => update(draft.copyWith(shifting: v)),
+                  ),
+                  if (draft.shifting) ...[
+                    const Divider(height: TtSpacing.xl),
+                    Row(children: [
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Helpers you bring', style: t.bodySemibold),
+                          Text(
+                            draft.helpers == 0
+                                ? 'Only moves that need no helpers'
+                                : 'Moves needing up to ${draft.helpers}. The customer pays for them in the price.',
+                            style: t.bodySmall.copyWith(color: TtColors.navy500),
+                          ),
+                        ]),
+                      ),
+                      _CountStepper(
+                        value: draft.helpers,
+                        max: BookingPrefs.maxHelpers,
+                        onChanged: (n) => update(draft.copyWith(helpers: n)),
+                      ),
+                    ]),
+                  ],
                 ]),
               ],
               const SizedBox(height: TtSpacing.m),
@@ -303,4 +341,34 @@ class _LimitRow extends StatelessWidget {
         ),
     ]);
   }
+}
+
+/// − 2 + for a whole number from 0 to [max] (helpers).
+class _CountStepper extends StatelessWidget {
+  const _CountStepper({required this.value, required this.max, required this.onChanged});
+  final int value;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: 'Helpers you bring',
+        value: '$value',
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton.filledTonal(
+            tooltip: 'Fewer helpers',
+            onPressed: value <= 0 ? null : () => onChanged(value - 1),
+            icon: const Icon(Symbols.remove_rounded),
+          ),
+          SizedBox(
+            width: 36,
+            child: Text('$value', textAlign: TextAlign.center, style: TtTextStyles.tabular(context.type.h2)),
+          ),
+          IconButton.filledTonal(
+            tooltip: 'More helpers',
+            onPressed: value >= max ? null : () => onChanged(value + 1),
+            icon: const Icon(Symbols.add_rounded),
+          ),
+        ]),
+      );
 }
