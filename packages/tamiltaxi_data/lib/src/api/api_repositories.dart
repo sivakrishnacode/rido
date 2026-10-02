@@ -34,10 +34,11 @@ class ApiAuthRepository implements AuthRepository {
   @override
   Future<void> sendOtp(String phone) => api.post('/auth/otp', {'phone': apiPhone(phone)});
 
+  /// `app: 'passenger'`: the API signs this phone in as a rider (the same phone can also be a driver).
   @override
   Future<OtpResult> verifyOtp(String phone, String otp) async {
     try {
-      final res = _map(await api.post('/auth/verify', {'phone': apiPhone(phone), 'code': otp}));
+      final res = _map(await api.post('/auth/verify', {'phone': apiPhone(phone), 'code': otp, 'app': 'passenger'}));
       await api.session.save(token: res['accessToken'] as String, driverId: res['driverId'] as String?);
       return res['isNewUser'] == true ? OtpResult.newUser : OtpResult.existingUser;
     } on ApiException catch (e) {
