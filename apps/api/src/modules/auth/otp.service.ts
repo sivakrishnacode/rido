@@ -1,16 +1,32 @@
-import { HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 
 import type { Env } from '../../core/config/env.js';
 import { ENV } from '../../core/config/env.token.js';
+import { countHit, TooManyRequestsException } from '../../core/rate-limit/rate-limit.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 
 const OTP_TTL_S = 300;
 const MAX_SENDS = 5;
 const SEND_WINDOW_S = 900;
 const MAX_ATTEMPTS = 5;
+/** A code must have been sent to the phone this recently for a verify to be tried at all (dev mode too). */
+export const SENT_WINDOW_S = 600;
+/** More wrong codes than this across all phones in [GLOBAL_WINDOW_S] → nobody can verify for [GLOBAL_LOCK_S]. */
+export const GLOBAL_MAX_FAILURES = 50;
+export const GLOBAL_WINDOW_S = 600;
+export const GLOBAL_LOCK_S = 600;
+const GLOBAL_FAILURES_KEY = 'otp:failures:global';
+export const GLOBAL_LOCK_KEY = 'otp:lock:global';
 
-/** One-time codes in Redis with send and attempt limits. Swap `deliver` for an SMS provider (MSG91, Twilio…). */
+/**
+ * One-time codes in Redis with send and attempt limits. Swap `deliver` for an SMS provider (MSG91, Twilio…).
+ *
+ * Brute-force guards: per phone (5 sends / 15 min, 5 wrong tries per code), per IP (the `@RateLimit` on the
+ * controller), a code must have been sent to the phone in the last 10 min (also with DEV_OTP_CODE, which is the same
+ * for every phone), and a global brake: more than [GLOBAL_MAX_FAILURES] wrong codes in 10 min across all phones (a
+ * spread-out guessing run) pauses every verify for 10 min.
+ */
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
@@ -23,23 +39,63 @@ export class OtpService {
   async send(phone: string): Promise<{ expiresInSeconds: number }> {
     const sends = await this.redis.incr(`otp:sends:${phone}`);
     if (sends === 1) await this.redis.expire(`otp:sends:${phone}`, SEND_WINDOW_S);
-    if (sends > MAX_SENDS) throw new HttpException('Too many OTP requests. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+    if (sends > MAX_SENDS) {
+      throw new TooManyRequestsException(await this.secondsLeft(`otp:sends:${phone}`, SEND_WINDOW_S), {
+        message: 'Too many OTP requests. Try again later.',
+        code: 'OTP_SEND_LIMIT',
+      });
+    }
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    await this.redis.set(`otp:code:${phone}`, code, 'EX', OTP_TTL_S);
-    await this.redis.del(`otp:attempts:${phone}`);
+    await this.redis
+      .multi()
+      .set(`otp:code:${phone}`, code, 'EX', OTP_TTL_S)
+      .set(`otp:sent:${phone}`, '1', 'EX', SENT_WINDOW_S)
+      .del(`otp:attempts:${phone}`)
+      .exec();
     this.deliver(phone, code);
     return { expiresInSeconds: OTP_TTL_S };
   }
 
-  /** True if [code] is right. Dev mode: only DEV_OTP_CODE when it is set, else any 6 digits except 000000. */
+  /**
+   * True if [code] is right. Dev mode: only DEV_OTP_CODE when it is set, else any 6 digits except 000000. 401 when no
+   * code was sent to [phone] in the last 10 min; 429 after too many wrong tries (this phone, or everyone at once).
+   */
   async verify(phone: string, code: string): Promise<boolean> {
+    const lockS = await this.redis.ttl(GLOBAL_LOCK_KEY);
+    if (lockS > 0) {
+      throw new TooManyRequestsException(lockS, {
+        message: 'Sign-in is paused for a few minutes after too many wrong codes. Please try again in 10 minutes.',
+        code: 'OTP_PAUSED',
+      });
+    }
+    if (!(await this.redis.exists(`otp:sent:${phone}`))) throw new UnauthorizedException('Request a new OTP first');
     const attempts = await this.redis.incr(`otp:attempts:${phone}`);
     if (attempts === 1) await this.redis.expire(`otp:attempts:${phone}`, OTP_TTL_S);
-    if (attempts > MAX_ATTEMPTS) throw new HttpException('Too many wrong attempts. Request a new OTP.', HttpStatus.TOO_MANY_REQUESTS);
+    if (attempts > MAX_ATTEMPTS) {
+      throw new TooManyRequestsException(await this.secondsLeft(`otp:attempts:${phone}`, OTP_TTL_S), {
+        message: 'Too many wrong attempts. Request a new OTP.',
+        code: 'OTP_ATTEMPTS',
+      });
+    }
     const expected = await this.redis.get(`otp:code:${phone}`);
     const isValid = this.env.isOtpDevMode ? OtpService.isDevCode(code, this.env.devOtpCode) : expected !== null && expected === code;
-    if (isValid) await this.redis.del(`otp:code:${phone}`, `otp:attempts:${phone}`);
+    if (isValid) await this.redis.del(`otp:code:${phone}`, `otp:attempts:${phone}`, `otp:sent:${phone}`);
+    else await this.countFailure();
     return isValid;
+  }
+
+  /** One more wrong code anywhere; past [GLOBAL_MAX_FAILURES] in the window, every verify pauses. */
+  private async countFailure(): Promise<void> {
+    const { hits } = await countHit(this.redis, GLOBAL_FAILURES_KEY, GLOBAL_WINDOW_S);
+    if (hits <= GLOBAL_MAX_FAILURES) return;
+    if ((await this.redis.set(GLOBAL_LOCK_KEY, '1', 'EX', GLOBAL_LOCK_S, 'NX')) === 'OK') {
+      this.logger.warn(`${hits} wrong OTPs in ${GLOBAL_WINDOW_S / 60} min across all phones: every sign-in paused for ${GLOBAL_LOCK_S / 60} min`);
+    }
+  }
+
+  private async secondsLeft(key: string, fallbackS: number): Promise<number> {
+    const ttl = await this.redis.ttl(key);
+    return ttl > 0 ? ttl : fallbackS;
   }
 
   private static isDevCode(code: string, devOtpCode: string): boolean {
