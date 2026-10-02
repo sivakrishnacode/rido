@@ -145,7 +145,8 @@ export type ModeTerms = RentalTerms | OutstationTerms;
  * [distanceKm] / [durationMin]: what the trip is planned to cover.
  */
 export function modeQuote(kind: VehicleKind, terms: ModeTerms, plan: { distanceKm: number; durationMin: number; travelMin?: number }): FareQuote {
-  const base = terms.mode === 'RENTAL' ? terms.price : terms.includedKm * terms.perKm;
+  // Floored like the apps' engine: per-city ₹/km may have paise, and the fare columns are whole rupees.
+  const base = terms.mode === 'RENTAL' ? terms.price : Math.floor(terms.includedKm * terms.perKm);
   const allowance = terms.mode === 'OUTSTATION' ? terms.allowancePerDay * terms.days : 0;
   const total = base + allowance;
   return {
