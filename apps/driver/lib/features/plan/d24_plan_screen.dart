@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/load_error.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_session.dart';
@@ -35,13 +36,25 @@ class D24PlanScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
-    final plan = ref.watch(planProvider).value;
+    final planAsync = ref.watch(planProvider);
+    final plan = planAsync.value;
     final payments = ref.watch(paymentsProvider).value;
     // Live API: the month's commission saved from the earnings endpoint (no lifetime figure yet).
     final live = !showcase && ref.watch(isLiveApiProvider);
     final monthSaved = live ? ref.watch(earningsProvider(EarningsPeriod.month)).value?.commissionSaved : null;
     final notifier = ref.read(planProvider.notifier);
 
+    if (plan == null && planAsync.hasError) {
+      return Scaffold(
+        backgroundColor: TtColors.background,
+        body: Column(children: [
+          _header(t),
+          Expanded(
+            child: LoadError(error: planAsync.error!, what: 'your plan', onRetry: () => ref.invalidate(planProvider)),
+          ),
+        ]),
+      );
+    }
     if (plan == null) {
       return Scaffold(
         backgroundColor: TtColors.background,
