@@ -42,7 +42,7 @@ export default async function KycPage({ searchParams }: PageProps<"/kyc">) {
     <>
       <PageHeader
         title="Documents"
-        description="Driver documents, oldest first. Verifying all five approves the driver; one rejection marks them rejected."
+        description="Driver documents (RC and insurance), oldest first. Both verified plus a passed identity check approves the driver (or makes them ready to approve when auto-approval is off); one rejection marks them rejected."
       />
       <LinkTabs
         active={status}
