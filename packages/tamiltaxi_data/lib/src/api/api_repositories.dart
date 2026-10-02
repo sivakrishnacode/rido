@@ -433,14 +433,16 @@ class ApiDriverRepository implements DriverRepository {
         : contactFromJson(contacts.first);
   }
 
-  /// Drivers keep one contact: replaces the current one.
+  /// Drivers keep one contact: replaces the current one. The new one is added first, so a number the API rejects
+  /// leaves the old contact in place.
   @override
   Future<void> updateEmergencyContact(EmergencyContact contact) async {
     final me = _map(await api.get('/me'));
-    for (final c in _list(me['emergencyContacts'])) {
+    final old = _list(me['emergencyContacts']);
+    await api.post('/me/emergency-contacts', {'name': contact.name, 'relation': contact.relation, 'phone': apiPhone(contact.phone)});
+    for (final c in old) {
       await api.delete('/me/emergency-contacts/${c['id']}');
     }
-    await api.post('/me/emergency-contacts', {'name': contact.name, 'relation': contact.relation, 'phone': apiPhone(contact.phone)});
   }
 }
 

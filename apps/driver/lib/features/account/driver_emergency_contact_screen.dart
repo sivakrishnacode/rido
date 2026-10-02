@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
@@ -57,7 +58,7 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
     super.dispose();
   }
 
-  bool get _phoneOk => _phone.text.replaceAll(RegExp(r'\D'), '').length == 10;
+  bool get _phoneOk => RegExp(r'^[6-9]\d{9}$').hasMatch(_phone.text.replaceAll(RegExp(r'\D'), ''));
 
   Future<void> _save() async {
     setState(() => _tried = true);
@@ -71,6 +72,7 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
       relation: _relation.text.trim().isEmpty && live ? 'Family' : _relation.text.trim(),
       phone: live ? apiPhone(digits) : '+91 ${digits.substring(0, 5)} ${digits.substring(5)}',
     );
+    final container = ProviderScope.containerOf(context, listen: false);
     try {
       await ref.read(driverRepositoryProvider).updateEmergencyContact(updated);
     } on Exception catch (e) {
@@ -79,7 +81,7 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
       showTtSnack(context, userMessage(e));
       return;
     }
-    ref.invalidate(driverEmergencyContactProvider);
+    container.invalidate(driverEmergencyContactProvider);
     if (!mounted) return;
     showTtSnack(context, 'Emergency contact saved', success: true);
     context.pop();
@@ -101,12 +103,18 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
           label: 'Name',
           controller: _name,
           textCapitalization: TextCapitalization.words,
+          inputFormatters: [LengthLimitingTextInputFormatter(60)],
           errorText: _tried && _name.text.trim().isEmpty ? 'Enter a name' : null,
         ),
         const SizedBox(height: TtSpacing.l),
-        TtTextField(label: 'Relation', hint: 'Wife, brother, friend…', controller: _relation),
+        TtTextField(
+          label: 'Relation',
+          hint: 'Wife, brother, friend…',
+          controller: _relation,
+          inputFormatters: [LengthLimitingTextInputFormatter(30)],
+        ),
         const SizedBox(height: TtSpacing.l),
-        PhoneInput(controller: _phone, errorText: _tried && !_phoneOk ? 'Enter a 10-digit mobile number' : null),
+        PhoneInput(controller: _phone, errorText: _tried && !_phoneOk ? 'Enter a valid 10-digit mobile number' : null),
       ],
     );
   }
