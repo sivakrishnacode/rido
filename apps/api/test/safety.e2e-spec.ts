@@ -56,16 +56,16 @@ describe('Tamil Taxi safety (e2e)', () => {
     await app.close();
   });
 
-  async function login(p = phone()): Promise<Auth> {
+  async function login(p = phone(), app?: 'admin'): Promise<Auth> {
     await http.post('/v1/auth/otp').send({ phone: p }).expect(200);
-    const res = await http.post('/v1/auth/verify').send({ phone: p, code: '123456' }).expect(200);
+    const res = await http.post('/v1/auth/verify').send({ phone: p, code: '123456', app }).expect(200);
     return { Authorization: `Bearer ${res.body.accessToken as string}` };
   }
 
   let admin: Auth | null = null;
   /** The admin's token, signed in once (OTP sends are limited per phone). */
   async function adminAuth(): Promise<Auth> {
-    admin ??= await login(ADMIN_PHONE);
+    admin ??= await login(ADMIN_PHONE, 'admin');
     return admin;
   }
 

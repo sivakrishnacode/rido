@@ -28,6 +28,6 @@ export class AuthController {
   @Post('verify')
   @HttpCode(200)
   verify(@Body() body: VerifyOtpDto): Promise<LoginResult> {
-    return this.auth.verify({ phone: body.phone, code: body.code });
+    return this.auth.verify({ phone: body.phone, code: body.code, app: body.app });
   }
 }

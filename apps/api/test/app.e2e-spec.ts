@@ -107,7 +107,7 @@ describe('Tamil Taxi API (e2e)', () => {
   async function adminAuth(): Promise<{ Authorization: string }> {
     if (!adminHeaders) {
       await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
-      adminHeaders = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' }).expect(200)).body.accessToken}` };
+      adminHeaders = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456', app: 'admin' }).expect(200)).body.accessToken}` };
     }
     return adminHeaders;
   }
@@ -1371,6 +1371,7 @@ describe('Tamil Taxi API (e2e)', () => {
     const passenger = await login();
     await http.get('/v1/admin/stats').set('Authorization', `Bearer ${passenger}`).expect(403);
     await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
+    // An older panel names no app: an admin phone without a driver profile still gets ADMIN.
     const admin = (await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' }).expect(200)).body;
     expect(admin.user.role).toBe('ADMIN');
     const auth = { Authorization: `Bearer ${admin.accessToken}` };
@@ -1413,10 +1414,37 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(recent.items.every((t: { createdAt: string }) => t.createdAt >= since)).toBe(true);
   });
 
+  it('an admin who also drives: the driver app gets a DRIVER token, the panel an ADMIN one', async () => {
+    // A driver made an admin (same as an ADMIN_PHONES number that registered a vehicle).
+    const p = phone();
+    await http.post('/v1/auth/otp').send({ phone: p }).expect(200);
+    const first = (await http.post('/v1/auth/verify').send({ phone: p, code: '123456', app: 'driver' }).expect(200)).body;
+    const reg = (await http.post('/v1/drivers').set('Authorization', `Bearer ${first.accessToken}`)
+      .send({ name: 'Admin Driver', workType: 'RIDES', vehicleKind: 'BIKE', vehicleModel: 'Test', vehicleColor: 'White', plate: randomPlate(), upiId: 'test@okaxis' }).expect(201)).body;
+    await prisma.user.update({ where: { id: reg.driver.userId }, data: { role: 'ADMIN' } });
+    const signIn = async (app?: string) => {
+      await http.post('/v1/auth/otp').send({ phone: p }).expect(200);
+      return (await http.post('/v1/auth/verify').send({ phone: p, code: '123456', app }).expect(200)).body as { accessToken: string; driverId?: string; user: { role: string } };
+    };
+
+    // Driver app (and an older one that names no app): the driver routes work.
+    for (const app of ['driver', undefined]) {
+      const asDriver = await signIn(app);
+      expect(asDriver.driverId).toBe(reg.driver.id);
+      expect((await http.get('/v1/drivers/me').set('Authorization', `Bearer ${asDriver.accessToken}`).expect(200)).body.id).toBe(reg.driver.id);
+      await http.get('/v1/admin/stats').set('Authorization', `Bearer ${asDriver.accessToken}`).expect(403);
+    }
+    // The panel (any case: older panels send ADMIN): admin routes work, the account stays an admin.
+    const asAdmin = await signIn('ADMIN');
+    expect(asAdmin.user.role).toBe('ADMIN');
+    await http.get('/v1/admin/stats').set('Authorization', `Bearer ${asAdmin.accessToken}`).expect(200);
+    await http.post('/v1/auth/verify').send({ phone: p, code: '123456', app: 'website' }).expect(400);
+  });
+
   it('uses H3 service areas: outside is refused, admins add cities, zones and blocks', async () => {
     const passenger = await login();
     await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
-    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' })).body.accessToken}` };
+    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456', app: 'admin' })).body.accessToken}` };
 
     // Gandhipuram is inside the seeded Coimbatore hexes; Mettupalayam (~31 km) is not.
     const inside = await http.get('/v1/geo/check?lat=11.0183&lng=76.9725').expect(200);
@@ -1456,7 +1484,7 @@ describe('Tamil Taxi API (e2e)', () => {
 
   it('surges from live H3 demand and learns hex-to-hex speeds', async () => {
     await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
-    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' })).body.accessToken}` };
+    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456', app: 'admin' })).body.accessToken}` };
     const peelamedu = { lat: 11.029, lng: 77.027, name: 'Peelamedu' };
     const raceCourse = { lat: 10.999, lng: 76.978, name: 'Race Course' };
     // Demand counts each passenger once per window: five different riders.
@@ -1609,7 +1637,7 @@ describe('Tamil Taxi API (e2e)', () => {
 
     // Admin verifies both documents: still pending until identity passes.
     await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
-    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' })).body.accessToken}` };
+    const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456', app: 'admin' })).body.accessToken}` };
     for (const type of ['VEHICLE_RC', 'INSURANCE']) {
       await http.post(`/v1/admin/drivers/${driverId}/documents/${type}`).set(admin).send({ status: 'VERIFIED' }).expect(201);
     }
