@@ -201,8 +201,11 @@ class MoveEndCard extends StatelessWidget {
     required this.onPlace,
     required this.onFloor,
     required this.onLift,
+    this.stairsPerFloor = GoodsModeRates.stairsPerFloor,
   });
 
+  /// The city's stairs charge per floor without a lift.
+  final int stairsPerFloor;
   final bool isPickup;
   final Place? place;
   final int floor;
@@ -291,7 +294,7 @@ class MoveEndCard extends StatelessWidget {
                             children: [
                               Text('Lift for furniture', style: t.bodySmallMedium.copyWith(color: TtColors.navy700)),
                               Text(
-                                lift ? 'No stairs charge' : '${formatInr(GoodsModeRates.stairsPerFloor)} a floor by the stairs',
+                                lift ? 'No stairs charge' : '${formatInr(stairsPerFloor)} a floor by the stairs',
                                 style: t.caption.copyWith(color: TtColors.navy500),
                               ),
                             ],
@@ -448,17 +451,29 @@ class ShiftingPriceBar extends StatelessWidget {
 }
 
 /// The price lines of a shift, in the fare-breakdown style.
-FareBreakdown shiftingBreakdown(ShiftingLines l, {required VehicleKind vehicle, String? title, String? subtitle, bool between = false}) =>
-    FareBreakdown.fromShifting(l, vehicle: vehicle, between: between, title: title, subtitle: subtitle);
+FareBreakdown shiftingBreakdown(
+  ShiftingLines l, {
+  required VehicleKind vehicle,
+  ShiftingDetails? details,
+  String? title,
+  String? subtitle,
+  bool between = false,
+}) =>
+    FareBreakdown.fromShifting(l, vehicle: vehicle, details: details, between: between, title: title, subtitle: subtitle);
 
 /// Opens the price lines in a sheet.
-Future<void> showShiftingPrice(BuildContext context, ShiftingQuote q, {required bool between}) => showTtSheet<void>(
+Future<void> showShiftingPrice(BuildContext context, ShiftingQuote q, {required ShiftingDetails details}) => showTtSheet<void>(
       context,
       builder: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          shiftingBreakdown(q.lines, vehicle: q.vehicle, between: between, title: 'Price', subtitle: '${q.vehicle.label} · ${formatKm(q.distanceKm)}'),
+          shiftingBreakdown(q.lines,
+              vehicle: q.vehicle,
+              details: details,
+              between: details.between,
+              title: 'Price',
+              subtitle: '${q.vehicle.label} · ${formatKm(q.distanceKm)}'),
           const SizedBox(height: TtSpacing.s),
           Text('Fixed before you book. Pay the driver by cash or UPI; tolls and parking on the way are yours.',
               style: ctx.type.caption.copyWith(color: TtColors.navy500)),

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'fare_engine.dart';
 import 'models/place.dart';
 import 'models/vehicle.dart';
+import 'pricing.dart';
 import 'seed.dart';
 
 /// How a ride is priced: [local] by distance and time, [rental] a cab by the hour (package), [outstation] a cab to
@@ -207,14 +208,11 @@ abstract final class RideModeRates {
     VehicleKind.suv: (prices: [379, 679, 979, 1279, 1879, 2399, 2999, 3499], extraKm: 18, extraMin: 3),
   };
 
-  static const Map<VehicleKind, ({double oneWayPerKm, double roundTripPerKm, int allowancePerDay})> outstation = {
-    VehicleKind.cab: (oneWayPerKm: 14, roundTripPerKm: 11, allowancePerDay: 300),
-    VehicleKind.sedan: (oneWayPerKm: 15, roundTripPerKm: 12, allowancePerDay: 300),
-    VehicleKind.suv: (oneWayPerKm: 19, roundTripPerKm: 16, allowancePerDay: 400),
+  static const Map<VehicleKind, OutstationTierRates> outstation = {
+    VehicleKind.cab: (oneWayPerKm: 14, roundTripPerKm: 11, allowancePerDay: 300, oneWayMinKm: 60, roundTripKmPerDay: 250),
+    VehicleKind.sedan: (oneWayPerKm: 15, roundTripPerKm: 12, allowancePerDay: 300, oneWayMinKm: 60, roundTripKmPerDay: 250),
+    VehicleKind.suv: (oneWayPerKm: 19, roundTripPerKm: 16, allowancePerDay: 400, oneWayMinKm: 60, roundTripKmPerDay: 250),
   };
-
-  static const oneWayMinKm = 60;
-  static const roundTripKmPerDay = 250;
 
   /// Up to a week away: how far ahead a trip can be booked, and the longest round trip.
   static const maxDaysAhead = 7;
@@ -224,9 +222,10 @@ abstract final class RideModeRates {
 
   static RentalPackage? package(String id) => packages.where((p) => p.id == id).firstOrNull;
 
-  static RentalTerms? rentalTerms(VehicleKind kind, String packageId) {
+  /// [pricing]: the pickup city's prices (built-in by default).
+  static RentalTerms? rentalTerms(VehicleKind kind, String packageId, {ModePricing pricing = ModePricing.defaults}) {
     final i = packages.indexWhere((p) => p.id == packageId);
-    final r = rental[kind];
+    final r = pricing.rental[kind];
     if (i < 0 || r == null) return null;
     final p = packages[i];
     return RentalTerms(packageId: p.id, hours: p.hours, km: p.km, price: r.prices[i], extraKmRate: r.extraKm, extraMinRate: r.extraMin);
@@ -245,16 +244,17 @@ abstract final class RideModeRates {
     required bool roundTrip,
     required DateTime leaveAt,
     DateTime? returnAt,
+    ModePricing pricing = ModePricing.defaults,
   }) {
-    final r = outstation[kind]!;
+    final r = pricing.outstation[kind] ?? outstation[kind]!;
     final km = (routeKm * 10).round() / 10;
     if (!roundTrip) {
-      final charged = km.ceil() < oneWayMinKm ? oneWayMinKm : km.ceil();
+      final charged = km.ceil() < r.oneWayMinKm ? r.oneWayMinKm : km.ceil();
       return OutstationTerms(
           roundTrip: false, returnAt: null, days: 1, includedKm: charged, perKm: r.oneWayPerKm, allowancePerDay: r.allowancePerDay, routeKm: km);
     }
     final days = istDays(leaveAt, returnAt ?? leaveAt);
-    final perDay = roundTripKmPerDay * days;
+    final perDay = r.roundTripKmPerDay * days;
     final twice = (2 * km).ceil();
     return OutstationTerms(
       roundTrip: true,
@@ -296,12 +296,13 @@ abstract final class RideModeRates {
 
   /// Quotes for the cab tiers for [request] from [pickup] (to [drop] for outstation), on the local route estimate
   /// (mock mode; the live app shows the API's quotes).
-  static List<FareQuote> quotesFor(Place pickup, Place? drop, ModeRequest request) {
+  static List<FareQuote> quotesFor(Place pickup, Place? drop, ModeRequest request, {ModePricing pricing = ModePricing.defaults}) {
     final cabs = [for (final k in cabTiers) Seed.vehicle(k)];
     if (request.mode == RideMode.rental) {
       final pkg = package(request.packageId ?? '') ?? packages[3];
       return [
-        for (final v in cabs) quote(v, rentalTerms(v.kind, pkg.id)!, distanceKm: pkg.km.toDouble(), durationMin: pkg.hours * 60),
+        for (final v in cabs)
+          quote(v, rentalTerms(v.kind, pkg.id, pricing: pricing)!, distanceKm: pkg.km.toDouble(), durationMin: pkg.hours * 60),
       ];
     }
     final route = FareEngine.estimate(pickup, drop ?? pickup);
@@ -309,7 +310,8 @@ abstract final class RideModeRates {
     return [
       for (final v in cabs)
         () {
-          final t = outstationTerms(v.kind, routeKm: route.distanceKm, roundTrip: request.roundTrip, leaveAt: leave, returnAt: request.returnAt);
+          final t = outstationTerms(v.kind,
+              routeKm: route.distanceKm, roundTrip: request.roundTrip, leaveAt: leave, returnAt: request.returnAt, pricing: pricing);
           final away = request.roundTrip && request.returnAt != null ? request.returnAt!.difference(leave).inMinutes : route.durationMin;
           return quote(v, t, distanceKm: request.roundTrip ? t.includedKm.toDouble() : route.distanceKm, durationMin: away);
         }(),

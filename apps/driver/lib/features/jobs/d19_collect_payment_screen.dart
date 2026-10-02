@@ -128,6 +128,7 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
                       child: FareBreakdown.fromShifting(
                         l,
                         vehicle: _job.vehicle,
+                        details: _job.shifting,
                         between: _job.shifting!.between,
                         title: 'House shifting · ${_job.shifting!.homeSize.label}',
                       ),

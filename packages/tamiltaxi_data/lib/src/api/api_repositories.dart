@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 
 import '../goods_modes.dart';
+import '../pricing.dart';
 import '../models/driver.dart';
 import '../models/people.dart';
 import '../models/place.dart';
@@ -206,6 +207,16 @@ class ApiRideRepository implements RideRepository {
   /// `GET /trips/upcoming`.
   @override
   Future<List<Trip>> upcomingTrips() async => _list(await api.get('/trips/upcoming')).map(tripFromJson).toList();
+
+  /// `GET /fares/rates?lat&lng`.
+  @override
+  Future<ModePricing> modePricing(LatLng at) async {
+    final res = _map(await api.get('/fares/rates', query: {
+      'lat': at.latitude.toStringAsFixed(5),
+      'lng': at.longitude.toStringAsFixed(5),
+    }));
+    return ModePricing.fromJson(res['pricing']);
+  }
 
   /// `GET /places/outstation-destinations`.
   @override

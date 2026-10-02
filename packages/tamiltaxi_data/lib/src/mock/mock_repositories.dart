@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../demo_settings.dart';
 import '../fare_engine.dart';
 import '../goods_modes.dart';
+import '../pricing.dart';
 import '../maps/google_maps_config.dart';
 import '../maps/google_places_client.dart';
 import '../models/driver.dart';
@@ -217,6 +218,10 @@ class MockRideRepository with _Latency implements RideRepository {
     await delay();
     return [...db.upcoming]..sort((a, b) => (a.scheduledAt ?? a.startedAt).compareTo(b.scheduledAt ?? b.startedAt));
   }
+
+  /// Mock mode: the built-in prices.
+  @override
+  Future<ModePricing> modePricing(LatLng at) async => ModePricing.defaults;
 
   @override
   Future<List<Place>> outstationDestinations(LatLng at) async {

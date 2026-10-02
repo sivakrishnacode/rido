@@ -14,6 +14,7 @@ import '../../router/routes.dart';
 import '../../state/nearby_vehicles.dart';
 import '../../state/parcel_flow.dart';
 import '../../state/passenger_session.dart';
+import '../../state/pricing.dart';
 import '../../state/ride_flow.dart';
 import '../states/s05_location_denied_screen.dart';
 import '../states/s07_loading_skeletons.dart';
@@ -683,13 +684,16 @@ class _LocationBanners extends ConsumerWidget {
 }
 
 /// "More ways to travel": a cab by the hour (P-34) or to another town (P-35), side by side.
-class _MoreWaysRow extends StatelessWidget {
+class _MoreWaysRow extends ConsumerWidget {
   const _MoreWaysRow({required this.onRental, required this.onOutstation});
   final VoidCallback onRental;
   final VoidCallback onOutstation;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The pickup city's cheapest rental (its own prices, else the built-in ones).
+    final pricing = watchPricing(ref, ref.watch(rideFlowProvider.select((s) => s.pickup.location)));
+    final from = RideModeRates.rentalTerms(VehicleKind.cab, '1h', pricing: pricing)?.price;
     final t = context.type;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -704,7 +708,7 @@ class _MoreWaysRow extends StatelessWidget {
             Expanded(
               child: _WayTile(
                 title: 'Rental',
-                subtitle: 'By the hour · from ${formatInr(RideModeRates.rentalTerms(VehicleKind.cab, '1h')!.price)}',
+                subtitle: from == null ? 'By the hour' : 'By the hour · from ${formatInr(from)}',
                 kind: VehicleKind.sedan,
                 onTap: onRental,
               ),

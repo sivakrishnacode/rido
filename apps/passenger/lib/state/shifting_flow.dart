@@ -6,6 +6,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import 'live_trip.dart';
 import 'passenger_session.dart';
+import 'pricing.dart';
 import 'ride_flow.dart' show upcomingTripsProvider;
 
 const Object _keep = Object();
@@ -24,6 +25,7 @@ class ShiftingFlowState {
     this.quote,
     this.quoteError,
     this.busy = false,
+    this.pricing = ModePricing.defaults,
   });
 
   /// The sample plan the Design gallery shows (a 1 BHK from Peelamedu to Race Course, three items typed).
@@ -73,8 +75,11 @@ class ShiftingFlowState {
   final String? quoteError;
   final bool busy;
 
+  /// The pickup city's prices (helpers, packing, extras shown before the quote); built-in until they load.
+  final ModePricing pricing;
+
   DateTime get slot => DateTime(day.year, day.month, day.day, slotHour);
-  VehicleKind get vehicleOrSuggested => vehicle ?? GoodsModeRates.sizes[details.homeSize]!.vehicle;
+  VehicleKind get vehicleOrSuggested => vehicle ?? pricing.shifting.size(details.homeSize).vehicle;
   bool get placesReady => drop != null;
 
   ShiftingFlowState copyWith({
@@ -87,6 +92,7 @@ class ShiftingFlowState {
     Object? quote = _keep,
     Object? quoteError = _keep,
     bool? busy,
+    ModePricing? pricing,
   }) =>
       ShiftingFlowState(
         pickup: pickup ?? this.pickup,
@@ -98,6 +104,7 @@ class ShiftingFlowState {
         quote: identical(quote, _keep) ? this.quote : quote as ShiftingQuote?,
         quoteError: identical(quoteError, _keep) ? this.quoteError : quoteError as String?,
         busy: busy ?? this.busy,
+        pricing: pricing ?? this.pricing,
       );
 }
 
@@ -116,11 +123,17 @@ class ShiftingFlowController extends Notifier<ShiftingFlowState> {
   ShiftingFlowState build() {
     ref.onDispose(() => _debounce?.cancel());
     final now = DateTime.now();
-    return ShiftingFlowState(
-      pickup: _live ? ref.read(placesRepositoryProvider).currentLocation : Seed.peelamedu,
-      day: _firstDay(now),
-      slotHour: _firstSlot(_firstDay(now), now),
-    );
+    final pickup = _live ? ref.read(placesRepositoryProvider).currentLocation : Seed.peelamedu;
+    Future.microtask(() => _loadPricing(pickup.location));
+    return ShiftingFlowState(pickup: pickup, day: _firstDay(now), slotHour: _firstSlot(_firstDay(now), now));
+  }
+
+  /// The pickup city's prices, then a fresh quote with them.
+  Future<void> _loadPricing(LatLng at) async {
+    final pricing = await ref.read(modePricingProvider(pricingKey(at)).future);
+    if (!ref.mounted || pricingKey(state.pickup.location) != pricingKey(at)) return;
+    state = state.copyWith(pricing: pricing);
+    _requote();
   }
 
   /// Tomorrow: a move is usually planned a day ahead (today's open slots can still be chosen on PH-03).
@@ -143,7 +156,10 @@ class ShiftingFlowController extends Notifier<ShiftingFlowState> {
   }
 
   void setBetween(bool v) => _set(state.copyWith(details: state.details.copyWith(between: v)));
-  void setPickup(Place p) => _set(state.copyWith(pickup: p));
+  void setPickup(Place p) {
+    _set(state.copyWith(pickup: p));
+    unawaited(_loadPricing(p.location));
+  }
   void setDrop(Place p) => _set(state.copyWith(drop: p));
 
   void setFloor({required bool pickup, required int floor}) {
@@ -215,7 +231,7 @@ class ShiftingFlowController extends Notifier<ShiftingFlowState> {
     if (drop == null) return;
     if (!_live) {
       state = state.copyWith(
-        quote: GoodsModeRates.quote(state.pickup, drop, state.details, vehicle: state.vehicle, at: state.slot),
+        quote: GoodsModeRates.quote(state.pickup, drop, state.details, vehicle: state.vehicle, at: state.slot, pricing: state.pricing),
         quoteError: null,
       );
       return;
@@ -301,7 +317,12 @@ class ShiftingFlowController extends Notifier<ShiftingFlowState> {
       }
       if (!ref.mounted) return (error: null, trip: trip);
       final now = DateTime.now();
-      state = ShiftingFlowState(pickup: state.pickup, day: _firstDay(now), slotHour: _firstSlot(_firstDay(now), now));
+      state = ShiftingFlowState(
+        pickup: state.pickup,
+        day: _firstDay(now),
+        slotHour: _firstSlot(_firstDay(now), now),
+        pricing: state.pricing,
+      );
       ref.invalidate(upcomingTripsProvider);
       return (error: null, trip: trip);
     } catch (e) {

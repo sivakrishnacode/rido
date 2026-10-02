@@ -7,6 +7,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/nearby_vehicles.dart';
+import '../../state/pricing.dart';
 import '../../state/ride_flow.dart';
 import 'widgets/mode_widgets.dart';
 
@@ -62,7 +63,8 @@ class _P34RentalScreenState extends ConsumerState<P34RentalScreen> {
     final flow = ref.read(rideFlowProvider.notifier);
     final live = ref.watch(isLiveApiProvider) && !widget.showcase;
     final mode = state.mode?.mode == RideMode.rental ? state.mode! : const ModeRequest(mode: RideMode.rental, packageId: _defaultPackage);
-    final quotes = !live ? RideModeRates.quotesFor(state.pickup, null, mode) : state.serverQuotes;
+    final pricing = watchPricing(ref, state.pickup.location);
+    final quotes = !live ? RideModeRates.quotesFor(state.pickup, null, mode, pricing: pricing) : state.serverQuotes;
     final selected = quotes?.where((q) => q.vehicle.kind == state.vehicle).firstOrNull ?? quotes?.firstOrNull;
     final terms = selected?.modeTerms;
     final later = mode.isLater;
@@ -89,7 +91,7 @@ class _P34RentalScreenState extends ConsumerState<P34RentalScreen> {
           title: 'How long?',
           child: RentalPackagePicker(
             selected: mode.packageId ?? _defaultPackage,
-            fromPrice: (p) => RideModeRates.rentalTerms(VehicleKind.cab, p.id)!.price,
+            fromPrice: (p) => RideModeRates.rentalTerms(VehicleKind.cab, p.id, pricing: pricing)!.price,
             onChanged: (id) => flow.updateMode(mode.copyWith(packageId: id)),
           ),
         ),

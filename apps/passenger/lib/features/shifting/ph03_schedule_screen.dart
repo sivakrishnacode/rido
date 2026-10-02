@@ -24,10 +24,11 @@ class PH03ScheduleScreen extends ConsumerWidget {
     final flow = ref.read(shiftingFlowProvider.notifier);
     final d = s.details;
     final q = s.quote;
-    final size = GoodsModeRates.sizes[d.homeSize]!;
+    final rates = s.pricing.shifting;
+    final size = rates.size(d.homeSize);
     final now = DateTime.now();
     final open = ShiftingFlowController.slotsOpen(s.day, now);
-    final helperRate = d.between ? GoodsModeRates.helperBetween : GoodsModeRates.helperCity;
+    final helperRate = rates.helperRate(between: d.between);
 
     return ShiftingScaffold(
       title: 'House shifting',
@@ -38,7 +39,7 @@ class PH03ScheduleScreen extends ConsumerWidget {
             ? (s.quoteError ?? 'Getting the price…')
             : '${q.vehicle.label} · ${q.lines.helperCount} helpers · see the price',
         label: 'Review',
-        onDetails: q == null ? null : () => showShiftingPrice(context, q, between: d.between),
+        onDetails: q == null ? null : () => showShiftingPrice(context, q, details: d),
         onPressed: showcase
             ? () {}
             : (q == null || !open.contains(s.slotHour) ? null : () => context.push(Routes.shiftingReview)),
@@ -46,7 +47,9 @@ class PH03ScheduleScreen extends ConsumerWidget {
       children: [
         ShiftingSection(
           title: 'Which day?',
-          subtitle: 'Weekdays cost less. Saturday and Sunday add ${GoodsModeRates.weekendPct}%.',
+          subtitle: rates.weekendPct > 0
+              ? 'Weekdays cost less. Saturday and Sunday add ${rates.weekendPct}%.'
+              : 'Each day with its price.',
           // Sized by the chips (font metrics differ between phones), scrolling sideways.
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -144,7 +147,7 @@ class PH03ScheduleScreen extends ConsumerWidget {
               _ExtraRow(
                 icon: Symbols.handyman_rounded,
                 title: 'Take apart and put back',
-                subtitle: 'Beds, almirahs, tables · ${formatInr(GoodsModeRates.dismantlePerPiece)} a piece',
+                subtitle: 'Beds, almirahs, tables · ${formatInr(rates.dismantlePerPiece)} a piece',
                 trailing: CountStepper(
                   value: d.dismantlePieces,
                   max: GoodsModeRates.maxDismantlePieces,

@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
 import '../goods_modes.dart';
+import '../pricing.dart';
 import '../models/driver.dart';
 import '../models/people.dart';
 import '../models/place.dart';
@@ -86,6 +87,10 @@ abstract interface class RideRepository {
 
   /// Popular outstation drops around [at] (live: from past trips; empty until there are some).
   Future<List<Place>> outstationDestinations(LatLng at);
+
+  /// The prices for rentals, outstation, goods to another town and house shifting in the city at [at] (what the
+  /// screens show before quoting; quotes come from the server).
+  Future<ModePricing> modePricing(LatLng at);
 
   /// Free vehicles around [at] for the map (a few of each kind, nearest first). [parcels]: goods vehicles and
   /// two-wheelers instead of ride vehicles. Empty when nobody is near (or Demo control "No drivers").

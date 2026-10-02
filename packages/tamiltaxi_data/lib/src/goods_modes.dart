@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'fare_engine.dart';
 import 'models/place.dart';
 import 'models/vehicle.dart';
+import 'pricing.dart';
 import 'ride_modes.dart';
 import 'seed.dart';
 
@@ -323,8 +324,8 @@ abstract final class GoodsModeRates {
 
   static bool isGoodsTruck(VehicleKind k) => goodsTrucks.contains(k);
 
-  static OutstationTerms outstationTerms(VehicleKind kind, double routeKm) {
-    final r = outstation[kind]!;
+  static OutstationTerms outstationTerms(VehicleKind kind, double routeKm, {ModePricing pricing = ModePricing.defaults}) {
+    final r = pricing.goodsOutstation[kind] ?? outstation[kind]!;
     final km = (routeKm * 10).round() / 10;
     return OutstationTerms(
       roundTrip: false,
@@ -338,11 +339,11 @@ abstract final class GoodsModeRates {
   }
 
   /// Mock mode: the goods trucks one way to [drop] on the local route estimate.
-  static List<FareQuote> outstationQuotes(Place pickup, Place drop) {
+  static List<FareQuote> outstationQuotes(Place pickup, Place drop, {ModePricing pricing = ModePricing.defaults}) {
     final route = FareEngine.estimate(pickup, drop);
     return [
       for (final k in goodsTrucks)
-        RideModeRates.quote(Seed.vehicle(k), outstationTerms(k, route.distanceKm),
+        RideModeRates.quote(Seed.vehicle(k), outstationTerms(k, route.distanceKm, pricing: pricing),
             distanceKm: route.distanceKm, durationMin: route.durationMin),
     ];
   }
@@ -356,20 +357,21 @@ abstract final class GoodsModeRates {
   static int _stairs(int floor, bool lift) => lift || floor < 0 ? 0 : floor;
 
   /// The lines for [d] with the vehicle's [transport] price, on the day of [at].
-  static ShiftingLines lines(ShiftingDetails d, int transport, DateTime at) {
-    final size = sizes[d.homeSize]!;
+  static ShiftingLines lines(ShiftingDetails d, int transport, DateTime at, {ModePricing pricing = ModePricing.defaults}) {
+    final r = pricing.shifting;
+    final size = r.size(d.homeSize);
     final helperCount = size.helpers + d.extraHelpers.clamp(0, maxExtraHelpers);
-    final helpers = helperCount * (d.between ? helperBetween : helperCity);
-    final stairs = (_stairs(d.pickupFloor, d.pickupLift) + _stairs(d.dropFloor, d.dropLift)) * stairsPerFloor;
+    final helpers = helperCount * r.helperRate(between: d.between);
+    final stairs = (_stairs(d.pickupFloor, d.pickupLift) + _stairs(d.dropFloor, d.dropLift)) * r.stairsPerFloor;
     final packing = switch (d.packing) {
       PackingLevel.none => 0,
       PackingLevel.basic => size.basic,
       PackingLevel.full => size.full,
     };
-    final dismantle = d.dismantlePieces.clamp(0, maxDismantlePieces) * dismantlePerPiece;
+    final dismantle = d.dismantlePieces.clamp(0, maxDismantlePieces) * r.dismantlePerPiece;
     final unpack = d.unpack ? size.unpack : 0;
     final subtotal = transport + helpers + stairs + packing + dismantle + unpack;
-    final weekend = isIstWeekend(at) ? subtotal * weekendPct ~/ 100 : 0;
+    final weekend = isIstWeekend(at) ? subtotal * r.weekendPct ~/ 100 : 0;
     return ShiftingLines(
       transport: transport,
       helperCount: helperCount,
@@ -389,29 +391,40 @@ abstract final class GoodsModeRates {
 
   /// Mock mode: [d] by [vehicle] (default: the one suggested for the size) at the slot [at], priced like the API
   /// (in town: the goods fare on the local route estimate, no surge; to another town: by the km).
-  static ShiftingQuote quote(Place pickup, Place drop, ShiftingDetails d, {VehicleKind? vehicle, required DateTime at, DateTime? now}) {
-    final suggested = sizes[d.homeSize]!.vehicle;
+  static ShiftingQuote quote(
+    Place pickup,
+    Place drop,
+    ShiftingDetails d, {
+    VehicleKind? vehicle,
+    required DateTime at,
+    DateTime? now,
+    ModePricing pricing = ModePricing.defaults,
+  }) {
+    final suggested = pricing.shifting.size(d.homeSize).vehicle;
     final kind = vehicle ?? suggested;
     final route = FareEngine.estimate(pickup, drop);
-    int transportOf(VehicleKind k) => d.between
-        ? (outstationTerms(k, route.distanceKm).includedKm * outstation[k]!.perKm).floor()
-        : FareEngine.quote(Seed.vehicle(k), route, multiplier: 1).total;
+    int transportOf(VehicleKind k) {
+      if (!d.between) return FareEngine.quote(Seed.vehicle(k), route, multiplier: 1).total;
+      final t = outstationTerms(k, route.distanceKm, pricing: pricing);
+      return (t.includedKm * t.perKm).floor();
+    }
+
     final transport = transportOf(kind);
     final today = now ?? DateTime.now();
     return ShiftingQuote(
       vehicle: kind,
       distanceKm: route.distanceKm,
       durationMin: route.durationMin,
-      lines: lines(d, transport, at),
-      modeTerms: d.between ? outstationTerms(kind, route.distanceKm) : null,
+      lines: lines(d, transport, at, pricing: pricing),
+      modeTerms: d.between ? outstationTerms(kind, route.distanceKm, pricing: pricing) : null,
       vehicles: [
-        for (final k in goodsTrucks) (kind: k, total: lines(d, transportOf(k), at).total, suggested: k == suggested),
+        for (final k in goodsTrucks) (kind: k, total: lines(d, transportOf(k), at, pricing: pricing).total, suggested: k == suggested),
       ],
       days: [
         for (var i = 0; i < 7; i++)
           () {
             final dayAt9 = dayAt(today, i, 9);
-            final l = lines(d, transport, dayAt9);
+            final l = lines(d, transport, dayAt9, pricing: pricing);
             return (date: DateTime(dayAt9.year, dayAt9.month, dayAt9.day), total: l.total, weekend: l.weekend > 0);
           }(),
       ],

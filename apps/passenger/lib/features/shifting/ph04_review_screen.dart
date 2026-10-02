@@ -114,7 +114,7 @@ class _PH04ReviewScreenState extends ConsumerState<PH04ReviewScreen> {
                       style: t.bodySemibold,
                     ),
                     Text(
-                      '${q?.lines.helperCount ?? GoodsModeRates.sizes[d.homeSize]!.helpers} helpers · ${d.homeSize.label}',
+                      '${q?.lines.helperCount ?? s.pricing.shifting.size(d.homeSize).helpers} helpers · ${d.homeSize.label}',
                       style: t.bodySmall.copyWith(color: TtColors.navy700),
                     ),
                     if (extras.isNotEmpty) Text(extras.join(' · '), style: t.bodySmall.copyWith(color: TtColors.navy500)),
@@ -167,7 +167,7 @@ class _PH04ReviewScreenState extends ConsumerState<PH04ReviewScreen> {
           ShiftingSection(
             title: 'Price',
             subtitle: 'Fixed now. You pay the driver by cash or UPI after the move.',
-            child: shiftingBreakdown(q.lines, vehicle: q.vehicle, between: d.between),
+            child: shiftingBreakdown(q.lines, vehicle: q.vehicle, details: d, between: d.between),
           ),
         const SizedBox(height: TtSpacing.xs),
         for (final (icon, text) in [

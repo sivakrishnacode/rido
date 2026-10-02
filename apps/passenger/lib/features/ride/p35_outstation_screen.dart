@@ -7,6 +7,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/nearby_vehicles.dart';
+import '../../state/pricing.dart';
 import '../../state/ride_flow.dart';
 import 'widgets/mode_widgets.dart';
 
@@ -87,7 +88,8 @@ class _P35OutstationScreenState extends ConsumerState<P35OutstationScreen> {
     final live = ref.watch(isLiveApiProvider) && !widget.showcase;
     final mode = _modeOf(state);
     final to = _to;
-    final quotes = to == null ? null : (!live ? RideModeRates.quotesFor(state.pickup, to, mode) : state.serverQuotes);
+    final pricing = watchPricing(ref, state.pickup.location);
+    final quotes = to == null ? null : (!live ? RideModeRates.quotesFor(state.pickup, to, mode, pricing: pricing) : state.serverQuotes);
     final selected = quotes?.where((q) => q.vehicle.kind == state.vehicle).firstOrNull ?? quotes?.firstOrNull;
     final terms = selected?.modeTerms;
     // The road to the destination (a straight-ish line until the router answers; the gallery's sample town too).

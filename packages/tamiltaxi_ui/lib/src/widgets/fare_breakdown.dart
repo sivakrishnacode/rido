@@ -63,9 +63,22 @@ class FareBreakdown extends StatelessWidget {
     );
   }
 
-  /// A house shift's lines: the vehicle, helpers, stairs, packing, taking apart, unpacking, the weekend share.
-  factory FareBreakdown.fromShifting(ShiftingLines l, {required VehicleKind vehicle, bool between = false, Key? key, String? title, String? subtitle, Widget? footer}) {
-    final rate = between ? GoodsModeRates.helperBetween : GoodsModeRates.helperCity;
+  /// A house shift's lines: the vehicle, helpers, stairs, packing, taking apart, unpacking, the weekend share. The
+  /// notes come from the lines and [details] (the city's rates may differ from the built-in ones).
+  factory FareBreakdown.fromShifting(
+    ShiftingLines l, {
+    required VehicleKind vehicle,
+    bool between = false,
+    ShiftingDetails? details,
+    Key? key,
+    String? title,
+    String? subtitle,
+    Widget? footer,
+  }) {
+    final d = details;
+    final floors = d == null ? null : (d.pickupLift ? 0 : d.pickupFloor) + (d.dropLift ? 0 : d.dropFloor);
+    final pieces = d?.dismantlePieces;
+    final pct = l.subtotal > 0 && l.weekend > 0 ? (l.weekend * 100 / l.subtotal).round() : null;
     return FareBreakdown(
       key: key,
       title: title,
@@ -74,14 +87,14 @@ class FareBreakdown extends StatelessWidget {
       total: l.total,
       lines: [
         FareLine(vehicle.label, l.transport, note: between ? 'one way, by the km' : 'on the route'),
-        FareLine('Helpers', l.helpers, note: '${l.helperCount} × ${formatInr(rate)}'),
-        if (l.stairs > 0) FareLine('Stairs', l.stairs, note: '${l.stairs ~/ GoodsModeRates.stairsPerFloor} floors without a lift'),
+        FareLine('Helpers', l.helpers, note: l.helperCount > 0 ? '${l.helperCount} × ${formatInr(l.helpers ~/ l.helperCount)}' : null),
+        if (l.stairs > 0) FareLine('Stairs', l.stairs, note: floors == null || floors == 0 ? 'no lift' : '$floors floors without a lift'),
         if (l.packing > 0) FareLine('Packing', l.packing),
         if (l.dismantle > 0)
           FareLine('Taking apart', l.dismantle,
-              note: '${l.dismantle ~/ GoodsModeRates.dismantlePerPiece} × ${formatInr(GoodsModeRates.dismantlePerPiece)}'),
+              note: pieces == null || pieces == 0 ? null : '$pieces × ${formatInr(l.dismantle ~/ pieces)}'),
         if (l.unpack > 0) FareLine('Unpacking', l.unpack),
-        if (l.weekend > 0) FareLine('Weekend', l.weekend, tag: '+${GoodsModeRates.weekendPct}%', signed: true),
+        if (l.weekend > 0) FareLine('Weekend', l.weekend, tag: pct == null ? null : '+$pct%', signed: true),
         const FareLine('Tamil Taxi commission', 0, tag: '0%'),
       ],
     );

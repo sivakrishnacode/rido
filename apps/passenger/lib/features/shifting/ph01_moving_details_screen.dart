@@ -23,7 +23,8 @@ class PH01MovingDetailsScreen extends ConsumerWidget {
     final s = showcase ? ShiftingFlowState.sample() : ref.watch(shiftingFlowProvider);
     final flow = ref.read(shiftingFlowProvider.notifier);
     final d = s.details;
-    final size = GoodsModeRates.sizes[d.homeSize]!;
+    final rates = s.pricing.shifting;
+    final size = rates.size(d.homeSize);
 
     Future<void> pick({required bool pickup}) async {
       final p = await showParcelPlacePicker(
@@ -67,6 +68,7 @@ class PH01MovingDetailsScreen extends ConsumerWidget {
           onPlace: showcase ? null : () => pick(pickup: true),
           onFloor: (f) => flow.setFloor(pickup: true, floor: f),
           onLift: (v) => flow.setLift(pickup: true, lift: v),
+          stairsPerFloor: rates.stairsPerFloor,
         ),
         MoveEndCard(
           isPickup: false,
@@ -76,6 +78,7 @@ class PH01MovingDetailsScreen extends ConsumerWidget {
           onPlace: showcase ? null : () => pick(pickup: false),
           onFloor: (f) => flow.setFloor(pickup: false, floor: f),
           onLift: (v) => flow.setLift(pickup: false, lift: v),
+          stairsPerFloor: rates.stairsPerFloor,
         ),
         const SizedBox(height: TtSpacing.s),
         Text('How big is the home?', style: t.bodySemibold),
@@ -104,7 +107,7 @@ class PH01MovingDetailsScreen extends ConsumerWidget {
           },
         ),
         const SizedBox(height: TtSpacing.l),
-        _Included(size: d.homeSize, vehicle: s.vehicleOrSuggested),
+        _Included(size: d.homeSize, vehicle: s.vehicleOrSuggested, helpers: size.helpers),
       ],
     );
   }
@@ -112,14 +115,14 @@ class PH01MovingDetailsScreen extends ConsumerWidget {
 
 /// "Included for a 1 BHK": the vehicle and helpers that come.
 class _Included extends StatelessWidget {
-  const _Included({required this.size, required this.vehicle});
+  const _Included({required this.size, required this.vehicle, required this.helpers});
   final HomeSize size;
   final VehicleKind vehicle;
+  final int helpers;
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final helpers = GoodsModeRates.sizes[size]!.helpers;
     return Container(
       padding: const EdgeInsets.all(TtSpacing.m),
       decoration: const BoxDecoration(color: TtColors.infoTint, borderRadius: TtRadii.cardRadius),

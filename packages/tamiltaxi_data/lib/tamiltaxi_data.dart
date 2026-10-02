@@ -42,6 +42,7 @@ export 'src/models/people.dart';
 export 'src/models/place.dart';
 export 'src/models/trip.dart';
 export 'src/models/vehicle.dart';
+export 'src/pricing.dart';
 export 'src/providers.dart';
 export 'src/repositories/repositories.dart';
 export 'src/ride_modes.dart';
