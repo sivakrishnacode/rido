@@ -56,6 +56,8 @@ class _P25bNewTicketScreenState extends ConsumerState<P25bNewTicketScreen> {
   }
 
   Future<void> _submit(String topic, String description) async {
+    // The rider may leave while it sends: [ref] is gone by then, the container is not.
+    final container = ProviderScope.containerOf(context, listen: false);
     try {
       await ref.read(supportRepositoryProvider).raiseTicket(topic: topic, description: description, tripId: _tripId);
     } on OfflineException {
@@ -66,7 +68,7 @@ class _P25bNewTicketScreenState extends ConsumerState<P25bNewTicketScreen> {
       if (mounted) showTtSnack(context, e.message);
       return;
     }
-    ref.invalidate(ticketsProvider);
+    container.invalidate(ticketsProvider);
     if (!mounted) return;
     showTtSnack(context, 'Ticket raised. We usually reply within 24 hours.', success: true);
     _close();

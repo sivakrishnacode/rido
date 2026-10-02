@@ -329,8 +329,11 @@ class _NewTicketViewState extends State<NewTicketView> {
                 onPressed: canSubmit
                     ? () async {
                         setState(() => _sending = true);
-                        await widget.onSubmit(_topic!, _text.text.trim());
-                        if (mounted) setState(() => _sending = false);
+                        try {
+                          await widget.onSubmit(_topic!, _text.text.trim());
+                        } finally {
+                          if (mounted) setState(() => _sending = false);
+                        }
                       }
                     : null,
               ),

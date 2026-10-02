@@ -73,9 +73,10 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
     if (_live && !ref.read(driverRepositoryProvider).isLoggedIn) return;
     if (!silent) setState(() => _checking = true);
     bool? ok;
+    final identity = ref.read(identityProvider.notifier);
     try {
       ok = await ref.read(kycProvider.notifier).checkApplication();
-      if (_live) await ref.read(identityProvider.notifier).refresh();
+      if (_live) await identity.refresh();
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _checking = false);

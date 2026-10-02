@@ -56,9 +56,10 @@ class _ProfilePhotoScreenState extends ConsumerState<ProfilePhotoScreen> {
       _saving = true;
       _error = null;
     });
+    final container = ProviderScope.containerOf(context, listen: false);
     try {
       final isLive = await ref.read(driverRepositoryProvider).uploadProfilePhoto(bytes, _name);
-      ref.invalidate(driverProfileProvider);
+      container.invalidate(driverProfileProvider);
       if (!mounted) return;
       showTtSnack(context, isLive ? 'Photo added. Riders will see it on their trip' : "Thanks! We're checking your photo");
       context.pop();
