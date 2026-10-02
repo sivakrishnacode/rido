@@ -196,6 +196,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   bool _attached = false;
   final Set<String> _closedOffers = {};
 
+  /// Declined trips and the fare they were declined at: the same offer again is ignored (a late copy), unless the
+  /// rider has since added extra, when the server offers it to every driver again.
+  final Map<String, int> _declinedFares = {};
+
   static const _gpsStaleAfter = Duration(seconds: 30);
 
   /// No fix for this long while online: ask for a one-shot fix and restart the stream (see [_healGps]).
@@ -229,6 +233,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       // A rebuild (log out / log in) starts a fresh session.
       _attached = false;
       _closedOffers.clear();
+      _declinedFares.clear();
       _legKey = null;
       ref.onDispose(() {
         _stopTracking();
@@ -327,7 +332,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (_live) {
       _promoteNext();
       if (r != null) {
-        _closedOffers.add(r.id);
+        _declinedFares[r.id] = r.fare;
         _quiet(_jobs.decline(r.id));
       }
       return;
@@ -338,7 +343,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
 
   /// The countdown ran out: the next stacked request, else the S-11 banner on D-14. (Live: the server moves the
   /// offer on, and may offer it to this driver again when nobody else is around, so a timed-out trip is *not* added
-  /// to [_closedOffers]; only accepted / declined ones are.)
+  /// to [_closedOffers] or [_declinedFares].)
   void requestTimedOut() {
     if (_promoteNext()) return;
     state = state.copyWith(clearIncoming: true, missedRequest: true);
@@ -367,10 +372,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       timedOut ? requestTimedOut() : declineRequest();
       return;
     }
-    if (!state.queued.any((q) => q.request.id == tripId)) return;
+    final declined = state.queued.where((q) => q.request.id == tripId).firstOrNull;
+    if (declined == null) return;
     state = state.copyWith(queued: [for (final q in state.queued) if (q.request.id != tripId) q]);
     if (timedOut || !_live) return;
-    _closedOffers.add(tripId);
+    _declinedFares[tripId] = declined.request.fare;
     _quiet(_jobs.decline(tripId));
   }
 
@@ -890,6 +896,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (!ref.mounted) return;
     final id = offer.request.id;
     if (!state.online || state.onJob || _closedOffers.contains(id)) return;
+    final declinedFare = _declinedFares[id];
+    if (declinedFare != null) {
+      if (offer.request.fare <= declinedFare) return;
+      _declinedFares.remove(id);
+    }
     if (state.incoming?.id == id) {
       if (state.incoming!.fare != offer.request.fare) state = state.copyWith(incoming: offer.request);
       return;

@@ -220,8 +220,8 @@ class FakeLocator extends DriverLocator {
   Future<bool> isReadyWithoutPrompt() async => true;
 }
 
-LiveOffer _offer(String id, {int seconds = 15}) => LiveOffer(
-      Seed.rideRequest.copyWith(id: id, customerName: 'Priya', customerPhone: '+919876543210', otp: ''),
+LiveOffer _offer(String id, {int seconds = 15, int? fare}) => LiveOffer(
+      Seed.rideRequest.copyWith(id: id, customerName: 'Priya', customerPhone: '+919876543210', otp: '', fare: fare),
       seconds,
     );
 
@@ -497,7 +497,8 @@ void main() {
     expect(session().vehicle.value?.position, next);
   });
 
-  test('decline and timeout clear the card; a declined trip never comes back, a timed-out one can be re-offered', () async {
+  test('decline and timeout clear the card; a declined trip comes back only with more money, a timed-out one can be '
+      're-offered', () async {
     await session().goOnline();
     jobs.offersCtl.add(_offer('t1'));
     await pumpEventQueue();
@@ -507,7 +508,14 @@ void main() {
     expect(jobs.calls.last, 'decline');
     jobs.offersCtl.add(_offer('t1'));
     await pumpEventQueue();
-    expect(state().incoming, isNull, reason: 'declined: never shown again');
+    expect(state().incoming, isNull, reason: 'declined: the same offer is not shown again');
+    // The rider added extra: the server offers it to everyone again, this driver included.
+    jobs.offersCtl.add(_offer('t1', fare: Seed.rideRequest.fare + 20));
+    await pumpEventQueue();
+    expect(state().incoming?.id, 't1');
+    expect(state().incoming?.fare, Seed.rideRequest.fare + 20);
+    session().declineRequest();
+    await pumpEventQueue();
 
     jobs.offersCtl.add(_offer('t2'));
     await pumpEventQueue();
