@@ -39,7 +39,8 @@ class _DriverEmergencyContactScreenState extends ConsumerState<DriverEmergencyCo
       }
       setState(() {
         _contact = c;
-        _name.text = c.name;
+        // Sign-up saved only the number: the driver names the contact here.
+        _name.text = isSignupContact(c) ? '' : c.name;
         _relation.text = c.relation;
         _phone.text = c.phone.replaceFirst(RegExp(r'^\+91\s?'), '');
       });
