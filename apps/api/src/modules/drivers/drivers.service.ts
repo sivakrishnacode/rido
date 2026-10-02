@@ -9,8 +9,9 @@ import { isGoodsTruck } from '../fares/goods-modes.js';
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, KycDocument, Prisma } from '../../generated/prisma/client.js';
-import { DriverStatus, Gender, IdentityStatus, KycDocType, KycStatus, Role, TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
+import { DriverStatus, Gender, IdentityStatus, KycDocType, KycStatus, PlanPeriod, Role, SubscriptionStatus, TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
 import { AuthService } from '../auth/auth.service.js';
+import { TRIAL_DAYS } from '../subscriptions/plan-prices.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
 import { nearbyVehicles, type NearbyVehicle } from './nearby-vehicles.js';
 import { DriverLocationService } from './driver-location.service.js';
@@ -19,6 +20,9 @@ import { NotifierService } from '../notifications/notifier.service.js';
 import { DriverApprovalService } from '../kyc/driver-approval.service.js';
 import { DiditClient } from '../kyc/didit.client.js';
 import { REQUIRED_DOCS } from '../kyc/driver-approval.js';
+
+const PLATE_TAKEN = 'This number plate is already registered';
+export const ADMIN_CANT_REGISTER = "An admin account can't register as a driver. Use another number";
 
 /** Driver registration, KYC and online status. */
 @Injectable()
@@ -41,23 +45,48 @@ export class DriversService {
     return { vehicles: await nearbyVehicles(this.location, at, kinds) };
   }
 
-  /** Creates the driver, the RC + insurance rows and a 30-day free trial; returns a token with the DRIVER role. */
-  async register(userId: string, dto: RegisterDriverDto): Promise<{ driver: Driver; accessToken: string }> {
+  /**
+   * Creates the driver, the RC + insurance rows and a 30-day free trial in one transaction; returns a token with the
+   * DRIVER role. Idempotent: a user who already has a driver (an app retrying after a lost answer) gets that driver
+   * and a fresh token, [isNew] false (200 instead of 201). Admin accounts can't register (it would demote them);
+   * a plate another driver has → 409.
+   */
+  async register(userId: string, dto: RegisterDriverDto): Promise<{ driver: Driver; accessToken: string; isNew: boolean }> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, driver: true } });
+    if (user.role === Role.ADMIN) throw new ForbiddenException(ADMIN_CANT_REGISTER);
+    if (user.driver) return this.registered(userId, user.driver, user.role);
     const { name, gender, ...vehicle } = dto;
-    const driver = await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: userId }, data: { name, gender, role: Role.DRIVER } });
-      return tx.driver.create({
-        data: {
-          ...vehicle,
-          plate: vehicle.plate.toUpperCase(),
-          userId,
-          documents: { create: REQUIRED_DOCS.map((type) => ({ type })) },
-        },
+    const plate = vehicle.plate.toUpperCase();
+    if (await this.prisma.driver.count({ where: { plate } })) throw new ConflictException(PLATE_TAKEN);
+    let driver: Driver;
+    try {
+      driver = await this.prisma.$transaction(async (tx) => {
+        // The trial's plan first: a missing plan fails the whole registration, never leaves a driver without one.
+        const plan = await tx.plan.findUniqueOrThrow({ where: { vehicleKind_period: { vehicleKind: vehicle.vehicleKind, period: PlanPeriod.MONTHLY } } });
+        await tx.user.update({ where: { id: userId }, data: { name, gender, role: Role.DRIVER } });
+        return tx.driver.create({
+          data: {
+            ...vehicle,
+            plate,
+            userId,
+            documents: { create: REQUIRED_DOCS.map((type) => ({ type })) },
+            subscriptions: { create: { planId: plan.id, status: SubscriptionStatus.TRIAL, endsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000) } },
+          },
+        });
       });
-    });
-    await this.subs.startTrial(driver.id, driver.vehicleKind);
-    const accessToken = await this.auth.issueToken({ sub: userId, role: Role.DRIVER, driverId: driver.id });
-    return { driver, accessToken };
+    } catch (e) {
+      if ((e as { code?: string }).code !== 'P2002') throw e;
+      // Two registrations at once: the other one created this user's driver. Otherwise the plate was just taken.
+      const existing = await this.prisma.driver.findUnique({ where: { userId } });
+      if (existing) return this.registered(userId, existing, Role.DRIVER);
+      throw new ConflictException(PLATE_TAKEN);
+    }
+    return { driver, accessToken: await this.auth.issueToken({ sub: userId, role: Role.DRIVER, driverId: driver.id }), isNew: true };
+  }
+
+  /** The answer to a repeated registration: the driver as stored, with a fresh token. */
+  private async registered(userId: string, driver: Driver, role: Role): Promise<{ driver: Driver; accessToken: string; isNew: false }> {
+    return { driver, accessToken: await this.auth.issueToken({ sub: userId, role, driverId: driver.id }), isNew: false };
   }
 
   me(driverId: string): Promise<Driver> {
