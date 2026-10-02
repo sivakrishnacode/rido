@@ -65,6 +65,8 @@ describe('Tamil Taxi API (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let http: ReturnType<typeof request>;
+  /** A signed-in passenger for quotes, routes and place lookups (those need a sign-in and are limited per user). */
+  let quoter: { Authorization: string };
 
   beforeAll(async () => {
     process.env.OTP_DEV_MODE = 'true';
@@ -86,6 +88,7 @@ describe('Tamil Taxi API (e2e)', () => {
     const keys = [...(await redis.keys('h3:*')), ...(await redis.keys('hexstats:*')), ...(await redis.keys('driver:*')), ...(await redis.keys('dispatch:*')), ...(await redis.keys('jobs:*'))];
     if (keys.length) await redis.del(...keys);
     http = request(app.getHttpServer());
+    quoter = { Authorization: `Bearer ${await login()}` };
   });
 
   afterAll(async () => {
@@ -130,7 +133,7 @@ describe('Tamil Taxi API (e2e)', () => {
   });
 
   it('quotes fares with no peak markup by default', async () => {
-    const res = await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200);
+    const res = await http.post('/v1/fares/quote').set(quoter).send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200);
     // Bike, Scooty, Auto, Auto Priority, Mini, Sedan, SUV.
     expect(res.body.quotes.map((q: { vehicleKind: string }) => q.vehicleKind)).toEqual(['BIKE', 'SCOOTY', 'AUTO', 'AUTO_PRIORITY', 'CAB', 'SEDAN', 'SUV']);
     expect(res.body.quotes.map((q: { total: number }) => q.total)).toEqual([35, 39, 66, 80, 132, 158, 210]);
@@ -237,7 +240,7 @@ describe('Tamil Taxi API (e2e)', () => {
     // Away from the Gandhipuram tests, so these bookings don't count as demand (surge) there.
     const pickup = { lat: 11.0004, lng: 77.028, name: 'Singanallur' };
     const near = { lat: 11.0007, lng: 77.0284 };
-    const quotes = (await http.post('/v1/fares/quote').send({ pickup, drop: BROOKEFIELDS }).expect(200)).body.quotes as { vehicleKind: string; total: number }[];
+    const quotes = (await http.post('/v1/fares/quote').set(quoter).send({ pickup, drop: BROOKEFIELDS }).expect(200)).body.quotes as { vehicleKind: string; total: number }[];
     const fare = (kind: string): number => quotes.find((q) => q.vehicleKind === kind)!.total;
     expect(fare('AUTO_PRIORITY')).toBeGreaterThan(fare('AUTO'));
 
@@ -273,7 +276,7 @@ describe('Tamil Taxi API (e2e)', () => {
     const pickup = { lat: 11.0252, lng: 77.0091, name: 'Hope College' };
     const packages = (await http.get('/v1/fares/rental-packages').expect(200)).body;
     expect(packages.packages.find((p: { id: string }) => p.id === '4h')).toMatchObject({ hours: 4, km: 40, prices: { CAB: 849, SEDAN: 979, SUV: 1279 } });
-    const quotes = (await http.post('/v1/fares/quote').send({ pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(200)).body.quotes;
+    const quotes = (await http.post('/v1/fares/quote').set(quoter).send({ pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(200)).body.quotes;
     expect(quotes.map((q: { vehicleKind: string; total: number }) => [q.vehicleKind, q.total])).toEqual([['CAB', 849], ['SEDAN', 979], ['SUV', 1279]]);
     expect(quotes[1].modeTerms).toMatchObject({ mode: 'RENTAL', hours: 4, km: 40, extraKmRate: 14 });
 
@@ -304,7 +307,7 @@ describe('Tamil Taxi API (e2e)', () => {
     const leave = new Date(Date.now() + 2 * 86_400_000);
     const back = new Date(leave.getTime() + 30 * 3_600_000);
     const body = { pickup, drop, rideMode: 'OUTSTATION', roundTrip: true, scheduledAt: leave.toISOString(), returnAt: back.toISOString() };
-    const quotes = (await http.post('/v1/fares/quote').send(body).expect(200)).body.quotes;
+    const quotes = (await http.post('/v1/fares/quote').set(quoter).send(body).expect(200)).body.quotes;
     const mini = quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'CAB');
     expect(mini.modeTerms).toMatchObject({ mode: 'OUTSTATION', roundTrip: true, perKm: 11, allowancePerDay: 300 });
     expect(mini.total).toBe(mini.modeTerms.includedKm * 11 + 300 * mini.modeTerms.days);
@@ -341,13 +344,13 @@ describe('Tamil Taxi API (e2e)', () => {
   it('goods to another town: goods trucks only, one way, by the km; booked for later it waits', async () => {
     const pickup = { lat: 11.0252, lng: 77.0091, name: 'Hope College' };
     const drop = { lat: 11.1085, lng: 77.3411, name: 'Out of town' };
-    const quotes = (await http.post('/v1/fares/quote').send({ pickup, drop, kind: 'PARCEL', rideMode: 'OUTSTATION' }).expect(200)).body.quotes;
+    const quotes = (await http.post('/v1/fares/quote').set(quoter).send({ pickup, drop, kind: 'PARCEL', rideMode: 'OUTSTATION' }).expect(200)).body.quotes;
     expect(quotes.map((q: { vehicleKind: string }) => q.vehicleKind)).toEqual(['THREE_WHEELER', 'MINI_TRUCK', 'PICKUP', 'TRUCK']);
     const threeW = quotes[0];
     expect(threeW.modeTerms).toMatchObject({ mode: 'OUTSTATION', roundTrip: false, perKm: 22, allowancePerDay: 0 });
     expect(threeW.total).toBe(threeW.modeTerms.includedKm * 22);
-    await http.post('/v1/fares/quote').send({ pickup, drop, kind: 'PARCEL', rideMode: 'OUTSTATION', roundTrip: true }).expect(400);
-    await http.post('/v1/fares/quote').send({ pickup, kind: 'PARCEL', rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(400);
+    await http.post('/v1/fares/quote').set(quoter).send({ pickup, drop, kind: 'PARCEL', rideMode: 'OUTSTATION', roundTrip: true }).expect(400);
+    await http.post('/v1/fares/quote').set(quoter).send({ pickup, kind: 'PARCEL', rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(400);
 
     const pax = { Authorization: `Bearer ${await login()}` };
     const book = { kind: 'PARCEL', pickup, drop, rideMode: 'OUTSTATION' };
@@ -368,7 +371,7 @@ describe('Tamil Taxi API (e2e)', () => {
     };
     const slot = new Date(Date.now() + 2 * 86_400_000);
     slot.setUTCMinutes(0, 0, 0);
-    const q = (await http.post('/v1/fares/shifting-quote').send({ pickup, drop: BROOKEFIELDS, shifting, at: slot.toISOString() }).expect(200)).body;
+    const q = (await http.post('/v1/fares/shifting-quote').set(quoter).send({ pickup, drop: BROOKEFIELDS, shifting, at: slot.toISOString() }).expect(200)).body;
     // 1 BHK: a pickup truck, 2 helpers in town, 2 floors of stairs, basic packing, one piece taken apart.
     expect(q.vehicleKind).toBe('PICKUP');
     expect(q.lines).toMatchObject({ helperCount: 2, helpers: 900, stairs: 300, packing: 699, dismantle: 199, unpack: 0 });
@@ -378,7 +381,7 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(q.days).toHaveLength(7);
     expect(q.days.some((d: { weekend: boolean }) => d.weekend)).toBe(true);
     // A shift by the goods bike, or without its items, or without a slot, is refused.
-    await http.post('/v1/fares/shifting-quote').send({ pickup, drop: BROOKEFIELDS, shifting, vehicleKind: 'GOODS_BIKE' }).expect(400);
+    await http.post('/v1/fares/shifting-quote').set(quoter).send({ pickup, drop: BROOKEFIELDS, shifting, vehicleKind: 'GOODS_BIKE' }).expect(400);
     const pax = { Authorization: `Bearer ${await login()}` };
     const items = [{ name: '  Double cot ', qty: 1, note: 'comes apart' }, { name: 'Fridge', qty: 1 }, { name: 'Cartons', qty: 12, note: '' }];
     const book = { kind: 'PARCEL', vehicleKind: 'PICKUP', pickup, drop: BROOKEFIELDS, scheduledAt: slot.toISOString() };
@@ -443,7 +446,7 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(rates.pricing.rental.SEDAN.prices[3]).toBe(1000);
     expect(rates.pricing.shifting.helperCity).toBe(600);
     expect((await http.get('/v1/fares/rates').expect(200)).body.pricing.rental.SEDAN.prices[3]).toBe(979);
-    const quotes = (await http.post('/v1/fares/quote').send({ pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(200)).body.quotes;
+    const quotes = (await http.post('/v1/fares/quote').set(quoter).send({ pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(200)).body.quotes;
     expect(quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'SEDAN').total).toBe(1000);
     const pax = { Authorization: `Bearer ${await login()}` };
     const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'SEDAN', pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(201)).body;
@@ -453,7 +456,7 @@ describe('Tamil Taxi API (e2e)', () => {
       homeSize: 'ONE_BHK', between: false, pickupFloor: 0, pickupLift: false, dropFloor: 0, dropLift: false,
       packing: 'NONE', dismantlePieces: 0, unpack: false, extraHelpers: 0,
     };
-    const shift = (await http.post('/v1/fares/shifting-quote').send({ pickup, drop: BROOKEFIELDS, shifting: details }).expect(200)).body;
+    const shift = (await http.post('/v1/fares/shifting-quote').set(quoter).send({ pickup, drop: BROOKEFIELDS, shifting: details }).expect(200)).body;
     expect(shift.lines).toMatchObject({ helperCount: 2, helpers: 1200 });
 
     // Reset: the built-in prices again.
@@ -462,18 +465,18 @@ describe('Tamil Taxi API (e2e)', () => {
     const after = (await http.get('/v1/admin/cities/coimbatore/pricing').set(admin).expect(200)).body;
     expect(after.sections.rental.isDefault).toBe(true);
     expect(after.sections.shifting.isDefault).toBe(true);
-    const again = (await http.post('/v1/fares/quote').send({ pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(200)).body.quotes;
+    const again = (await http.post('/v1/fares/quote').set(quoter).send({ pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(200)).body.quotes;
     expect(again.find((q: { vehicleKind: string }) => q.vehicleKind === 'SEDAN').total).toBe(979);
   });
 
   it('quotes carry the nearest driver\'s pickup ETA (null when nobody is near)', async () => {
     const bikeDriver = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
-    const quotes = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200)).body.quotes;
+    const quotes = (await http.post('/v1/fares/quote').set(quoter).send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200)).body.quotes;
     const bike = quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'BIKE');
     expect(typeof bike.pickupEtaMin).toBe('number');
     expect(bike.total).toBe(35);
     const far = { lat: 11.2, lng: 77.2, name: 'Far away' };
-    const empty = (await http.post('/v1/fares/quote').send({ pickup: far, drop: BROOKEFIELDS }).expect(200)).body.quotes;
+    const empty = (await http.post('/v1/fares/quote').set(quoter).send({ pickup: far, drop: BROOKEFIELDS }).expect(200)).body.quotes;
     expect(empty.every((q: { pickupEtaMin: number | null }) => q.pickupEtaMin === null)).toBe(true);
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${bikeDriver}`).expect(200);
   });
@@ -490,7 +493,7 @@ describe('Tamil Taxi API (e2e)', () => {
     // Act + assert: no gender set → refused; FEMALE → booked with the preference.
     await http.post('/v1/trips').set(pax).send(book).expect(400);
     await http.patch('/v1/me').set(pax).send({ gender: 'FEMALE' }).expect(200);
-    const womenOnlyQuote = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS, womenOnly: true }).expect(200)).body.quotes;
+    const womenOnlyQuote = (await http.post('/v1/fares/quote').set(quoter).send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS, womenOnly: true }).expect(200)).body.quotes;
     expect(womenOnlyQuote.find((q: { vehicleKind: string }) => q.vehicleKind === 'CAB').pickupEtaMin).not.toBeNull();
     const trip = (await http.post('/v1/trips').set(pax).send(book).expect(201)).body;
     expect(trip.womenDriver).toBe('ONLY');
@@ -557,7 +560,7 @@ describe('Tamil Taxi API (e2e)', () => {
     const farther = await onlineDriver('BIKE', { lat: 11.026, lng: 77.004 });
     const auth = { Authorization: `Bearer ${bike}` };
     // Only bikes are online: the goods bike still has a pickup ETA on the parcel vehicle list.
-    const quotes = (await http.post('/v1/fares/quote').send({ pickup: PEELAMEDU, drop: BROOKEFIELDS, kind: 'PARCEL' }).expect(200)).body.quotes;
+    const quotes = (await http.post('/v1/fares/quote').set(quoter).send({ pickup: PEELAMEDU, drop: BROOKEFIELDS, kind: 'PARCEL' }).expect(200)).body.quotes;
     const goodsBike = quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'GOODS_BIKE');
     expect(typeof goodsBike.pickupEtaMin).toBe('number');
 
@@ -1320,12 +1323,35 @@ describe('Tamil Taxi API (e2e)', () => {
   });
 
   it('falls back to seeded places and a curved route without a Google key', async () => {
-    const ac = await http.get('/v1/places/autocomplete?q=brook&session=t1').expect(200);
+    const auth = quoter;
+    const ac = await http.get('/v1/places/autocomplete?q=brook&session=t1').set(auth).expect(200);
     expect(ac.body.results.length).toBeGreaterThan(0);
-    const details = await http.get(`/v1/places/details/${ac.body.results[0].placeId}`).expect(200);
+    const details = await http.get(`/v1/places/details/${ac.body.results[0].placeId}`).set(auth).expect(200);
     expect(details.body.lat).toBeCloseTo(11.0, 0);
-    const route = await http.post('/v1/maps/route').send({ from: GANDHIPURAM, to: BROOKEFIELDS }).expect(200);
+    const route = await http.post('/v1/maps/route').set(auth).send({ from: GANDHIPURAM, to: BROOKEFIELDS }).expect(200);
     expect(route.body.points.length).toBeGreaterThan(2);
+  });
+
+  it('paid lookups need a sign-in and are limited per user (admins are not)', async () => {
+    await http.get('/v1/places/autocomplete?q=brook&session=t1').expect(401);
+    await http.get('/v1/places/details/local:x').expect(401);
+    await http.get('/v1/places/reverse').query(GANDHIPURAM).expect(401);
+    await http.post('/v1/maps/route').send({ from: GANDHIPURAM, to: BROOKEFIELDS }).expect(401);
+    await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(401);
+    await http.post('/v1/fares/shifting-quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(401);
+    // Free lookups stay public.
+    await http.get('/v1/places?q=brook').expect(200);
+    await http.get('/v1/fares/rates').expect(200);
+
+    // Reverse geocode: 30 a minute per user, then 429 with Retry-After; another user has their own allowance.
+    const me = { Authorization: `Bearer ${await login()}` };
+    for (let i = 0; i < 30; i++) await http.get('/v1/places/reverse').query(GANDHIPURAM).set(me).expect(200);
+    const limited = await http.get('/v1/places/reverse').query(GANDHIPURAM).set(me).expect(429);
+    expect(limited.body.message).toBe('Too many requests. Please wait a moment and try again.');
+    expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
+    await http.get('/v1/places/reverse').query(GANDHIPURAM).set(quoter).expect(200);
+    const admin = await adminAuth();
+    for (let i = 0; i < 31; i++) await http.get('/v1/places/reverse').query(GANDHIPURAM).set(admin).expect(200);
   });
 
   it('lets only ADMIN_PHONES use the admin API', async () => {

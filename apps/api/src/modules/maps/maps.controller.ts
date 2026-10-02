@@ -1,6 +1,5 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 
-import { Public } from '../../core/auth/public.decorator.js';
 import { LIMITS, RateLimit } from '../../core/rate-limit/rate-limit.decorator.js';
 import { curvedFallback } from './curved-fallback.js';
 import { RouteQueryDto } from './dto/route-query.dto.js';
@@ -9,9 +8,9 @@ import { MapsService } from './maps.service.js';
 
 /**
  * Route for drawing the polyline (P-10, D-16). Call once per leg, never on a timer: live tracking
- * uses the driver's GPS over Socket.IO, not repeated Routes API calls.
+ * uses the driver's GPS over Socket.IO, not repeated Routes API calls. Signed in (any role), rate limited: a route
+ * can be a paid Google call.
  */
-@Public()
 @Controller('maps')
 export class MapsController {
   constructor(private readonly maps: MapsService) {}

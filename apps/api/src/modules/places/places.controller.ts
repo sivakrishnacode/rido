@@ -14,13 +14,16 @@ export function originOf(lat?: string, lng?: string): { lat: number; lng: number
   return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 ? { lat: a, lng: b } : undefined;
 }
 
-/** P-08 search (autocomplete + details), P-09 reverse geocode. */
-@Public()
+/**
+ * P-08 search (autocomplete + details), P-09 reverse geocode. Autocomplete, details and reverse can be paid Google
+ * calls: signed in (any role) and rate limited per user. The seeded search and outstation suggestions stay public.
+ */
 @Controller('places')
 export class PlacesController {
   constructor(private readonly places: PlacesService) {}
 
   /** Seeded places only (no Google cost). */
+  @Public()
   @Get()
   search(@Query('q') q = ''): Promise<Place[]> {
     return this.places.search(q);
@@ -47,6 +50,7 @@ export class PlacesController {
    * Outstation suggestions near a pickup: where riders from this area went most on outstation trips (last 180
    * days), with distances. Empty until there are such trips (no towns are built in).
    */
+  @Public()
   @Get('outstation-destinations')
   outstationDestinations(@Query('lat') lat?: string, @Query('lng') lng?: string): Promise<{ destinations: OutstationDestination[] }> {
     const at = originOf(lat, lng);
