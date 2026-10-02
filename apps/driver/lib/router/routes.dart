@@ -54,8 +54,14 @@ abstract final class Routes {
   static const contribute = '/account/contribute';
   static const bookingPreferences = '/account/booking-preferences';
   static const help = '/help';
-  static String newTicket({String? topic}) =>
-      topic == null ? '/help/new-ticket' : '/help/new-ticket?topic=${Uri.encodeComponent(topic)}';
+  /// [tripId]: the ticket is about that trip (support sees which one).
+  static String newTicket({String? topic, String? tripId}) {
+    final query = [
+      if (topic != null) 'topic=${Uri.encodeComponent(topic)}',
+      if (tripId != null) 'tripId=${Uri.encodeComponent(tripId)}',
+    ];
+    return query.isEmpty ? '/help/new-ticket' : '/help/new-ticket?${query.join('&')}';
+  }
 
   static const gallery = '/gallery';
   static String galleryView(String frameId) => '/gallery/view/$frameId';
