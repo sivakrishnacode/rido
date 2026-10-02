@@ -61,6 +61,7 @@ class _FakeTrips extends LiveTrips {
   final _messages = StreamController<ChatMessage>.broadcast();
   final calls = <String>[];
   TripKind kind = TripKind.ride;
+  RideMode rideMode = RideMode.local;
   late LiveTripUpdate last;
 
   /// What the last booking sent as parcel details.
@@ -92,6 +93,7 @@ class _FakeTrips extends LiveTrips {
       durationMin: 20,
       otp: '5821',
       parcel: kind == TripKind.parcel ? kEmptyParcelDetails.copyWith(receiverName: 'Meena', deliveryOtp: '5821') : null,
+      rideMode: rideMode,
     );
     return last = LiveTripUpdate(trip, status, {
       'id': 'trip-1',
@@ -294,6 +296,41 @@ void main() {
     // A newer status still moves it on.
     flow().restore(trips.update('DRIVER_ARRIVED', driver: _driver));
     expect(ride().phase, RidePhase.arrived);
+  });
+
+  test('a rental asks for no pickup → drop route; restored after a restart it is still a rental', () async {
+    final asked = <String>[];
+    RoadRouter.enabled = true;
+    RoadRouter.backend = (a, b, mode) async {
+      asked.add('$a > $b');
+      return null;
+    };
+    addTearDown(() {
+      RoadRouter.enabled = false;
+      RoadRouter.backend = null;
+    });
+    trips.rideMode = RideMode.rental;
+    flow().startMode(const ModeRequest(mode: RideMode.rental, packageId: '4h'));
+    await _settle();
+    asked.clear();
+    expect(await flow().book(), isNull);
+    await _settle();
+    expect(asked, isEmpty, reason: 'no /maps/route call to a drop the rental does not have');
+    expect(ride().routeOrDefault, isEmpty);
+
+    // After a restart the booking mode is unknown; the trip's rental terms still make it a rental.
+    final c = ProviderContainer(overrides: [
+      isLiveApiProvider.overrideWithValue(true),
+      realtimeProvider.overrideWithValue(realtime),
+      liveTripsProvider.overrideWithValue(trips),
+    ]);
+    addTearDown(c.dispose);
+    const terms = RentalTerms(packageId: '4h', hours: 4, km: 40, price: 849, extraKmRate: 14, extraMinRate: 2.5);
+    c.read(rideFlowProvider.notifier).restore(trips.update('IN_PROGRESS', driver: _driver, quote: _quote.copyWith(modeTerms: terms)));
+    await _settle();
+    expect(c.read(rideFlowProvider).isRental, isTrue);
+    expect(c.read(rideFlowProvider).routeOrDefault, isEmpty);
+    expect(asked, isEmpty);
   });
 
   test('Butterfly: a woman rider books "women only"; the choice is ignored for anyone else', () async {
