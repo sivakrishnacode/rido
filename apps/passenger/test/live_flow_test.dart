@@ -452,6 +452,21 @@ void main() {
     expect(rides.asked.length, n);
   });
 
+  test("until the driver's first fix, the assigned ETA is the quote's pickup ETA", () async {
+    await flow().book();
+    trips.push(trips.update('DRIVER_ASSIGNED', driver: _driver, quote: _quote.copyWith(pickupEtaMin: 7)));
+    await _settle();
+    expect(ride().etaMin, 7);
+
+    trips.kind = TripKind.parcel;
+    final parcel = container.read(parcelFlowProvider.notifier);
+    parcel.setDrop(Seed.raceCourse);
+    await parcel.book();
+    trips.push(trips.update('DRIVER_ASSIGNED', driver: _driver, quote: _quote.copyWith(pickupEtaMin: 11)));
+    await _settle();
+    expect(container.read(parcelFlowProvider).etaMin, 11);
+  });
+
   test('Skip on P-20 sends no rating', () async {
     await flow().book();
     trips.push(trips.update('COMPLETED', driver: _driver));
