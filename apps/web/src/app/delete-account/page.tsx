@@ -3,12 +3,13 @@ import Link from "next/link";
 
 import { Bullets, LegalBlock, LegalShell } from "@/components/legal-page";
 import { deletion } from "@/lib/legal";
-import { site } from "@/lib/site";
+import { openGraphBase, site } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Delete your account",
   description: "How to delete your Tamil Taxi or Tamil Taxi Driver account, and what is deleted.",
   alternates: { canonical: "/delete-account/" },
+  openGraph: { ...openGraphBase, url: "/delete-account/" },
 };
 
 const subject = encodeURIComponent("Delete my Tamil Taxi account");

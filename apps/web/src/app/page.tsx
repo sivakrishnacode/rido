@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -22,7 +23,13 @@ import {
 
 import { Phone } from "@/components/phone";
 import { PlayButton } from "@/components/play-button";
-import { site } from "@/lib/site";
+import { openGraphBase, site } from "@/lib/site";
+
+// Title and description come from the layout.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: { ...openGraphBase, url: "/" },
+};
 
 /** Lucide has no auto-rickshaw, so this one is drawn in the same 24px, 2px-stroke style. */
 function AutoIcon({ className }: { className?: string }) {

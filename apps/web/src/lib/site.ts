@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 /** Everything the pages link to, in one place. The repo is public: nothing private goes here. */
 export const site = {
   name: "Tamil Taxi",
@@ -13,6 +15,27 @@ export const site = {
     driver: { name: "Tamil Taxi Driver", packageId: "com.tamiltaxi.driver" },
   },
 } as const;
+
+/**
+ * Open Graph tags every page shares. A page's own `openGraph` replaces the layout's (no deep merge), so each page
+ * spreads this and adds its `url`. Next copies the image to twitter:image too. The image (public/og-image.png,
+ * 1200×630) is the home hero: headline, the rider app's ride choice and a driver request.
+ */
+export const openGraphBase = {
+  type: "website",
+  siteName: site.name,
+  locale: "en_IN",
+  images: [
+    {
+      url: "/og-image.png",
+      width: 1200,
+      height: 630,
+      alt:
+        `${site.name}: rides and parcels across ${site.city} with 0% commission. The rider app choosing a ride, ` +
+        "and the driver app showing a ₹38 request that is 100% the driver's.",
+    },
+  ],
+} satisfies NonNullable<Metadata["openGraph"]>;
 
 /** Every page, for the sitemap (a test checks each one exists). */
 export const pages = ["/", "/privacy/", "/terms/", "/delete-account/"] as const;
