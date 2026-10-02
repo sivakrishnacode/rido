@@ -849,10 +849,13 @@ describe('Tamil Taxi API (e2e)', () => {
       expect(dropped).toMatchObject({ status: 'SEARCHING', driverId: null, reassignCount: 1, arrivedAt: null, cancelledBy: null, otp: '' });
       expect((await http.get(`/v1/trips/${trip.id}`).set(pax).expect(200)).body.status).toBe('SEARCHING');
       expect(await redis.exists(`driver:busy:${firstId}`)).toBe(0);
-      expect(await redis.sismember(`dispatch:${trip.id}:declined`, firstId)).toBe(1);
+      expect(await redis.sismember(`dispatch:${trip.id}:excluded`, firstId)).toBe(1);
       expect(await prisma.tripCancellation.findMany({ where: { tripId: trip.id } })).toMatchObject([
         { by: 'DRIVER', code: 'VEHICLE_ISSUE', driverId: firstId, fromStatus: 'DRIVER_ARRIVED', reassigned: true, isDriverFault: true, fault: 'DRIVER', faultRule: 'driver_after_arrival' },
       ]);
+      // The rider adds extra: drivers who said no may get it again, the one who dropped it still not.
+      await http.post(`/v1/trips/${trip.id}/extra`).set(pax).send({ amount: 10 }).expect(200);
+      expect(await redis.sismember(`dispatch:${trip.id}:excluded`, firstId)).toBe(1);
 
       // Act 2: the other driver gets it (never the one who dropped it), then cancels too: the limit is reached.
       const second = await acceptByAnyone(drivers);

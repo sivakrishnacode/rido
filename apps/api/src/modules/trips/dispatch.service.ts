@@ -42,6 +42,10 @@ redis.call('zadd', KEYS[1], ARGV[3], ARGV[1])
 redis.call('pexpireat', KEYS[1], ARGV[3])
 return 1`;
 const driverOffersKey = (driverId: string): string => `dispatch:driver:${driverId}:offers`;
+/** Drivers who said no to the trip: not offered it again, unless the rider adds extra ([DispatchService.boosted]). */
+const declinedKey = (tripId: string): string => `dispatch:${tripId}:declined`;
+/** Drivers taken off the trip (they dropped it, or were not moving): never offered it again, extra or not. */
+export const excludedKey = (tripId: string): string => `dispatch:${tripId}:excluded`;
 
 /** Out of candidates: search again after this long (drivers who timed out may be offered again). */
 const RESEARCH_AFTER_MS = 4_000;
@@ -156,7 +160,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   /** The driver said no: never offer them this trip again, try the next candidate. */
   async decline(tripId: string, driverId: string): Promise<void> {
     await this.offerStats.record(driverId, 'declined');
-    await this.redis.multi().sadd(`dispatch:${tripId}:declined`, driverId).expire(`dispatch:${tripId}:declined`, 900).exec();
+    await this.redis.multi().sadd(declinedKey(tripId), driverId).expire(declinedKey(tripId), 900).exec();
     await this.next(tripId);
   }
 
@@ -185,7 +189,8 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     await this.clearOffer(tripId);
     await this.redis.del(
       `dispatch:${tripId}:queue`,
-      `dispatch:${tripId}:declined`,
+      declinedKey(tripId),
+      excludedKey(tripId),
       `dispatch:${tripId}:offered`,
       `dispatch:${tripId}:since`,
     );
@@ -193,13 +198,13 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * The trip's driver dropped it before pickup and it is SEARCHING again: search now, never offering it to
-   * [excludedDriverId] again, with the full search time from here.
+   * [excludedDriverId] again (not even after the rider adds extra), with the full search time from here.
    */
   async restart(tripId: string, excludedDriverId: string): Promise<void> {
     await this.redis
       .multi()
-      .sadd(`dispatch:${tripId}:declined`, excludedDriverId)
-      .expire(`dispatch:${tripId}:declined`, 900)
+      .sadd(excludedKey(tripId), excludedDriverId)
+      .expire(excludedKey(tripId), 900)
       .set(`dispatch:${tripId}:since`, String(Date.now()), 'EX', 900)
       .sadd(PENDING_KEY, tripId)
       .exec();
@@ -222,11 +227,11 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * The passenger added extra to a searching trip ([TripsService.addExtra]): drivers who said no may take it now, so
-   * they can be offered it again; whoever holds the offer gets it again at the new fare (same time left), and the
-   * search runs again with its full time from here ([widen]).
+   * they can be offered it again (not the ones taken off it, [restart]); whoever holds the offer gets it again at the
+   * new fare (same time left), and the search runs again with its full time from here ([widen]).
    */
   async boosted(tripId: string): Promise<void> {
-    await this.redis.del(`dispatch:${tripId}:declined`);
+    await this.redis.del(declinedKey(tripId));
     const driverId = await this.offeredTo(tripId);
     const trip = driverId ? await this.prisma.trip.findUnique({ where: { id: tripId } }) : null;
     const left = (await this.redis.ttl(`dispatch:${tripId}:offer`)) - OFFER_GRACE_S;
@@ -280,7 +285,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     const kinds: VehicleKind[] = [trip.vehicleKind, ...trip.alsoKinds.filter((k) => k !== trip.vehicleKind)];
     const [perKind, declined] = await Promise.all([
       Promise.all(kinds.map((kind) => this.tripDrivers.nearby({ kind, ...pickup, radiusKm, limit: s.maxCandidates * 2 }))),
-      this.redis.smembers(`dispatch:${trip.id}:declined`),
+      this.redis.sunion(declinedKey(trip.id), excludedKey(trip.id)),
     ]);
     // Paused drivers (too many cancellations) are offline anyway; this covers an index entry left behind.
     const paused = await this.blocks.pausedAmong(perKind.flat().map((d) => d.driverId));
@@ -398,8 +403,9 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
    * no other vehicle was added (they said no; waiting helps nobody).
    */
   private async searchAgainOrGiveUp(trip: Trip, searchFoundNobody: boolean): Promise<void> {
-    if (searchFoundNobody && (await this.redis.scard(`dispatch:${trip.id}:declined`)) > 0) {
-      // Only drivers who said no are in range: wait while the radius still widens, else end it now.
+    const [declined, excluded] = searchFoundNobody ? await Promise.all([this.redis.scard(declinedKey(trip.id)), this.redis.scard(excludedKey(trip.id))]) : [0, 0];
+    if (declined + excluded > 0) {
+      // Only drivers who said no (or were taken off it) are in range: wait while the radius still widens, else end it now.
       const s = await this.settings.all();
       const atMax = searchRadiusAt(Date.now() - trip.searchFrom.getTime(), s) >= Math.max(s.searchRadiusKm, s.maxSearchRadiusKm);
       if (atMax && trip.alsoKinds.length === 0) return this.giveUp(trip);
