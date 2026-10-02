@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { deletion, privacy, terms } from "@/lib/legal";
+import { deletion, legalUpdated, privacy, terms } from "@/lib/legal";
 import { openGraphBase, pages, playStoreUrl, site } from "@/lib/site";
 
 const repoRoot = path.resolve(__dirname, "../../..");
@@ -42,6 +42,13 @@ describe("legal text", () => {
     for (const doc of [privacy, terms]) {
       expect(doc.updated).toMatch(/^\d{1,2} \w+ \d{4}$/);
       expect(doc.sections.some((s) => s.paragraphs.some((p) => p.includes(site.email)))).toBe(true);
+    }
+  });
+
+  it("carries the same date as the apps' legal screens", () => {
+    for (const app of ["passenger", "driver"]) {
+      const screen = readFileSync(path.join(repoRoot, `apps/${app}/lib/features/onboarding/legal_screen.dart`), "utf8");
+      expect(screen, app).toContain(`'Last updated ${legalUpdated}'`);
     }
   });
 
