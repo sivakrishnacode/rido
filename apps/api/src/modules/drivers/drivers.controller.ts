@@ -18,7 +18,6 @@ import { LocationDto } from './dto/location.dto.js';
 import { NearbyQueryDto } from './dto/nearby-query.dto.js';
 import { PARCEL_MAP_KINDS, RIDE_MAP_KINDS, type NearbyVehicle } from './nearby-vehicles.js';
 import { RegisterDriverDto } from './dto/register-driver.dto.js';
-import { ReviewDriverDto } from './dto/review-driver.dto.js';
 import { ReviewPhotoDto } from './dto/review-photo.dto.js';
 import { UpdateDriverDto } from './dto/update-driver.dto.js';
 
@@ -133,13 +132,6 @@ export class DriversController {
     const f = await this.files.open(name);
     res.setHeader('cache-control', 'private, max-age=86400');
     return new StreamableFile(f.stream, { type: f.type, length: f.size || undefined, disposition: 'inline' });
-  }
-
-  @Roles(Role.ADMIN)
-  @Post('admin/drivers/:id/review')
-  @HttpCode(200)
-  review(@Param('id') id: string, @Body() body: ReviewDriverDto): Promise<Driver> {
-    return this.drivers.review({ driverId: id, ...body });
   }
 
   private static driverId(user: AuthUser): string {

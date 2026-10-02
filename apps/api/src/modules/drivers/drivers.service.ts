@@ -153,23 +153,6 @@ export class DriversService {
     return doc;
   }
 
-  /** Admin review: verifies all documents and approves the driver (or rejects one document). */
-  async review(params: { driverId: string; isApproved: boolean; rejectType?: KycDocType; reason?: string }): Promise<Driver> {
-    await this.state.invalidate(params.driverId);
-    if (params.isApproved) {
-      await this.prisma.kycDocument.updateMany({ where: { driverId: params.driverId }, data: { status: KycStatus.VERIFIED } });
-      void this.notifier.kycReviewed({ driverId: params.driverId, status: 'APPROVED' });
-      return this.prisma.driver.update({ where: { id: params.driverId }, data: { status: DriverStatus.APPROVED } });
-    }
-    if (!params.rejectType) throw new BadRequestException('rejectType is required when rejecting');
-    void this.notifier.kycReviewed({ driverId: params.driverId, type: params.rejectType, status: 'REJECTED', reason: params.reason });
-    await this.prisma.kycDocument.update({
-      where: { driverId_type: { driverId: params.driverId, type: params.rejectType } },
-      data: { status: KycStatus.REJECTED, rejectReason: params.reason ?? 'Please upload a clearer image' },
-    });
-    return this.prisma.driver.update({ where: { id: params.driverId }, data: { status: DriverStatus.REJECTED } });
-  }
-
   async goOnline(params: { driverId: string; lat: number; lng: number }): Promise<Driver> {
     const driver = await this.prisma.driver.findUniqueOrThrow({ where: { id: params.driverId } });
     if (driver.status !== DriverStatus.APPROVED) throw new ForbiddenException(`Account is ${driver.status.toLowerCase()}`);
