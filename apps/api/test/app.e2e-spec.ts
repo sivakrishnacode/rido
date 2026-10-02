@@ -393,6 +393,52 @@ describe('Tamil Taxi API (e2e)', () => {
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${mover}`).expect(200);
   });
 
+  it("admin pricing: a city's own rental, outstation, goods and shifting prices quote and book; reset goes back", async () => {
+    const admin = await adminAuth();
+    const pickup = { lat: 11.0252, lng: 77.0091, name: 'Hope College' };
+    const before = (await http.get('/v1/admin/cities/coimbatore/pricing').set(admin).expect(200)).body;
+    expect(before.sections.rental).toMatchObject({ isDefault: true, value: { SEDAN: { extraKm: 14 } } });
+    expect(before.packages).toHaveLength(8);
+    // Not without an admin; a broken section is refused with what's wrong.
+    await http.get('/v1/admin/cities/coimbatore/pricing').expect(401);
+    const rental = before.sections.rental.value;
+    await http.put('/v1/admin/cities/coimbatore/pricing/rental').set(admin).send({ ...rental, SUV: undefined }).expect(400);
+    await http.put('/v1/admin/cities/coimbatore/pricing/surge').set(admin).send({}).expect(400);
+
+    const sedan = { ...rental.SEDAN, prices: rental.SEDAN.prices.map((p: number) => p + 21) };
+    const saved = (await http.put('/v1/admin/cities/coimbatore/pricing/rental').set(admin).send({ ...rental, SEDAN: sedan }).expect(200)).body;
+    expect(saved.sections.rental).toMatchObject({ isDefault: false, value: { SEDAN: { prices: sedan.prices } } });
+    const shifting = { ...before.sections.shifting.value, helperCity: 600 };
+    await http.put('/v1/admin/cities/coimbatore/pricing/shifting').set(admin).send(shifting).expect(200);
+
+    // The apps read the city's prices; quotes and bookings use them.
+    const rates = (await http.get('/v1/fares/rates').query({ lat: pickup.lat, lng: pickup.lng }).expect(200)).body;
+    expect(rates.pricing.rental.SEDAN.prices[3]).toBe(1000);
+    expect(rates.pricing.shifting.helperCity).toBe(600);
+    expect((await http.get('/v1/fares/rates').expect(200)).body.pricing.rental.SEDAN.prices[3]).toBe(979);
+    const quotes = (await http.post('/v1/fares/quote').send({ pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(200)).body.quotes;
+    expect(quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'SEDAN').total).toBe(1000);
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'SEDAN', pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(201)).body;
+    expect(trip.fareTotal).toBe(1000);
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+    const details = {
+      homeSize: 'ONE_BHK', between: false, pickupFloor: 0, pickupLift: false, dropFloor: 0, dropLift: false,
+      packing: 'NONE', dismantlePieces: 0, unpack: false, extraHelpers: 0,
+    };
+    const shift = (await http.post('/v1/fares/shifting-quote').send({ pickup, drop: BROOKEFIELDS, shifting: details }).expect(200)).body;
+    expect(shift.lines).toMatchObject({ helperCount: 2, helpers: 1200 });
+
+    // Reset: the built-in prices again.
+    await http.delete('/v1/admin/cities/coimbatore/pricing/rental').set(admin).expect(204);
+    await http.delete('/v1/admin/cities/coimbatore/pricing/shifting').set(admin).expect(204);
+    const after = (await http.get('/v1/admin/cities/coimbatore/pricing').set(admin).expect(200)).body;
+    expect(after.sections.rental.isDefault).toBe(true);
+    expect(after.sections.shifting.isDefault).toBe(true);
+    const again = (await http.post('/v1/fares/quote').send({ pickup, rideMode: 'RENTAL', rentalPackageId: '4h' }).expect(200)).body.quotes;
+    expect(again.find((q: { vehicleKind: string }) => q.vehicleKind === 'SEDAN').total).toBe(979);
+  });
+
   it('quotes carry the nearest driver\'s pickup ETA (null when nobody is near)', async () => {
     const bikeDriver = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
     const quotes = (await http.post('/v1/fares/quote').send({ pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(200)).body.quotes;

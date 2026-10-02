@@ -24,6 +24,9 @@ import type {
   CancellationDue,
   DriverBlock,
   CityFare,
+  CityPricing,
+  ModePricing,
+  PricingSection,
   CityFareRule,
   CityListItem,
   DemandSnapshot,
@@ -286,6 +289,11 @@ export const adminApi = {
   setFare: (cityId: string, kind: VehicleKind, data: FareInput) =>
     apiFetch<CityFareRule>(`/admin/cities/${enc(cityId)}/fares/${kind}`, { method: "PUT", body: data }),
   resetFare: (cityId: string, kind: VehicleKind) => apiFetch<null>(`/admin/cities/${enc(cityId)}/fares/${kind}`, { method: "DELETE" }),
+  pricing: (cityId: string) => apiFetch<CityPricing>(`/admin/cities/${enc(cityId)}/pricing`),
+  setPricing: <S extends PricingSection>(cityId: string, section: S, data: ModePricing[S]) =>
+    apiFetch<CityPricing>(`/admin/cities/${enc(cityId)}/pricing/${section}`, { method: "PUT", body: data }),
+  resetPricing: (cityId: string, section: PricingSection) =>
+    apiFetch<null>(`/admin/cities/${enc(cityId)}/pricing/${section}`, { method: "DELETE" }),
 
   // Users and the KYC queue
   users: (q: ListQuery = {}) => apiFetch<Paged<AdminUser>>("/admin/users", { query: listQuery(q) }),

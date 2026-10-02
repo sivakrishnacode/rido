@@ -1017,3 +1017,50 @@ export interface EtaAccuracy extends EtaAccuracyStats {
 }
 
 export type HexStatsSort = "busiest" | "slowest" | "fastest";
+
+// Up-front prices per city (api fares/pricing.ts) -------------------------------------------------------------------
+
+export type CabTier = "CAB" | "SEDAN" | "SUV";
+export const CAB_TIERS: readonly CabTier[] = ["CAB", "SEDAN", "SUV"];
+export type GoodsTruck = "THREE_WHEELER" | "MINI_TRUCK" | "PICKUP" | "TRUCK";
+export const GOODS_TRUCKS: readonly GoodsTruck[] = ["THREE_WHEELER", "MINI_TRUCK", "PICKUP", "TRUCK"];
+export type HomeSize = "FEW_ITEMS" | "ONE_RK" | "ONE_BHK" | "TWO_BHK" | "THREE_BHK";
+export const HOME_SIZES: readonly HomeSize[] = ["FEW_ITEMS", "ONE_RK", "ONE_BHK", "TWO_BHK", "THREE_BHK"];
+
+export interface RentalPackage {
+  readonly id: string;
+  readonly hours: number;
+  readonly km: number;
+}
+
+export type RentalPricing = Record<CabTier, { prices: number[]; extraKm: number; extraMin: number }>;
+export type OutstationPricing = Record<
+  CabTier,
+  { oneWayPerKm: number; roundTripPerKm: number; allowancePerDay: number; oneWayMinKm: number; roundTripKmPerDay: number }
+>;
+export type GoodsOutstationPricing = Record<GoodsTruck, { perKm: number; minKm: number }>;
+export interface ShiftingPricing {
+  sizes: Record<HomeSize, { vehicle: GoodsTruck; helpers: number; packing: { BASIC: number; FULL: number }; unpack: number }>;
+  helperCity: number;
+  helperBetween: number;
+  stairsPerFloor: number;
+  dismantlePerPiece: number;
+  weekendPct: number;
+}
+
+export interface ModePricing {
+  rental: RentalPricing;
+  outstation: OutstationPricing;
+  goodsOutstation: GoodsOutstationPricing;
+  shifting: ShiftingPricing;
+}
+
+export type PricingSection = keyof ModePricing;
+export const PRICING_SECTIONS: readonly PricingSection[] = ["rental", "outstation", "goodsOutstation", "shifting"];
+
+/** GET /admin/cities/:id/pricing: each section as it applies, and whether it is the built-in one. */
+export interface CityPricing {
+  readonly packages: readonly RentalPackage[];
+  readonly sections: { readonly [S in PricingSection]: { readonly value: ModePricing[S]; readonly isDefault: boolean } };
+}
+

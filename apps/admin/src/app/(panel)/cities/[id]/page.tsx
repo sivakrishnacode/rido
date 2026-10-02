@@ -12,10 +12,11 @@ import { cellsToKm2 } from "@/lib/validation";
 
 import { CitySettings } from "./city-settings";
 import { FaresEditor } from "./fares-editor";
+import { PricingEditor } from "./pricing-editor";
 import { ServiceAreaEditor } from "./service-area-editor";
 import { ZonesEditor } from "./zones-editor";
 
-const TABS = ["area", "zones", "fares", "settings"] as const;
+const TABS = ["area", "zones", "fares", "pricing", "settings"] as const;
 
 export async function generateMetadata({ params }: PageProps<"/cities/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -27,7 +28,7 @@ export default async function CityPage({ params, searchParams }: PageProps<"/cit
   const sp = await searchParams;
   const tabParam = param(sp.tab);
   const tab = TABS.find((t) => t === tabParam) ?? "area";
-  const [city, fares] = await Promise.all([adminApi.city(id), adminApi.fares(id)]);
+  const [city, fares, pricing] = await Promise.all([adminApi.city(id), adminApi.fares(id), adminApi.pricing(id)]);
 
   return (
     <>
@@ -52,6 +53,7 @@ export default async function CityPage({ params, searchParams }: PageProps<"/cit
           <TabsTrigger value="area">Service area</TabsTrigger>
           <TabsTrigger value="zones">Zones</TabsTrigger>
           <TabsTrigger value="fares">Fares</TabsTrigger>
+          <TabsTrigger value="pricing">Rentals &amp; more</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="area">
@@ -62,6 +64,9 @@ export default async function CityPage({ params, searchParams }: PageProps<"/cit
         </TabsContent>
         <TabsContent value="fares">
           <FaresEditor cityId={city.id} fares={fares} />
+        </TabsContent>
+        <TabsContent value="pricing">
+          <PricingEditor cityId={city.id} pricing={pricing} />
         </TabsContent>
         <TabsContent value="settings">
           <CitySettings key={city.updatedAt} city={city} />

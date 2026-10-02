@@ -33,8 +33,11 @@ export const RENTAL_PACKAGES: readonly RentalPackage[] = [
   { id: '12h', hours: 12, km: 120 },
 ];
 
-/** Package prices (₹, in [RENTAL_PACKAGES] order) and the rates past the package's km and time. */
-export const RENTAL_RATES: Readonly<Record<CabTier, { prices: readonly number[]; extraKm: number; extraMin: number }>> = {
+/** Package prices (₹, in [RENTAL_PACKAGES] order) and the rates past the package's km and time, per cab tier. */
+export type RentalRates = Readonly<Record<CabTier, { prices: readonly number[]; extraKm: number; extraMin: number }>>;
+
+/** The built-in rental prices (a city may set its own, fares/pricing.ts). */
+export const RENTAL_RATES: RentalRates = {
   CAB: { prices: [249, 449, 649, 849, 1249, 1599, 1999, 2349], extraKm: 12, extraMin: 2 },
   SEDAN: { prices: [289, 519, 749, 979, 1429, 1849, 2299, 2699], extraKm: 14, extraMin: 2.5 },
   SUV: { prices: [379, 679, 979, 1279, 1879, 2399, 2999, 3499], extraKm: 18, extraMin: 3 },
@@ -55,11 +58,11 @@ export function rentalPackage(id: string): RentalPackage | undefined {
   return RENTAL_PACKAGES.find((p) => p.id === id);
 }
 
-export function rentalTerms(kind: CabTier, packageId: string): RentalTerms | null {
+export function rentalTerms(kind: CabTier, packageId: string, rates: RentalRates = RENTAL_RATES): RentalTerms | null {
   const i = RENTAL_PACKAGES.findIndex((p) => p.id === packageId);
   if (i < 0) return null;
   const p = RENTAL_PACKAGES[i];
-  const r = RENTAL_RATES[kind];
+  const r = rates[kind];
   return { mode: 'RENTAL', packageId: p.id, hours: p.hours, km: p.km, price: r.prices[i], extraKmRate: r.extraKm, extraMinRate: r.extraMin };
 }
 
@@ -70,9 +73,12 @@ export function rentalTerms(kind: CabTier, packageId: string): RentalTerms | nul
  * [roundTripKmPerDay] km a day are included, or twice the route if that is more, at [roundTripPerKm]. A driver
  * allowance per calendar day either way. Tolls, parking and state permits are paid by the rider on the way.
  */
-export const OUTSTATION_RATES: Readonly<
+export type OutstationRates = Readonly<
   Record<CabTier, { oneWayPerKm: number; roundTripPerKm: number; allowancePerDay: number; oneWayMinKm: number; roundTripKmPerDay: number }>
-> = {
+>;
+
+/** The built-in outstation rates (a city may set its own, fares/pricing.ts). */
+export const OUTSTATION_RATES: OutstationRates = {
   CAB: { oneWayPerKm: 14, roundTripPerKm: 11, allowancePerDay: 300, oneWayMinKm: 60, roundTripKmPerDay: 250 },
   SEDAN: { oneWayPerKm: 15, roundTripPerKm: 12, allowancePerDay: 300, oneWayMinKm: 60, roundTripKmPerDay: 250 },
   SUV: { oneWayPerKm: 19, roundTripPerKm: 16, allowancePerDay: 400, oneWayMinKm: 60, roundTripKmPerDay: 250 },
@@ -103,8 +109,15 @@ export interface OutstationTerms {
   readonly routeKm: number;
 }
 
-export function outstationTerms(p: { kind: CabTier; routeKm: number; roundTrip: boolean; leaveAt: Date; returnAt: Date | null }): OutstationTerms {
-  const r = OUTSTATION_RATES[p.kind];
+export function outstationTerms(p: {
+  kind: CabTier;
+  routeKm: number;
+  roundTrip: boolean;
+  leaveAt: Date;
+  returnAt: Date | null;
+  rates?: OutstationRates;
+}): OutstationTerms {
+  const r = (p.rates ?? OUTSTATION_RATES)[p.kind];
   const routeKm = Math.round(p.routeKm * 10) / 10;
   if (!p.roundTrip) {
     return { mode: 'OUTSTATION', roundTrip: false, returnAt: null, days: 1, includedKm: Math.max(r.oneWayMinKm, Math.ceil(routeKm)), perKm: r.oneWayPerKm, allowancePerDay: r.allowancePerDay, routeKm };

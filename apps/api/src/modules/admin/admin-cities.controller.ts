@@ -3,7 +3,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, ParseEnumPipe, Patch, P
 import { Roles } from '../../core/auth/roles.decorator.js';
 import type { City, CityFareRule, Zone } from '../../generated/prisma/client.js';
 import { Role, VehicleKind } from '../../generated/prisma/enums.js';
-import { AdminCitiesService } from './admin-cities.service.js';
+import { AdminCitiesService, type CityPricing } from './admin-cities.service.js';
 import { AuditInterceptor } from './audit.interceptor.js';
 import { CellsDto } from './dto/cells.dto.js';
 import { CreateCityDto, UpdateCityDto } from './dto/city.dto.js';
@@ -82,5 +82,23 @@ export class AdminCitiesController {
   @HttpCode(204)
   resetFare(@Param('id') id: string, @Param('vehicleKind', new ParseEnumPipe(VehicleKind)) kind: VehicleKind): Promise<void> {
     return this.cities.resetFare(id, kind);
+  }
+
+  /** Rentals, outstation, goods to another town and house shifting prices (each the city's own or built-in). */
+  @Get('cities/:id/pricing')
+  pricing(@Param('id') id: string): Promise<CityPricing> {
+    return this.cities.pricing(id);
+  }
+
+  /** Sets one whole section (`rental`, `outstation`, `goodsOutstation`, `shifting`); checked in fares/pricing.ts. */
+  @Put('cities/:id/pricing/:section')
+  setPricing(@Param('id') id: string, @Param('section') section: string, @Body() body: unknown): Promise<CityPricing> {
+    return this.cities.setPricing(id, section, body);
+  }
+
+  @Delete('cities/:id/pricing/:section')
+  @HttpCode(204)
+  resetPricing(@Param('id') id: string, @Param('section') section: string): Promise<void> {
+    return this.cities.resetPricing(id, section);
   }
 }

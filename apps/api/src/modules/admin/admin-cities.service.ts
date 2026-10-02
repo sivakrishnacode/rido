@@ -1,14 +1,22 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
-import type { City, CityFareRule, Zone } from '../../generated/prisma/client.js';
+import { type City, type CityFareRule, Prisma, type Zone } from '../../generated/prisma/client.js';
 import { VehicleKind } from '../../generated/prisma/enums.js';
 import { FARE_RULES } from '../fares/fare-rules.js';
+import { effectivePricing, isPricingSection, type ModePricing, parsePricingSection, type PricingSection } from '../fares/pricing.js';
+import { type RentalPackage, RENTAL_PACKAGES } from '../fares/ride-modes.js';
 import { GeoService } from '../geo/geo.service.js';
 import { cellsForCircle, DEFAULT_H3_RESOLUTION, validateCells } from '../geo/h3.util.js';
 import type { CreateCityDto, UpdateCityDto } from './dto/city.dto.js';
 import type { FareRuleDto } from './dto/fare-rule.dto.js';
 import type { CreateZoneDto, UpdateZoneDto } from './dto/zone.dto.js';
+
+/** A city's up-front prices for the admin editor: each section as it applies, and whether it is the built-in one. */
+export interface CityPricing {
+  readonly packages: readonly RentalPackage[];
+  readonly sections: { readonly [S in PricingSection]: { readonly value: ModePricing[S]; readonly isDefault: boolean } };
+}
 
 /** Cities (H3 service areas), their zones and per-city fares. Every change refreshes the geo cache. */
 @Injectable()
@@ -101,6 +109,40 @@ export class AdminCitiesService {
 
   async resetFare(cityId: string, vehicleKind: VehicleKind): Promise<void> {
     await this.prisma.cityFareRule.deleteMany({ where: { cityId, vehicleKind } });
+    this.geo.invalidate();
+  }
+
+  /**
+   * The city's prices for rentals, outstation, goods to another town and house shifting: each section as it applies
+   * (the city's own or the built-in one) and whether it is the built-in one, plus the rental packages they price.
+   */
+  async pricing(cityId: string): Promise<CityPricing> {
+    await this.prisma.city.findUniqueOrThrow({ where: { id: cityId }, select: { id: true } });
+    const row = await this.prisma.cityModePricing.findUnique({ where: { cityId } });
+    const effective = effectivePricing(row);
+    const entry = <S extends PricingSection>(s: S): { value: ModePricing[S]; isDefault: boolean } => ({ value: effective[s], isDefault: row?.[s] == null });
+    return {
+      packages: RENTAL_PACKAGES,
+      sections: { rental: entry('rental'), outstation: entry('outstation'), goodsOutstation: entry('goodsOutstation'), shifting: entry('shifting') },
+    };
+  }
+
+  /** Stores the city's own [section] (checked whole: every tier / vehicle / size, in range). */
+  async setPricing(cityId: string, section: string, body: unknown): Promise<CityPricing> {
+    if (!isPricingSection(section)) throw new BadRequestException('Unknown pricing section');
+    const parsed = parsePricingSection(section, body);
+    if ('error' in parsed) throw new BadRequestException(parsed.error);
+    await this.prisma.city.findUniqueOrThrow({ where: { id: cityId }, select: { id: true } });
+    const value = parsed.value as unknown as Prisma.InputJsonValue;
+    await this.prisma.cityModePricing.upsert({ where: { cityId }, create: { cityId, [section]: value }, update: { [section]: value } });
+    this.geo.invalidate();
+    return this.pricing(cityId);
+  }
+
+  /** Back to the built-in [section]. */
+  async resetPricing(cityId: string, section: string): Promise<void> {
+    if (!isPricingSection(section)) throw new BadRequestException('Unknown pricing section');
+    await this.prisma.cityModePricing.updateMany({ where: { cityId }, data: { [section]: Prisma.DbNull } });
     this.geo.invalidate();
   }
 

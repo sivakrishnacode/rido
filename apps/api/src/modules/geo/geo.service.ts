@@ -1,15 +1,18 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../core/prisma/prisma.service.js';
-import type { City, CityFareRule, Zone } from '../../generated/prisma/client.js';
+import type { City, CityFareRule, CityModePricing, Zone } from '../../generated/prisma/client.js';
 import { VehicleKind, ZoneKind } from '../../generated/prisma/enums.js';
+import { DEFAULT_PRICING, effectivePricing, type ModePricing } from '../fares/pricing.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { DemandService } from './demand.service.js';
 import { cellAt, cellsBounds, type LatLngBounds } from './h3.util.js';
 
 interface CityIndex {
-  readonly city: City & { zones: Zone[]; fareRules: CityFareRule[] };
+  readonly city: City & { zones: Zone[]; fareRules: CityFareRule[]; modePricing: CityModePricing | null };
   readonly service: ReadonlySet<string>;
+  /** Rentals, outstation, goods to another town and shifting prices: the city's own over the built-in ones. */
+  readonly pricing: ModePricing;
 }
 
 /** Where a point is: its city, H3 cell, zones and whether Tamil Taxi serves it. */
@@ -47,9 +50,9 @@ export class GeoService {
     if (this.cache && Date.now() - this.cache.at < CACHE_MS) return this.cache.cities;
     const rows = await this.prisma.city.findMany({
       where: { isActive: true },
-      include: { zones: { where: { isActive: true } }, fareRules: { where: { isActive: true } } },
+      include: { zones: { where: { isActive: true } }, fareRules: { where: { isActive: true } }, modePricing: true },
     });
-    const cities = rows.map((city) => ({ city, service: new Set(city.serviceCells) }));
+    const cities = rows.map((city) => ({ city, service: new Set(city.serviceCells), pricing: effectivePricing(city.modePricing) }));
     this.cache = { at: Date.now(), cities };
     return cities;
   }
@@ -92,6 +95,17 @@ export class GeoService {
     if (!cityId) return null;
     const city = (await this.cities()).find((c) => c.city.id === cityId);
     return city?.city.fareRules.find((r) => r.vehicleKind === vehicleKind) ?? null;
+  }
+
+  /** The prices for rentals, outstation, goods to another town and shifting in [cityId] (built-in outside a city). */
+  async pricing(cityId: string | null): Promise<ModePricing> {
+    if (!cityId) return DEFAULT_PRICING;
+    return (await this.cities()).find((c) => c.city.id === cityId)?.pricing ?? DEFAULT_PRICING;
+  }
+
+  /** [pricing] for the city [point] is in. */
+  async pricingAt(point: { lat: number; lng: number }): Promise<ModePricing> {
+    return this.pricing((await this.locate(point)).cityId);
   }
 
   /** Public service-area payload for the apps (cells + zones). */

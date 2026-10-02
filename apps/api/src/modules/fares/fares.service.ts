@@ -16,7 +16,6 @@ import {
   goodsOutstationTerms,
   type GoodsTruck,
   isGoodsTruck,
-  SHIFTING_SIZES,
   type ShiftingDetails,
   type ShiftingLines,
   shiftingLines,
@@ -169,11 +168,13 @@ export class FaresService {
       if (!params.drop) throw new BadRequestException('Choose where the goods are going');
       return this.goodsOutstationQuotes({ pickup: params.pickup, drop: params.drop });
     }
+    // The pickup's city prices it (its own rates, else the built-in ones).
+    const pricing = await this.geo.pricingAt(params.pickup);
     if (params.rideMode === RideMode.RENTAL) {
       const pkg = rentalPackage(params.rentalPackageId ?? '');
       if (!pkg) throw new BadRequestException('Choose a rental package');
       return CAB_TIERS.filter(isCabTier).map((kind) => {
-        const terms = rentalTerms(kind, pkg.id)!;
+        const terms = rentalTerms(kind, pkg.id, pricing.rental)!;
         return { ...modeQuote(kind, terms, { distanceKm: pkg.km, durationMin: pkg.hours * 60 }), modeTerms: terms };
       });
     }
@@ -182,7 +183,7 @@ export class FaresService {
     if (roundTrip && !params.returnAt) throw new BadRequestException('Choose when you come back');
     const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: VehicleKind.CAB });
     return CAB_TIERS.filter(isCabTier).map((kind) => {
-      const terms = outstationTerms({ kind, routeKm: route.distanceKm, roundTrip, leaveAt: params.leaveAt, returnAt: params.returnAt ?? null });
+      const terms = outstationTerms({ kind, routeKm: route.distanceKm, roundTrip, leaveAt: params.leaveAt, returnAt: params.returnAt ?? null, rates: pricing.outstation });
       const awayMin = roundTrip ? Math.max(route.durationMin * 2, Math.round(((params.returnAt as Date).getTime() - params.leaveAt.getTime()) / 60_000)) : route.durationMin;
       const plan = { distanceKm: roundTrip ? terms.includedKm : route.distanceKm, durationMin: awayMin, ...(typeof route.travelMin === 'number' && { travelMin: route.travelMin }) };
       return { ...modeQuote(kind, terms, plan), modeTerms: terms };
@@ -192,9 +193,10 @@ export class FaresService {
   /** Goods to another town: each goods truck one way by the km (goods-modes.ts), with its terms. */
   async goodsOutstationQuotes(params: { pickup: GeoPoint; drop: GeoPoint }): Promise<ModeQuote[]> {
     const route = await this.maps.estimate({ from: params.pickup, to: params.drop, vehicleKind: FaresService.routeVehicle(true) });
+    const rates = (await this.geo.pricingAt(params.pickup)).goodsOutstation;
     const plan = { distanceKm: route.distanceKm, durationMin: route.durationMin, ...(typeof route.travelMin === 'number' && { travelMin: route.travelMin }) };
     return GOODS_TRUCKS.filter(isGoodsTruck).map((kind) => {
-      const terms = goodsOutstationTerms(kind, route.distanceKm);
+      const terms = goodsOutstationTerms(kind, route.distanceKm, rates);
       return { ...modeQuote(kind, terms, plan), modeTerms: terms };
     });
   }
@@ -205,16 +207,18 @@ export class FaresService {
    * plus helpers, stairs, packing and extras. Also every goods truck's total and the next 7 days' totals.
    */
   async shiftingQuote(p: { pickup: GeoPoint; drop: GeoPoint; details: ShiftingInput; vehicleKind?: VehicleKind; at: Date; now?: Date }): Promise<ShiftingQuoteResult> {
-    const suggested = SHIFTING_SIZES[p.details.homeSize].vehicle;
+    const here = await this.geo.locate(p.pickup);
+    const pricing = await this.geo.pricing(here.cityId);
+    const rates = pricing.shifting;
+    const suggested = rates.sizes[p.details.homeSize].vehicle;
     const kind = p.vehicleKind ?? suggested;
     if (!isGoodsTruck(kind)) throw new BadRequestException('House shifting is by three-wheeler, mini truck, pickup or truck');
     const route = await this.maps.estimate({ from: p.pickup, to: p.drop, vehicleKind: FaresService.routeVehicle(true) });
-    const here = await this.geo.locate(p.pickup);
     const s = await this.settings.all();
     const plan = { distanceKm: route.distanceKm, durationMin: route.durationMin, ...(typeof route.travelMin === 'number' && { travelMin: route.travelMin }) };
     const transportOf = async (k: GoodsTruck): Promise<{ quote: FareQuote; terms: OutstationTerms | null }> => {
       if (p.details.between) {
-        const terms = goodsOutstationTerms(k, route.distanceKm);
+        const terms = goodsOutstationTerms(k, route.distanceKm, pricing.goodsOutstation);
         return { quote: modeQuote(k, terms, plan), terms };
       }
       const rule = (await this.geo.fareRule(here.cityId, k)) ?? undefined;
@@ -229,13 +233,13 @@ export class FaresService {
       vehicleKind: kind,
       distanceKm: route.distanceKm,
       durationMin: route.durationMin,
-      lines: shiftingLines(p.details, mine.quote.total, p.at),
+      lines: shiftingLines(p.details, mine.quote.total, p.at, rates),
       modeTerms: mine.terms,
       transportQuote: mine.quote,
-      vehicles: all.map((t) => ({ vehicleKind: t.k, total: shiftingLines(p.details, t.quote.total, p.at).total, suggested: t.k === suggested })),
+      vehicles: all.map((t) => ({ vehicleKind: t.k, total: shiftingLines(p.details, t.quote.total, p.at, rates).total, suggested: t.k === suggested })),
       days: Array.from({ length: 7 }, (_, i) => {
         const at = istDayAt(now, i, 9);
-        const lines = shiftingLines(p.details, mine.quote.total, at);
+        const lines = shiftingLines(p.details, mine.quote.total, at, rates);
         return { date: new Date(at.getTime() + IST_MS).toISOString().slice(0, 10), total: lines.total, weekend: lines.weekend > 0 };
       }),
     };

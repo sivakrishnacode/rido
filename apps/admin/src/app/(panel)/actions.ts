@@ -11,6 +11,7 @@ import {
   DRIVER_STATUSES,
   WORK_TYPES,
   KYC_DOC_TYPES,
+  PRICING_SECTIONS,
   ROLES,
   TICKET_STATUSES,
   DRIVER_VEHICLE_KINDS,
@@ -20,6 +21,8 @@ import {
   type DriverProfileInput,
   type DriverStatus,
   type MessageApp,
+  type ModePricing,
+  type PricingSection,
   type KycDocType,
   type Role,
   type TicketStatus,
@@ -221,6 +224,27 @@ export async function setCityFare(cityId: string, kind: VehicleKind, input: Fare
 
 export async function resetCityFare(cityId: string, kind: VehicleKind): Promise<ActionResult> {
   const res = await run(() => adminApi.resetFare(cityId, kind), "Fare reset to default", [`/cities/${cityId}`]);
+  return plain(res);
+}
+
+const SECTION_LABEL: Record<PricingSection, string> = {
+  rental: "Rental prices",
+  outstation: "Outstation rates",
+  goodsOutstation: "Goods to another town",
+  shifting: "House shifting prices",
+};
+
+/** Saves a city's own [section] (the API checks every value and says what's wrong). */
+export async function setCityPricing<S extends PricingSection>(cityId: string, section: S, data: ModePricing[S]): Promise<ActionResult> {
+  if (!PRICING_SECTIONS.includes(section)) return { ok: false, error: "Unknown pricing section" };
+  const res = await run(() => adminApi.setPricing(cityId, section, data), `${SECTION_LABEL[section]} saved for this city`, [`/cities/${cityId}`]);
+  return plain(res);
+}
+
+/** Back to the built-in prices for [section]. */
+export async function resetCityPricing(cityId: string, section: PricingSection): Promise<ActionResult> {
+  if (!PRICING_SECTIONS.includes(section)) return { ok: false, error: "Unknown pricing section" };
+  const res = await run(() => adminApi.resetPricing(cityId, section), `${SECTION_LABEL[section]} back to the defaults`, [`/cities/${cityId}`]);
   return plain(res);
 }
 

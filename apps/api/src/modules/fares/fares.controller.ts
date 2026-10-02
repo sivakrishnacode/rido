@@ -1,16 +1,40 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
 
 import { Public } from '../../core/auth/public.decorator.js';
 import { RideMode, TripKind } from '../../generated/prisma/enums.js';
 import { QuoteRequestDto } from './dto/quote-request.dto.js';
 import { ShiftingQuoteDto } from './dto/shifting.dto.js';
+import { GeoService } from '../geo/geo.service.js';
 import { FaresService, istDayAt, type QuoteWithEta, type ShiftingQuoteResult } from './fares.service.js';
-import { RENTAL_PACKAGES, RENTAL_RATES } from './ride-modes.js';
+import type { ModePricing } from './pricing.js';
+import { type RentalPackage, RENTAL_PACKAGES } from './ride-modes.js';
+
+/** `?lat&lng` → a point, or null when absent / not numbers. */
+function pointOf(q: { lat?: string; lng?: string }): { lat: number; lng: number } | null {
+  const lat = Number(q.lat);
+  const lng = Number(q.lng);
+  return q.lat && q.lng && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null;
+}
 
 /** Fare quotes (P-10 / PP-06). Public so the app can show prices before login. */
 @Controller('fares')
 export class FaresController {
-  constructor(private readonly fares: FaresService) {}
+  constructor(
+    private readonly fares: FaresService,
+    private readonly geo: GeoService,
+  ) {}
+
+  /**
+   * The prices the apps show before quoting (P-34 package chips, P-07 "from ₹…", PH-03 packing and extras): rentals,
+   * outstation, goods to another town and house shifting for the city at `?lat&lng` (built-in without a point or
+   * outside every city). Quotes and bookings are always priced on the server with the same rates.
+   */
+  @Public()
+  @Get('rates')
+  async rates(@Query() q: { lat?: string; lng?: string }): Promise<{ packages: readonly RentalPackage[]; pricing: ModePricing }> {
+    const at = pointOf(q);
+    return { packages: RENTAL_PACKAGES, pricing: at ? await this.geo.pricingAt(at) : await this.geo.pricing(null) };
+  }
 
   @Public()
   @Post('quote')
@@ -58,11 +82,15 @@ export class FaresController {
   /** Rental packages (1 h / 10 km … 12 h / 120 km) with each cab tier's price and its rates past the package. */
   @Public()
   @Get('rental-packages')
-  rentalPackages(): { packages: { id: string; hours: number; km: number; prices: Record<string, number> }[]; rates: Record<string, { extraKm: number; extraMin: number }> } {
-    const tiers = Object.keys(RENTAL_RATES) as (keyof typeof RENTAL_RATES)[];
+  async rentalPackages(
+    @Query() q: { lat?: string; lng?: string },
+  ): Promise<{ packages: { id: string; hours: number; km: number; prices: Record<string, number> }[]; rates: Record<string, { extraKm: number; extraMin: number }> }> {
+    const at = pointOf(q);
+    const rental = (at ? await this.geo.pricingAt(at) : await this.geo.pricing(null)).rental;
+    const tiers = Object.keys(rental) as (keyof typeof rental)[];
     return {
-      packages: RENTAL_PACKAGES.map((p, i) => ({ ...p, prices: Object.fromEntries(tiers.map((t) => [t, RENTAL_RATES[t].prices[i]])) })),
-      rates: Object.fromEntries(tiers.map((t) => [t, { extraKm: RENTAL_RATES[t].extraKm, extraMin: RENTAL_RATES[t].extraMin }])),
+      packages: RENTAL_PACKAGES.map((p, i) => ({ ...p, prices: Object.fromEntries(tiers.map((t) => [t, rental[t].prices[i]])) })),
+      rates: Object.fromEntries(tiers.map((t) => [t, { extraKm: rental[t].extraKm, extraMin: rental[t].extraMin }])),
     };
   }
 }

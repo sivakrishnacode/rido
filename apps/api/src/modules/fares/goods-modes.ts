@@ -17,7 +17,10 @@ export const isGoodsTruck = (k: VehicleKind): k is GoodsTruck => (GOODS_TRUCKS a
 // ------------------------------------------------------------------------------------------- goods outstation
 
 /** One way to another town: the route km (at least [minKm]) at [perKm]; the driver drives back empty. */
-export const GOODS_OUTSTATION_RATES: Readonly<Record<GoodsTruck, { perKm: number; minKm: number }>> = {
+export type GoodsOutstationRates = Readonly<Record<GoodsTruck, { perKm: number; minKm: number }>>;
+
+/** The built-in rates (a city may set its own, fares/pricing.ts). */
+export const GOODS_OUTSTATION_RATES: GoodsOutstationRates = {
   THREE_WHEELER: { perKm: 22, minKm: 40 },
   MINI_TRUCK: { perKm: 26, minKm: 40 },
   PICKUP: { perKm: 30, minKm: 40 },
@@ -25,8 +28,8 @@ export const GOODS_OUTSTATION_RATES: Readonly<Record<GoodsTruck, { perKm: number
 };
 
 /** Goods to another town, in the outstation terms' shape (one way, one day, no allowance). */
-export function goodsOutstationTerms(kind: GoodsTruck, routeKm: number): OutstationTerms {
-  const r = GOODS_OUTSTATION_RATES[kind];
+export function goodsOutstationTerms(kind: GoodsTruck, routeKm: number, rates: GoodsOutstationRates = GOODS_OUTSTATION_RATES): OutstationTerms {
+  const r = rates[kind];
   const km = Math.round(routeKm * 10) / 10;
   return { mode: 'OUTSTATION', roundTrip: false, returnAt: null, days: 1, includedKm: Math.max(r.minKm, Math.ceil(km)), perKm: r.perKm, allowancePerDay: 0, routeKm: km };
 }
@@ -39,11 +42,19 @@ export const HOME_SIZES: readonly HomeSize[] = ['FEW_ITEMS', 'ONE_RK', 'ONE_BHK'
 export type PackingLevel = 'NONE' | 'BASIC' | 'FULL';
 export const PACKING_LEVELS: readonly PackingLevel[] = ['NONE', 'BASIC', 'FULL'];
 
+/** One home size's suggested vehicle, the helpers included, packing and unpacking prices. */
+export interface ShiftingSize {
+  readonly vehicle: GoodsTruck;
+  readonly helpers: number;
+  readonly packing: { readonly BASIC: number; readonly FULL: number };
+  readonly unpack: number;
+}
+
 /**
  * By home size: the suggested vehicle, the helpers included, packing (basic: wrap and tape; full: boxes, wrap and
  * bubble for the fragile) and unpacking at the new home.
  */
-export const SHIFTING_SIZES: Readonly<Record<HomeSize, { vehicle: GoodsTruck; helpers: number; packing: { BASIC: number; FULL: number }; unpack: number }>> = {
+export const SHIFTING_SIZES: Readonly<Record<HomeSize, ShiftingSize>> = {
   FEW_ITEMS: { vehicle: 'THREE_WHEELER', helpers: 1, packing: { BASIC: 199, FULL: 399 }, unpack: 149 },
   ONE_RK: { vehicle: 'MINI_TRUCK', helpers: 2, packing: { BASIC: 399, FULL: 799 }, unpack: 299 },
   ONE_BHK: { vehicle: 'PICKUP', helpers: 2, packing: { BASIC: 699, FULL: 1299 }, unpack: 499 },
@@ -65,6 +76,26 @@ export const SHIFTING_RATES = {
   maxDismantlePieces: 10,
   maxFloor: 30,
 } as const;
+
+/** Everything a shift's price depends on (a city may set its own, fares/pricing.ts). */
+export interface ShiftingRates {
+  readonly sizes: Readonly<Record<HomeSize, ShiftingSize>>;
+  readonly helperCity: number;
+  readonly helperBetween: number;
+  readonly stairsPerFloor: number;
+  readonly dismantlePerPiece: number;
+  readonly weekendPct: number;
+}
+
+/** The built-in shifting prices. */
+export const DEFAULT_SHIFTING_RATES: ShiftingRates = {
+  sizes: SHIFTING_SIZES,
+  helperCity: SHIFTING_RATES.helperCity,
+  helperBetween: SHIFTING_RATES.helperBetween,
+  stairsPerFloor: SHIFTING_RATES.stairsPerFloor,
+  dismantlePerPiece: SHIFTING_RATES.dismantlePerPiece,
+  weekendPct: SHIFTING_RATES.weekendPct,
+};
 
 /** Two-hour slots (IST start hours): 7–9 am … 4–6 pm. */
 export const SHIFTING_SLOT_HOURS: readonly number[] = [7, 9, 11, 14, 16];
@@ -115,15 +146,20 @@ const stairsAt = (floor: number, lift: boolean): number => (lift ? 0 : Math.max(
  * The lines for [d] with the vehicle's [transport] price (in town: the goods fare on the route; to another town:
  * [goodsOutstationTerms]' km × rate), on the day of [at].
  */
-export function shiftingLines(d: Pick<ShiftingDetails, Exclude<keyof ShiftingDetails, 'items'>>, transport: number, at: Date): ShiftingLines {
-  const size = SHIFTING_SIZES[d.homeSize];
+export function shiftingLines(
+  d: Pick<ShiftingDetails, Exclude<keyof ShiftingDetails, 'items'>>,
+  transport: number,
+  at: Date,
+  rates: ShiftingRates = DEFAULT_SHIFTING_RATES,
+): ShiftingLines {
+  const size = rates.sizes[d.homeSize];
   const helperCount = size.helpers + Math.min(SHIFTING_RATES.maxExtraHelpers, Math.max(0, Math.floor(d.extraHelpers)));
-  const helpers = helperCount * (d.between ? SHIFTING_RATES.helperBetween : SHIFTING_RATES.helperCity);
-  const stairs = (stairsAt(d.pickupFloor, d.pickupLift) + stairsAt(d.dropFloor, d.dropLift)) * SHIFTING_RATES.stairsPerFloor;
+  const helpers = helperCount * (d.between ? rates.helperBetween : rates.helperCity);
+  const stairs = (stairsAt(d.pickupFloor, d.pickupLift) + stairsAt(d.dropFloor, d.dropLift)) * rates.stairsPerFloor;
   const packing = d.packing === 'NONE' ? 0 : size.packing[d.packing];
-  const dismantle = Math.min(SHIFTING_RATES.maxDismantlePieces, Math.max(0, Math.floor(d.dismantlePieces))) * SHIFTING_RATES.dismantlePerPiece;
+  const dismantle = Math.min(SHIFTING_RATES.maxDismantlePieces, Math.max(0, Math.floor(d.dismantlePieces))) * rates.dismantlePerPiece;
   const unpack = d.unpack ? size.unpack : 0;
   const subtotal = transport + helpers + stairs + packing + dismantle + unpack;
-  const weekend = isIstWeekend(at) ? Math.floor((subtotal * SHIFTING_RATES.weekendPct) / 100) : 0;
+  const weekend = isIstWeekend(at) ? Math.floor((subtotal * rates.weekendPct) / 100) : 0;
   return { transport, helperCount, helpers, stairs, packing, dismantle, unpack, subtotal, weekend, total: subtotal + weekend };
 }

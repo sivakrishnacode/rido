@@ -712,6 +712,7 @@ model City {
   updatedAt    DateTime       @updatedAt
   zones        Zone[]
   fareRules    CityFareRule[]
+  modePricing  CityModePricing?
 }
 
 /// A named group of H3 cells inside a city (surge, demand hotspot, no-service, pickup point).
@@ -748,6 +749,18 @@ model CityFareRule {
   city        City        @relation(fields: [cityId], references: [id], onDelete: Cascade)
 
   @@unique([cityId, vehicleKind])
+}
+
+/// A city's own prices for the services priced up front (fares/pricing.ts): rentals, outstation, goods to another town
+/// and house shifting, each a whole section. A null section uses the built-in rates.
+model CityModePricing {
+  cityId          String   @id
+  rental          Json?
+  outstation      Json?
+  goodsOutstation Json?
+  shifting        Json?
+  updatedAt       DateTime @updatedAt
+  city            City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
 }
 
 /// Every admin change (who, what, when).
