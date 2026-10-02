@@ -24,6 +24,7 @@ describe('describeAudit', () => {
     expect(row('PATCH /v1/admin/drivers/:id/profile', { plate: 'TN 38 AB 1234', upiId: 'x@ok' })).toBe('Edited plate, UPI ID');
     expect(row('POST /v1/admin/users/:id/message', { title: 'Please re-upload RC' })).toBe('Push sent: “Please re-upload RC”');
     expect(row('DELETE /v1/admin/something/:id')).toBe('DELETE /v1/admin/something/:id');
+    expect(row('PATCH /v1/drivers/me', { plate: 'TN 38 AB 1234' })).toBe('New plate TN 38 AB 1234 in the app: RC to upload again');
     expect(describeAudit('PATCH /v1/admin/users/:id', null)).toBe('PATCH /v1/admin/users/:id');
   });
 });

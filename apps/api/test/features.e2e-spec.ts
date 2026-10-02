@@ -125,4 +125,44 @@ describe('Tamil Taxi features (e2e)', () => {
       expect((await http.get('/v1/me').set(admin).expect(200)).body.role).toBe('ADMIN');
     });
   });
+
+  describe('profile edits (PATCH /drivers/me)', () => {
+    it('a new plate after approval sends the driver back to pending, offline, with the RC to upload again', async () => {
+      const d = await approvedDriver();
+      await prisma.kycDocument.update({ where: { driverId_type: { driverId: d.driverId, type: 'VEHICLE_RC' } }, data: { status: 'VERIFIED', fileUrl: 'old-rc.jpg' } });
+      await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(200);
+      expect(await redis.get(`driver:cell:${d.driverId}`)).not.toBeNull();
+
+      // Model, colour and UPI change freely; the same plate typed differently is not a change.
+      const same = await http.patch('/v1/drivers/me').set(d.auth).send({ vehicleColor: 'Yellow', upiId: 'kavin@oksbi', plate: d.plate.replace(/\s+/g, '').toLowerCase() }).expect(200);
+      expect(same.body).toMatchObject({ status: 'APPROVED', isOnline: true, vehicleColor: 'Yellow', plate: d.plate });
+
+      const plate = randomPlate();
+      const res = await http.patch('/v1/drivers/me').set(d.auth).send({ plate: plate.toLowerCase() }).expect(200);
+      expect(res.body).toMatchObject({ status: 'PENDING', isOnline: false, plate });
+      const rc = await prisma.kycDocument.findUniqueOrThrow({ where: { driverId_type: { driverId: d.driverId, type: 'VEHICLE_RC' } } });
+      expect(rc).toMatchObject({ status: 'NOT_UPLOADED', fileUrl: null, rejectReason: `Upload the RC of your new vehicle (${plate})` });
+      // Out of dispatch like going offline, and it shows in the admin history.
+      expect(await redis.get(`driver:cell:${d.driverId}`)).toBeNull();
+      expect((await redis.get(`driver:state:${d.driverId}`)) ?? '').not.toMatch(/^1\|/);
+      const history = (await http.get(`/v1/admin/users/${d.userId}/activity`).set(await adminAuth()).expect(200)).body as { summary: string }[];
+      expect(history.map((h) => h.summary)).toContain(`New plate ${plate} in the app: RC to upload again`);
+      await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(403);
+    });
+
+    it("refuses another driver's plate", async () => {
+      const [a, b] = [await approvedDriver(), await newDriver()];
+      const res = await http.patch('/v1/drivers/me').set(b.auth).send({ plate: a.plate }).expect(409);
+      expect(res.body.message).toBe('This number plate is already registered');
+    });
+
+    it('a pending driver mid sign-up just changes the plate', async () => {
+      const d = await newDriver();
+      const plate = randomPlate();
+      expect((await http.patch('/v1/drivers/me').set(d.auth).send({ plate }).expect(200)).body).toMatchObject({ status: 'PENDING', plate });
+      // Nothing uploaded yet: no reason shown on the RC.
+      const rc = await prisma.kycDocument.findUniqueOrThrow({ where: { driverId_type: { driverId: d.driverId, type: 'VEHICLE_RC' } } });
+      expect(rc).toMatchObject({ status: 'NOT_UPLOADED', rejectReason: null });
+    });
+  });
 });
