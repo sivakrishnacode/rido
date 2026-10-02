@@ -1681,6 +1681,19 @@ search and the new dashboard (`59d5155..fb74b51`, no migrations, slim upload). R
 `:prev-0930b` the 30 Sep one. Checked live: `/health` 200, `GET /admin/search` 200, signed-in admin dashboard shows
 "Needs attention", `/drivers/approvals` and `/api/search` 200.
 
+**Deployed 2 Oct 2026:** ride tiers (Scooty, Auto Priority, Sedan, SUV), nearby vehicles, cab rentals, outstation
+and trips booked for later, goods to another town, house shifting (only to movers who switched it on), per-city prices
+for those services (admin › City › Rentals & more), the admin audit-row fix (`fb74b51..c0cf159`). Migrations
+`ride_tiers`, `ride_modes_scheduled`, `house_shifting` and `city_mode_pricing` applied on start; DB dump first at
+`~/tamiltaxi-20261002.dump`. Slim upload (3.4 MB): no package files or Dockerfiles had changed; besides the build
+outputs it carried `apps/api/prisma` (the new migrations) and `src/modules/subscriptions/plan-prices.ts` (the seed
+reads it; it had new tiers). Rollback: `:prev` is the 1 Oct (second) build, `:prev-1001a` the 1 Oct morning one.
+Checked live: `/health` 200, `GET /fares/rates` (four sections, 8 packages), signed-in
+`GET /admin/cities/coimbatore/pricing` (all built-in), an unknown section 400, the admin "Rentals & more" tab, a
+shifting quote and rental quotes, and for test drivers the shifting opt-in (pickup `+919100000501` on with 3 helpers,
+then off again; bike `+919100000601` refused with 400). `rido-sg` also allows `110.226.112.99` (SSH, 2 Oct). Apps need
+new APKs for the new screens.
+
 - **Slow upload (mobile data, ~100 KB/s):** when no `package.json`, `package-lock.json`, Dockerfile or migration changed
   since the deployed build, ship only the build outputs (~3 MB instead of ~450 MB): copy `apps/api/dist`,
   `apps/api/prisma` and `apps/api/src/generated` out of the new API image and `/app/apps/admin` out of the new admin
