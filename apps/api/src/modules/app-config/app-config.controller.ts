@@ -12,11 +12,15 @@ export interface MonthlyCost {
 export interface AppConfig {
   driverPlansEnabled: boolean;
   supportPhone: string;
+  /** A trip booked for later starts looking for a driver this many minutes before its pickup time. */
+  scheduledDispatchLeadMin: number;
+  /** Drivers take a daily selfie before going online (GET /drivers/me says when it is due). */
+  dailySelfieCheckEnabled: boolean;
   /** [monthlyCost] is null while no cost is entered. */
   contribute: { upiId: string; payeeName: string; note: string; monthlyCost: MonthlyCost | null };
 }
 
-/** Public settings both apps read at start-up: whether plans are on, and the contribute page. */
+/** Public settings both apps read at start-up: plans, support phone, booking lead time, selfie check, contribute page. */
 @Public()
 @Controller('app-config')
 export class AppConfigController {
@@ -35,6 +39,8 @@ export class AppConfigController {
     return {
       driverPlansEnabled: s.driverPlansEnabled,
       supportPhone: s.supportPhone,
+      scheduledDispatchLeadMin: s.scheduledDispatchLeadMin,
+      dailySelfieCheckEnabled: s.dailySelfieCheckEnabled,
       contribute: {
         upiId: s.contributeUpiId.trim(),
         payeeName: s.contributePayeeName.trim(),

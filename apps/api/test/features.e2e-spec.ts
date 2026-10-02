@@ -215,6 +215,11 @@ describe('Tamil Taxi features (e2e)', () => {
     });
   });
 
+  it('serves the booking lead time and the selfie-check switch in the public app config', async () => {
+    const res = await http.get('/v1/app-config').expect(200);
+    expect(res.body).toMatchObject({ scheduledDispatchLeadMin: 30, dailySelfieCheckEnabled: true });
+  });
+
   describe('daily selfie check', () => {
     /** An approved driver whose identity check kept a reference face (so the daily check applies). */
     async function driverWithFace(): Promise<{ auth: Auth; driverId: string; userId: string; plate: string }> {
