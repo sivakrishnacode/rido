@@ -8,20 +8,30 @@ import '../../common/flags.dart';
 import '../../router/routes.dart';
 import '../../state/booking_prefs.dart';
 import '../../state/driver_account.dart';
-import '../../state/driver_session.dart';
 import '../home/widgets/navy_header.dart';
 import 'account_providers.dart';
 import 'refer_driver_sheet.dart';
 
 /// D-26 Driver account: profile header, Refer a driver, Documents, Vehicle details, UPI ID,
 /// Emergency contact, Contribute, Help & support, Terms, Design gallery and Log out.
-class D26AccountScreen extends ConsumerWidget {
+class D26AccountScreen extends ConsumerStatefulWidget {
   const D26AccountScreen({super.key, this.showcase = false});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
 
-  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<D26AccountScreen> createState() => _D26AccountScreenState();
+}
+
+/// What D-26 is doing to leave the account (the rows show a spinner and can't be tapped twice).
+enum _Leaving { none, logout }
+
+class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
+  _Leaving _leaving = _Leaving.none;
+
+  Future<void> _logout() async {
+    if (_leaving != _Leaving.none) return;
     final ok = await showTtConfirm(
       context,
       title: 'Log out?',
@@ -31,20 +41,16 @@ class D26AccountScreen extends ConsumerWidget {
       destructive: true,
       icon: Symbols.logout_rounded,
     );
-    if (!ok || !context.mounted) return;
-    await ref.read(driverSessionProvider.notifier).goOffline();
-    await ref.read(driverRepositoryProvider).logout();
-    if (!context.mounted) return;
-    if (ref.read(isLiveApiProvider)) {
-      ref.read(realtimeProvider).disconnect();
-      resetDriverData(ref);
-      ref.invalidate(signupProvider);
-    }
-    context.go(Routes.welcome);
+    if (!ok || !mounted) return;
+    setState(() => _leaving = _Leaving.logout);
+    await signOutDriver(ref);
+    if (mounted) context.go(Routes.welcome);
   }
 
+  static const _spinner = SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: TtColors.error));
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final t = context.type;
     final profile = ref.watch(driverProfileProvider).value ?? Seed.karthik;
     final contact = ref.watch(driverEmergencyContactProvider).value;
@@ -185,10 +191,11 @@ class D26AccountScreen extends ConsumerWidget {
               TtListGroup(children: [
                 TtListTile(
                   icon: Symbols.logout_rounded,
-                  title: 'Log out',
+                  title: _leaving == _Leaving.logout ? 'Logging out…' : 'Log out',
                   destructive: true,
                   showChevron: false,
-                  onTap: () => _logout(context, ref),
+                  trailing: _leaving == _Leaving.logout ? _spinner : null,
+                  onTap: _leaving == _Leaving.none ? _logout : null,
                 ),
               ]),
             ],

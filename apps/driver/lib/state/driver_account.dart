@@ -167,6 +167,20 @@ void resetDriverData(WidgetRef ref) {
     ..invalidate(cancelRateProvider);
 }
 
+/// Log out (D-26, D-07) or after deleting the account ([deleted]): offline on the phone at once, one
+/// `POST /drivers/me/offline` (skipped for a deleted account; the session ends even when it fails), then everything
+/// loaded for this driver is dropped. The caller goes to Welcome.
+Future<void> signOutDriver(WidgetRef ref, {bool deleted = false}) async {
+  final live = ref.read(isLiveApiProvider);
+  await ref.read(driverSessionProvider.notifier).goOffline(tellServer: false);
+  if (!deleted) await ref.read(driverRepositoryProvider).logout();
+  if (live) {
+    ref.read(realtimeProvider).disconnect();
+    resetDriverData(ref);
+  }
+  ref.invalidate(signupProvider);
+}
+
 /// What the driver entered during sign-up (D-03 … D-06), for the D-07 registration page.
 @immutable
 class SignupDraft {

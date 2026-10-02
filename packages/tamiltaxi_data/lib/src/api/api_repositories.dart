@@ -353,12 +353,14 @@ class ApiDriverRepository implements DriverRepository {
     }
   }
 
+  /// Tells dispatch the driver is offline (one call, at most 5 s), then ends the session on the phone. Signing out
+  /// works offline too: dispatch also drops drivers whose heartbeat stops.
   @override
   Future<void> logout() async {
     try {
-      if (isLoggedIn) await api.post('/drivers/me/offline');
+      if (isLoggedIn) await api.post('/drivers/me/offline').timeout(const Duration(seconds: 5));
     } on Exception {
-      // Signing out works offline too.
+      // Offline, slow or refused: sign out anyway.
     }
     await api.session.clear();
   }

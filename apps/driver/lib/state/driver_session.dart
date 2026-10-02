@@ -286,7 +286,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     }
   }
 
-  Future<void> goOffline() async {
+  /// [tellServer] false: offline on the phone only (signing out: the log-out call tells dispatch once).
+  Future<void> goOffline({bool tellServer = true}) async {
     _sim.cancelAll();
     if (!_live) {
       state = state.copyWith(online: false, clearIncoming: true, missedRequest: false);
@@ -300,6 +301,7 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     for (final r in pending) {
       _quiet(_jobs.decline(r.id));
     }
+    if (!tellServer) return;
     // Keep showing where the driver is (offline preview, nothing uploaded).
     unawaited(locateHere(ask: false));
     try {

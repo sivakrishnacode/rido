@@ -257,9 +257,9 @@ class LiveRig {
   final FakeJobs jobs;
   final FakeLocator locator;
 
+  /// Every repository on [api] (like the live app), with the fake socket, dispatch and GPS.
   List<Override> get overrides => [
-        isLiveApiProvider.overrideWithValue(true),
-        apiClientProvider.overrideWithValue(api),
+        ...liveApiOverrides(api),
         realtimeProvider.overrideWithValue(realtime),
         liveJobsProvider.overrideWithValue(jobs),
         driverLocatorProvider.overrideWithValue(locator),
