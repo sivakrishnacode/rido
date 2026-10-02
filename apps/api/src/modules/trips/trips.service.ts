@@ -67,6 +67,9 @@ const TRIP_INCLUDE = {
 
 type CancelInfo = { by: CancelledBy; code: CancelCode; note: string | null };
 
+/** A trip [TripsService.accept] just won: as booked, as the driver's vehicle takes it, where the driver was and when. */
+type ClaimedTrip = { booked: Trip; matched: Trip; at: { lat: number; lng: number } | null; acceptedAt: Date };
+
 /** The verdict of one cancellation and what it was based on. */
 type Judged = { signals: CancelSignals; verdict: FaultVerdict; /** Cancellation fee owed to the driver (0 = none). */ due: number };
 
@@ -299,17 +302,28 @@ export class TripsService {
 
   async accept(driverId: string, tripId: string): Promise<Trip> {
     if ((await this.dispatch.offeredTo(tripId)) !== driverId) throw new ConflictException('This request is no longer available');
-    // One active trip per driver: claimed before the database write, released again if the write loses.
+    // One active trip per driver: claimed before the database write, released again only if the write lost (or never
+    // ran). Once the trip is theirs, a later step failing must not free them while they hold it.
     if (!(await this.location.claimBusy(driverId, tripId))) throw new ConflictException('Finish your current trip first');
+    let won: ClaimedTrip | null;
     try {
-      return await this.assign(driverId, tripId);
+      won = await this.claimTrip(driverId, tripId);
     } catch (e) {
       await this.location.releaseBusy(driverId, tripId, false);
       throw e;
     }
+    if (!won) {
+      await this.location.releaseBusy(driverId, tripId, false);
+      throw new ConflictException('Trip already taken or cancelled');
+    }
+    return this.assigned(driverId, tripId, won);
   }
 
-  private async assign(driverId: string, tripId: string): Promise<Trip> {
+  /**
+   * The guarded write that gives the SEARCHING trip to [driverId] (as their vehicle, "Book any"). Null when it lost:
+   * someone else took it, or it was cancelled.
+   */
+  private async claimTrip(driverId: string, tripId: string): Promise<ClaimedTrip | null> {
     const [booked, driver] = await Promise.all([
       this.prisma.trip.findUnique({ where: { id: tripId } }),
       this.prisma.driver.findUnique({ where: { id: driverId }, select: { vehicleKind: true } }),
@@ -333,7 +347,13 @@ export class TripsService {
         ...(switched && { vehicleKind: matched.vehicleKind, fare: matched.fare as Prisma.InputJsonValue, fareTotal: matched.fareTotal }),
       },
     });
-    if (count === 0) throw new ConflictException('Trip already taken or cancelled');
+    return count === 0 ? null : { booked, matched, at, acceptedAt };
+  }
+
+  /** After [claimTrip] won: stop dispatching, start the pickup timers, tell both sides. */
+  private async assigned(driverId: string, tripId: string, won: ClaimedTrip): Promise<Trip> {
+    const { booked, matched, at, acceptedAt } = won;
+    const pickup = { lat: booked.pickupLat, lng: booked.pickupLng };
     await this.dispatch.accepted(tripId, driverId);
     // Breadcrumbs from here: the drive to the pickup, then the ride from start.
     await this.track.setPhase(tripId, 'p');
