@@ -336,7 +336,7 @@ class SignupController extends Notifier<SignupDraft> {
       if (state.emergencyContact.isNotEmpty && saved != apiPhone(state.emergencyContact)) {
         await repo.updateEmergencyContact(EmergencyContact(
           id: '',
-          name: 'Emergency contact',
+          name: kSignupContactName,
           relation: 'Family',
           phone: apiPhone(state.emergencyContact),
         ));

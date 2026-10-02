@@ -7,6 +7,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/launch.dart';
+import '../account/account_providers.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_session.dart';
 import 'widgets/job_common.dart';
@@ -196,18 +197,21 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
                 ),
                 const SectionLabel('Alert my emergency contact'),
                 Row(children: [
-                  TtAvatar(initials: contact == null ? '…' : initialsOf(contact.name).substring(0, 1), tone: AvatarTone.navy, size: 44),
+                  TtAvatar(
+                      initials: contact == null
+                          ? '…'
+                          : initialsOf(isSignupContact(contact) ? contact.relation : contact.name).substring(0, 1),
+                      tone: AvatarTone.navy,
+                      size: 44),
                   const SizedBox(width: TtSpacing.m),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(
                           contact == null
                               ? 'Loading…'
-                              : contact.name.isEmpty
+                              : emergencyContactLabel(contact).isEmpty
                                   ? 'No emergency contact'
-                                  : contact.relation.isEmpty
-                                      ? contact.name.split(' ').first
-                                      : '${contact.name.split(' ').first} (${contact.relation})',
+                                  : emergencyContactLabel(contact),
                           style: t.h2,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),

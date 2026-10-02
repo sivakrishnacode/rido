@@ -178,11 +178,9 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                   title: 'Emergency contact',
                   subtitle: contact == null
                       ? (contactAsync.hasError ? "Couldn't load it. Tap to try again" : 'Loading…')
-                      : contact.name.isEmpty
+                      : emergencyContactLabel(contact).isEmpty
                           ? 'Add someone to alert in an emergency'
-                          : contact.relation.isEmpty
-                              ? contact.name.split(' ').first
-                              : '${contact.name.split(' ').first} (${contact.relation})',
+                          : emergencyContactLabel(contact),
                   onTap: () {
                     if (contactAsync.hasError) ref.invalidate(driverEmergencyContactProvider);
                     context.push(Routes.emergencyContact);
