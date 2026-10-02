@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckIcon, Loader2Icon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -22,15 +22,22 @@ export function PlanCell({ plan, label, perDay }: { plan: Plan; label: string; p
   const value = Number(price);
   const isValid = price !== "" && Number.isInteger(value) && value >= 0 && value <= 100_000;
   const isDirty = isValid && value !== saved;
+  // Enter saves, and so does leaving the field: one save at a time, checked at once (isPending lags a render).
+  const isSaving = useRef(false);
 
   function savePrice() {
-    if (!isDirty) return;
+    if (!isDirty || isSaving.current) return;
+    isSaving.current = true;
     startTransition(async () => {
-      const res = await updatePlan(plan.id, { price: value });
-      if (res.ok) {
-        setSaved(value);
-        toast.success(`${label}: ${formatInr(value)}`);
-      } else toast.error(res.error);
+      try {
+        const res = await updatePlan(plan.id, { price: value });
+        if (res.ok) {
+          setSaved(value);
+          toast.success(`${label}: ${formatInr(value)}`);
+        } else toast.error(res.error);
+      } finally {
+        isSaving.current = false;
+      }
     });
   }
 
