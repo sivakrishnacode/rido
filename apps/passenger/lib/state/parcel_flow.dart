@@ -611,7 +611,8 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
           driver: driver,
           details: details,
           approach: fresh ? const [] : null,
-          etaMin: fresh ? Seed.vehicle(state.vehicle).etaMin : null,
+          // Until the driver's first fix: the pickup ETA the fare was quoted with (a built-in guess only without one).
+          etaMin: fresh ? (u.trip.quote?.pickupEtaMin ?? state.tripQuote?.pickupEtaMin ?? Seed.vehicle(state.vehicle).etaMin) : null,
         );
       case ParcelPhase.atPickup:
         state = state.copyWith(phase: ParcelPhase.atPickup, driver: driver, details: details, etaMin: 0);

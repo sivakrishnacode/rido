@@ -711,7 +711,8 @@ class RideFlowController extends Notifier<RideFlowState> {
           alternatives: const [],
           arrivedAt: null,
           approach: fresh ? const [] : null,
-          etaMin: fresh ? Seed.vehicle(vehicle).etaMin : null,
+          // Until the driver's first fix: the pickup ETA the fare was quoted with (a built-in guess only without one).
+          etaMin: fresh ? (u.trip.quote?.pickupEtaMin ?? state.tripQuote?.pickupEtaMin ?? Seed.vehicle(vehicle).etaMin) : null,
         );
       case RidePhase.arrived:
         final at = u.json['arrivedAt'] is String ? DateTime.tryParse(u.json['arrivedAt'] as String)?.toLocal() : null;
