@@ -101,16 +101,24 @@ class AppConfig {
   }
 }
 
-/// Live API: `GET /app-config` (falls back to [AppConfig.fallback] when unreachable). Mock: [AppConfig.demo].
+/// `GET /app-config` itself. A failure is not kept: it is fetched again with [backgroundRetry].
+final _appConfigFetchProvider = FutureProvider<AppConfig>((ref) async {
+  final json = await ref.watch(apiClientProvider).get('/app-config');
+  return AppConfig.fromJson((json as Map).cast<String, dynamic>());
+}, retry: backgroundRetry);
+
+/// Live API: `GET /app-config`, [AppConfig.fallback] while it can't be reached (the next successful fetch replaces it).
+/// Mock: [AppConfig.demo].
 final appConfigProvider = FutureProvider<AppConfig>((ref) async {
   if (!ref.watch(isLiveApiProvider)) return AppConfig.demo;
-  try {
-    final json = await ref.watch(apiClientProvider).get('/app-config');
-    return AppConfig.fromJson((json as Map).cast<String, dynamic>());
-  } catch (e) {
-    debugPrint('App config unavailable: $e');
+  final fetched = ref.watch(_appConfigFetchProvider);
+  if (fetched case AsyncData(:final value)) return value;
+  if (fetched.hasError) {
+    // Failing (and being fetched again in the background): the fallback until a fetch works.
+    debugPrint('App config unavailable: ${fetched.error}');
     return AppConfig.fallback;
   }
+  return ref.watch(_appConfigFetchProvider.future);
 });
 
 /// Paid driver plans on? False until the config loads, so plan screens never flash for a free app.

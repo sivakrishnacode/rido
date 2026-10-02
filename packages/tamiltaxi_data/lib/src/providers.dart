@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart' show ImageProvider, NetworkImage;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -91,6 +93,23 @@ final driverPhotoProvider = Provider.family<ImageProvider?, String?>((ref, path)
 
 /// Push notifications (null in mock mode, tests, or builds without Firebase config).
 final pushProvider = Provider<TtPush?>((ref) => null);
+
+/// How the apps' providers retry a failed load (`ProviderScope(retry: apiRetry)`): Riverpod's backoff for network
+/// trouble, never for an answer the API gave on purpose. A 4xx (429 "too many requests" above all, 404, 403) comes
+/// back the same however often it is asked, so the screen shows its message instead of asking again in a loop.
+Duration? apiRetry(int retryCount, Object error) {
+  if (error is ApiException && error.status >= 400 && error.status < 500) return null;
+  return ProviderContainer.defaultRetry(retryCount, error);
+}
+
+/// Background settings (app config, service cities) keep trying while the network is down, slowly: 5 s, 10 s, 20 s …
+/// up to every 5 minutes, and at least 2 minutes after a 429. Their screens keep working on fallbacks meanwhile.
+Duration? backgroundRetry(int retryCount, Object error) {
+  if (error is ApiException && error.status >= 400 && error.status < 500 && error.status != 429) return null;
+  final seconds = math.min(300, 5 * math.pow(2, math.min(retryCount, 6)).toInt());
+  final isTooMany = error is ApiException && error.status == 429;
+  return Duration(seconds: isTooMany ? math.max(120, seconds) : seconds);
+}
 
 /// Overrides that switch every repository to the Tamil Taxi API (`ProviderScope(overrides: liveApiOverrides(api))`).
 List<Override> liveApiOverrides(ApiClient api, {TtPush? push}) => [
