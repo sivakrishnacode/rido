@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { privacy, terms } from "@/lib/legal";
+import { deletion, privacy, terms } from "@/lib/legal";
 import { openGraphBase, pages, playStoreUrl, site } from "@/lib/site";
 
 const repoRoot = path.resolve(__dirname, "../../..");
@@ -43,6 +43,16 @@ describe("legal text", () => {
       expect(doc.updated).toMatch(/^\d{1,2} \w+ \d{4}$/);
       expect(doc.sections.some((s) => s.paragraphs.some((p) => p.includes(site.email)))).toBe(true);
     }
+  });
+
+  it("promises nothing the apps don't do", () => {
+    const text = [privacy, terms]
+      .flatMap((doc) => doc.sections.flatMap((s) => [...s.paragraphs, ...(s.list ?? [])]))
+      .concat(deletion.deleted, deletion.kept)
+      .join("\n");
+    // There is no tip feature, police verification is no longer collected, drivers can't export their data, and no
+    // job deletes trip records after a fixed time.
+    expect(text).not.toMatch(/\btips?\b|police verification|download your data|\d+ years?/i);
   });
 
   it("links the privacy policy to the account deletion page", () => {
