@@ -97,8 +97,11 @@ const GROUPS: readonly Group[] = [
   {
     group: "Driver approval",
     description:
-      "Every driver uploads RC + insurance (verified in Drivers › Approvals or KYC) and passes the Didit identity check. On: they are approved the moment the last check passes. Off: they wait in Approvals › Ready to approve until an admin approves them (one by one or in bulk).",
-    fields: [{ key: "driverAutoApprove", label: "Auto-approve drivers", hint: "Off = you approve each ready driver yourself" }],
+      "Every driver uploads RC + insurance (verified in Drivers › Approvals or KYC) and passes the Didit identity check. On: they are approved the moment the last check passes. Off: they wait in Approvals › Ready to approve until an admin approves them (one by one or in bulk). The daily selfie check makes sure the verified driver is the one driving: once a day (IST) before going online, a live selfie must match the face from their identity check (5 tries a day). Drivers without a verified face are never asked.",
+    fields: [
+      { key: "driverAutoApprove", label: "Auto-approve drivers", hint: "Off = you approve each ready driver yourself" },
+      { key: "dailySelfieCheckEnabled", label: "Daily selfie check", hint: "Off = drivers go online without a selfie" },
+    ],
   },
   {
     group: "Driver cancellations",
