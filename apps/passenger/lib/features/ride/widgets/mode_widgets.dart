@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
@@ -207,7 +208,7 @@ class _RentalPackagePickerState extends State<RentalPackagePicker> {
 }
 
 /// "Now" or a pickup time later (up to [RideModeRates.maxDaysAhead] days). [onChanged] gets null for now.
-class WhenChoice extends StatelessWidget {
+class WhenChoice extends ConsumerWidget {
   const WhenChoice({super.key, required this.at, required this.onChanged, this.label = 'Pickup', this.allowNow = true, this.after});
 
   /// Null = now.
@@ -220,16 +221,16 @@ class WhenChoice extends StatelessWidget {
   /// False for a round trip's return (it is always a time).
   final bool allowNow;
 
-  /// Earliest allowed time (a return after leaving); default now + 30 min.
+  /// Earliest allowed time (a return after leaving); default [earliestLaterPickup].
   final DateTime? after;
 
-  Future<void> _pick(BuildContext context) async {
-    final picked = await pickTripTime(context, initial: at, after: after, title: label);
+  Future<void> _pick(BuildContext context, WidgetRef ref) async {
+    final picked = await pickTripTime(context, initial: at, after: after, title: label, leadMin: ref.read(dispatchLeadMinProvider));
     if (picked != null) onChanged(picked);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final later = !allowNow || at != null;
     return Row(
       children: [
@@ -252,7 +253,7 @@ class WhenChoice extends StatelessWidget {
             title: at == null ? 'Schedule' : formatWhen(at!),
             subtitle: at == null ? 'Up to ${RideModeRates.maxDaysAhead} days ahead' : 'Tap to change',
             selected: later,
-            onTap: () => _pick(context),
+            onTap: () => _pick(context, ref),
           ),
         ),
       ],
@@ -315,11 +316,22 @@ class _WhenTile extends StatelessWidget {
   }
 }
 
-/// Date then time pickers for a trip booked ahead: from [after] (default now + 30 min, rounded up to 15 min) to
-/// [RideModeRates.maxDaysAhead] days ahead. Null when cancelled.
-Future<DateTime?> pickTripTime(BuildContext context, {DateTime? initial, DateTime? after, String title = 'Pickup'}) async {
+/// The earliest pickup a trip booked for later can have: the server starts finding its driver [leadMin] minutes
+/// before, so that much from [now] plus 15 minutes to spare, rounded up to a quarter hour.
+DateTime earliestLaterPickup(int leadMin, {DateTime? now}) =>
+    roundUpToQuarter((now ?? DateTime.now()).add(Duration(minutes: leadMin + 15)));
+
+/// Date then time pickers for a trip booked ahead: from [after] (default [earliestLaterPickup] for the server's
+/// [leadMin]) to [RideModeRates.maxDaysAhead] days ahead. Null when cancelled.
+Future<DateTime?> pickTripTime(
+  BuildContext context, {
+  DateTime? initial,
+  DateTime? after,
+  String title = 'Pickup',
+  int leadMin = AppConfig.defaultDispatchLeadMin,
+}) async {
   final now = DateTime.now();
-  final earliest = roundUpToQuarter(after ?? now.add(const Duration(minutes: 30)));
+  final earliest = after == null ? earliestLaterPickup(leadMin, now: now) : roundUpToQuarter(after);
   final last = now.add(const Duration(days: RideModeRates.maxDaysAhead));
   final start = initial != null && initial.isAfter(earliest) ? initial : earliest;
   final date = await showDatePicker(

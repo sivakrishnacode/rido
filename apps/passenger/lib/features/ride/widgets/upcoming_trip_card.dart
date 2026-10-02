@@ -23,7 +23,7 @@ String whenLabelOf(Trip trip) {
 }
 
 /// A trip booked for later: picture, when, what, from → to, fare and (with [onCancel]) a free Cancel.
-class UpcomingTripCard extends StatelessWidget {
+class UpcomingTripCard extends ConsumerWidget {
   const UpcomingTripCard({super.key, required this.trip, this.onCancel, this.onTap, this.compact = false, this.showWhen = true});
 
   final Trip trip;
@@ -37,8 +37,9 @@ class UpcomingTripCard extends StatelessWidget {
   final bool showWhen;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
+    final lead = formatMinutes(ref.watch(dispatchLeadMinProvider));
     return Material(
       color: TtColors.surface,
       borderRadius: TtRadii.cardRadius,
@@ -93,7 +94,7 @@ class UpcomingTripCard extends StatelessWidget {
               ),
               if (!compact && showWhen) ...[
                 const SizedBox(height: TtSpacing.m),
-                Text("We'll start finding your ${trip.isShifting ? 'movers' : 'driver'} 30 min before. Free to cancel until then.",
+                Text("We'll start finding your ${trip.isShifting ? 'movers' : 'driver'} $lead before. Free to cancel until then.",
                     style: t.caption.copyWith(color: TtColors.navy500)),
                 if (onCancel != null)
                   Align(

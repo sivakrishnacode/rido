@@ -48,6 +48,17 @@ void main() {
     expect(info.payUri().queryParameters.containsKey('am'), isFalse);
   });
 
+  test('the dispatch lead and the support number come from the server; none is made up', () {
+    final c = AppConfig.fromJson({'scheduledDispatchLeadMin': 45, 'supportPhone': '+91 98430 12345'});
+    expect(c.scheduledDispatchLeadMin, 45);
+    expect(c.hasSupportPhone, isTrue);
+    final old = AppConfig.fromJson(const {});
+    expect(old.scheduledDispatchLeadMin, 30, reason: 'older servers: the default lead');
+    expect(old.supportPhone, isEmpty);
+    expect(old.hasSupportPhone, isFalse);
+    expect(AppConfig.fallback.hasSupportPhone, isFalse, reason: 'no fake number when the API is unreachable');
+  });
+
   testWidgets('a failed app config or city list is fetched again, not kept for the session', (tester) async {
     final calls = <String, int>{};
     SharedPreferences.setMockInitialValues({});
@@ -61,7 +72,7 @@ void main() {
         if (n <= 2) throw http.ClientException('no network');
         return req.url.path.endsWith('/cities')
             ? http.Response('[{"id":"c1","name":"Madurai","state":"Tamil Nadu","centerLat":9.93,"centerLng":78.12}]', 200)
-            : http.Response('{"supportPhone":"+91 98430 12345"}', 200);
+            : http.Response('{"supportPhone":"+91 98430 12345","scheduledDispatchLeadMin":40}', 200);
       }),
     );
     final container = ProviderContainer(overrides: [isLiveApiProvider.overrideWithValue(true), apiClientProvider.overrideWithValue(api)]);
@@ -73,10 +84,11 @@ void main() {
 
     container.listen(appConfigProvider, (_, _) {});
     await settle();
-    expect(container.read(appConfigProvider).value?.supportPhone, AppConfig.fallback.supportPhone, reason: 'offline: the fallback');
+    expect(container.read(appConfigProvider).value?.hasSupportPhone, isFalse, reason: 'offline: the fallback');
     await tester.pump(const Duration(seconds: 30));
     await settle();
     expect(container.read(appConfigProvider).value?.supportPhone, '+91 98430 12345');
+    expect(container.read(dispatchLeadMinProvider), 40);
 
     container.listen(serviceCitiesProvider, (_, _) {});
     await settle();
