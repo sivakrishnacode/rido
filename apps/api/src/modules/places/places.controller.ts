@@ -32,7 +32,8 @@ export class PlacesController {
   /**
    * Send the same `session` token for every keystroke of one search, then call details once. Optional `lat` /
    * `lng` (the pickup) add each suggestion's `distanceKm`; older apps send neither. `scope=outstation` searches
-   * beyond the service area (other towns), leaning towards the pickup.
+   * beyond the service area (other towns), leaning towards the pickup. Fewer than 4 characters (trimmed): `results`
+   * is empty and nothing is looked up.
    */
   @RateLimit(LIMITS.placesAutocomplete)
   @Get('autocomplete')

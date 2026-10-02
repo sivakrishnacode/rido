@@ -1335,6 +1335,8 @@ describe('Tamil Taxi API (e2e)', () => {
     const auth = quoter;
     const ac = await http.get('/v1/places/autocomplete?q=brook&session=t1').set(auth).expect(200);
     expect(ac.body.results.length).toBeGreaterThan(0);
+    // Under 4 characters: nothing is looked up.
+    expect((await http.get('/v1/places/autocomplete').query({ q: ' bro ', session: 't1' }).set(auth).expect(200)).body).toEqual({ source: 'local', results: [] });
     const details = await http.get(`/v1/places/details/${ac.body.results[0].placeId}`).set(auth).expect(200);
     expect(details.body.lat).toBeCloseTo(11.0, 0);
     const route = await http.post('/v1/maps/route').set(auth).send({ from: GANDHIPURAM, to: BROOKEFIELDS }).expect(200);

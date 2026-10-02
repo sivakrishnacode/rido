@@ -6,7 +6,7 @@ import { RideMode, TripStatus } from '../../generated/prisma/enums.js';
 import { estimateRoute, haversineMeters } from '../fares/fare-engine.js';
 import type { PlaceSuggestion, ResolvedPlace } from '../maps/google-maps.client.js';
 import { GeoService } from '../geo/geo.service.js';
-import { MapsService } from '../maps/maps.service.js';
+import { AUTOCOMPLETE_MIN_CHARS, MapsService } from '../maps/maps.service.js';
 
 /** A popular outstation drop near a pickup ([PlacesService.outstationDestinations]). */
 export interface OutstationDestination {
@@ -41,9 +41,11 @@ export class PlacesService {
 
   /**
    * Google Places Autocomplete inside the service area, with each suggestion's road distance from [origin] (the
-   * pickup) when given; falls back to seeded search (ids prefixed "local:", straight-line × 1.3 distance).
+   * pickup) when given; falls back to seeded search (ids prefixed "local:", straight-line × 1.3 distance). Under
+   * [AUTOCOMPLETE_MIN_CHARS] characters: no results, no lookup.
    */
   async autocomplete(params: { input: string; sessionToken: string; origin?: { lat: number; lng: number }; anywhere?: boolean }): Promise<{ source: 'google' | 'local'; results: PlaceSuggestion[] }> {
+    if (MapsService.normaliseInput(params.input).length < AUTOCOMPLETE_MIN_CHARS) return { source: this.maps.isGoogleEnabled ? 'google' : 'local', results: [] };
     // Outstation drops are other towns: no service-area restriction, results lean towards the pickup.
     const restriction = params.anywhere ? null : await this.geo.serviceBounds();
     const google = await this.maps.autocomplete({ input: params.input, sessionToken: params.sessionToken, origin: params.origin, restriction });
