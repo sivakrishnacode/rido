@@ -11,7 +11,7 @@ interface ErrorBody {
   readonly details?: Record<string, unknown>;
 }
 
-/** Returns one JSON error shape for every failure; maps common Prisma errors to 404 / 409. */
+/** Returns one JSON error shape for every failure; maps common Prisma errors to 404 / 409 / 400. */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger('Errors');
@@ -33,6 +33,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (e instanceof Prisma.PrismaClientKnownRequestError) {
       if (e.code === 'P2025') return { statusCode: HttpStatus.NOT_FOUND, error: 'NotFound', message: 'Not found' };
       if (e.code === 'P2002') return { statusCode: HttpStatus.CONFLICT, error: 'Conflict', message: 'Already exists' };
+      // A foreign key points at nothing (e.g. an id in the body that doesn't exist): the request is wrong, not the server.
+      if (e.code === 'P2003') return { statusCode: HttpStatus.BAD_REQUEST, error: 'BadRequest', message: 'That refers to something that does not exist' };
     }
     return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, error: 'InternalServerError', message: 'Something went wrong' };
   }
