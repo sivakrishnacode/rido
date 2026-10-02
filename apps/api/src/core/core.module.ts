@@ -10,12 +10,13 @@ import { DriverStateCache } from './driver-state/driver-state.cache.js';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { RateLimitGuard } from './rate-limit/rate-limit.guard.js';
 import { RedisModule } from './redis/redis.module.js';
 import { FileStorageService } from './storage/file-storage.service.js';
 
 const env = loadEnv();
 
-/** Cross-cutting setup: config, database, Redis, durable jobs, the driver state cache, JWT, file storage, global guards, validation and error filter. */
+/** Cross-cutting setup: config, database, Redis, durable jobs, the driver state cache, JWT, file storage, global guards (JWT, roles, rate limits), validation and error filter. */
 @Global()
 @Module({
   imports: [
@@ -28,6 +29,8 @@ const env = loadEnv();
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // After the JWT guard, so a signed-in caller is limited per user (else per IP).
+    { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }) },
     FileStorageService,

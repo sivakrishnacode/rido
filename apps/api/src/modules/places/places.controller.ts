@@ -1,6 +1,7 @@
 import { Controller, Get, Param, ParseFloatPipe, Query } from '@nestjs/common';
 
 import { Public } from '../../core/auth/public.decorator.js';
+import { LIMITS, RateLimit } from '../../core/rate-limit/rate-limit.decorator.js';
 import type { Place } from '../../generated/prisma/client.js';
 import type { PlaceSuggestion, ResolvedPlace } from '../maps/google-maps.client.js';
 import { type OutstationDestination, PlacesService } from './places.service.js';
@@ -30,6 +31,7 @@ export class PlacesController {
    * `lng` (the pickup) add each suggestion's `distanceKm`; older apps send neither. `scope=outstation` searches
    * beyond the service area (other towns), leaning towards the pickup.
    */
+  @RateLimit(LIMITS.placesAutocomplete)
   @Get('autocomplete')
   autocomplete(
     @Query('q') q = '',
@@ -51,11 +53,13 @@ export class PlacesController {
     return at ? this.places.outstationDestinations(at).then((destinations) => ({ destinations })) : Promise.resolve({ destinations: [] });
   }
 
+  @RateLimit(LIMITS.placeDetails)
   @Get('details/:placeId')
   details(@Param('placeId') placeId: string, @Query('session') session?: string): Promise<(ResolvedPlace & { isInServiceArea: boolean }) | null> {
     return this.places.details({ placeId, sessionToken: session });
   }
 
+  @RateLimit(LIMITS.placesReverse)
   @Get('reverse')
   reverse(
     @Query('lat', ParseFloatPipe) lat: number,

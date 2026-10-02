@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 
 import { Public } from '../../core/auth/public.decorator.js';
+import { LIMITS, RateLimit } from '../../core/rate-limit/rate-limit.decorator.js';
 import { curvedFallback } from './curved-fallback.js';
 import { RouteQueryDto } from './dto/route-query.dto.js';
 import type { RoadRoute } from './google-maps.client.js';
@@ -15,6 +16,7 @@ import { MapsService } from './maps.service.js';
 export class MapsController {
   constructor(private readonly maps: MapsService) {}
 
+  @RateLimit(LIMITS.mapsRoute)
   @Post('route')
   @HttpCode(200)
   async route(@Body() body: RouteQueryDto): Promise<RoadRoute & { travelMin: number | null; source: 'google' | 'estimate' }> {

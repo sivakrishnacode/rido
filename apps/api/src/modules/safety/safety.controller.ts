@@ -3,13 +3,11 @@ import { Body, Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/commo
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { CurrentUser } from '../../core/auth/current-user.decorator.js';
 import { Public } from '../../core/auth/public.decorator.js';
+import { clientIp, type IpRequest } from '../../core/rate-limit/client-ip.js';
 import { SafetyCheckDto } from './dto/safety-check.dto.js';
 import { SosDto } from './dto/sos.dto.js';
-import { clientIp } from './rate-limit.js';
 import { type SosResult, SosService } from './sos.service.js';
 import { type ShareLink, ShareService, type ShareView } from './share.service.js';
-
-type Req = { headers: Record<string, string | string[] | undefined>; ip?: string };
 
 /** Trip safety for the apps: SOS, live share links (and the public read behind the tracking page). */
 @Controller()
@@ -46,7 +44,7 @@ export class SafetyController {
   /** Public (no sign-in, rate limited): what the link shows. 404 bad link, 410 expired. */
   @Public()
   @Get('share/:token')
-  view(@Param('token') token: string, @Req() req: Req): Promise<ShareView> {
+  view(@Param('token') token: string, @Req() req: IpRequest): Promise<ShareView> {
     return this.share.view(token, clientIp(req));
   }
 }
