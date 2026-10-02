@@ -186,6 +186,8 @@ export function DocumentActions({
   const [isRejectOpen, setRejectOpen] = useState(false);
   const [reason, setReason] = useState("");
   const isReasonValid = reason.trim().length >= 3 && reason.trim().length <= 200;
+  // Nothing to check until the driver uploads it.
+  const isMissing = status === "NOT_UPLOADED";
 
   function review(next: "VERIFIED" | "REJECTED") {
     setAction(next);
@@ -205,7 +207,7 @@ export function DocumentActions({
         size="sm"
         variant="outline"
         className="border-success/30 text-success-text hover:bg-success-tint hover:text-success-text"
-        disabled={isPending || status === "VERIFIED"}
+        disabled={isPending || isMissing || status === "VERIFIED"}
         onClick={() => review("VERIFIED")}
       >
         {isPending && action === "VERIFIED" ? <Loader2Icon className="animate-spin" /> : <CheckIcon />} Verify
@@ -214,7 +216,7 @@ export function DocumentActions({
         size="sm"
         variant="outline"
         className="border-error/30 text-error hover:bg-error-tint hover:text-error"
-        disabled={isPending || status === "REJECTED"}
+        disabled={isPending || isMissing || status === "REJECTED"}
         onClick={() => setRejectOpen(true)}
       >
         <XIcon /> Reject

@@ -1330,6 +1330,10 @@ describe('Tamil Taxi API (e2e)', () => {
     const drivers = await http.get('/v1/admin/drivers?pageSize=5').set(auth).expect(200);
     expect(drivers.body.items.length).toBeGreaterThan(0);
     const driverId = drivers.body.items[0].id as string;
+    // Nothing to verify until a file is in (registration creates the row as NOT_UPLOADED).
+    await prisma.kycDocument.update({ where: { driverId_type: { driverId, type: 'VEHICLE_RC' } }, data: { status: 'NOT_UPLOADED', fileUrl: null } });
+    await http.post(`/v1/admin/drivers/${driverId}/documents/VEHICLE_RC`).set(auth).send({ status: 'VERIFIED' }).expect(400);
+    await prisma.kycDocument.update({ where: { driverId_type: { driverId, type: 'VEHICLE_RC' } }, data: { status: 'UNDER_REVIEW', fileUrl: 'rc.jpg' } });
     const docs = await http.post(`/v1/admin/drivers/${driverId}/documents/VEHICLE_RC`).set(auth).send({ status: 'VERIFIED' }).expect(201);
     expect(docs.body.find((d: { type: string }) => d.type === 'VEHICLE_RC').status).toBe('VERIFIED');
     await http.get('/v1/admin/trips').set(auth).expect(200);
@@ -1466,6 +1470,7 @@ describe('Tamil Taxi API (e2e)', () => {
       const waiting = (await http.get(`/v1/admin/approvals?stage=driver&q=${encodeURIComponent(plate)}`).set(admin).expect(200)).body;
       expect(waiting.items.map((d: { id: string }) => d.id)).toEqual([driverId]);
       for (const type of ['VEHICLE_RC', 'INSURANCE']) {
+        await http.post(`/v1/drivers/me/documents/${type}`).set(driver).attach('file', JPEG, { filename: 'doc.jpg', contentType: 'image/jpeg' }).expect(201);
         await http.post(`/v1/admin/drivers/${driverId}/documents/${type}`).set(admin).send({ status: 'VERIFIED' }).expect(201);
       }
       expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('PENDING');
@@ -1562,6 +1567,7 @@ describe('Tamil Taxi API (e2e)', () => {
     await http.post('/v1/auth/otp').send({ phone: ADMIN_PHONE }).expect(200);
     const admin = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: ADMIN_PHONE, code: '123456' })).body.accessToken}` };
     for (const type of ['VEHICLE_RC', 'INSURANCE']) {
+      await http.post(`/v1/drivers/me/documents/${type}`).set(driver).attach('file', JPEG, { filename: 'doc.jpg', contentType: 'image/jpeg' }).expect(201);
       await http.post(`/v1/admin/drivers/${driverId}/documents/${type}`).set(admin).send({ status: 'VERIFIED' }).expect(201);
     }
     expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('PENDING');

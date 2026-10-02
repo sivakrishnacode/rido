@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
@@ -110,6 +110,10 @@ export class AdminService {
 
   /** Verify or reject one document; RC + insurance verified and identity approved → APPROVED, any rejected → REJECTED. */
   async reviewDocument(params: { driverId: string; type: KycDocType; status: 'VERIFIED' | 'REJECTED'; reason?: string }): Promise<KycDocument[]> {
+    const doc = await this.prisma.kycDocument.findUnique({ where: { driverId_type: { driverId: params.driverId, type: params.type } } });
+    if (!doc) throw new NotFoundException('Document not found');
+    // A row exists from registration on; there is nothing to verify (or reject) until a file is uploaded.
+    if (doc.status === 'NOT_UPLOADED' || !doc.fileUrl) throw new BadRequestException('The driver has not uploaded this document yet');
     await this.prisma.kycDocument.update({
       where: { driverId_type: { driverId: params.driverId, type: params.type } },
       data: { status: params.status, rejectReason: params.status === 'REJECTED' ? (params.reason ?? 'Please upload a clearer image') : null },
