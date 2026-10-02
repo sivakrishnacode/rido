@@ -50,7 +50,6 @@ export function isBlockedAccount(status: number, body: unknown): boolean {
  * would leave the site: anything that doesn't resolve to this origin (or has control characters) goes to `/`.
  */
 export function safeNext(next: string | null | undefined): string {
-  // eslint-disable-next-line no-control-regex
   if (!next || !next.startsWith("/") || /[\\\u0000-\u001f]/.test(next)) return "/";
   const url = new URL(next, "http://admin.local");
   if (url.origin !== "http://admin.local" || url.pathname.startsWith("/login")) return "/";
