@@ -17,7 +17,10 @@ function pointOf(q: { lat?: string; lng?: string }): { lat: number; lng: number 
   return q.lat && q.lng && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null;
 }
 
-/** Fare quotes (P-10 / PP-06). Public so the app can show prices before login. */
+/**
+ * Fare quotes (P-10 / PP-06). Quotes can fetch a paid Google route: signed in (any role) and rate limited per user.
+ * The rate cards (`rates`, `rental-packages`) stay public.
+ */
 @Controller('fares')
 export class FaresController {
   constructor(
@@ -37,7 +40,6 @@ export class FaresController {
     return { packages: RENTAL_PACKAGES, pricing: at ? await this.geo.pricingAt(at) : await this.geo.pricing(null) };
   }
 
-  @Public()
   @RateLimit(LIMITS.faresQuote)
   @Post('quote')
   @HttpCode(200)
@@ -66,7 +68,6 @@ export class FaresController {
    * House shifting (PH-01 … PH-03): the price lines for the home size, floors, packing and extras at a slot (default
    * tomorrow 9 am), every goods truck's total, and the next 7 days' totals.
    */
-  @Public()
   @RateLimit(LIMITS.shiftingQuote)
   @Post('shifting-quote')
   @HttpCode(200)
