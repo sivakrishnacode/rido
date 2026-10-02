@@ -517,6 +517,10 @@ model Trip {
   gpsMockCount       Int                @default(0)
   /// Too few points or a hole of more than 2 km between kept points.
   distanceCalcFailed Boolean            @default(false)
+  /// Parcel only: the sender's photo of the parcel (before pickup) and the driver's proof of delivery. Private storage
+  /// files, served by GET /trips/:id/parcel-photo and /delivery-photo (trips/trip-photos.controller.ts).
+  parcelPhotoFile    String?
+  deliveryPhotoFile  String?
   startedAt          DateTime?
   endedAt            DateTime?
   passenger          User               @relation("PassengerTrips", fields: [passengerId], references: [id])
