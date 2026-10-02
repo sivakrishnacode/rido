@@ -81,7 +81,7 @@ describe('Tamil Taxi API (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
     const redis = app.get(RedisService);
-    const otpKeys = await redis.keys('otp:*');
+    const otpKeys = [...(await redis.keys('otp:*')), ...(await redis.keys('rl:*'))];
     if (otpKeys.length) await redis.del(...otpKeys);
     const keys = [...(await redis.keys('h3:*')), ...(await redis.keys('hexstats:*')), ...(await redis.keys('driver:*')), ...(await redis.keys('dispatch:*')), ...(await redis.keys('jobs:*'))];
     if (keys.length) await redis.del(...keys);
@@ -117,6 +117,16 @@ describe('Tamil Taxi API (e2e)', () => {
     const p = phone();
     await http.post('/v1/auth/verify').send({ phone: p, code: '000000' }).expect(401);
     await http.get('/v1/me').expect(401);
+  });
+
+  it('limits OTP requests per client IP: 429 with Retry-After, other clients unaffected', async () => {
+    // Behind Caddy (a loopback / private peer) the client is the X-Forwarded-For address.
+    const client = '203.0.113.10';
+    for (let i = 0; i < 10; i++) await http.post('/v1/auth/otp').set('x-forwarded-for', client).send({ phone: phone() }).expect(200);
+    const limited = await http.post('/v1/auth/otp').set('x-forwarded-for', client).send({ phone: phone() }).expect(429);
+    expect(limited.body).toMatchObject({ statusCode: 429, message: 'Too many requests. Please wait a moment and try again.', code: 'RATE_LIMITED' });
+    expect(Number(limited.headers['retry-after'])).toBeGreaterThan(800);
+    await http.post('/v1/auth/otp').set('x-forwarded-for', '203.0.113.11').send({ phone: phone() }).expect(200);
   });
 
   it('quotes fares with no peak markup by default', async () => {

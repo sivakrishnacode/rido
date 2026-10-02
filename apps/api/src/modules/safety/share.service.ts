@@ -3,12 +3,12 @@ import { ForbiddenException, GoneException, Inject, Injectable, NotFoundExceptio
 import type { Env } from '../../core/config/env.js';
 import { ENV } from '../../core/config/env.token.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
+import { rateLimit } from '../../core/rate-limit/rate-limit.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Trip } from '../../generated/prisma/client.js';
 import { TripStatus, type TripKind, type VehicleKind } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { etaMinutes, FALLBACK_KMH, roadKm } from '../geo/eta-model.js';
-import { rateLimit } from './rate-limit.js';
 import { isShareLive, shareExpiry, signShareToken, verifyShareToken } from './share-token.js';
 
 /** Public reads per IP and per link, per minute (the page polls every ~5 s; a family may watch together). */

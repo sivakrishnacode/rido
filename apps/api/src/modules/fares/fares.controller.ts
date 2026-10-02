@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
 
 import { Public } from '../../core/auth/public.decorator.js';
+import { LIMITS, RateLimit } from '../../core/rate-limit/rate-limit.decorator.js';
 import { RideMode, TripKind } from '../../generated/prisma/enums.js';
 import { QuoteRequestDto } from './dto/quote-request.dto.js';
 import { ShiftingQuoteDto } from './dto/shifting.dto.js';
@@ -37,6 +38,7 @@ export class FaresController {
   }
 
   @Public()
+  @RateLimit(LIMITS.faresQuote)
   @Post('quote')
   @HttpCode(200)
   async quote(@Body() body: QuoteRequestDto): Promise<{ quotes: QuoteWithEta[] }> {
@@ -65,6 +67,7 @@ export class FaresController {
    * tomorrow 9 am), every goods truck's total, and the next 7 days' totals.
    */
   @Public()
+  @RateLimit(LIMITS.shiftingQuote)
   @Post('shifting-quote')
   @HttpCode(200)
   shiftingQuote(@Body() body: ShiftingQuoteDto): Promise<ShiftingQuoteResult> {

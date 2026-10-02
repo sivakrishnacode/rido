@@ -11,15 +11,21 @@ interface ErrorBody {
   readonly details?: Record<string, unknown>;
 }
 
-/** Returns one JSON error shape for every failure; maps common Prisma errors to 404 / 409 / 400. */
+/**
+ * Returns one JSON error shape for every failure; maps common Prisma errors to 404 / 409 / 400. A 429 with
+ * `details.retryInSeconds` also gets a `Retry-After` header.
+ */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger('Errors');
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const res = host.switchToHttp().getResponse<{ status: (c: number) => { json: (b: ErrorBody) => void } }>();
+    const res = host.switchToHttp().getResponse<{ setHeader: (k: string, v: string) => void; status: (c: number) => { json: (b: ErrorBody) => void } }>();
     const body = this.toBody(exception);
     if (body.statusCode >= 500) this.logger.error(exception);
+    // Every 429 that says when to try again (rate limits, OTP locks) also says it the standard way.
+    const retry = body.details?.retryInSeconds;
+    if (body.statusCode === HttpStatus.TOO_MANY_REQUESTS && typeof retry === 'number' && retry > 0) res.setHeader('Retry-After', String(Math.ceil(retry)));
     res.status(body.statusCode).json(body);
   }
 
