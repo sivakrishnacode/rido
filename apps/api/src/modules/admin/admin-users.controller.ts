@@ -7,6 +7,7 @@ import type { KycDocument, User } from '../../generated/prisma/client.js';
 import { Role } from '../../generated/prisma/enums.js';
 import { type ActivityEntry, type AdminNoteView, AdminPeopleService } from './admin-people.service.js';
 import { AdminUsersService } from './admin-users.service.js';
+import { AccountDeletionService } from '../users/account-deletion.service.js';
 import type { Paged } from './admin.types.js';
 import { AuditInterceptor } from './audit.interceptor.js';
 import { ListQueryDto } from './dto/list-query.dto.js';
@@ -21,6 +22,7 @@ export class AdminUsersController {
   constructor(
     private readonly users: AdminUsersService,
     private readonly people: AdminPeopleService,
+    private readonly deletion: AccountDeletionService,
   ) {}
 
   /** ?role=PASSENGER|DRIVER|ADMIN&blocked=true|false&q=… */
@@ -37,6 +39,13 @@ export class AdminUsersController {
   @Patch('users/:id')
   update(@Param('id') id: string, @Body() body: UpdateUserDto): Promise<User> {
     return this.users.update(id, body);
+  }
+
+  /** Deletes the person's account like DELETE /me does (204; 409 while a trip is unfinished; not your own). Audited. */
+  @Delete('users/:id')
+  @HttpCode(204)
+  remove(@Param('id') id: string, @CurrentUser() user: AuthUser): Promise<void> {
+    return this.deletion.delete(id, { kind: 'admin', adminId: user.userId });
   }
 
   /** Internal notes on the person (driver or rider), newest first. */

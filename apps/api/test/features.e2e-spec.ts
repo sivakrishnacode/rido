@@ -67,10 +67,10 @@ describe('Tamil Taxi features (e2e)', () => {
     await app.close();
   });
 
-  async function login(p = phone()): Promise<{ auth: Auth; userId: string }> {
+  async function login(p = phone()): Promise<{ auth: Auth; userId: string; phone: string; isNewUser: boolean }> {
     await http.post('/v1/auth/otp').send({ phone: p }).expect(200);
     const res = await http.post('/v1/auth/verify').send({ phone: p, code: '123456' }).expect(200);
-    return { auth: { Authorization: `Bearer ${res.body.accessToken as string}` }, userId: res.body.user.id as string };
+    return { auth: { Authorization: `Bearer ${res.body.accessToken as string}` }, userId: res.body.user.id as string, phone: p, isNewUser: res.body.isNewUser as boolean };
   }
 
   let adminHeaders: Auth | null = null;
@@ -394,6 +394,102 @@ describe('Tamil Taxi features (e2e)', () => {
       const listed = (await http.get('/v1/admin/tickets?pageSize=100').set(admin).expect(200)).body.items.find((t: { id: string }) => t.id === ticket.id);
       expect(listed.attachmentFile).toBe(res.attachmentFile);
       await http.get(`/v1/admin/files/${res.attachmentFile as string}`).set(admin).expect(200);
+    });
+  });
+
+  describe('account deletion (DELETE /me)', () => {
+    const stored = () => app.get(FileStorageService).save({ originalname: 'x.jpg', mimetype: 'image/jpeg', size: JPEG.length, buffer: JPEG });
+    const exists = (name: string) => app.get(FileStorageService).open(name).then(() => true, () => false);
+
+    it("wipes a rider's personal details, keeps their trips, and frees the number for a new account", async () => {
+      const rider = await login();
+      await http.patch('/v1/me').set(rider.auth).send({ name: 'Meena K', email: 'meena@example.com' }).expect(200);
+      await prisma.savedPlace.create({ data: { userId: rider.userId, label: 'Home', name: 'Home', address: '12 Race Course Rd', lat: 11, lng: 76.9 } });
+      await prisma.emergencyContact.create({ data: { userId: rider.userId, name: 'Ravi', relation: 'Brother', phone: '+919876500000' } });
+      await prisma.deviceToken.create({ data: { token: `tok-${rider.userId}`, userId: rider.userId, app: 'PASSENGER' } });
+      await prisma.identityVerification.create({ data: { userId: rider.userId, purpose: 'RIDER', sessionId: `del-${rider.userId}`, fullName: 'Meena K', dateOfBirth: '1990-01-01', documentLast4: '1234' } });
+      const done = await tripRow({ passengerId: rider.userId, status: 'DELIVERED' });
+      const photo = await stored();
+      await prisma.trip.update({
+        where: { id: done },
+        data: { riderName: 'Amma', riderPhone: '+919876511111', parcelPhotoFile: photo, parcel: { category: 'documents', senderName: 'Meena', senderPhone: '+919876522222', receiverName: 'Raja', receiverPhone: '+919876533333', dropNote: 'Gate 2' } },
+      });
+      const later = await tripRow({ passengerId: rider.userId, status: 'SCHEDULED' });
+      const ticket = (await http.post('/v1/tickets').set(rider.auth).send({ topic: 'Parcel issue', description: 'Box was wet', tripId: done }).expect(201)).body;
+      await http.post(`/v1/tickets/${ticket.id as string}/attachment`).set(rider.auth).attach('file', JPEG, { filename: 'p.jpg', contentType: 'image/jpeg' }).expect(200);
+      const ticketPhoto = (await prisma.supportTicket.findUniqueOrThrow({ where: { id: ticket.id } })).attachmentFile!;
+
+      await http.delete('/v1/me').set(rider.auth).expect(204);
+
+      // Signed out everywhere at once.
+      await http.get('/v1/me').set(rider.auth).expect(403);
+      const user = await prisma.user.findUniqueOrThrow({ where: { id: rider.userId } });
+      expect(user).toMatchObject({ name: null, email: null, gender: null, phone: `deleted:${rider.userId}`, identityStatus: 'NOT_STARTED' });
+      expect(user.deletedAt).not.toBeNull();
+      for (const count of [
+        prisma.savedPlace.count({ where: { userId: rider.userId } }),
+        prisma.emergencyContact.count({ where: { userId: rider.userId } }),
+        prisma.deviceToken.count({ where: { userId: rider.userId } }),
+        prisma.identityVerification.count({ where: { userId: rider.userId } }),
+      ]) expect(await count).toBe(0);
+      // Trips stay for the records, without the personal details; the one booked for later is cancelled.
+      const kept = await prisma.trip.findUniqueOrThrow({ where: { id: done } });
+      expect(kept).toMatchObject({ passengerId: rider.userId, riderName: null, riderPhone: null, parcelPhotoFile: null, parcel: { category: 'documents' } });
+      expect(kept.parcel).not.toHaveProperty('senderPhone');
+      expect(kept.parcel).not.toHaveProperty('receiverName');
+      expect((await prisma.trip.findUniqueOrThrow({ where: { id: later } })).status).toBe('CANCELLED');
+      expect((await prisma.supportTicket.findUniqueOrThrow({ where: { id: ticket.id } })).attachmentFile).toBeNull();
+      expect(await exists(photo)).toBe(false);
+      expect(await exists(ticketPhoto)).toBe(false);
+      const audit = await prisma.auditLog.findFirst({ where: { entity: 'users', entityId: rider.userId, action: 'DELETE /v1/me' } });
+      expect(audit).not.toBeNull();
+
+      // The number signs up again as a fresh account.
+      const again = await login(rider.phone);
+      expect(again.userId).not.toBe(rider.userId);
+      expect(again.isNewUser).toBe(true);
+    });
+
+    it('waits for an unfinished trip', async () => {
+      const rider = await login();
+      await tripRow({ passengerId: rider.userId, kind: 'RIDE', status: 'SEARCHING' });
+      expect((await http.delete('/v1/me').set(rider.auth).expect(409)).body.message).toMatch(/current trip/);
+      const d = await approvedDriver();
+      await tripRow({ passengerId: rider.userId, driverId: d.driverId, status: 'PICKED_UP' });
+      await http.delete('/v1/me').set(d.auth).expect(409);
+    });
+
+    it('takes a driver offline, rejects them and deletes their documents and photos; the plate is free again', async () => {
+      const d = await approvedDriver();
+      const [rc, selfie] = [await stored(), await stored()];
+      await prisma.kycDocument.update({ where: { driverId_type: { driverId: d.driverId, type: 'VEHICLE_RC' } }, data: { status: 'VERIFIED', fileUrl: rc } });
+      await prisma.driver.update({ where: { id: d.driverId }, data: { selfieFile: selfie, selfieCheckedAt: new Date(), bookingPrefs: { maxPickupKm: 3 } } });
+      await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(200);
+
+      await http.delete('/v1/me').set(d.auth).expect(204);
+
+      const driver = await prisma.driver.findUniqueOrThrow({ where: { id: d.driverId } });
+      expect(driver).toMatchObject({ status: 'REJECTED', isOnline: false, upiId: '', photoFile: null, selfieFile: null, bookingPrefs: null });
+      expect(driver.plate).not.toBe(d.plate);
+      expect(await prisma.kycDocument.count({ where: { driverId: d.driverId, fileUrl: { not: null } } })).toBe(0);
+      expect(await exists(rc)).toBe(false);
+      expect(await exists(selfie)).toBe(false);
+      expect(await redis.get(`driver:cell:${d.driverId}`)).toBeNull();
+      // The same vehicle can be registered again.
+      const { auth } = await login();
+      await http.post('/v1/drivers').set(auth).send(registration(d.plate)).expect(201);
+    });
+
+    it('an admin deletes an account from the panel (audited), never their own', async () => {
+      const admin = await adminAuth();
+      const rider = await login();
+      const me = (await http.get('/v1/me').set(admin).expect(200)).body as { id: string };
+      await http.delete(`/v1/admin/users/${me.id}`).set(admin).expect(400);
+      await http.delete(`/v1/admin/users/${rider.userId}`).set(admin).expect(204);
+      await http.delete(`/v1/admin/users/${rider.userId}`).set(admin).expect(404);
+      await http.get('/v1/me').set(rider.auth).expect(403);
+      const history = (await http.get(`/v1/admin/users/${rider.userId}/activity`).set(admin).expect(200)).body as { summary: string }[];
+      expect(history.map((h) => h.summary)).toContain('Account deleted by an admin');
     });
   });
 });
