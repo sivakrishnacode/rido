@@ -47,8 +47,8 @@ export function RoleControl({ userId, role, name }: { userId: string; role: Role
             </DialogTitle>
             <DialogDescription>
               {target === "ADMIN"
-                ? "Admins can sign in to this panel and change anything here. Note: phones in ADMIN_PHONES always sign in as admin."
-                : "The new role applies from the user's next sign-in. A driver role still needs a driver profile to take rides."}
+                ? "Admins can sign in to this panel and change anything here, from their next sign-in. Note: phones in ADMIN_PHONES always sign in as admin."
+                : `The new role applies from the user's next sign-in${role === "ADMIN" ? ": until then they keep admin access" : ""}. A driver role still needs a driver profile to take rides.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
