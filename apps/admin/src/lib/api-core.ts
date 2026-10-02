@@ -37,8 +37,14 @@ export function errorMessage(body: unknown, status: number): string {
   return `Request failed (${status})`;
 }
 
-/** Only same-site relative paths are allowed as a post-login destination. */
+/**
+ * Only same-site relative paths are allowed as a post-login destination. Browsers read `\` as `/`, so `/\evil.com`
+ * would leave the site: anything that doesn't resolve to this origin (or has control characters) goes to `/`.
+ */
 export function safeNext(next: string | null | undefined): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/login")) return "/";
+  // eslint-disable-next-line no-control-regex
+  if (!next || !next.startsWith("/") || /[\\\u0000-\u001f]/.test(next)) return "/";
+  const url = new URL(next, "http://admin.local");
+  if (url.origin !== "http://admin.local" || url.pathname.startsWith("/login")) return "/";
   return next;
 }

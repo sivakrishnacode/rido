@@ -60,6 +60,8 @@ describe("api helpers", () => {
   it("only allows same-site post-login redirects", () => {
     expect(safeNext("/drivers?status=PENDING")).toBe("/drivers?status=PENDING");
     expect(safeNext("//evil.example")).toBe("/");
+    expect(safeNext("/\\evil.example")).toBe("/");
+    expect(safeNext("/\t/evil.example")).toBe("/");
     expect(safeNext("https://evil.example")).toBe("/");
     expect(safeNext("/login")).toBe("/");
     expect(safeNext(undefined)).toBe("/");
