@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/go_online.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
-import '../../state/live_helpers.dart';
 import 'widgets/signup_widgets.dart';
 
 /// D-09 Selfie verification: circular face guide and "Take selfie".
@@ -51,20 +51,11 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
     });
   }
 
-  /// S-13 daily check done → online. Live API: going online can still fail (GPS off, plan expired);
-  /// the reason shows on Home.
+  /// S-13 daily check done → Home, online. Going online can still be refused (GPS off, on hold, paused): Home
+  /// explains it the same way as its own Go online button.
   Future<void> _goOnline() async {
-    final session = ref.read(driverSessionProvider.notifier);
-    session.markSelfieDone();
-    String? error;
-    try {
-      await session.goOnline();
-    } on Exception catch (e) {
-      error = userMessage(e);
-    }
-    if (!mounted) return;
-    context.go(Routes.home);
-    showTtSnack(context, error ?? "Selfie verified. You're online", success: error == null);
+    ref.read(driverSessionProvider.notifier).markSelfieDone();
+    await goOnlineOrExplain(context, ref, toHome: true, onlineMessage: "Selfie verified. You're online");
   }
 
   @override

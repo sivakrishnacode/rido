@@ -5,10 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/go_online.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_session.dart';
-import '../../state/live_helpers.dart';
 import 'widgets/signup_widgets.dart';
 
 /// D-12b Autopay success: "You're all set!", the trial (setup) or payment (pay) status, the
@@ -33,17 +33,8 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
     final date = formatDate(plan.nextDebit);
 
     Future<void> goOnline() async {
-      final s = ref.read(driverSessionProvider.notifier);
-      s.markSelfieDone();
-      String? error;
-      try {
-        await s.goOnline();
-      } on Exception catch (e) {
-        error = userMessage(e);
-      }
-      if (!context.mounted) return;
-      context.go(Routes.home);
-      if (error != null) showTtSnack(context, error);
+      ref.read(driverSessionProvider.notifier).markSelfieDone();
+      await goOnlineOrExplain(context, ref, toHome: true);
     }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
