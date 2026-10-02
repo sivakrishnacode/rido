@@ -11,8 +11,8 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const poppins = Poppins({ variable: "--font-poppins", subsets: ["latin"], weight: ["500", "600", "700"] });
 
 const description =
-  "Book bike, auto and cab rides or send parcels across Coimbatore. 0% commission and no subscription: " +
-  "drivers keep the whole fare.";
+  `Bike, auto and cab rides, cab rentals, outstation trips, parcels and house moves in ${site.city}. ` +
+  "0% commission and no subscription: drivers keep the whole fare.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
