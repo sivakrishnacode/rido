@@ -22,11 +22,14 @@ abstract final class _Mercator {
     return LatLng(lat, w.dx / scale * 360 - 180);
   }
 
-  /// Camera that fits [points] inside [size] minus [padding] (like flutter_map's CameraFit).
+  /// Camera that fits [points] inside [size] minus [padding] (like flutter_map's CameraFit). A [pin] drawn
+  /// [pinHeight] px above its point (the drop) gets room for the whole pin when it sits in the fitted box.
   static (LatLng, double) fit(
     List<LatLng> points,
     Size size,
     EdgeInsets padding, {
+    LatLng? pin,
+    double pinHeight = 0,
     double minZoom = 10,
     double maxZoom = 16,
   }) {
@@ -40,12 +43,35 @@ abstract final class _Mercator {
     }
     final availW = math.max(1.0, size.width - padding.horizontal);
     final availH = math.max(1.0, size.height - padding.vertical);
-    final dx = maxX - minX, dy = maxY - minY;
-    final zx = dx > 0 ? math.log(availW / dx) / math.ln2 : maxZoom;
-    final zy = dy > 0 ? math.log(availH / dy) / math.ln2 : maxZoom;
-    final zoom = math.min(zx, zy).clamp(minZoom, maxZoom).toDouble();
+    final p = pin == null ? null : world(pin, 0);
+    // The pin's point counts when it is at the box (a road route ends a few metres from the place), not when the
+    // screen leaves it out on purpose (far away).
+    final near = math.max(maxX - minX, maxY - minY) * 0.1 + 1e-9;
+    final pinInBox = p != null &&
+        pinHeight > 0 &&
+        p.dx >= minX - near &&
+        p.dx <= maxX + near &&
+        p.dy >= minY - near &&
+        p.dy <= maxY + near;
+    if (pinInBox) {
+      minX = math.min(minX, p.dx);
+      maxX = math.max(maxX, p.dx);
+      minY = math.min(minY, p.dy);
+      maxY = math.max(maxY, p.dy);
+    }
+    // The pin's height is fixed on screen, so its share of the box depends on the zoom: a few passes settle it.
+    var top = minY;
+    var zoom = maxZoom;
+    for (var pass = 0; pass < 3; pass++) {
+      final dx = maxX - minX, dy = maxY - top;
+      final zx = dx > 0 ? math.log(availW / dx) / math.ln2 : maxZoom;
+      final zy = dy > 0 ? math.log(availH / dy) / math.ln2 : maxZoom;
+      zoom = math.min(zx, zy).clamp(minZoom, maxZoom).toDouble();
+      if (!pinInBox) break;
+      top = math.min(minY, p.dy - pinHeight / math.pow(2, zoom));
+    }
     final scale = math.pow(2, zoom).toDouble();
-    final centre = Offset((minX + maxX) / 2 * scale, (minY + maxY) / 2 * scale);
+    final centre = Offset((minX + maxX) / 2 * scale, (top + maxY) / 2 * scale);
     // Shift so the fitted box sits in the padded area, not the raw centre.
     final target = centre - Offset((padding.left - padding.right) / 2, (padding.top - padding.bottom) / 2);
     return (unproject(target, zoom), zoom);
@@ -169,7 +195,7 @@ class _GoogleTtMapState extends State<_GoogleTtMap> with WidgetsBindingObserver 
   void _refit() {
     final fit = m.fitPoints;
     if (fit == null || fit.length < 2 || _size.isEmpty) return;
-    final (centre, zoom) = _Mercator.fit(fit, m.mapPadding.deflateSize(_size), m.fitPadding);
+    final (centre, zoom) = _fitCamera(fit, _size);
     final c = _controller;
     if (c == null) {
       _pendingMove = (centre, zoom);
@@ -217,11 +243,29 @@ class _GoogleTtMapState extends State<_GoogleTtMap> with WidgetsBindingObserver 
     unawaited(c.moveCamera(gm.CameraUpdate.newLatLngZoom(_g(center), zoom)).catchError((Object _) {}));
   }
 
+  void _animateTo(LatLng center, double zoom) {
+    final c = _controller;
+    if (c == null) {
+      _pendingMove = (center, zoom);
+      return;
+    }
+    _programmaticMove = true;
+    unawaited(c.animateCamera(gm.CameraUpdate.newLatLngZoom(_g(center), zoom)).catchError((Object _) {}));
+  }
+
   void _onCreated(gm.GoogleMapController c) {
     _controller = c;
     final pending = _pendingMove;
     _pendingMove = null;
-    if (pending != null) _moveTo(pending.$1, pending.$2);
+    final initial = _initial;
+    if (pending != null) {
+      _moveTo(pending.$1, pending.$2);
+    } else if (initial != null && m.mapPadding != EdgeInsets.zero) {
+      // Android takes the initial camera before `mapPadding` and keeps the view when the padding comes, so the
+      // camera aimed at the padded area (the route above the sheet) showed it in the middle of the whole map,
+      // behind the sheet. Placing it again now that the padding is set puts it where it was meant to be.
+      _moveTo(_l(initial.target), initial.zoom);
+    }
   }
 
   bool get _hasOverlays =>
@@ -236,11 +280,20 @@ class _GoogleTtMapState extends State<_GoogleTtMap> with WidgetsBindingObserver 
     m.onPositionChanged?.call(TtCamera(center: _l(pos.target), zoom: pos.zoom), !_programmaticMove);
   }
 
+  /// Fits [fit] inside the area left by `mapPadding`, keeping the whole drop pin (drawn above its point) in view.
+  (LatLng, double) _fitCamera(List<LatLng> fit, Size size) => _Mercator.fit(
+        fit,
+        m.mapPadding.deflateSize(size),
+        m.fitPadding,
+        pin: m.drop,
+        pinHeight: _dropSize.height,
+      );
+
   gm.CameraPosition _initialCamera(Size size) {
     final fit = m.fitPoints;
     if (fit != null && fit.length >= 2) {
       // GoogleMap centres the camera in the area left by `mapPadding`, so fit inside that area.
-      final (centre, zoom) = _Mercator.fit(fit, m.mapPadding.deflateSize(size), m.fitPadding);
+      final (centre, zoom) = _fitCamera(fit, size);
       return gm.CameraPosition(target: _g(centre), zoom: zoom);
     }
     return gm.CameraPosition(target: _g(m.center ?? m.pickup ?? CityDefaults.center), zoom: m.zoom);

@@ -48,6 +48,16 @@ class TtMapController {
     }
   }
 
+  /// Like [move], but the Google map glides there (a place picked in search).
+  void animateTo(LatLng center, double zoom) {
+    final google = _google;
+    if (google != null) {
+      google._animateTo(center, zoom);
+      return;
+    }
+    move(center, zoom);
+  }
+
   void dispose() {
     _google = null;
     _flutterMap.dispose();

@@ -1312,6 +1312,12 @@ cells, zones, fares) is a `City` row added in the admin panel.
   sheet changed the visible area. Both engines now re-fit (Google: animated) when the bounds of `fitPoints`, the
   fit padding, `mapPadding` or the map's size change. An equal list in a new rebuild doesn't move the camera, and
   re-fitting also pauses 15 s after the user pans or zooms.
+- **Fits above a sheet (2 Oct 2026):** Android's Google map takes the initial camera before `mapPadding` and keeps
+  the view when the padding comes, so a camera aimed at the area above the sheet showed the route in the middle of
+  the whole map, behind the sheet (PP-06, P-10, P-12, P-13 and the other trip screens). `_onCreated` places the
+  camera again once the map exists. The Google fit also keeps the whole drop pin (40 px, drawn above its point) in
+  view when the drop is at the fitted box (`_Mercator.fit` `pin` / `pinHeight`). P-22 fits its route instead of
+  guessing a zoom from the distance. `TtMapController.animateTo` glides the Google camera (PP-02 / PP-03 search).
 - **Always the real position (live):** both apps read the last known fix at once, then a fresh one. Passenger: the
   pickup and map are the phone's location even outside the service area (banner "Tamil Taxi isn't in your area yet"; the API
   refuses bookings there). Driver: the car marker follows the phone while offline too (nothing uploaded); with no fix
@@ -1762,7 +1768,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | SMS | MSG91 / Twilio for OTP |
 | Admin panel | **Done (25 Sep 2026)**: `apps/admin`, all modules above. KYC files open via `/files/:name` (S3). Follow-up: no 2FA/IP allow-list for admins yet |
 | Google Maps on device | Verify the Google engine on a real phone with keys (never run with a key yet) |
-| Google logo padding | **Done**: `TtMap.mapPadding` (→ `GoogleMap.padding`) on map screens with sheets; the shared camera-fit still ignores it (passenger works around it with `sheetMapInsets`) |
+| Google logo padding | **Done**: `TtMap.mapPadding` (→ `GoogleMap.padding`) on map screens with sheets; the Google fit works inside the padded area and, since 2 Oct 2026, places the camera again once the map exists (Android applied the padding after the initial camera, hiding fitted routes behind sheets). The flutter_map fallback ignores it (passenger: `sheetMapInsets`) |
 | Two-wheeler routing | **Changed (28 Sep 2026)**: the backend routes every vehicle as DRIVE. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3× Essentials, 7k free); bike fares are priced on the car route so the booked fare matches P-10. Google Routes billing: `vehicleStopover` (fare routes) bills at Pro; ETAs stay Essentials |
 | Google search in pickers | **Done**: saved-place editor and parcel picker search through the API |
 | Google Maps improvements | **Done (28 Sep 2026)**: shortest-route fares (`computeAlternativeRoutes`), traffic-aware travel time for display (`travelMin`, fare unchanged), "Near X" pickup landmarks (address descriptors → `Trip.pickupLandmark`), service-area-restricted search with distances, and one Route Matrix call for driver ETAs. Billing table in 7. Later: a phone check of P-09 / D-16 with real landmarks. Plus-code addresses not typed `plus_code` ("X2JR+9H, ELGI Nagar") are skipped or trimmed: **Done (28 Sep 2026)** |
