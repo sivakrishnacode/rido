@@ -931,7 +931,8 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(await prisma.cancellationDue.count({ where: { tripId: off.trip.id } })).toBe(0);
     await http.post('/v1/drivers/me/offline').set(off.driver);
 
-    await settings.update({ cancellationFeeEnabled: true });
+    // No live surge either: the earlier tests' bookings around Gandhipuram can raise it, depending on timing.
+    await settings.update({ cancellationFeeEnabled: true, dynamicSurgeEnabled: false });
     try {
       // The passenger cancels after the driver waited: ₹10 owed to that driver.
       const first = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
@@ -968,7 +969,7 @@ describe('Tamil Taxi API (e2e)', () => {
       expect(report.totals.applied).toBeGreaterThanOrEqual(10);
       await http.post('/v1/drivers/me/offline').set(nextAuth);
     } finally {
-      await settings.update({ cancellationFeeEnabled: false });
+      await settings.update({ cancellationFeeEnabled: false, dynamicSurgeEnabled: true });
     }
   }, 60_000);
 
