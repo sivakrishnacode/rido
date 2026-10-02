@@ -7,8 +7,10 @@ import 'package:latlong2/latlong.dart' show Distance;
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/device_location.dart';
 import '../../common/launch.dart';
 import '../../common/phone.dart';
+import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
@@ -85,8 +87,13 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
     }
   }
 
+  /// Back to the trip as it is now: updates that came while SOS was open didn't navigate ([goForTrip]), so the screen
+  /// underneath may be out of date (the driver arrived, the ride started, ended or was cancelled).
   void _close() {
-    if (context.canPop()) {
+    final route = widget.showcase ? null : routeForRidePhase(ref.read(rideFlowProvider).phase);
+    if (route != null) {
+      context.go(route);
+    } else if (context.canPop()) {
       context.pop();
     } else {
       context.go(Routes.ride);
@@ -108,7 +115,9 @@ class _P17SosScreenState extends ConsumerState<P17SosScreen> {
 
   /// Live API: opens the SMS app to [contacts] with the trip details and a map link to the vehicle.
   Future<void> _textContacts(List<EmergencyContact> contacts, RideFlowState ride) async {
-    final pos = ref.read(rideFlowProvider.notifier).vehicle.value?.position ?? ride.pickup.location;
+    // On a ride: where the vehicle is. Otherwise where the phone is, never the planned pickup (a pin may be anywhere).
+    final here = ref.read(deviceLocationProvider);
+    final pos = ride.isActive ? ref.read(rideFlowProvider.notifier).vehicle.value?.position ?? here ?? ride.pickup.location : here;
     final me = ref.read(currentProfileProvider).firstName;
     final body = sosSmsBody(
       me: me,
@@ -406,9 +415,10 @@ class _InfoRow extends StatelessWidget {
 }
 
 /// The SMS to emergency contacts: who, the live tracking link (else a maps link to [at]) and the trip details.
-String sosSmsBody({required String me, required RideFlowState ride, required LatLng at, String? liveUrl}) {
-  final where = 'https://maps.google.com/?q=${at.latitude.toStringAsFixed(5)},${at.longitude.toStringAsFixed(5)}';
-  if (!ride.isActive) return 'SOS from $me. I need help. My location: $where';
+/// [at]: null when there is no ride and no GPS fix yet (the text then has no map link).
+String sosSmsBody({required String me, required RideFlowState ride, required LatLng? at, String? liveUrl}) {
+  final where = at == null ? null : 'https://maps.google.com/?q=${at.latitude.toStringAsFixed(5)},${at.longitude.toStringAsFixed(5)}';
+  if (!ride.isActive) return where == null ? 'SOS from $me. I need help.' : 'SOS from $me. I need help. My location: $where';
   final trip = tripShareText(
     riderName: me,
     driver: ride.driver,

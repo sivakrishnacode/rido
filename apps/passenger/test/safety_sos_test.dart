@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_passenger/features/ride/p15_driver_arrived_screen.dart';
 import 'package:tamiltaxi_passenger/features/ride/p17_sos_screen.dart';
+import 'package:tamiltaxi_passenger/router/routes.dart';
 import 'package:tamiltaxi_passenger/state/ride_flow.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
@@ -16,6 +18,9 @@ class _FixedRide extends RideFlowController {
   final RideFlowState initial;
   @override
   RideFlowState build() => initial;
+
+  /// What a trip update does to the flow.
+  void moveTo(RidePhase phase) => state = state.copyWith(phase: phase);
 }
 
 final _ride = RideFlowState(phase: RidePhase.inProgress, tripId: 'trip1', route: [Seed.gandhipuram.location, Seed.brookefields.location]);
@@ -78,6 +83,28 @@ void main() {
     test('falls back to a maps link without one', () {
       expect(sosSmsBody(me: 'Priya', ride: _ride, at: at), contains('https://maps.google.com/?q=11.01834,76.97251'));
       expect(sosSmsBody(me: 'Priya', ride: const RideFlowState(), at: at), 'SOS from Priya. I need help. My location: https://maps.google.com/?q=11.01834,76.97251');
+      expect(sosSmsBody(me: 'Priya', ride: const RideFlowState(), at: null), 'SOS from Priya. I need help.');
     });
+  });
+
+  testWidgets('a trip update while SOS is open keeps SOS on screen; closing it shows where the ride is now', (tester) async {
+    final ride = _FixedRide(RideFlowState(phase: RidePhase.assigned, tripId: 'trip1', driver: Seed.murugan));
+    final container = await pumpRoute(tester, Routes.driverAssigned, overrides: [rideFlowProvider.overrideWith(() => ride)]);
+    await tester.tap(find.bySemanticsLabel('SOS emergency help').first);
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    expect(find.byType(P17SosScreen), findsOneWidget);
+
+    // The driver arrives: SOS stays.
+    (container.read(rideFlowProvider.notifier) as _FixedRide).moveTo(RidePhase.arrived);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(P17SosScreen), findsOneWidget);
+
+    // Closing SOS opens the screen for the ride as it is now.
+    await tester.tap(find.byTooltip('Close').first);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(P17SosScreen), findsNothing);
+    expect(find.byType(P15DriverArrivedScreen), findsOneWidget);
   });
 }

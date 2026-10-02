@@ -41,7 +41,7 @@ class _P15DriverArrivedScreenState extends ConsumerState<P15DriverArrivedScreen>
     ref.listen(rideFlowProvider.select((s) => s.phase), (prev, next) {
       if (widget.showcase || next == RidePhase.arrived) return;
       final route = routeForRidePhase(next);
-      if (route != null) context.go(route);
+      if (route != null) goForTrip(context, route);
     });
 
     final t = context.type;

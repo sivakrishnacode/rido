@@ -5,6 +5,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/map_insets.dart';
+import '../../common/trip_routes.dart';
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
 import '../../state/ride_flow.dart';
@@ -63,7 +64,7 @@ class _P16RideInProgressScreenState extends ConsumerState<P16RideInProgressScree
   Widget build(BuildContext context) {
     ref.listen(rideFlowProvider.select((s) => s.phase), (prev, next) {
       if (widget.showcase) return;
-      if (next == RidePhase.completed) context.go(Routes.rideCompleted);
+      if (next == RidePhase.completed) goForTrip(context, Routes.rideCompleted);
       if (next == RidePhase.inProgress) _maybeAutoShare();
     });
 

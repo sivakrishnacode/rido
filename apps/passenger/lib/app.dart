@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import 'common/trip_routes.dart';
 import 'features/ride/p18_share_trip_sheet.dart';
 import 'features/ride/safety_check_sheet.dart';
 import 'router/app_router.dart';
@@ -109,7 +110,8 @@ class _TtPassengerAppState extends ConsumerState<TtPassengerApp> {
 
   void _showNotice(AppNotice notice) {
     final goTo = notice.goTo;
-    if (goTo != null) _router.go(goTo);
+    // Not while SOS is open: it shows the trip's current screen when it closes.
+    if (goTo != null && !isSosOpen(_router)) _router.go(goTo);
     final context = rootNavigatorKey.currentContext;
     if (context != null) showTtSnack(context, notice.message);
   }

@@ -88,7 +88,7 @@ class _P12FindingDriverScreenState extends ConsumerState<P12FindingDriverScreen>
     if (widget.showcase || !mounted || phase == RidePhase.searching || phase == RidePhase.planning) return;
     // Assigned, no drivers, or further along (a poll can skip steps when the socket was down).
     final route = routeForRidePhase(phase);
-    if (route != null) context.go(route);
+    if (route != null) goForTrip(context, route);
   }
 
   Future<void> _cancel() async {

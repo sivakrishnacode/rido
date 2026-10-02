@@ -51,7 +51,7 @@ class P13DriverAssignedScreen extends ConsumerWidget {
       // Arrived, driver cancelled (S-02), or further along when a poll skipped steps.
       if (next == RidePhase.assigned) return;
       final route = routeForRidePhase(next);
-      if (route != null) context.go(route);
+      if (route != null) goForTrip(context, route);
     });
 
     final t = context.type;

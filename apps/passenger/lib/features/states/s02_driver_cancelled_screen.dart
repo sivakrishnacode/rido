@@ -48,7 +48,7 @@ class _S02DriverCancelledScreenState extends ConsumerState<S02DriverCancelledScr
       if (widget.showcase || next == RidePhase.driverCancelled) return;
       // Someone new accepted (or dispatch gave up); a poll may also skip ahead.
       final route = routeForRidePhase(next);
-      if (route != null) context.go(route);
+      if (route != null) goForTrip(context, route);
     });
 
     final t = context.type;
