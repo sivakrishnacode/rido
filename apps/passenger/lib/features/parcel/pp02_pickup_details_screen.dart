@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
-import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
 import '../../state/passenger_session.dart';
 import 'widgets/parcel_widgets.dart';
@@ -12,7 +10,8 @@ import 'widgets/parcel_widgets.dart';
 /// Sample building / floor / landmark shown on PP-02.
 const _samplePickupNote = 'Flat 3B, Sri Lakshmi Apartments, near PSG Tech gate';
 
-/// PP-02 Pickup details: pickup pin, sender name + phone, building / landmark.
+/// PP-02 Pickup details: the pickup on a map (move it to fine-tune the point), the sender's name and phone, and the
+/// building / landmark. Confirm → PP-03 (searching the drop first when there is none yet).
 class PP02PickupDetailsScreen extends ConsumerStatefulWidget {
   const PP02PickupDetailsScreen({super.key, this.showcase = false});
 
@@ -52,6 +51,8 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
   }
 
   Future<void> _changePlace() async {
+    // Else the field typed in last takes the focus back when search closes, and its keyboard hides the map.
+    FocusScope.of(context).unfocus();
     final current = ref.read(parcelFlowProvider).pickup;
     final p = await showParcelPlacePicker(context, title: 'Pickup from', current: current);
     if (p == null || !mounted) return;
@@ -69,7 +70,7 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
     final ctrl = ref.read(parcelFlowProvider.notifier);
     final d = ref.read(parcelFlowProvider).details;
     ctrl.updateDetails(d.copyWith(senderName: name, senderPhone: fullPhone(digits), pickupNote: _note.text.trim()));
-    context.push(Routes.parcelDrop);
+    openParcelDrop(context, ref);
   }
 
   @override
@@ -81,14 +82,21 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
       appBar: const ParcelStepAppBar(title: 'Pickup details', step: 1),
       body: Column(
         children: [
+          ParcelPinMap(
+            place: pickup,
+            isPickup: true,
+            folded: MediaQuery.viewInsetsOf(context).bottom > 0,
+            interactive: !widget.showcase,
+            onMoved: ref.read(parcelFlowProvider.notifier).setPickup,
+          ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ParcelLocationCard(place: pickup, isPickup: true, onChange: _changePlace),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   TtTextField(
                     label: 'Sender name',
                     controller: _name,

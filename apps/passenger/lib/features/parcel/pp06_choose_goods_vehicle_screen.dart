@@ -125,27 +125,15 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Flexible(
-                                flex: 3,
-                                child: Text('Choose a vehicle', style: t.h1, maxLines: 1, overflow: TextOverflow.ellipsis),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  s.outstation
-                                      ? 'To ${s.drop.name} · one way'
-                                      : '${s.details.category.label} · ${s.details.weight.label}',
-                                  textAlign: TextAlign.right,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: t.caption.copyWith(color: TtColors.navy700),
-                                ),
-                              ),
-                            ],
+                          Text('Choose a vehicle', style: t.h1, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 2),
+                          Text(
+                            s.outstation
+                                ? 'To ${s.drop.name} · one way'
+                                : '${s.details.category.label} · ${s.details.weight.label}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: t.bodySmall.copyWith(color: TtColors.navy500),
                           ),
                           const SizedBox(height: 12),
                           if (!quotesReady)

@@ -149,4 +149,20 @@ void main() {
     expect(find.text('You get the delivery OTP in the app'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
   });
+
+  testWidgets('PP-01: with no drop yet, "Tap to add drop" searches first instead of opening PP-03 on a made-up drop',
+      (tester) async {
+    final container = await pumpRoute(tester, Routes.parcel);
+    await advance(tester, const Duration(milliseconds: 500));
+    expect(container.read(parcelFlowProvider).dropSet, isFalse);
+    await tapText(tester, 'Tap to add drop');
+    expect(find.text('Search for a place'), findsOneWidget);
+    expect(find.text('Drop details'), findsNothing);
+    // Backing out of the search stays on PP-01 with no drop.
+    tester.state<NavigatorState>(find.byType(Navigator).last).pop();
+    await advance(tester, const Duration(milliseconds: 500));
+    expect(find.text('Drop details'), findsNothing);
+    expect(find.text('Tap to add drop'), findsOneWidget);
+    expect(container.read(parcelFlowProvider).dropSet, isFalse);
+  });
 }

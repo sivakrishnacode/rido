@@ -31,8 +31,9 @@ enum _SaveAs {
   final SavedPlaceKind kind;
 }
 
-/// PP-03 Drop / receiver details: the drop (any town when sending to another town), the receiver (or "I'm receiving
-/// it myself"), a landmark, and optionally save the drop as Home / Work / Shop.
+/// PP-03 Drop / receiver details: the drop on a map (any town when sending to another town; move the map to
+/// fine-tune the point), the receiver (or "I'm receiving it myself"), a landmark, and optionally save the drop as
+/// Home / Work / Shop.
 class PP03DropDetailsScreen extends ConsumerStatefulWidget {
   const PP03DropDetailsScreen({super.key, this.showcase = false});
 
@@ -75,9 +76,15 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
   }
 
   Future<void> _changePlace() async {
+    // Else the field typed in last takes the focus back when search closes, and its keyboard hides the map.
+    FocusScope.of(context).unfocus();
     final outstation = ref.read(parcelFlowProvider).outstation;
     final p = await showParcelPlacePicker(context, title: outstation ? 'Deliver to (any town)' : 'Deliver to', current: _drop, anywhere: outstation);
     if (p == null || !mounted) return;
+    _setDrop(p);
+  }
+
+  void _setDrop(Place p) {
     setState(() => _drop = p);
     ref.read(parcelFlowProvider.notifier).setDrop(p);
   }
@@ -191,14 +198,21 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
       appBar: const ParcelStepAppBar(title: 'Drop details', step: 2),
       body: Column(
         children: [
+          ParcelPinMap(
+            place: _drop,
+            isPickup: false,
+            folded: MediaQuery.viewInsetsOf(context).bottom > 0,
+            interactive: !widget.showcase,
+            onMoved: _setDrop,
+          ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ParcelLocationCard(place: _drop, isPickup: false, onChange: _changePlace),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _SelfToggle(value: _self, onChanged: _setSelf),
                   const SizedBox(height: 12),
                   TtTextField(

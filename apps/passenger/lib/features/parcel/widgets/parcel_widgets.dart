@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_map/flutter_map.dart' show Marker;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../../common/launch.dart';
 import '../../../common/place_search.dart';
+import '../../../router/routes.dart';
 import '../../../state/parcel_flow.dart';
 
 /// Stepper labels shared by PP-08 and PP-09.
@@ -79,7 +83,7 @@ class ParcelStepAppBar extends StatelessWidget implements PreferredSizeWidget {
       );
 }
 
-/// Small map + address + "Change" (PP-02 pickup, PP-03 drop).
+/// The pickup (PP-02) or drop (PP-03) in one compact row: its pin, name and address, and "Change".
 class ParcelLocationCard extends StatelessWidget {
   const ParcelLocationCard({super.key, required this.place, required this.isPickup, required this.onChange});
 
@@ -90,71 +94,48 @@ class ParcelLocationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return Container(
-      decoration: BoxDecoration(
-        color: TtColors.surface,
-        borderRadius: TtRadii.cardRadius,
-        border: Border.all(color: TtColors.divider),
-      ),
+    final color = isPickup ? TtColors.success : TtColors.coral500;
+    return Material(
+      color: TtColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: TtRadii.cardRadius, side: const BorderSide(color: TtColors.divider)),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: 140,
-            child: TtMap(
-              key: ValueKey(place.id),
-              center: place.location,
-              zoom: 15.5,
-              interactive: false,
-              showAttribution: false,
-              extraMarkers: [
-                Marker(
-                  point: place.location,
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.topCenter,
-                  child: Icon(
-                    Symbols.location_on_rounded,
-                    fill: 1,
-                    size: 44,
-                    color: isPickup ? TtColors.success : TtColors.coral500,
-                    shadows: const [Shadow(color: TtColors.shadow, blurRadius: 6, offset: Offset(0, 2))],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(place.name, style: t.bodySemibold.copyWith(fontSize: 17), maxLines: 1, overflow: TextOverflow.ellipsis),
+      child: InkWell(
+        onTap: onChange,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
+                child: Icon(Symbols.location_on_rounded, fill: 1, size: 20, color: color),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(place.name, style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (place.address.isNotEmpty)
                       Text(place.address,
                           style: t.bodySmall.copyWith(color: TtColors.navy500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: onChange,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(48, 44),
-                    foregroundColor: TtColors.navy900,
-                    side: const BorderSide(color: TtColors.divider),
-                    shape: const StadiumBorder(),
-                    textStyle: t.bodyMedium.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  child: const Text('Change'),
+              ),
+              TextButton(
+                onPressed: onChange,
+                style: TextButton.styleFrom(
+                  foregroundColor: TtColors.coral600,
+                  minimumSize: const Size(48, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  textStyle: t.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                 ),
-              ],
-            ),
+                child: const Text('Change'),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -184,6 +165,173 @@ Future<void> shareParcelWithReceiver(BuildContext context, ParcelFlowState s, La
 Future<Place?> showParcelPlacePicker(BuildContext context, {required String title, Place? current, bool anywhere = false}) async {
   final pick = await showPlaceSearchSheet(context, title: title, current: current, anywhere: anywhere);
   return pick?.place;
+}
+
+/// Opens PP-03. With no drop chosen yet it searches first, so PP-03 never starts on a place the sender didn't
+/// pick; backing out of the search stays where they were.
+Future<void> openParcelDrop(BuildContext context, WidgetRef ref) async {
+  final s = ref.read(parcelFlowProvider);
+  if (!s.dropSet) {
+    final p = await showParcelPlacePicker(context, title: s.outstation ? 'Deliver to (any town)' : 'Deliver to', anywhere: s.outstation);
+    if (p == null || !context.mounted) return;
+    ref.read(parcelFlowProvider.notifier).setDrop(p);
+  }
+  if (context.mounted) await context.push(Routes.parcelDrop);
+}
+
+/// The map on top of PP-02 / PP-03: the point under a fixed pin. Moving the map by hand moves the point ([onMoved]
+/// gets it with its address once the map rests); a new [place] (picked in search) glides the camera there.
+class ParcelPinMap extends ConsumerStatefulWidget {
+  const ParcelPinMap({
+    super.key,
+    required this.place,
+    required this.isPickup,
+    required this.onMoved,
+    this.folded = false,
+    this.height = 180,
+    this.interactive = true,
+  });
+
+  final Place place;
+  final bool isPickup;
+  final ValueChanged<Place> onMoved;
+
+  /// Folded away (the keyboard is up: the form keeps the room). The screen tells: inside its Scaffold the
+  /// keyboard inset is already taken out.
+  final bool folded;
+  final double height;
+  final bool interactive;
+
+  @override
+  ConsumerState<ParcelPinMap> createState() => _ParcelPinMapState();
+}
+
+class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
+  static const double _zoom = 16;
+  final _map = TtMapController();
+  late final LatLng _start = widget.place.location;
+  late LatLng _centre = _start;
+  Timer? _debounce;
+  int _request = 0;
+  bool _locating = false;
+
+  /// A finger moved the map since the last address lookup (the map also reports its own camera moves).
+  bool _touched = false;
+  int _down = 0;
+
+  @override
+  void didUpdateWidget(covariant ParcelPinMap old) {
+    super.didUpdateWidget(old);
+    final to = widget.place.location;
+    // A place from search, not this map's own move: take the camera there.
+    if (to != old.place.location && const Distance().as(LengthUnit.Meter, to, _centre) > 25) {
+      _centre = to;
+      _debounce?.cancel();
+      _request++;
+      _locating = false;
+      _map.animateTo(to, _zoom);
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _map.dispose();
+    super.dispose();
+  }
+
+  void _onMove(TtCamera camera, bool hasGesture) {
+    if (!_touched) return;
+    _centre = camera.center;
+    _debounce?.cancel();
+    if (!_locating) setState(() => _locating = true);
+    _debounce = Timer(const Duration(milliseconds: 400), _geocode);
+  }
+
+  Future<void> _geocode() async {
+    if (_down == 0) _touched = false;
+    final id = ++_request;
+    final centre = _centre;
+    Place place;
+    try {
+      place = await ref.read(placesRepositoryProvider).reverseGeocode(centre);
+    } catch (_) {
+      // Offline / API error: keep the exact pin without an address.
+      place = Place(id: 'pin-${centre.latitude},${centre.longitude}', name: 'Pinned location', address: '', location: centre);
+    }
+    if (!mounted || id != _request) return;
+    setState(() => _locating = false);
+    widget.onMoved(place.copyWith(location: centre));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    final label = _locating ? 'Finding the address…' : (widget.isPickup ? 'Pickup here' : 'Drop here');
+    // Folds by clipping, not resizing: the native map keeps its size and doesn't re-lay out every frame.
+    return ClipRect(
+      child: AnimatedAlign(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.center,
+        heightFactor: widget.folded ? 0 : 1,
+        child: SizedBox(
+          height: widget.height,
+          child: Semantics(
+            label: '${widget.isPickup ? 'Pickup' : 'Drop'} on the map. Move the map to adjust the point',
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Listener(
+                    onPointerDown: (_) {
+                      _down++;
+                      _touched = true;
+                    },
+                    onPointerUp: (_) => _down = math.max(0, _down - 1),
+                    onPointerCancel: (_) => _down = math.max(0, _down - 1),
+                    child: TtMap(
+                      controller: _map,
+                      center: _start,
+                      zoom: _zoom,
+                      interactive: widget.interactive,
+                      onPositionChanged: _onMove,
+                    ),
+                  ),
+                ),
+                // Fixed pin: its tip on the map's centre.
+                IgnorePointer(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 70),
+                      child: SizedBox(
+                        height: 70,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 150),
+                              child: Container(
+                                key: ValueKey(label),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.pillRadius),
+                                child: Text(label, style: t.caption.copyWith(color: TtColors.surface, fontWeight: FontWeight.w600)),
+                              ),
+                            ),
+                            Icon(Symbols.location_on_rounded,
+                                fill: 1, size: 44, color: widget.isPickup ? TtColors.success : TtColors.coral500),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _PhoneFormatter extends TextInputFormatter {
