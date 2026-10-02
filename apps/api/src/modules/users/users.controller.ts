@@ -6,16 +6,30 @@ import type { EmergencyContact, SavedPlace, User } from '../../generated/prisma/
 import { CreateContactDto } from './dto/create-contact.dto.js';
 import { SavedPlaceDto } from './dto/saved-place.dto.js';
 import { UpdateProfileDto } from './dto/update-profile.dto.js';
+import { AccountDeletionService } from './account-deletion.service.js';
 import { UsersService } from './users.service.js';
 
 /** P-05, P-23, P-23b, P-24. */
 @Controller('me')
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly deletion: AccountDeletionService,
+  ) {}
 
   @Get()
   me(@CurrentUser() user: AuthUser): Promise<User> {
     return this.users.me(user.userId);
+  }
+
+  /**
+   * Deletes the account (AccountDeletionService): 204; 409 while a trip is unfinished. Signs out everywhere; the
+   * number can sign up again as a new account.
+   */
+  @Delete()
+  @HttpCode(204)
+  remove(@CurrentUser() user: AuthUser): Promise<void> {
+    return this.deletion.delete(user.userId, { kind: 'self' });
   }
 
   @Patch()

@@ -58,6 +58,8 @@ export function describeAudit(action: string, data: unknown): string {
   }
   if (is('POST', 'users/:id/message')) return typeof body.title === 'string' ? `Push sent: “${body.title}”` : 'Push sent';
   if (is('POST', 'users/:id/notes')) return 'Note added';
+  if (is('DELETE', 'users/:id')) return 'Account deleted by an admin';
+  if (action === 'DELETE /v1/me') return 'Account deleted by the user';
   // The driver changed their plate in the app (a new vehicle: the RC is uploaded again, an approved driver re-checked).
   if (action === 'PATCH /v1/drivers/me' && typeof body.plate === 'string') return `New plate ${body.plate} in the app: RC to upload again`;
   return action;
