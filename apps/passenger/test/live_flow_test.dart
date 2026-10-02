@@ -348,6 +348,45 @@ void main() {
     expect(c.read(rideFlowProvider).rider, isNull);
   });
 
+  test('"Who is riding" and the Butterfly choice reset after a cancellation, by me or by the server', () async {
+    final c = ProviderContainer(overrides: [
+      isLiveApiProvider.overrideWithValue(true),
+      realtimeProvider.overrideWithValue(realtime),
+      liveTripsProvider.overrideWithValue(trips),
+      currentProfileProvider.overrideWithValue(Seed.priya),
+    ]);
+    addTearDown(c.dispose);
+    final f = c.read(rideFlowProvider.notifier);
+    const anjali = OtherRider(name: 'Anjali', phone: '9876512345', isWoman: true);
+
+    f.setRider(anjali);
+    f.setWomenDriver(WomenDriverPref.only);
+    f.setDrop(Seed.brookefields);
+    await f.book();
+    expect(await f.cancelRide(code: CancelCode.changedMind), isNull);
+    expect(c.read(rideFlowProvider).rider, isNull);
+    expect(c.read(rideFlowProvider).womenDriver, isNull);
+
+    f.setRider(anjali);
+    f.setWomenDriver(WomenDriverPref.only);
+    await f.book();
+    trips.push(trips.update('DRIVER_ASSIGNED', driver: _driver));
+    await _settle();
+    trips.push(trips.update('CANCELLED'));
+    await _settle();
+    expect(c.read(rideFlowProvider).phase, RidePhase.planning);
+    expect(c.read(rideFlowProvider).rider, isNull, reason: 'a driver cancel resets it too');
+    expect(c.read(rideFlowProvider).womenDriver, isNull);
+
+    f.setRider(anjali);
+    await f.book();
+    trips.push(trips.update('NO_DRIVERS'));
+    await _settle();
+    expect(c.read(rideFlowProvider).rider, anjali, reason: 'no drivers: still planning that ride (S-01 retries it)');
+    await f.cancelSearch();
+    expect(c.read(rideFlowProvider).rider, isNull);
+  });
+
   test('P-10: changing a stop after fares loaded fetches them again (no endless "Getting fares…")', () async {
     late _CountingRides rides;
     final c = ProviderContainer(overrides: [
