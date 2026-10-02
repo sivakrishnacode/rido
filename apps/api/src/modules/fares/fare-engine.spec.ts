@@ -42,6 +42,12 @@ describe('fare engine', () => {
     expect(route).toEqual({ distanceKm: 4.2, durationMin: 14 });
   });
 
+  it('ignores a demo route id sent with points far from its places', () => {
+    const far = { lat: 11.17, lng: 76.96, placeId: 'ukkadam' };
+    const route = estimateRoute({ ...gandhipuram, placeId: 'town-hall' }, far);
+    expect(route.distanceKm).toBeGreaterThan(20);
+  });
+
   it('adds no peak markup by default', () => {
     const route = estimateRoute(gandhipuram, brookefields);
     const quotes = (['BIKE', 'AUTO', 'CAB'] as const).map((k) => quoteFare({ vehicleKind: k, route }));

@@ -80,10 +80,15 @@ export function haversineMeters(a: GeoPoint, b: GeoPoint): number {
   return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
 }
 
-/** Road distance (haversine × 1.3, or a measured route) and duration at 18 km/h. */
+/**
+ * Road distance (haversine × 1.3, or a measured route) and duration at 18 km/h. A measured route counts only when
+ * the points are about where its places are (the place ids come from the client, so they alone would let anyone
+ * price a 20 km trip as the 1.4 km demo route).
+ */
 export function estimateRoute(from: GeoPoint, to: GeoPoint): RouteEstimate {
+  const estimate = Math.max(0.5, Math.round((haversineMeters(from, to) / 1000) * ROAD_FACTOR * 10) / 10);
   const known = KNOWN_ROUTES_KM[`${from.placeId}|${to.placeId}`] ?? KNOWN_ROUTES_KM[`${to.placeId}|${from.placeId}`];
-  const km = known ?? Math.max(0.5, Math.round((haversineMeters(from, to) / 1000) * ROAD_FACTOR * 10) / 10);
+  const km = known !== undefined && known >= estimate * 0.5 && known <= estimate * 2.5 ? known : estimate;
   return { distanceKm: km, durationMin: Math.max(1, Math.round((km / AVERAGE_SPEED_KMH) * 60)) };
 }
 
