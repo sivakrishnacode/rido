@@ -122,12 +122,20 @@ class LiveTrips {
   }
 
   /// Status changes of [tripId] (`trip.updated`, `trip.no_drivers`).
+  ///
+  /// `trip.no_drivers` only carries the trip id (the server sends no `trip.updated` with it). It becomes a NO_DRIVERS
+  /// update straight away: it used to wait for a poll of the trip, and when that poll failed the rider stayed on
+  /// "Finding your driver" for good.
   Stream<LiveTripUpdate> updates(String tripId) {
     realtime.connect();
     final updated = realtime.on('trip.updated').where((j) => j['id'] == tripId).map(_update);
-    final noDrivers = realtime.on('trip.no_drivers').where((j) => j['tripId'] == tripId).asyncMap((_) => poll(tripId));
+    final noDrivers = realtime.on('trip.no_drivers').where((j) => j['tripId'] == tripId).map((_) => noDriversUpdate(tripId));
     return _merge([updated, noDrivers]);
   }
+
+  /// The search for [tripId] ended without a driver (dispatch gave up), as the API records it.
+  static LiveTripUpdate noDriversUpdate(String tripId) =>
+      _update({'id': tripId, 'status': 'NO_DRIVERS', 'cancelledBy': 'SYSTEM', 'cancelCode': 'NO_DRIVERS'});
 
   /// Driver GPS for [tripId] (joins the trip room).
   Stream<LiveLocation> locations(String tripId) {
