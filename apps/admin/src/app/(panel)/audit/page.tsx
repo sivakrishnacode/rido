@@ -15,12 +15,25 @@ import { param, parsePage } from "@/lib/paging";
 export const metadata: Metadata = { title: "Audit log" };
 
 /** Entities recorded by apps/api/src/modules/admin/audit.interceptor.ts (first path segment after /admin). */
-const ENTITIES = ["drivers", "users", "cities", "zones", "plans", "tickets", "announcements", "settings"];
+const ENTITIES: readonly { value: string; label: string }[] = [
+  { value: "drivers", label: "Drivers" },
+  { value: "users", label: "Users" },
+  { value: "notes", label: "Notes" },
+  { value: "trips", label: "Trips" },
+  { value: "sos", label: "SOS" },
+  { value: "cities", label: "Cities" },
+  { value: "zones", label: "Zones" },
+  { value: "plans", label: "Plans" },
+  { value: "tickets", label: "Tickets" },
+  { value: "announcements", label: "Announcements" },
+  { value: "settings", label: "Settings" },
+  { value: "hex-stats", label: "Travel speeds" },
+];
 
 /** Where an audited entity id can be opened in this panel. */
 function entityHref(entity: string, id: string | null): string | null {
   if (!id) return null;
-  const routes: Record<string, string> = { drivers: "/drivers", users: "/users", cities: "/cities" };
+  const routes: Record<string, string> = { drivers: "/drivers", users: "/users", cities: "/cities", trips: "/trips" };
   return routes[entity] ? `${routes[entity]}/${id}` : null;
 }
 
@@ -42,7 +55,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
       <PageHeader title="Audit log" description={`${formatCount(data.total)} admin changes, newest first. Every POST, PUT, PATCH and DELETE is recorded.`} />
       <ListFilters
         searchPlaceholder="Action contains… (e.g. PATCH)"
-        filters={[{ name: "kind", label: "Entities", options: ENTITIES.map((e) => ({ value: e, label: humanize(e) })) }]}
+        filters={[{ name: "kind", label: "Entities", options: ENTITIES }]}
       />
       <Card className="gap-0 py-0">
         {data.items.length === 0 ? (
@@ -82,7 +95,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="block text-sm text-navy-900">{humanize(a.entity)}</span>
+                      <span className="block text-sm text-navy-900">{ENTITIES.find((e) => e.value === a.entity)?.label ?? humanize(a.entity)}</span>
                       {a.entityId &&
                         (href ? (
                           <Link href={href} className="font-mono text-xs text-coral-600 hover:underline">
