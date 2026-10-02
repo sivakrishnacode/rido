@@ -47,3 +47,37 @@ Future<void> openUpi(BuildContext context, Uri uri) async {
   }
   if (!opened && context.mounted) showTtSnack(context, 'No UPI app found. Scan the QR code from another phone');
 }
+
+Future<bool> _launch(Uri uri) async {
+  try {
+    return await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    return false;
+  }
+}
+
+/// A WhatsApp chat with [phone] (support), through wa.me so it also works from the browser.
+Future<void> openWhatsAppChat(BuildContext context, String phone) async {
+  final digits = phone.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) {
+    showTtSnack(context, 'No WhatsApp number');
+    return;
+  }
+  final opened = await _launch(Uri.parse('https://wa.me/$digits'));
+  if (!opened && context.mounted) showTtSnack(context, 'Could not open WhatsApp. Message $phone');
+}
+
+/// WhatsApp's "send to…" picker with [text]; the wa.me page when the app isn't there.
+Future<void> shareOnWhatsApp(BuildContext context, String text) async {
+  final encoded = Uri.encodeComponent(text);
+  var opened = await _launch(Uri.parse('whatsapp://send?text=$encoded'));
+  if (!opened) opened = await _launch(Uri.parse('https://wa.me/?text=$encoded'));
+  if (!opened && context.mounted) showTtSnack(context, 'WhatsApp is not installed');
+}
+
+/// The SMS app with [body], for the driver to pick who to send it to.
+Future<void> shareBySms(BuildContext context, String body) async {
+  // Encoded by hand: Uri(queryParameters:) writes spaces as "+", which some SMS apps show literally.
+  final opened = await _launch(Uri.parse('sms:?body=${Uri.encodeComponent(body)}'));
+  if (!opened && context.mounted) showTtSnack(context, 'Could not open Messages');
+}
