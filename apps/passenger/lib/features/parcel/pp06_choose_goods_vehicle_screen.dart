@@ -154,7 +154,7 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                           for (final q in quotes) ...[
                             VehicleOptionCard(
                               icon: q.vehicle.kind.icon,
-                              // Pictures where there are renders (bike, 3-wheeler, mini truck); the symbol tile else.
+                              // The vehicle's render (every goods vehicle has one); the symbol tile for one without.
                               art: q.vehicle.kind.artAsset != null ? VehicleArt(q.vehicle.kind) : null,
                               name: q.vehicle.name,
                               subtitle: _subtitle(q, s.outstation),

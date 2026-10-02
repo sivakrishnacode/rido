@@ -3,15 +3,18 @@
     python3 scripts/vehicle_icons/build.py            # writes packages/tamiltaxi_ui/assets/vehicles/<kind>.webp
     python3 scripts/vehicle_icons/build.py --preview  # also build/vehicle_icons/preview.png (light + dark cards)
 
-Each render is a transparent PNG. The script trims it to the vehicle, paints a plain dark badge over a real car
+Each render is a transparent PNG, or an RGB one with the transparency checkerboard painted in (pickup, truck), which
+checker_cutout.py removes first. The script trims it to the vehicle, paints a plain dark badge over a real car
 maker's logo (the repo is public: no trademarks in the app), and saves a small WebP (alpha kept) for
 `VehicleArt` in packages/tamiltaxi_ui. Renders that aren't listed here (van, MPV, luxury, roof-sign taxi) are kept
-for tiers that may come later. Pickup and truck have no render yet (the apps show their symbol).
+for tiers that may come later.
 """
 import os
 import sys
 
 from PIL import Image, ImageDraw
+
+from checker_cutout import cutout
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(ROOT, 'docs', 'design', 'vechile')
@@ -28,6 +31,20 @@ VEHICLES = {
     'suv': ('White SUV Taxi with Yellow Stripe.png', []),
     'three_wheeler': ('Yellow Cargo Tuk-Tuk Delivery Vehicle.png', []),
     'mini_truck': ('White and Yellow Mini Cargo Truck.png', []),
+    'pickup': ('White Pickup Truck with Yellow Stripes (checker).png', []),
+    'truck': ('White and Yellow Box Truck (checker).png', []),
+}
+
+# Checkerboard renders: what checker_cutout needs per render, in render px.
+CHECKER = {
+    'pickup': {
+        'windows': [
+            [(893, 252), (1256, 247), (1352, 446), (942, 456)],  # windshield
+            [(712, 237), (842, 236), (884, 424), (700, 422)],  # door window
+        ],
+        'holes': [[(591, 148), (992, 148), (992, 232), (626, 232), (606, 342), (591, 342)]],  # inside the roll bar
+    },
+    'truck': {},
 }
 
 WIDTH = 360  # px; cards draw them at up to ~96 logical px wide, so this is enough for 3x screens
@@ -50,7 +67,8 @@ def cover_logo(im, cx, cy, rx, ry):
 
 
 def build(name, render, logos):
-    im = Image.open(os.path.join(SRC, render)).convert('RGBA')
+    path = os.path.join(SRC, render)
+    im = cutout(path, **CHECKER[name]) if name in CHECKER else Image.open(path).convert('RGBA')
     for logo in logos:
         cover_logo(im, *logo)
     bbox = im.getchannel('A').point(lambda a: 255 if a > 8 else 0).getbbox()
