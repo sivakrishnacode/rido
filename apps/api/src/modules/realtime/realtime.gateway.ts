@@ -11,6 +11,7 @@ import {
 import type { Server, Socket } from 'socket.io';
 
 import type { JwtPayload } from '../../core/auth/auth-user.js';
+import { UserAccessService } from '../../core/auth/user-access.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { type IngestResult, LocationIngestService } from './location-ingest.service.js';
 import { TripEventsService } from './trip-events.service.js';
@@ -34,21 +35,24 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly events: TripEventsService,
     private readonly ingest: LocationIngestService,
     private readonly prisma: PrismaService,
+    private readonly access: UserAccessService,
   ) {}
 
   afterInit(server: Server): void {
     this.events.attach(server);
   }
 
+  /** A bad token, a blocked or deleted account → disconnected. Rooms follow the account's current driver profile. */
   async handleConnection(client: Socket): Promise<void> {
     try {
       const token = (client.handshake.auth as { token?: string }).token ?? '';
-      const user = await this.jwt.verifyAsync<JwtPayload>(token);
-      (client.data as SocketData).user = user;
-      await client.join(`user:${user.sub}`);
+      const payload = await this.jwt.verifyAsync<JwtPayload>(token);
+      const user = await this.access.resolve(payload);
+      (client.data as SocketData).user = { sub: user.userId, role: user.role, driverId: user.driverId };
+      await client.join(`user:${user.userId}`);
       if (user.driverId) await client.join(`driver:${user.driverId}`);
-    } catch {
-      this.logger.debug('Socket rejected: bad token');
+    } catch (e) {
+      this.logger.debug(`Socket rejected: ${(e as Error).message}`);
       client.disconnect(true);
     }
   }
