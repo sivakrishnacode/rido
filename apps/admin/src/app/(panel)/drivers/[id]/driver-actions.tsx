@@ -45,8 +45,9 @@ const DECISION: Record<"ON_HOLD" | "REJECTED", { title: string; description: str
 };
 
 /**
- * Approve / Reject / Put on hold / Reactivate → PATCH /admin/drivers/:id. Approving a driver whose checks aren't all
- * done asks first and lists what is missing; hold and reject take a reason that is pushed to the driver.
+ * Approve / Reject / Put on hold / Reactivate → PATCH /admin/drivers/:id. Approving (or reactivating a held or
+ * rejected driver) when some checks aren't done asks first and lists what is missing; hold and reject take a reason
+ * that is pushed to the driver.
  */
 export function DriverStatusActions({
   driverId,
@@ -68,6 +69,9 @@ export function DriverStatusActions({
   const trimmed = reason.trim();
   const d = decision ? DECISION[decision] : null;
   const isReasonValid = trimmed.length === 0 ? !d?.isReasonRequired : trimmed.length >= 3 && trimmed.length <= 200;
+  const verb = status === "PENDING" ? "Approve" : "Reactivate";
+  /** Approve / Reactivate: straight away when every check is done, else after "… anyway?". */
+  const approve = () => (missing ? setOverrideOpen(true) : change("APPROVED"));
 
   function change(target: DriverStatus, after?: () => void) {
     setPendingTarget(target);
@@ -85,12 +89,12 @@ export function DriverStatusActions({
   return (
     <>
       {status === "PENDING" && (
-        <Button onClick={() => (missing ? setOverrideOpen(true) : change("APPROVED"))} disabled={isPending}>
+        <Button onClick={approve} disabled={isPending}>
           {spinner("APPROVED") ?? <CheckIcon />} Approve
         </Button>
       )}
       {(status === "ON_HOLD" || status === "REJECTED") && (
-        <Button onClick={() => change("APPROVED")} disabled={isPending}>
+        <Button onClick={approve} disabled={isPending}>
           {spinner("APPROVED") ?? <PlayIcon />} Reactivate
         </Button>
       )}
@@ -108,7 +112,9 @@ export function DriverStatusActions({
       <Dialog open={isOverrideOpen} onOpenChange={setOverrideOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Approve {name} anyway?</DialogTitle>
+            <DialogTitle>
+              {verb} {name} anyway?
+            </DialogTitle>
             <DialogDescription>Not every check is done: {missing}. The driver can go online as soon as you approve.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -116,7 +122,7 @@ export function DriverStatusActions({
               <Button variant="outline">Cancel</Button>
             </DialogClose>
             <Button disabled={isPending} onClick={() => change("APPROVED", () => setOverrideOpen(false))}>
-              {spinner("APPROVED") ?? <CheckIcon />} Approve anyway
+              {spinner("APPROVED") ?? (status === "PENDING" ? <CheckIcon /> : <PlayIcon />)} {verb} anyway
             </Button>
           </DialogFooter>
         </DialogContent>
