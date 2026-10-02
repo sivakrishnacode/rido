@@ -1,5 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
-import { Observable, tap } from 'rxjs';
+import { concatMap, Observable } from 'rxjs';
 
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
@@ -13,7 +13,10 @@ interface Req {
   readonly user?: AuthUser;
 }
 
-/** Records every successful admin change (POST/PUT/PATCH/DELETE) in AuditLog. */
+/**
+ * Records every successful admin change (POST/PUT/PATCH/DELETE) in AuditLog, before the answer goes out (a write
+ * left to run after it could be read back missing). A failed audit write is logged, never fails the change.
+ */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditInterceptor.name);
@@ -27,16 +30,19 @@ export class AuditInterceptor implements NestInterceptor {
     const entity = path.replace(/^\/?v1\/admin\//, '').split('/')[0] ?? 'admin';
     const entityId = req.params.id ?? null;
     return next.handle().pipe(
-      tap(() => {
-        this.prisma.auditLog.create({
-          data: {
-            actorId: req.user!.userId,
-            action: `${req.method} ${path}`,
-            entity,
-            entityId,
-            data: { params: req.params, body: AuditInterceptor.trim(req.body) } as Prisma.InputJsonValue,
-          },
-        }).catch((e: Error) => this.logger.warn(`Audit write failed: ${e.message}`));
+      concatMap(async (result: unknown) => {
+        await this.prisma.auditLog
+          .create({
+            data: {
+              actorId: req.user!.userId,
+              action: `${req.method} ${path}`,
+              entity,
+              entityId,
+              data: { params: req.params, body: AuditInterceptor.trim(req.body) } as Prisma.InputJsonValue,
+            },
+          })
+          .catch((e: Error) => this.logger.warn(`Audit write failed: ${e.message}`));
+        return result;
       }),
     );
   }
