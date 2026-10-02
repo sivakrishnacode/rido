@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/go_online.dart';
 import '../../common/job_routes.dart';
 import '../../common/launch.dart';
 import '../../common/measure_size.dart';
@@ -15,7 +16,6 @@ import '../../state/demand_map.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_location.dart';
 import '../../state/driver_session.dart';
-import '../../state/live_helpers.dart';
 import '../jobs/widgets/job_map.dart';
 import '../states/s10_account_on_hold_screen.dart';
 import '../states/s11_missed_request_banner.dart';
@@ -143,32 +143,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       context.push(Routes.selfieCheck);
       return;
     }
-    try {
-      await ref.read(driverSessionProvider.notifier).goOnline();
-    } on LocationProblem catch (e) {
-      if (!mounted) return;
-      showTtSnack(
-        context,
-        e.message,
-        actionLabel: e.fix == LocationFix.none ? null : 'Settings',
-        onAction: () => ref.read(driverLocatorProvider).openSettings(e.fix),
-      );
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      final pausedUntil = e.tempBlockedUntil;
-      // An admin put the account on hold ("Account is on_hold"): S-10 explains it.
-      if (pausedUntil != null) {
-        // Too many cancellations: S-10b says until when.
-        ref.invalidate(cancelRateProvider);
-        context.push(Routes.accountPaused(pausedUntil));
-      } else if (e.status == 403 && e.message.contains('on_hold')) {
-        context.push(Routes.accountOnHold);
-      } else {
-        showTtSnack(context, e.message);
-      }
-    } on Exception catch (e) {
-      if (mounted) showTtSnack(context, userMessage(e));
-    }
+    await goOnlineOrExplain(context, ref);
   }
 
   void _goOffline() {
