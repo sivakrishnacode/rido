@@ -1,5 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
@@ -7,13 +9,14 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
+import 'widgets/signup_widgets.dart';
 
-/// D-08 Upload document. D-08a: card guide, Front / Back side, "Take photo". D-08b: the captured
-/// photo with "Retake" and "Use photo".
+/// D-08 Upload document. D-08a: what to photograph for this document, a few tips, "Take photo" (the phone's camera)
+/// or "Choose from gallery". D-08b: the photo with "Use photo" and "Retake". One photo per document (the API keeps
+/// one file each), so there is no front / back.
 ///
-/// Mock: a simulated camera and a placeholder card; "Use photo" marks the document Under review, then
-/// Verified after 3 s, and goes back. Live API: "Take photo" opens the camera and "Gallery" the photo
-/// picker; "Use photo" uploads the picture (JPG / PNG / WebP, up to 8 MB) and the document stays under
+/// Mock: no camera, a placeholder card; "Use photo" marks the document Under review, then Verified after 3 s, and
+/// goes back. Live API: "Use photo" uploads the picture (JPG / PNG / WebP, up to 8 MB) and the document stays under
 /// review until an admin checks it.
 class D08UploadDocumentScreen extends ConsumerStatefulWidget {
   const D08UploadDocumentScreen({super.key, this.type = KycDocType.insurance, this.captured = false, this.showcase = false});
@@ -32,8 +35,6 @@ class D08UploadDocumentScreen extends ConsumerStatefulWidget {
 
 class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScreen> {
   late bool _captured = widget.captured;
-  bool _back = false;
-  bool _flash = false;
   bool _submitting = false;
 
   /// Live API: the picked photo.
@@ -44,12 +45,22 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
 
   bool get _live => !widget.showcase && ref.read(isLiveApiProvider);
 
-  String get _noun => switch (widget.type) {
-        KycDocType.drivingLicence => 'licence',
-        KycDocType.aadhaar => 'Aadhaar card',
-        KycDocType.vehicleRc => 'RC',
-        KycDocType.insurance => 'policy page',
-        KycDocType.policeVerification => 'certificate',
+  /// "Photo of your …" and what must be readable in it.
+  (String, String) get _what => switch (widget.type) {
+        KycDocType.vehicleRc => ('RC', 'The side with the registration number, the owner\'s name and the vehicle details.'),
+        KycDocType.insurance => (
+            'insurance policy',
+            'The page that shows the policy number, your vehicle number and the dates it is valid.',
+          ),
+        KycDocType.drivingLicence => ('driving licence', 'The side with your photo, name and licence number.'),
+        KycDocType.aadhaar => ('Aadhaar card', 'The front, with your name, photo and Aadhaar number.'),
+        KycDocType.policeVerification => ('police certificate', 'The whole certificate page.'),
+      };
+
+  IconData get _icon => switch (widget.type) {
+        KycDocType.vehicleRc => Symbols.directions_car_rounded,
+        KycDocType.insurance => Symbols.verified_user_rounded,
+        _ => Symbols.badge_rounded,
       };
 
   /// Live API: camera or gallery, compressed on the phone (JPEG, longest side 1600 px, quality 80: a few
@@ -64,7 +75,7 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
       if (!mounted) return;
       setState(() {
         _bytes = bytes;
-        _filename = '${widget.type.name}-${_back ? 'back' : 'front'}.$safeExt';
+        _filename = '${widget.type.name}.$safeExt';
         _captured = true;
       });
     } on PlatformException catch (e) {
@@ -120,294 +131,117 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
     Navigator.of(context).maybePop();
   }
 
+  /// Mock: no camera; a placeholder stands in for the photo.
+  void _fake({bool gallery = false}) {
+    setState(() => _captured = true);
+    if (gallery) showTtSnack(context, 'Photo picked from gallery');
+  }
+
+  void _retake() => setState(() {
+        _captured = false;
+        _bytes = null;
+      });
+
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final side = _back ? 'back' : 'front';
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                height: 64,
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Close',
-                      icon: const Icon(Symbols.close_rounded, color: Colors.white),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                    ),
-                    Expanded(
-                      child: Text(widget.type.label,
-                          style: t.h1.copyWith(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    if (!_live) IconButton(
-                      tooltip: _flash ? 'Flash on' : 'Flash off',
-                      icon: Icon(_flash ? Symbols.flash_on_rounded : Symbols.flash_off_rounded, color: Colors.white),
-                      onPressed: () => setState(() => _flash = !_flash),
-                    ),
-                  ],
-                ),
-              ),
-              Center(child: _sideToggle(t)),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, c) {
-                    final w = c.maxWidth - 2 * TtSpacing.l;
-                    final h = (w * 0.63).clamp(120.0, c.maxHeight * 0.55);
-                    return Container(
-                      decoration: _captured
-                          ? null
-                          : const BoxDecoration(
-                              gradient: RadialGradient(
-                                radius: 0.9,
-                                colors: [TtColors.navy700, TtColors.navy900, Colors.black],
-                                stops: [0, 0.45, 1],
-                              ),
-                            ),
-                      child: SingleChildScrollView(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: c.maxHeight),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _Frame(
-                                width: w,
-                                height: h,
-                                color: _captured ? TtColors.coral500 : Colors.white,
-                                child: _captured
-                                    ? (_bytes != null
-                                        ? _PhotoPreview(bytes: _bytes!, label: widget.type.label, uploading: _submitting)
-                                        : _CapturedCard(type: widget.type, back: _back))
-                                    : Container(
-                                        decoration: BoxDecoration(
-                                          color: TtColors.navy700.withValues(alpha: 0.5),
-                                          borderRadius: TtRadii.cardRadius,
-                                        ),
-                                        child: const Center(
-                                          child: Icon(Symbols.crop_free_rounded, color: TtColors.navy300, size: 44),
-                                        ),
-                                      ),
-                              ),
-                              const SizedBox(height: TtSpacing.l),
-                              if (_captured) ...[
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  decoration:
-                                      const BoxDecoration(color: TtColors.success, borderRadius: TtRadii.pillRadius),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Symbols.check_circle_rounded, color: Colors.white, fill: 1, size: 20),
-                                      const SizedBox(width: 8),
-                                      Flexible(
-                                        child: Text(_bytes != null ? 'Check it is sharp · all corners visible' : 'Looks clear · all corners visible',
-                                            style: t.bodySmallMedium.copyWith(color: Colors.white)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: TtSpacing.m),
-                                Text(
-                                  _bytes != null
-                                      // The API keeps one file per document: the side with the details.
-                                      ? 'We keep one photo per document. Use the side with your name and number.'
-                                      : (_back ? 'Back side captured.' : 'Now: front side. Add the back side if it has details.'),
-                                  textAlign: TextAlign.center,
-                                  style: t.body.copyWith(color: TtColors.navy300),
-                                ),
-                              ] else ...[
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: TtSpacing.xl),
-                                  child: Text(
-                                    'Place the $side of your $_noun inside the frame',
-                                    textAlign: TextAlign.center,
-                                    style: t.bodySemibold.copyWith(color: TtColors.navy300),
-                                  ),
-                                ),
-                                const SizedBox(height: TtSpacing.m),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: TtColors.navy700.withValues(alpha: 0.6),
-                                    borderRadius: TtRadii.pillRadius,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Symbols.light_mode_rounded, color: TtColors.navy300, size: 18),
-                                      const SizedBox(width: 8),
-                                      Flexible(
-                                        child: Text('Good light · no glare · all 4 corners',
-                                            style: t.bodySmall.copyWith(color: TtColors.navy300)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              if (_captured) _capturedActions() else _cameraBar(t),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sideToggle(TtTextStyles t) {
-    Widget seg(String label, bool selected, VoidCallback onTap) => Semantics(
-          selected: selected,
-          button: true,
-          child: Material(
-            color: selected ? Colors.white : Colors.transparent,
-            shape: const StadiumBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onTap,
+    final (noun, what) = _what;
+    final bytes = _bytes;
+    return Scaffold(
+      backgroundColor: TtColors.background,
+      appBar: TtAppBar(title: widget.type.label),
+      body: ListView(
+        padding: const EdgeInsets.all(TtSpacing.l),
+        children: [
+          if (!_captured) ...[
+            Center(
               child: Container(
-                width: 120,
-                height: 40,
-                alignment: Alignment.center,
-                child: Text(label,
-                    style: t.bodySemibold.copyWith(color: selected ? TtColors.navy900 : TtColors.navy300)),
+                width: 96,
+                height: 96,
+                decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
+                child: Icon(_icon, size: 48, color: TtColors.coral600),
               ),
             ),
-          ),
-        );
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.pillRadius),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          seg('Front side', !_back, () => setState(() {
-                _back = false;
-                _captured = false;
-                _bytes = null;
-              })),
-          seg('Back side', _back, () => setState(() {
-                _back = true;
-                _captured = false;
-                _bytes = null;
-              })),
+            const SizedBox(height: TtSpacing.l),
+            Text('Photo of your $noun', style: t.h1, textAlign: TextAlign.center),
+            const SizedBox(height: TtSpacing.xs),
+            Text(what, style: t.body.copyWith(color: TtColors.navy700), textAlign: TextAlign.center),
+            const SizedBox(height: TtSpacing.xl),
+            const _Tip(icon: Symbols.light_mode_rounded, text: 'Good light, no glare or shadow on it'),
+            const _Tip(icon: Symbols.crop_free_rounded, text: 'All 4 corners inside the photo'),
+            const _Tip(icon: Symbols.text_fields_rounded, text: 'Sharp enough to read every number'),
+            if (widget.type == KycDocType.insurance)
+              const _Tip(
+                icon: Symbols.picture_as_pdf_rounded,
+                text: 'Got the policy as a PDF? Take a screenshot of that page and choose it from the gallery',
+              ),
+          ] else ...[
+            Container(
+              height: 300,
+              decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.cardRadius),
+              clipBehavior: Clip.antiAlias,
+              child: bytes != null
+                  ? _PhotoPreview(bytes: bytes, label: widget.type.label, uploading: _submitting)
+                  : Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(TtSpacing.l),
+                        child: AspectRatio(aspectRatio: 1.586, child: _CapturedCard(type: widget.type)),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: TtSpacing.l),
+            Text('Check it before you upload', style: t.h2),
+            const SizedBox(height: TtSpacing.xs),
+            Text(
+              'All 4 corners in, nothing blurry, and the name and numbers easy to read. If not, retake it.',
+              style: t.body.copyWith(color: TtColors.navy700),
+            ),
+          ],
         ],
       ),
+      bottomNavigationBar: BottomActions(
+        children: !_captured
+            ? [
+                TtButton(
+                  label: 'Take photo',
+                  icon: Symbols.photo_camera_rounded,
+                  onPressed: () => _live ? _pick(ImageSource.camera) : _fake(),
+                ),
+                const SizedBox(height: TtSpacing.s),
+                TtButton.secondary(
+                  label: 'Choose from gallery',
+                  icon: Symbols.photo_library_rounded,
+                  onPressed: () => _live ? _pick(ImageSource.gallery) : _fake(gallery: true),
+                ),
+              ]
+            : [
+                TtButton(
+                  label: 'Use photo',
+                  icon: Symbols.check_rounded,
+                  loading: _submitting,
+                  onPressed: _submitting ? null : _use,
+                ),
+                const SizedBox(height: TtSpacing.s),
+                TtButton.secondary(label: 'Retake', icon: Symbols.refresh_rounded, onPressed: _submitting ? null : _retake),
+              ],
+      ),
     );
   }
+}
 
-  Widget _cameraBar(TtTextStyles t) => Container(
-        color: Colors.black,
-        padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.l, TtSpacing.l, TtSpacing.l),
-        child: Row(
-          children: [
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Semantics(
-                  button: true,
-                  label: 'Choose from gallery',
-                  excludeSemantics: true,
-                  child: InkWell(
-                    borderRadius: TtRadii.cardRadius,
-                    onTap: () {
-                      if (_live) {
-                        _pick(ImageSource.gallery);
-                        return;
-                      }
-                      setState(() => _captured = true);
-                      showTtSnack(context, 'Photo picked from gallery');
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.cardRadius),
-                          child: const Icon(Symbols.photo_library_rounded, color: TtColors.navy300),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('Gallery', style: t.caption.copyWith(color: TtColors.navy300)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Semantics(
-              button: true,
-              label: 'Take photo',
-              excludeSemantics: true,
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () => _live ? _pick(ImageSource.camera) : setState(() => _captured = true),
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: TtColors.navy300, width: 4),
-                  ),
-                  child: const DecoratedBox(decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text('Step ${_back ? 2 : 1}/2', style: t.bodySmallMedium.copyWith(color: TtColors.navy300)),
-              ),
-            ),
-          ],
-        ),
-      );
+class _Tip extends StatelessWidget {
+  const _Tip({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
 
-  Widget _capturedActions() => Padding(
-        padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, TtSpacing.m),
-        child: Row(
-          children: [
-            Expanded(
-              child: Material(
-                color: Colors.transparent,
-                shape: const StadiumBorder(side: BorderSide(color: Colors.white, width: 1.5)),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: _submitting
-                      ? null
-                      : () => setState(() {
-                            _captured = false;
-                            _bytes = null;
-                          }),
-                  child: SizedBox(
-                    height: 52,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Symbols.refresh_rounded, color: Colors.white),
-                        const SizedBox(width: 8),
-                        Text('Retake', style: context.type.button.copyWith(color: Colors.white)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: TtSpacing.m),
-            Expanded(child: TtButton(label: 'Use photo', loading: _submitting, onPressed: _use)),
-          ],
-        ),
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: TtSpacing.s),
+        child: Row(children: [
+          Icon(icon, color: TtColors.coral600, size: 24),
+          const SizedBox(width: TtSpacing.m),
+          Expanded(child: Text(text, style: context.type.body)),
+        ]),
       );
 }
 
@@ -422,7 +256,7 @@ class _PhotoPreview extends StatelessWidget {
   Widget build(BuildContext context) => ClipRRect(
         borderRadius: TtRadii.cardRadius,
         child: Stack(fit: StackFit.expand, children: [
-          Image.memory(bytes, fit: BoxFit.cover, semanticLabel: 'Photo of your $label', gaplessPlayback: true),
+          Image.memory(bytes, fit: BoxFit.contain, semanticLabel: 'Photo of your $label', gaplessPlayback: true),
           if (uploading)
             ColoredBox(
               color: Colors.black54,
@@ -442,66 +276,11 @@ class _PhotoPreview extends StatelessWidget {
       );
 }
 
-/// Four corner brackets around [child].
-class _Frame extends StatelessWidget {
-  const _Frame({required this.width, required this.height, required this.color, required this.child});
-
-  final double width;
-  final double height;
-  final Color color;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    const arm = 36.0;
-    const stroke = 4.0;
-    BorderSide s() => BorderSide(color: color, width: stroke);
-    Widget corner({required bool top, required bool left}) => Positioned(
-          top: top ? 0 : null,
-          bottom: top ? null : 0,
-          left: left ? 0 : null,
-          right: left ? null : 0,
-          child: Container(
-            width: arm,
-            height: arm,
-            decoration: BoxDecoration(
-              border: Border(
-                top: top ? s() : BorderSide.none,
-                bottom: top ? BorderSide.none : s(),
-                left: left ? s() : BorderSide.none,
-                right: left ? BorderSide.none : s(),
-              ),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(top && left ? 10 : 0),
-                topRight: Radius.circular(top && !left ? 10 : 0),
-                bottomLeft: Radius.circular(!top && left ? 10 : 0),
-                bottomRight: Radius.circular(!top && !left ? 10 : 0),
-              ),
-            ),
-          ),
-        );
-    return SizedBox(
-      width: width + 16,
-      height: height + 16,
-      child: Stack(
-        children: [
-          Positioned.fill(child: Padding(padding: const EdgeInsets.all(8), child: child)),
-          corner(top: true, left: true),
-          corner(top: true, left: false),
-          corner(top: false, left: true),
-          corner(top: false, left: false),
-        ],
-      ),
-    );
-  }
-}
-
 /// A placeholder photo of the document: header strip, a greyed photo and blurred detail bars.
 class _CapturedCard extends StatelessWidget {
-  const _CapturedCard({required this.type, required this.back});
+  const _CapturedCard({required this.type});
 
   final KycDocType type;
-  final bool back;
 
   (String, String) get _header => switch (type) {
         KycDocType.drivingLicence => ('INDIAN UNION DRIVING LICENCE', 'TAMIL NADU'),
@@ -547,11 +326,12 @@ class _CapturedCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(back ? '$left · BACK' : left,
+                    child: Text(left,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: t.overline.copyWith(color: Colors.white)),
                   ),
+                  const SizedBox(width: 8),
                   Text(right, style: t.overline.copyWith(color: Colors.white)),
                 ],
               ),
@@ -562,18 +342,16 @@ class _CapturedCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (!back) ...[
-                      AspectRatio(
-                        aspectRatio: 0.8,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: TtColors.navy500.withValues(alpha: 0.55),
-                            borderRadius: const BorderRadius.all(Radius.circular(8)),
-                          ),
+                    AspectRatio(
+                      aspectRatio: 0.8,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: TtColors.navy500.withValues(alpha: 0.55),
+                          borderRadius: const BorderRadius.all(Radius.circular(8)),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                    ],
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: ClipRect(
                         child: Column(
