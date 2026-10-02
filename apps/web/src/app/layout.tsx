@@ -3,7 +3,7 @@ import { Inter, Poppins } from "next/font/google";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { site } from "@/lib/site";
+import { openGraphBase, site } from "@/lib/site";
 
 import "./globals.css";
 
@@ -18,8 +18,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(site.url),
   title: { default: "Tamil Taxi: 0% commission rides and parcels in Coimbatore", template: "%s · Tamil Taxi" },
   description,
-  // No url / description here: pages would inherit the home page's. Next fills og:title from each title.
-  openGraph: { type: "website", siteName: site.name, locale: "en_IN" },
+  // No url / description here: pages would inherit the home page's. Next fills og:title from each title; each page
+  // sets its own og:url (openGraphBase).
+  openGraph: openGraphBase,
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = { themeColor: "#ffffff" };

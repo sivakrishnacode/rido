@@ -4,10 +4,11 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { privacy, terms } from "@/lib/legal";
-import { pages, playStoreUrl, site } from "@/lib/site";
+import { openGraphBase, pages, playStoreUrl, site } from "@/lib/site";
 
 const repoRoot = path.resolve(__dirname, "../../..");
 const appDir = path.resolve(__dirname, "../src/app");
+const publicDir = path.resolve(__dirname, "../public");
 
 describe("site config", () => {
   it("links each Play Store button to the app's real applicationId", () => {
@@ -24,6 +25,15 @@ describe("site config", () => {
     for (const page of pages) {
       expect(existsSync(path.join(appDir, page, "page.tsx")), page).toBe(true);
     }
+  });
+
+  it("ships the social preview image at the size it declares, and a favicon", () => {
+    const [image] = openGraphBase.images;
+    const png = readFileSync(path.join(publicDir, image.url));
+    // PNG header: width and height are big-endian at bytes 16 and 20.
+    expect(png.subarray(1, 4).toString("ascii")).toBe("PNG");
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([image.width, image.height]);
+    expect(existsSync(path.join(appDir, "favicon.ico"))).toBe(true);
   });
 });
 
