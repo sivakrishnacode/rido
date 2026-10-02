@@ -10,7 +10,7 @@ import type { Driver, KycDocument } from '../../generated/prisma/client.js';
 import { KycDocType, Role, TripKind } from '../../generated/prisma/enums.js';
 import type { BookingPrefs } from './booking-prefs.js';
 import { DriverEarningsService, type Earnings } from './driver-earnings.service.js';
-import { DriversService } from './drivers.service.js';
+import { ADMIN_CANT_REGISTER, DriversService } from './drivers.service.js';
 import { AuditInterceptor } from '../admin/audit.interceptor.js';
 import { BookingPrefsDto } from './dto/booking-prefs.dto.js';
 import { EarningsQueryDto } from './dto/earnings-query.dto.js';
@@ -39,9 +39,17 @@ export class DriversController {
     return this.drivers.nearbyVehicles({ lat: q.lat, lng: q.lng }, q.trip === TripKind.PARCEL ? PARCEL_MAP_KINDS : RIDE_MAP_KINDS);
   }
 
+  /** 201 with a new driver; 200 with the existing one when the user already registered (a retry). Admins → 403. */
   @Post('drivers')
-  register(@CurrentUser() user: AuthUser, @Body() body: RegisterDriverDto): Promise<{ driver: Driver; accessToken: string }> {
-    return this.drivers.register(user.userId, body);
+  async register(
+    @CurrentUser() user: AuthUser,
+    @Body() body: RegisterDriverDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ driver: Driver; accessToken: string }> {
+    if (user.role === Role.ADMIN) throw new ForbiddenException(ADMIN_CANT_REGISTER);
+    const { driver, accessToken, isNew } = await this.drivers.register(user.userId, body);
+    if (!isNew) res.status(200);
+    return { driver, accessToken };
   }
 
   @Roles(Role.DRIVER)
