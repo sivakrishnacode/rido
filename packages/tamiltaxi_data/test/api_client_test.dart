@@ -67,4 +67,17 @@ void main() {
       expect(far.message, "You're 850 m from the pickup point");
     }
   });
+
+  test('a success that is not JSON (Wi-Fi login page) is offline, not a crash', () async {
+    final api = await _api(MockClient((_) async => http.Response('<html><body>Sign in to Station Wi-Fi</body></html>', 200)));
+    await expectLater(api.get('/trips'), throwsA(isA<OfflineException>()));
+    await expectLater(api.post('/fares/quote', {}, true), throwsA(isA<OfflineException>()));
+  });
+
+  test('an empty success is null; an error page that is not JSON still says the status', () async {
+    final empty = await _api(MockClient((_) async => http.Response('', 200)));
+    expect(await empty.get('/trips/active'), isNull);
+    final html = await _api(MockClient((_) async => http.Response('<html>Bad gateway</html>', 502)));
+    await expectLater(html.get('/trips'), throwsA(isA<ApiException>().having((e) => e.status, 'status', 502)));
+  });
 }
