@@ -261,4 +261,24 @@ void main() {
     expect(rideModeLabel(RideMode.local, null), isNull);
     expect(rideModeLabel(RideMode.outstation, out), 'Outstation · round trip');
   });
+
+  test('a vehicle tier this app does not know is left out (not shown as another Bike)', () {
+    final quotes = quotesFromJson([
+      {'vehicleKind': 'BIKE', 'total': 35},
+      {'vehicleKind': 'E_RICKSHAW', 'total': 41},
+      {'vehicleKind': 'AUTO', 'total': 66},
+    ]);
+    expect(quotes.map((q) => q.vehicle.kind), [VehicleKind.bike, VehicleKind.auto]);
+    expect(knownVehicleKind('GOODS_BIKE'), VehicleKind.goodsBike);
+    expect(knownVehicleKind('HOVERCRAFT'), isNull);
+    expect(knownVehicleKind(null), isNull);
+    final update = LiveTripUpdate(tripFromJson(_trip), 'SEARCHING', const {'alsoKinds': ['AUTO', 'E_RICKSHAW']});
+    expect(update.alsoVehicles, [VehicleKind.auto]);
+  });
+
+  test('a status this app does not know does not end the trip', () {
+    expect(tripFromJson({..._trip, 'status': 'AT_DROP'}).status.isFinished, isFalse);
+    expect(tripFromJson({..._trip, 'status': 'CANCELLED'}).status, TripStatus.cancelled);
+    expect(tripFromJson({..._trip, 'status': 'NO_DRIVERS'}).status, TripStatus.cancelled);
+  });
 }

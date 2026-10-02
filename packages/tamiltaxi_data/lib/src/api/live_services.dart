@@ -42,7 +42,9 @@ class LiveTripUpdate {
   int get reassignCount => (json['reassignCount'] as num?)?.toInt() ?? 0;
 
   /// "Book any": vehicles the passenger added to the search besides [Trip.vehicle].
-  List<VehicleKind> get alsoVehicles => [for (final k in (json['alsoKinds'] as List?) ?? const []) vehicleKindFromApi(k)];
+  List<VehicleKind> get alsoVehicles => [
+        for (final k in (json['alsoKinds'] as List?) ?? const []) ?knownVehicleKind(k),
+      ];
 }
 
 /// "Book any" (like Namma Yatra): another vehicle a slow search could add. Free drivers of it are within the maximum
@@ -163,7 +165,8 @@ class LiveTrips {
 
   /// While searching: other vehicles with drivers in range, cheapest first ("Book any").
   Future<List<VehicleAlternative>> alternatives(String tripId) async => [
-        for (final a in (await api.get('/trips/$tripId/alternatives') as List)) VehicleAlternative.fromJson(_map(a)),
+        for (final a in (await api.get('/trips/$tripId/alternatives') as List))
+          if (a is Map && knownVehicleKind(a['vehicleKind']) != null) VehicleAlternative.fromJson(_map(a)),
       ];
 
   /// While searching: also look for [vehicle]; the first driver of any of them takes the trip at their fare.
