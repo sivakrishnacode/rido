@@ -8,7 +8,8 @@ import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
 import 'widgets/edit_form_scaffold.dart';
 
-/// Account › Vehicle details: model, colour and number plate (prefilled), Save → back.
+/// Account › Vehicle details: model, colour and number plate (prefilled from the loaded profile; a spinner, then
+/// Retry, until it loads), Save → back.
 class VehicleDetailsScreen extends ConsumerStatefulWidget {
   const VehicleDetailsScreen({super.key, this.showcase = false});
 
@@ -20,12 +21,28 @@ class VehicleDetailsScreen extends ConsumerStatefulWidget {
 }
 
 class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
-  late final DriverProfile _p = ref.read(driverProfileProvider).value ?? Seed.karthik;
-  late final _model = TextEditingController(text: _p.vehicleModel);
-  late final _color = TextEditingController(text: _p.vehicleColor);
-  late final _plate = TextEditingController(text: _p.plate);
+  final _model = TextEditingController();
+  final _color = TextEditingController();
+  final _plate = TextEditingController();
+
+  /// The profile the form was filled from (null until it loads: nothing seeded is shown or saved).
+  DriverProfile? _p;
   bool _saving = false;
   bool _tried = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.showcase ? Seed.karthik : ref.read(driverProfileProvider).value;
+    if (p != null) _fill(p);
+  }
+
+  void _fill(DriverProfile p) {
+    _p = p;
+    _model.text = p.vehicleModel;
+    _color.text = p.vehicleColor;
+    _plate.text = p.plate;
+  }
 
   @override
   void dispose() {
@@ -40,8 +57,13 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
   Future<void> _save() async {
     setState(() => _tried = true);
     if (_model.text.trim().isEmpty || !_plateOk) return;
+    if (widget.showcase) {
+      showTtSnack(context, 'Design preview: nothing is saved');
+      return;
+    }
+    final current = ref.read(driverProfileProvider).value;
+    if (current == null) return;
     setState(() => _saving = true);
-    final current = ref.read(driverProfileProvider).value ?? _p;
     try {
       await ref.read(driverProfileProvider.notifier).save(current.copyWith(
             vehicleModel: _model.text.trim(),
@@ -62,6 +84,20 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
+    final profile = widget.showcase ? const AsyncData(Seed.karthik) : ref.watch(driverProfileProvider);
+    if (_p == null && profile.value != null) _fill(profile.value!);
+    final p = _p;
+    if (p == null) {
+      return EditFormScaffold(
+        title: 'Vehicle details',
+        loading: true,
+        error: profile.hasError ? profile.error : null,
+        what: 'your vehicle',
+        onRetry: () => ref.invalidate(driverProfileProvider),
+        onSave: null,
+        children: const [],
+      );
+    }
     return EditFormScaffold(
       title: 'Vehicle details',
       saving: _saving,
@@ -71,9 +107,9 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
         const SizedBox(height: TtSpacing.s),
         TtCard(
           child: Row(children: [
-            Icon(_p.vehicleKind.icon, color: TtColors.coral600),
+            Icon(p.vehicleKind.icon, color: TtColors.coral600),
             const SizedBox(width: TtSpacing.m),
-            Expanded(child: Text(_p.vehicleKind.label, style: t.bodySemibold)),
+            Expanded(child: Text(p.vehicleKind.label, style: t.bodySemibold)),
             Text('Set at sign-up', style: t.caption),
           ]),
         ),

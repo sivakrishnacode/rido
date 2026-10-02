@@ -86,8 +86,14 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final profile = ref.watch(driverProfileProvider).value ?? Seed.karthik;
-    final contact = ref.watch(driverEmergencyContactProvider).value;
+    final live = !widget.showcase && ref.watch(isLiveApiProvider);
+    final profileAsync = ref.watch(driverProfileProvider);
+    // Live: the real profile or nothing (a skeleton, then Retry): never the seed driver.
+    final DriverProfile? profile =
+        widget.showcase ? Seed.karthik : (live ? profileAsync.value : (profileAsync.value ?? Seed.karthik));
+    final profileFailed = profile == null && profileAsync.hasError;
+    final contactAsync = ref.watch(driverEmergencyContactProvider);
+    final contact = contactAsync.value;
     final prefs = ref.watch(bookingPrefsProvider).value;
     final prefsSub = prefs == null || !prefs.hasFilters ? 'Every request · voice, Go To, Stay In, parcels' : _cap(prefs.summary);
     // Counted as Account › Documents (D-07 read-only) counts them: the uploads plus the identity check, from the
@@ -109,28 +115,12 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
       body: Column(children: [
         NavyHeader(
           padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.xl),
-          child: Row(children: [
-            DriverAvatar(driver: profile, size: 76, tone: AvatarTone.dark, ringColor: TtColors.coral500),
-            const SizedBox(width: TtSpacing.l),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Flexible(
-                    child: Text(profile.name,
-                        style: t.display.copyWith(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  const SizedBox(width: TtSpacing.s),
-                  const Icon(Symbols.star_rounded, fill: 1, color: TtColors.warning, size: 20),
-                  Text(profile.rating.toStringAsFixed(1), style: t.bodySemibold.copyWith(color: Colors.white)),
-                ]),
-                const SizedBox(height: TtSpacing.xs),
-                Row(children: [
-                  Text('${profile.vehicleKind.label} · ', style: t.body.copyWith(color: Colors.white70)),
-                  Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: NumberPlate(plate: profile.plate))),
-                ]),
-              ]),
-            ),
-          ]),
+          child: profile != null
+              ? _ProfileHeader(profile: profile)
+              : _ProfileHeaderPlaceholder(
+                  error: profileFailed ? profileAsync.error : null,
+                  onRetry: () => ref.invalidate(driverProfileProvider),
+                ),
         ),
         Expanded(
           child: ListView(
@@ -166,9 +156,9 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                   onTap: () => context.push(Routes.accountDocuments),
                 ),
                 TtListTile(
-                  icon: profile.vehicleKind.icon,
+                  icon: profile?.vehicleKind.icon ?? Symbols.directions_car_rounded,
                   title: 'Vehicle details',
-                  subtitle: profile.vehicleLabel,
+                  subtitle: profile?.vehicleLabel ?? (profileFailed ? 'Not loaded' : 'Loading…'),
                   onTap: () => context.push(Routes.vehicleDetails),
                 ),
                 TtListTile(
@@ -180,20 +170,23 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                 TtListTile(
                   icon: Symbols.account_balance_rounded,
                   title: 'UPI ID',
-                  subtitle: profile.upiId,
+                  subtitle: profile?.upiId ?? (profileFailed ? 'Not loaded' : 'Loading…'),
                   onTap: () => context.push(Routes.upiId),
                 ),
                 TtListTile(
                   icon: Symbols.contact_emergency_rounded,
                   title: 'Emergency contact',
                   subtitle: contact == null
-                      ? 'Loading…'
+                      ? (contactAsync.hasError ? "Couldn't load it. Tap to try again" : 'Loading…')
                       : contact.name.isEmpty
                           ? 'Add someone to alert in an emergency'
                           : contact.relation.isEmpty
                               ? contact.name.split(' ').first
                               : '${contact.name.split(' ').first} (${contact.relation})',
-                  onTap: () => context.push(Routes.emergencyContact),
+                  onTap: () {
+                    if (contactAsync.hasError) ref.invalidate(driverEmergencyContactProvider);
+                    context.push(Routes.emergencyContact);
+                  },
                 ),
                 TtListTile(
                   icon: Symbols.volunteer_activism_rounded,
@@ -246,6 +239,83 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
         ),
       ]),
     );
+  }
+}
+
+/// Photo, name, rating, vehicle and plate.
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.profile});
+  final DriverProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Row(children: [
+      DriverAvatar(driver: profile, size: 76, tone: AvatarTone.dark, ringColor: TtColors.coral500),
+      const SizedBox(width: TtSpacing.l),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Flexible(
+              child: Text(profile.name,
+                  style: t.display.copyWith(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: TtSpacing.s),
+            const Icon(Symbols.star_rounded, fill: 1, color: TtColors.warning, size: 20),
+            Text(profile.rating.toStringAsFixed(1), style: t.bodySemibold.copyWith(color: Colors.white)),
+          ]),
+          const SizedBox(height: TtSpacing.xs),
+          Row(children: [
+            Text('${profile.vehicleKind.label} · ', style: t.body.copyWith(color: Colors.white70)),
+            Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: NumberPlate(plate: profile.plate))),
+          ]),
+        ]),
+      ),
+    ]);
+  }
+}
+
+/// Live, before the profile has loaded: grey shapes where the photo and name go; if it failed, why and Retry.
+class _ProfileHeaderPlaceholder extends StatelessWidget {
+  const _ProfileHeaderPlaceholder({required this.error, required this.onRetry});
+  final Object? error;
+  final VoidCallback onRetry;
+
+  static final _shade = Colors.white.withValues(alpha: 0.12);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    final failed = error;
+    return Row(children: [
+      Container(
+        width: 76,
+        height: 76,
+        decoration: BoxDecoration(color: _shade, shape: BoxShape.circle),
+        child: failed == null ? null : const Icon(Symbols.person_rounded, size: 40, color: Colors.white54),
+      ),
+      const SizedBox(width: TtSpacing.l),
+      Expanded(
+        child: failed == null
+            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(width: 160, height: 28, decoration: BoxDecoration(color: _shade, borderRadius: TtRadii.pillRadius)),
+                const SizedBox(height: TtSpacing.s),
+                Container(width: 120, height: 20, decoration: BoxDecoration(color: _shade, borderRadius: TtRadii.pillRadius)),
+              ])
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text("Profile didn't load",
+                    style: t.bodySemibold.copyWith(color: Colors.white, fontSize: 17), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(failed is OfflineException ? "You're offline" : userMessage(failed),
+                    style: t.bodySmall.copyWith(color: Colors.white70), maxLines: 2, overflow: TextOverflow.ellipsis),
+              ]),
+      ),
+      if (failed != null)
+        TextButton(
+          onPressed: onRetry,
+          style: TextButton.styleFrom(foregroundColor: Colors.white, minimumSize: const Size(48, 48)),
+          child: const Text('Retry'),
+        ),
+    ]);
   }
 }
 
