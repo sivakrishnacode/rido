@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:latlong2/latlong.dart';
 
 import '../maps/google_http.dart';
@@ -19,7 +20,11 @@ typedef BackendRouter = Future<List<LatLng>?> Function(LatLng from, LatLng to, R
 
 /// Road-following routes, cached in memory: the Tamil Taxi backend when [backend] is set (live API: no Google key in
 /// the app), else Google Routes API when an app key is configured ([isGoogleMapsEnabled]), else the free public
-/// OSRM router, else null (curved stand-in).
+/// OSRM demo router, else null (curved stand-in).
+///
+/// The live apps never call the OSRM demo server (router.project-osrm.org): its usage policy rules out production
+/// apps and the privacy policy doesn't name it. When the backend has no road route, the curved stand-in is drawn.
+/// OSRM is only for the seed-data demo and dev builds.
 ///
 /// Cost rules: each leg (from → to) is computed **once** per app session and then only read
 /// from the cache (the trip simulator animates along it locally); concurrent requests for the
@@ -52,7 +57,7 @@ abstract final class RoadRouter {
   static List<LatLng>? cached(LatLng a, LatLng b) => _cache[_key(a, b)];
 
   /// Fetches (once) and caches the road route; null if routing is unavailable.
-  /// [useGoogle] false forces the free OSRM router (used for the demo-route prefetch).
+  /// [useGoogle] false forces the free OSRM router (used for the demo-route prefetch; never with a [backend]).
   static Future<List<LatLng>?> fetch(
     LatLng a,
     LatLng b, {
@@ -79,21 +84,26 @@ abstract final class RoadRouter {
 
   static Future<List<LatLng>?> _get(LatLng a, LatLng b, RouteTravelMode mode, bool useGoogle) async {
     final viaBackend = backend;
-    if (useGoogle && viaBackend != null) {
+    if (viaBackend != null) {
+      // Live API: the server's route, else the curved stand-in (no third-party router; see above).
       try {
         final p = await viaBackend(a, b, mode);
         if (p != null && p.length >= 2) return p;
       } catch (_) {
-        // Fall through to OSRM.
+        // The curved line instead.
       }
-      return _osrm(a, b);
+      return null;
     }
     if (useGoogle && isGoogleMapsEnabled && !_googleBroken) {
       final g = await _google(a, b, mode);
       if (g != null) return g;
     }
-    return _osrm(a, b);
+    return osrm(a, b);
   }
+
+  /// The public OSRM demo router (seed-data demo and dev builds only); replaceable in tests.
+  @visibleForTesting
+  static Future<List<LatLng>?> Function(LatLng a, LatLng b) osrm = _osrm;
 
   /// Routes API computeRoutes, TRAFFIC_UNAWARE (Essentials SKU), polyline only.
   static Future<List<LatLng>?> _google(LatLng a, LatLng b, RouteTravelMode mode) async {
