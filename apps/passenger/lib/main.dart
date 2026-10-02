@@ -10,6 +10,7 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   if (kUseLiveApi) {
     // Real backend: API repositories, trips over Socket.IO, routes from the server (Google stays server-side).
+    TtClock.useRealDate();
     final session = await ApiSession.load();
     final api = ApiClient(baseUrl: kApiBaseUrl, session: session);
     RoadRouter.backend = backendRouter(api);

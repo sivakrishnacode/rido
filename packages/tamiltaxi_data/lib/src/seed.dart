@@ -9,14 +9,26 @@ import 'models/vehicle.dart';
 import 'goods_modes.dart';
 import 'ride_modes.dart';
 
-/// The prototype runs on a fixed calendar day (24 Sep 2026) so seed dates, the free trial and
-/// "next debit 24 Oct 2026" always line up. Only the time of day is live.
+/// The demo (mock mode, tests, the design gallery) runs on a fixed calendar day (24 Sep 2026) so seed dates, the free
+/// trial and "next debit 24 Oct 2026" always line up; only the time of day is live. With the real API the apps call
+/// [useRealDate] at start, so "Today" / "Yesterday" follow the phone's calendar.
 abstract final class TtClock {
-  static final DateTime today = DateTime(2026, 9, 24);
+  static final DateTime _demoDay = DateTime(2026, 9, 24);
+  static bool _real = false;
+
+  /// Live API: today is today.
+  static void useRealDate() => _real = true;
+
+  static DateTime get today {
+    if (!_real) return _demoDay;
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
 
   static DateTime now() {
     final n = DateTime.now();
-    return DateTime(today.year, today.month, today.day, n.hour, n.minute, n.second);
+    if (_real) return n;
+    return DateTime(_demoDay.year, _demoDay.month, _demoDay.day, n.hour, n.minute, n.second);
   }
 }
 

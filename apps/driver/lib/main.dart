@@ -28,6 +28,7 @@ Future<void> main() async {
   }
   // Tamil Taxi API: repositories over HTTP, offers and job updates over Socket.IO, routes from the backend
   // (no Google key in the app). A 401 sends the driver back to log in (see TtDriverApp).
+  TtClock.useRealDate();
   final session = await ApiSession.load();
   final api = ApiClient(baseUrl: kApiBaseUrl, session: session);
   RoadRouter.backend = backendRouter(api);
