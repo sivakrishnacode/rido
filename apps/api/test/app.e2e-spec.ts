@@ -10,6 +10,7 @@ import { PrismaService } from '../src/core/prisma/prisma.service.js';
 import { DriverStateCache } from '../src/core/driver-state/driver-state.cache.js';
 import { JobsService } from '../src/core/jobs/jobs.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
+import { AuthService } from '../src/modules/auth/auth.service.js';
 import { SettingsService } from '../src/modules/settings/settings.service.js';
 import { DriverBlocksService } from '../src/modules/trips/driver-blocks.service.js';
 import { statsKey } from '../src/modules/trips/driver-rank.js';
@@ -1449,6 +1450,28 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(asAdmin.user.role).toBe('ADMIN');
     await http.get('/v1/admin/stats').set('Authorization', `Bearer ${asAdmin.accessToken}`).expect(200);
     await http.post('/v1/auth/verify').send({ phone: p, code: '123456', app: 'website' }).expect(400);
+  });
+
+  it('role changes apply to existing tokens at once (the role comes from the account, not the 30-day token)', async () => {
+    // A passenger token, then registering as a driver: the old token now works on driver routes too.
+    const before = await login();
+    const reg = (await http.post('/v1/drivers').set('Authorization', `Bearer ${before}`)
+      .send({ name: 'Role Test', workType: 'RIDES', vehicleKind: 'BIKE', vehicleModel: 'Test', vehicleColor: 'White', plate: randomPlate(), upiId: 'test@okaxis' }).expect(201)).body;
+    expect((await http.get('/v1/drivers/me').set('Authorization', `Bearer ${before}`).expect(200)).body.id).toBe(reg.driver.id);
+
+    // Made an admin, then demoted (what the admin panel's role change does, plus its cache drop): the panel token stops.
+    const userId = reg.driver.userId as string;
+    await prisma.user.update({ where: { id: userId }, data: { role: 'ADMIN' } });
+    await app.get(AuthService).invalidateRole(userId);
+    const p = (await prisma.user.findUniqueOrThrow({ where: { id: userId } })).phone.slice(3);
+    await http.post('/v1/auth/otp').send({ phone: p }).expect(200);
+    const panel = { Authorization: `Bearer ${(await http.post('/v1/auth/verify').send({ phone: p, code: '123456', app: 'admin' }).expect(200)).body.accessToken}` };
+    await http.get('/v1/admin/stats').set(panel).expect(200);
+    await prisma.user.update({ where: { id: userId }, data: { role: 'DRIVER' } });
+    await app.get(AuthService).invalidateRole(userId);
+    await http.get('/v1/admin/stats').set(panel).expect(403);
+    // The same token now acts as the account's own role (DRIVER).
+    expect((await http.get('/v1/drivers/me').set(panel).expect(200)).body.id).toBe(reg.driver.id);
   });
 
   it('uses H3 service areas: outside is refused, admins add cities, zones and blocks', async () => {
