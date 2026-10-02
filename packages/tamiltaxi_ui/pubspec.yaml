@@ -20,7 +20,6 @@ dependencies:
   flutter_riverpod: ^3.4.3
   google_maps_flutter: ^2.18.1
   qr_flutter: ^4.1.0
-  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -33,7 +32,7 @@ flutter:
     - assets/google_fonts/
     # Launcher icons as shipped (copies of each app's mipmap-xxxhdpi/ic_launcher.png) for the design gallery.
     - assets/brand/
-    # Line art (home footer), built by scripts/footer_art/build.py.
+    # The home footer picture (HomeFooter).
     - assets/illustrations/
     # Vehicle renders (VehicleArt), built from docs/design/vechile/ by scripts/vehicle_icons/build.py.
     - assets/vehicles/

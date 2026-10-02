@@ -102,7 +102,7 @@ docs/COST_AND_SCALING.md         running cost per trip, free tiers, P-10 ETA + O
 docs/private/                    owner-only business docs (git-ignored, never publish)
 .github/                         CI workflow, issue + PR templates
 docs/design/                     screenshots of every app screen + index (scripts/export_design.py)
-scripts/                         flutter.sh / dart.sh (SDK lookup), build_apks.sh, footer_art/ (home footer SVG)
+scripts/                         flutter.sh / dart.sh (SDK lookup), build_apks.sh, export_design.py, vehicle_icons/
 docker-compose.yml               postgres + redis + api + admin (+ `tools` profile: Adminer, Redis Insight)
 ```
 
@@ -173,3 +173,4 @@ Flutter SDK comes from `$FLUTTER`, `PATH` or `~/development/flutter`. `scripts/f
 | 29 Sep 2026 | Renamed Rido → Tamil Taxi: `@tamiltaxi/*`, `tamiltaxi_ui` / `tamiltaxi_data`, `Tt*` classes, `com.tamiltaxi.*`, DB `tamiltaxi` |
 | 1 Oct 2026 | `docs/design` is now screenshots of the apps: `scripts/export_design.py` command, repo map line |
 | 1 Oct 2026 | Rule: no built-in city (cities come from the database) |
+| 2 Oct 2026 | Repo map: `scripts/footer_art` removed (the home footer is a picture now) |
