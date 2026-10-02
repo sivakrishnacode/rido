@@ -4,6 +4,7 @@ import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Announcement, AuditLog, CancellationDue, Payment, Prisma } from '../../generated/prisma/client.js';
 import { PaymentStatus, TripStatus } from '../../generated/prisma/enums.js';
+import { toCsv } from './csv.js';
 import type { Paged } from './admin.types.js';
 import type { CreateAnnouncementDto } from './dto/announcement.dto.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
@@ -124,16 +125,9 @@ export class AdminOpsService {
     return { items, total, page, pageSize };
   }
 
-  /** CSV export of trips, drivers or payments (latest 5,000 rows). */
+  /** CSV export of trips, drivers or payments (latest 5,000 rows; formula-looking text neutralised, csv.ts). */
   async exportCsv(entity: 'trips' | 'drivers' | 'payments'): Promise<string> {
-    const rows = await this.rowsFor(entity);
-    if (rows.length === 0) return '';
-    const headers = Object.keys(rows[0]);
-    const esc = (v: unknown): string => {
-      const s = v instanceof Date ? v.toISOString() : String(v ?? '');
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    return [headers.join(','), ...rows.map((r) => headers.map((h) => esc(r[h])).join(','))].join('\n');
+    return toCsv(await this.rowsFor(entity));
   }
 
   private async rowsFor(entity: 'trips' | 'drivers' | 'payments'): Promise<Record<string, unknown>[]> {
