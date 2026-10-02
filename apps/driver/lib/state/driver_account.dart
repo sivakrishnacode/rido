@@ -249,8 +249,43 @@ class SignupController extends Notifier<SignupDraft> {
     ref.read(demoSettingsProvider.notifier).update((s) => s.copyWith(workType: w));
   }
 
+  /// Live, once the driver exists (after a restart or a log-in mid-registration the draft is blank): starts the draft
+  /// from what is saved, so D-06's Edit shows it and saving doesn't blank the name, plate and UPI or reset the gender.
+  Future<void> loadSaved() async {
+    final repo = ref.read(driverRepositoryProvider);
+    if (!ref.read(isLiveApiProvider) || !repo.isLoggedIn) return;
+    final p = await ref.read(driverProfileProvider.future);
+    EmergencyContact? contact;
+    try {
+      contact = await repo.emergencyContact();
+    } on Exception {
+      contact = null;
+    }
+    if (!ref.mounted) return;
+    state = state.copyWith(
+      phone: state.phone.isEmpty ? p.phone : state.phone,
+      vehicle: p.vehicleKind,
+      name: p.name,
+      gender: p.gender,
+      upiId: p.upiId,
+      vehicleModel: p.vehicleModel,
+      vehicleColor: p.vehicleColor,
+      plate: p.plate,
+      emergencyContact: contact != null && contact.phone.isNotEmpty ? contact.phone : state.emergencyContact,
+    );
+  }
+
   /// Seed vehicle shown on D-06 in mock mode when the driver hasn't typed one.
   DriverProfile get _seedDriver => state.vehicle.isGoods ? Seed.selvam : Seed.karthik;
+
+  Future<String?> _savedContactPhone(DriverRepository repo) async {
+    try {
+      final c = await repo.emergencyContact();
+      return c.phone.isEmpty ? null : apiPhone(c.phone);
+    } on Exception {
+      return null;
+    }
+  }
 
   /// D-06 Continue. Mock: writes the details to the seed profile and plan. Live API: creates the driver
   /// with a free trial ([DriverRepository.register]) or, when already created (back and Continue
@@ -279,7 +314,9 @@ class SignupController extends Notifier<SignupDraft> {
         // Sign-up doesn't take a gender; save it on the new driver.
         await repo.updateProfile(profile);
       }
-      if (state.emergencyContact.isNotEmpty) {
+      // Unchanged (an edit of the other details): keep the contact as saved, with the name the driver gave it.
+      final saved = repo.isLoggedIn && state.emergencyContact.isNotEmpty ? await _savedContactPhone(repo) : null;
+      if (state.emergencyContact.isNotEmpty && saved != apiPhone(state.emergencyContact)) {
         await repo.updateEmergencyContact(EmergencyContact(
           id: '',
           name: 'Emergency contact',

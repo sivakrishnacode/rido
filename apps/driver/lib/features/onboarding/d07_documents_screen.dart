@@ -110,6 +110,22 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
     });
   }
 
+  /// Step 1's Start / Edit. Live, once the driver exists, D-06 opens with what is saved (the draft is blank after a
+  /// restart).
+  Future<void> _editDetails(bool existing) async {
+    if (!existing) {
+      context.push(Routes.workType);
+      return;
+    }
+    try {
+      await ref.read(signupProvider.notifier).loadSaved();
+    } on Exception catch (e) {
+      if (mounted) showTtSnack(context, userMessage(e));
+      return;
+    }
+    if (mounted) context.push(Routes.personalDetails);
+  }
+
   Future<void> _logout() async {
     final ok = await showTtConfirm(
       context,
@@ -240,9 +256,7 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
                     doneLabel: 'Done',
                     actionLabel: detailsDone ? 'Edit' : 'Start',
                     // Live: the vehicle type is fixed once the driver exists, so editing opens the details only.
-                    onTap: showcase
-                        ? null
-                        : () => context.push(live && detailsDone ? Routes.personalDetails : Routes.workType),
+                    onTap: showcase ? null : () => _editDetails(live && detailsDone),
                   ),
                   const SizedBox(height: TtSpacing.m),
                   if (hasIdentity) ...[
