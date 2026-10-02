@@ -366,4 +366,34 @@ describe('Tamil Taxi features (e2e)', () => {
       await http.get(`/v1/admin/files/${trip.deliveryPhotoFile as string}`).set(await adminAuth()).expect(200);
     });
   });
+
+  describe('support tickets', () => {
+    it("names only the user's own trip, as rider or as its driver", async () => {
+      const rider = await login();
+      const d = await approvedDriver();
+      const tripId = await tripRow({ passengerId: rider.userId, driverId: d.driverId, status: 'DELIVERED' });
+      const body = { topic: 'Parcel issue', description: 'The box arrived wet' };
+      expect((await http.post('/v1/tickets').set(rider.auth).send({ ...body, tripId }).expect(201)).body.tripId).toBe(tripId);
+      await http.post('/v1/tickets').set(d.auth).send({ ...body, topic: 'Rider behaviour', tripId }).expect(201);
+      const stranger = await login();
+      expect((await http.post('/v1/tickets').set(stranger.auth).send({ ...body, tripId }).expect(400)).body.message).toBe('Choose one of your own trips');
+      // An unknown id is a 400 too (it used to fail the foreign key with a 500).
+      await http.post('/v1/tickets').set(rider.auth).send({ ...body, tripId: 'no-such-trip' }).expect(400);
+    });
+
+    it('takes one photo on the ticket; admins see it', async () => {
+      const rider = await login();
+      const ticket = (await http.post('/v1/tickets').set(rider.auth).send({ topic: 'Lost item', description: 'Left my bag in the cab' }).expect(201)).body;
+      expect(ticket.attachmentFile).toBeNull();
+      const attach = (auth: Auth, type = 'image/jpeg') => http.post(`/v1/tickets/${ticket.id as string}/attachment`).set(auth).attach('file', JPEG, { filename: 'p.jpg', contentType: type });
+      const res = (await attach(rider.auth).expect(200)).body;
+      expect(res).toMatchObject({ id: ticket.id, attachmentFile: expect.stringMatching(/\.jpg$/) });
+      await attach(rider.auth, 'application/pdf').expect(400);
+      await attach((await login()).auth).expect(404);
+      const admin = await adminAuth();
+      const listed = (await http.get('/v1/admin/tickets?pageSize=100').set(admin).expect(200)).body.items.find((t: { id: string }) => t.id === ticket.id);
+      expect(listed.attachmentFile).toBe(res.attachmentFile);
+      await http.get(`/v1/admin/files/${res.attachmentFile as string}`).set(admin).expect(200);
+    });
+  });
 });
