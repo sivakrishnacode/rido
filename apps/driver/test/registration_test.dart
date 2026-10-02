@@ -2,7 +2,9 @@
 // D-04 → D-05 → D-06 and comes back; the documents open; once everything is in it is "Under review"; the approval
 // opens Home. The sign-up step bar starts at the left edge.
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_driver/features/home/d13_home_screen.dart';
 import 'package:tamiltaxi_driver/features/onboarding/d04_work_type_screen.dart';
@@ -10,6 +12,7 @@ import 'package:tamiltaxi_driver/features/onboarding/d07_documents_screen.dart';
 import 'package:tamiltaxi_driver/features/onboarding/widgets/signup_widgets.dart';
 import 'package:tamiltaxi_driver/router/routes.dart';
 import 'package:tamiltaxi_driver/state/driver_account.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
 
@@ -69,6 +72,30 @@ void main() {
     expect(find.text('Check status'), findsOneWidget);
     await advance(tester, const Duration(seconds: 6));
     expect(find.byType(D13HomeScreen), findsOneWidget);
+  });
+
+  testWidgets('live: a new phone (no driver yet) opens the registration page with the identity step locked',
+      (tester) async {
+    // A new phone's OTP gives a token but no driver, so there is no identity check to read yet.
+    SharedPreferences.setMockInitialValues({'tamiltaxi.accessToken': 'token'});
+    final api = ApiClient(baseUrl: 'http://localhost:1/v1', session: ApiSession(await SharedPreferences.getInstance()));
+    await loadTestFonts();
+    usePhone(tester);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        isLiveApiProvider.overrideWithValue(true),
+        apiClientProvider.overrideWithValue(api),
+        driverRepositoryProvider.overrideWithValue(ApiDriverRepository(api)),
+      ],
+      child: MaterialApp(theme: TtTheme.light(), home: const D07DocumentsScreen()),
+    ));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Registration'), findsOneWidget);
+    expect(find.text('Add your vehicle and details'), findsOneWidget);
+    expect(find.text('Licence, Aadhaar and selfie'), findsOneWidget);
+    expect(find.text('0 of 5 done'), findsOneWidget);
   });
 
   testWidgets('a rejected document shows on the registration page with Re-upload', (tester) async {

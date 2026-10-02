@@ -151,10 +151,11 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
     // 2. Identity check (Didit off in dev counts as nothing to do; live before D-06 it shows locked) and, once it
     // is approved, the profile photo.
     final hasIdentity = identity?.isEnabled ?? (live && !loggedIn);
-    final identityDone = !hasIdentity || identity!.isSubmitted;
-    final identityError = hasIdentity && identity!.status == IdentityStatus.declined;
+    final identityApproved = identity?.isApproved ?? false;
+    final identityDone = !hasIdentity || (identity?.isSubmitted ?? false);
+    final identityError = hasIdentity && identity?.status == IdentityStatus.declined;
     final needsPhoto = live && hasIdentity;
-    final photoDone = !needsPhoto || !identity!.isApproved || profile?.photoPath != null || (profile?.hasPendingPhoto ?? false);
+    final photoDone = !needsPhoto || !identityApproved || profile?.photoPath != null || (profile?.hasPendingPhoto ?? false);
     final photoError = needsPhoto && profile != null && profile.photoRejectReason != null && profile.photoPath == null && !profile.hasPendingPhoto;
     // 3. Documents.
     bool isIn(KycDocument d) => d.status == KycStatus.verified || d.status == KycStatus.underReview;
@@ -164,7 +165,7 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
     final steps = 1 + (hasIdentity ? 1 : 0) + (needsPhoto ? 1 : 0) + docs.length;
     // Steps after the details only count once they are open.
     final done = detailsDone
-        ? 1 + (hasIdentity && identityDone ? 1 : 0) + (needsPhoto && photoDone && identity!.isApproved ? 1 : 0) + docsDone
+        ? 1 + (hasIdentity && identityDone ? 1 : 0) + (needsPhoto && photoDone && identityApproved ? 1 : 0) + docsDone
         : 0;
     final errors = docErrors + (identityError ? 1 : 0) + (photoError ? 1 : 0);
     final allIn = detailsDone && identityDone && photoDone && docsDone == docs.length;
