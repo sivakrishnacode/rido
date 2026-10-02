@@ -1,4 +1,13 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { FileStorageService, type UploadedBlob } from '../../core/storage/file-storage.service.js';
 import { DriverEarningsService } from './driver-earnings.service.js';
 import type { UpdateDriverDto } from './dto/update-driver.dto.js';
@@ -8,6 +17,7 @@ import { isGoodsTruck } from '../fares/goods-modes.js';
 
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
+import { RedisService } from '../../core/redis/redis.service.js';
 import type { Driver, KycDocument, Prisma } from '../../generated/prisma/client.js';
 import { DriverStatus, Gender, IdentityStatus, KycDocType, KycStatus, PlanPeriod, Role, SubscriptionStatus, TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
 import { AuthService } from '../auth/auth.service.js';
@@ -20,8 +30,14 @@ import { NotifierService } from '../notifications/notifier.service.js';
 import { DriverApprovalService } from '../kyc/driver-approval.service.js';
 import { DiditClient } from '../kyc/didit.client.js';
 import { REQUIRED_DOCS } from '../kyc/driver-approval.js';
+import { isSelfieCheckRequired, SELFIE_TRIES_PER_DAY, selfieTriesKey } from '../kyc/selfie-check.js';
+import { SettingsService } from '../settings/settings.service.js';
 
 const PLATE_TAKEN = 'This number plate is already registered';
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+/** GET /drivers/me: the driver with their account, and whether today's selfie check is still to do. */
+export type DriverProfile = Driver & { selfieCheckRequired: boolean };
 /** A driver on one of these is on a trip. */
 const ON_TRIP: TripStatus[] = [TripStatus.DRIVER_ASSIGNED, TripStatus.DRIVER_ARRIVED, TripStatus.IN_PROGRESS, TripStatus.PICKED_UP];
 
@@ -45,6 +61,8 @@ export class DriversService {
     private readonly approval: DriverApprovalService,
     private readonly didit: DiditClient,
     private readonly state: DriverStateCache,
+    private readonly settings: SettingsService,
+    private readonly redis: RedisService,
   ) {}
 
   /** Free vehicles around [at] for the rider's map (nearby-vehicles.ts). */
@@ -96,8 +114,65 @@ export class DriversService {
     return { driver, accessToken: await this.auth.issueToken({ sub: userId, role, driverId: driver.id }), isNew: false };
   }
 
-  me(driverId: string): Promise<Driver> {
-    return this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, include: { user: true } });
+  /** With `selfieCheckRequired` (today's selfie check is due, see [selfieCheck]) and `selfieCheckedAt`. */
+  async me(driverId: string): Promise<DriverProfile> {
+    const driver = await this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, include: { user: true } });
+    return { ...driver, selfieCheckRequired: await this.isSelfieCheckDue(driver) };
+  }
+
+  private async isSelfieCheckDue(driver: Pick<Driver, 'selfieFile' | 'selfieCheckedAt'>): Promise<boolean> {
+    return isSelfieCheckRequired({
+      isEnabled: await this.settings.get('dailySelfieCheckEnabled'),
+      isDiditEnabled: this.didit.isEnabled,
+      hasReferenceFace: !!driver.selfieFile,
+      checkedAt: driver.selfieCheckedAt,
+      now: new Date(),
+    });
+  }
+
+  /**
+   * The daily selfie check (setting `dailySelfieCheckEnabled`): a live selfie matched (Didit 1:1 face match) to the
+   * reference face kept from the approved identity check, the same match as the profile photo. Passed → today's
+   * check is done. No face, several faces or another person → 422 (retake); no reference face yet → 409; more than
+   * [SELFIE_TRIES_PER_DAY] tries in an IST day → 429. Without Didit (dev) there is nothing to match against: it passes.
+   */
+  async selfieCheck(params: { driverId: string; file?: UploadedBlob }): Promise<{ passed: true; checkedAt: string }> {
+    if (!params.file?.buffer?.length || !IMAGE_TYPES.includes(params.file.mimetype)) throw new BadRequestException('Take a selfie (JPG, PNG or WebP)');
+    const driver = await this.prisma.driver.findUniqueOrThrow({ where: { id: params.driverId }, select: { id: true, userId: true, selfieFile: true } });
+    const passed = async (): Promise<{ passed: true; checkedAt: string }> => {
+      const { selfieCheckedAt } = await this.prisma.driver.update({ where: { id: driver.id }, data: { selfieCheckedAt: new Date() }, select: { selfieCheckedAt: true } });
+      return { passed: true, checkedAt: selfieCheckedAt!.toISOString() };
+    };
+    if (!this.didit.isEnabled) return passed();
+    if (!driver.selfieFile) throw new ConflictException('Finish your identity check first: your selfie is matched to it');
+    const triesKey = selfieTriesKey(driver.id, new Date());
+    const tries = await this.redis.incr(triesKey);
+    if (tries === 1) await this.redis.expire(triesKey, 26 * 3600);
+    if (tries > SELFIE_TRIES_PER_DAY) {
+      throw new HttpException({ message: 'Too many selfie tries today. Contact support', code: 'SELFIE_TOO_MANY_TRIES' }, HttpStatus.TOO_MANY_REQUESTS);
+    }
+    let match: { score: number | null; faces: number; isMatch: boolean };
+    try {
+      match = await this.didit.faceMatch({
+        photo: { buffer: params.file.buffer, type: params.file.mimetype },
+        reference: await this.files.read(driver.selfieFile),
+        vendorData: driver.userId,
+      });
+    } catch (e) {
+      // Didit unreachable: not the driver's fault, the try isn't counted (503 from faceMatch).
+      await this.redis.decr(triesKey);
+      throw e;
+    }
+    if (match.faces !== 1) {
+      throw new UnprocessableEntityException({
+        message: match.faces === 0 ? "We couldn't find your face. Retake it facing the camera in good light" : 'Only you should be in the selfie. Retake it alone',
+        code: match.faces === 0 ? 'SELFIE_NO_FACE' : 'SELFIE_MANY_FACES',
+      });
+    }
+    if (!match.isMatch) {
+      throw new UnprocessableEntityException({ message: "This doesn't look like the verified driver. Retake it facing the camera", code: 'SELFIE_NO_MATCH' });
+    }
+    return passed();
   }
 
   /** The documents still uploaded by hand (RC, insurance). Older rows (licence, Aadhaar, police) are hidden. */
@@ -111,7 +186,7 @@ export class DriversService {
    * reason, and an APPROVED / ON_HOLD driver goes back to PENDING and offline (out of dispatch), all in one
    * transaction with a row in their admin history. Not while they are on a trip (409).
    */
-  async update(driverId: string, dto: UpdateDriverDto): Promise<Driver> {
+  async update(driverId: string, dto: UpdateDriverDto): Promise<DriverProfile> {
     const { name, gender, ...vehicle } = dto;
     const current = await this.prisma.driver.findUniqueOrThrow({
       where: { id: driverId },
@@ -259,6 +334,12 @@ export class DriversService {
         code: 'PHOTO_REQUIRED',
       });
     }
+    // The daily selfie check, except for a driver on a trip (the app may call this on resume mid-trip, past midnight).
+    if ((await this.isSelfieCheckDue(driver)) && !(await this.prisma.trip.count({ where: { driverId: driver.id, status: { in: ON_TRIP } } }))) {
+      // Still online from yesterday (the app was closed without going offline): offline until the check is done.
+      if (driver.isOnline) await this.goOffline(driver.id);
+      throw new ForbiddenException({ code: 'SELFIE_CHECK_REQUIRED', message: 'Take your daily selfie to go online' });
+    }
     await this.freeIfStale(driver.id);
     await this.location.update({ driverId: driver.id, kind: driver.vehicleKind, lat: params.lat, lng: params.lng });
     await this.earnings.sessionStarted(driver.id);
@@ -275,7 +356,7 @@ export class DriversService {
    * faces → 422 (retake); a low score or Didit unreachable → waits for an admin.
    */
   async uploadPhoto(params: { driverId: string; file?: UploadedBlob }): Promise<{ status: 'APPROVED' | 'IN_REVIEW' }> {
-    if (!params.file || !['image/jpeg', 'image/png', 'image/webp'].includes(params.file.mimetype)) {
+    if (!params.file || !IMAGE_TYPES.includes(params.file.mimetype)) {
       throw new BadRequestException('Take a photo (JPG, PNG or WebP)');
     }
     const driver = await this.prisma.driver.findUniqueOrThrow({

@@ -7,6 +7,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/core/prisma/prisma.service.js';
 import { RedisService } from '../src/core/redis/redis.service.js';
+import { FileStorageService } from '../src/core/storage/file-storage.service.js';
 import { DiditClient } from '../src/modules/kyc/didit.client.js';
 import { TripEventsService } from '../src/modules/realtime/trip-events.service.js';
 
@@ -211,6 +212,72 @@ describe('Tamil Taxi features (e2e)', () => {
       expect(events).toEqual([{ status: 'REJECTED', isOnline: false }]);
       expect(await redis.get(`driver:cell:${d.driverId}`)).toBeNull();
       expect((await http.get('/v1/drivers/me').set(d.auth).expect(200)).body).toMatchObject({ status: 'REJECTED', isOnline: false });
+    });
+  });
+
+  describe('daily selfie check', () => {
+    /** An approved driver whose identity check kept a reference face (so the daily check applies). */
+    async function driverWithFace(): Promise<{ auth: Auth; driverId: string; userId: string; plate: string }> {
+      const d = await approvedDriver();
+      const selfieFile = await app.get(FileStorageService).save({ originalname: 'selfie.jpg', mimetype: 'image/jpeg', size: JPEG.length, buffer: JPEG });
+      await prisma.driver.update({ where: { id: d.driverId }, data: { selfieFile } });
+      return d;
+    }
+    const selfie = (auth: Auth) => http.post('/v1/drivers/me/selfie-check').set(auth).attach('file', JPEG, { filename: 's.jpg', contentType: 'image/jpeg' });
+
+    afterEach(() => {
+      fakeDidit.nextMatch = { score: 97, faces: 1, isMatch: true };
+    });
+
+    it('asks for the selfie before going online, once a day; a retake on no face or another person', async () => {
+      const d = await driverWithFace();
+      expect((await http.get('/v1/drivers/me').set(d.auth).expect(200)).body).toMatchObject({ selfieCheckRequired: true, selfieCheckedAt: null });
+      const refused = await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(403);
+      expect(refused.body).toMatchObject({ code: 'SELFIE_CHECK_REQUIRED', message: 'Take your daily selfie to go online' });
+
+      fakeDidit.nextMatch = { score: null, faces: 0, isMatch: false };
+      expect((await selfie(d.auth).expect(422)).body.code).toBe('SELFIE_NO_FACE');
+      fakeDidit.nextMatch = { score: 31, faces: 1, isMatch: false };
+      expect((await selfie(d.auth).expect(422)).body.code).toBe('SELFIE_NO_MATCH');
+      fakeDidit.nextMatch = { score: 96, faces: 1, isMatch: true };
+      const ok = (await selfie(d.auth).expect(200)).body;
+      expect(ok).toEqual({ passed: true, checkedAt: expect.any(String) });
+
+      const me = (await http.get('/v1/drivers/me').set(d.auth).expect(200)).body;
+      expect(me).toMatchObject({ selfieCheckRequired: false, selfieCheckedAt: ok.checkedAt });
+      await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(200);
+      // Not a photo → 400.
+      await http.post('/v1/drivers/me/selfie-check').set(d.auth).attach('file', Buffer.from('%PDF'), { filename: 'a.pdf', contentType: 'application/pdf' }).expect(400);
+    });
+
+    it('a driver still online from yesterday goes offline until the check is done', async () => {
+      const d = await driverWithFace();
+      await prisma.driver.update({ where: { id: d.driverId }, data: { isOnline: true, selfieCheckedAt: new Date(Date.now() - 2 * 86_400_000) } });
+      expect((await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(403)).body.code).toBe('SELFIE_CHECK_REQUIRED');
+      expect((await prisma.driver.findUniqueOrThrow({ where: { id: d.driverId } })).isOnline).toBe(false);
+    });
+
+    it('needs a reference face first (409) and stops after 5 tries a day (429)', async () => {
+      const noFace = await approvedDriver();
+      expect((await http.get('/v1/drivers/me').set(noFace.auth).expect(200)).body.selfieCheckRequired).toBe(false);
+      await selfie(noFace.auth).expect(409);
+
+      const d = await driverWithFace();
+      fakeDidit.nextMatch = { score: 20, faces: 1, isMatch: false };
+      for (let i = 0; i < 5; i++) await selfie(d.auth).expect(422);
+      expect((await selfie(d.auth).expect(429)).body.code).toBe('SELFIE_TOO_MANY_TRIES');
+    });
+
+    it('is off with the setting: nobody is asked', async () => {
+      const admin = await adminAuth();
+      const d = await driverWithFace();
+      await http.put('/v1/admin/settings').set(admin).send({ dailySelfieCheckEnabled: false }).expect(200);
+      try {
+        expect((await http.get('/v1/drivers/me').set(d.auth).expect(200)).body.selfieCheckRequired).toBe(false);
+        await http.post('/v1/drivers/me/online').set(d.auth).send(AT).expect(200);
+      } finally {
+        await http.put('/v1/admin/settings').set(admin).send({ dailySelfieCheckEnabled: true }).expect(200);
+      }
     });
   });
 });
