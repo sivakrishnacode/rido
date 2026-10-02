@@ -12,45 +12,80 @@ class LegalScreen extends StatelessWidget {
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
 
+  // Shorter versions of the website's terms and privacy policy (apps/web/src/lib/legal.ts): keep them in line, with
+  // the same "Last updated" date (a website test checks it).
   static const _terms = <(String, String)>[
     (
       'Free to use',
       'Tamil Taxi charges no commission and no subscription for any vehicle type. It runs on voluntary contributions '
-          'from drivers and riders (Account › Contribute); contributing is never required to get requests.'
+          'from drivers and riders (Account › Contribute); contributing is never required to get requests.',
     ),
     (
       'You keep 100% of fares',
-      'Riders pay you directly by cash or UPI. Tamil Taxi never takes a share of a fare, tip or waiting charge.'
+      'Riders pay you directly by cash or UPI. Tamil Taxi never takes a share of a fare, a waiting charge or an extra '
+          'the rider adds.',
     ),
     (
-      'Documents and safety',
-      'You must keep a valid driving licence, vehicle RC, insurance and police verification. We may ask for a quick '
-          'selfie before you go online to confirm it is you.'
+      'Fares',
+      "The rider's fare is locked at booking. Only these are added, each as its own line:\n"
+          '• Waiting at the pickup after the free minutes, on city rides and parcels (up to ₹30 a trip).\n'
+          '• The km (and, for rentals, the time) past the package on a rental or an outstation round trip.\n'
+          '• An extra the rider adds while searching.\n'
+          "• A cancellation fee from the rider's earlier ride, if one applies.",
+    ),
+    (
+      'Identity and documents',
+      'You must pass an identity check (your driving licence, Aadhaar and a live selfie, checked by Didit) and keep a '
+          'valid vehicle RC and insurance. Before you go online we may ask for a quick selfie, compared with your '
+          'identity-check selfie, to confirm it is you.',
     ),
     (
       'Conduct',
       'Treat riders and receivers with respect, follow traffic rules and never carry prohibited goods. Repeated '
-          'complaints may put your account on hold while we review them.'
+          'complaints may put your account on hold while we review them.',
+    ),
+    (
+      'Law',
+      'You are an independent service provider, not an employee of Tamil Taxi. These terms are governed by the laws of '
+          'India, with courts in Coimbatore, Tamil Nadu.',
     ),
   ];
 
   static const _privacy = <(String, String)>[
     (
       'What we collect',
-      'Your name, phone number, documents, selfie, vehicle details, UPI ID and your location while you are online.'
+      'Your name, phone number, gender, vehicle details, UPI ID and, if you add them, emergency contacts; photos of '
+          'your RC and insurance; your profile photo; your identity check; your trips and ratings; and your location '
+          'while you are online or on a job.',
+    ),
+    (
+      'Identity check',
+      'Didit scans your driving licence and Aadhaar and takes a live selfie. We keep the result, your name and date of '
+          'birth from the ID, the last 4 digits of each number (never the full number) and the selfie. Your profile '
+          'photo and the selfie before you go online are compared with it by Didit.',
     ),
     (
       'How we use it',
-      'To verify you, match you with nearby requests, show riders your approach and keep everyone safe. We do not '
-          'sell your data.'
+      'To verify you, match you with nearby requests, show riders your approach and keep everyone safe. During a trip '
+          'the rider sees your name, photo, rating, phone number, vehicle, number plate and UPI ID. We do not sell '
+          'your data.',
     ),
     (
       'Location',
-      'We use your location only while you are online or on a job. Going offline stops location sharing.'
+      'We use your location while you are online or on a job, including when the app is in the background: a '
+          'notification shows while it is on. Going offline stops location sharing.',
+    ),
+    (
+      'Sharing',
+      'Only with the rider on your trip, your emergency contacts when you use SOS, the police or emergency services '
+          'when a safety incident needs it, the services that run the app (AWS, Google Maps, Firebase, Didit and an '
+          'SMS provider), and when the law requires it.',
     ),
     (
       'Your choices',
-      'You can update your details from Account, download your data or ask us to delete your account from Help & support.'
+      'You can update your details from Account. You can delete your account at any time from Account › Delete '
+          'account: your name, number and email are removed, your document photos, profile photo and selfie are '
+          'deleted, and your trip records are kept without your name for safety and accounting.',
     ),
   ];
 
@@ -69,7 +104,7 @@ class LegalScreen extends StatelessWidget {
           children: [
             Text(privacy ? 'Tamil Taxi Driver Privacy Policy' : 'Tamil Taxi Driver Terms of Service', style: t.h1),
             const SizedBox(height: TtSpacing.xs),
-            Text('Last updated 1 Sep 2026', style: t.caption.copyWith(color: TtColors.navy500)),
+            Text('Last updated 2 October 2026', style: t.caption.copyWith(color: TtColors.navy500)),
             for (final (title, body) in sections) ...[
               const SizedBox(height: TtSpacing.xl),
               Text(title, style: t.h2),
@@ -77,8 +112,10 @@ class LegalScreen extends StatelessWidget {
               Text(body, style: t.body.copyWith(color: TtColors.navy700)),
             ],
             const SizedBox(height: TtSpacing.xl),
-            Text('Questions? Write to support@tamiltaxi.co.in or use Help & support in the app.',
-                style: t.bodySmall.copyWith(color: TtColors.navy500)),
+            Text(
+              'Questions? Write to support@tamiltaxi.co.in or use Help & support in the app.',
+              style: t.bodySmall.copyWith(color: TtColors.navy500),
+            ),
           ],
         ),
       ),
