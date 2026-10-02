@@ -8,15 +8,16 @@ import {
   Code,
   HandCoins,
   Heart,
+  House,
   Languages,
   Layers,
   Lock,
   Map as MapIcon,
   Package,
+  Route,
   Share2,
   Siren,
   SlidersHorizontal,
-  Truck,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -61,17 +62,26 @@ const facts = [
 ];
 
 const services: { icon: LucideIcon | typeof AutoIcon; title: string; body: string }[] = [
-  { icon: Bike, title: "Bike taxi", body: "The quickest way through traffic. One seat, helmet on." },
+  { icon: Bike, title: "Bike taxi", body: "Bike or scooty: the quickest way through traffic. One seat, helmet on." },
   { icon: AutoIcon, title: "Auto", body: "Up to three seats, for everyday trips around town." },
-  { icon: CarTaxiFront, title: "Cab", body: "Up to four seats, for family, luggage or a longer ride." },
-  { icon: Package, title: "Parcels", body: "A goods bike for packages and documents, sent across the city." },
-  { icon: Truck, title: "Goods vehicles", body: "Three-wheelers, mini trucks, pickups and trucks for bigger loads." },
+  { icon: CarTaxiFront, title: "Cab", body: "Mini or Sedan for up to four, SUV for up to six, for family or luggage." },
+  { icon: Route, title: "Rentals and outstation", body: "A cab by the hour, or to another town one way or return." },
+  {
+    icon: Package,
+    title: "Parcels and goods",
+    body: "A goods bike for packages, or a three-wheeler up to a truck for bigger loads.",
+  },
+  { icon: House, title: "Packers & Movers", body: "Move house with a truck and helpers, and packing if you want it." },
 ];
 
 type Feature = { icon: LucideIcon; title: string; body: string; tone?: "butterfly" };
 
 const riderFeatures: Feature[] = [
-  { icon: Lock, title: "Fare locked at booking", body: "See the price and its breakdown before you book. It doesn't change." },
+  {
+    icon: Lock,
+    title: "Fare locked at booking",
+    body: "See the price and its breakdown before you book. Traffic won't change it, and any waiting charge shows on its own line.",
+  },
   { icon: Wallet, title: "Pay your driver directly", body: "Cash or UPI, straight to the driver. We never hold your money." },
   { icon: Share2, title: "Share your trip", body: "Send a live link so family can follow along until you arrive." },
   { icon: Siren, title: "SOS and safety checks", body: "One-tap SOS, and a \"Did you reach safely?\" check after night rides." },
@@ -133,8 +143,8 @@ export default function Home() {
               Rides and parcels across {site.city}. Drivers keep every rupee.
             </h1>
             <p className="mt-5 max-w-xl text-lg text-navy-500">
-              Book a bike, auto or cab, or send a parcel. You pay your driver directly by cash or UPI, and Tamil Taxi
-              takes nothing from the fare.
+              Book a bike, auto or cab, rent a cab by the hour, go outstation, send a parcel or move house. You pay
+              your driver directly by cash or UPI, and Tamil Taxi takes nothing from the fare.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <PlayButton app="rider" />
@@ -181,15 +191,12 @@ export default function Home() {
       <section id="ride" className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
         <SectionHeading
           eyebrow="For riders"
-          title="Bike, auto, cab or parcel"
-          body="One app for getting around the city and getting things across it."
+          title="Rides, parcels and house moves"
+          body="One app for getting around the city, getting things across it and moving house."
         />
-        <ul className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-          {services.map(({ icon: Icon, title, body }, i) => (
-            <li
-              key={title}
-              className={`rounded-2xl border border-divider p-4 sm:p-5 ${i === services.length - 1 ? "col-span-2 lg:col-span-1" : ""}`}
-            >
+        <ul className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+          {services.map(({ icon: Icon, title, body }) => (
+            <li key={title} className="rounded-2xl border border-divider p-4 sm:p-5">
               <Icon className="size-7 text-coral-600" aria-hidden="true" />
               <h3 className="mt-4 font-semibold">{title}</h3>
               <p className="mt-1 text-sm text-navy-500">{body}</p>
@@ -228,7 +235,8 @@ export default function Home() {
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <PlayButton app="driver" />
               <p className="max-w-xs text-sm text-navy-500">
-                Sign up in the app with your driving licence, RC, insurance and police verification.
+                Sign up in the app: an identity check with your Aadhaar, driving licence and a selfie, then photos of
+                your RC and insurance.
               </p>
             </div>
           </div>
@@ -278,7 +286,7 @@ export default function Home() {
           <div className="mx-auto mt-10 grid max-w-3xl gap-6 sm:grid-cols-2">
             {(
               [
-                { app: "rider", icon: "/brand/rider-app.png", body: "Book rides and send parcels." },
+                { app: "rider", icon: "/brand/rider-app.png", body: "Book rides, send parcels and move house." },
                 { app: "driver", icon: "/brand/driver-app.png", body: "Get ride and delivery requests." },
               ] as const
             ).map((a) => (

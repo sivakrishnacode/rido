@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 /** Everything the pages link to, in one place. The repo is public: nothing private goes here. */
 export const site = {
   name: "Tamil Taxi",
-  /** The domain the apps already use for trip share links (tamiltaxi.co.in/t/…). */
+  /**
+   * The website's own domain (registration pending). Live trip share links don't use it: they are
+   * SHARE_BASE_URL/track/<token> on the admin app (the API's ShareService).
+   */
   url: "https://tamiltaxi.co.in",
   email: "support@tamiltaxi.co.in",
   github: "https://github.com/sivakrishnacode/tamiltaxi",
