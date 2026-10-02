@@ -367,6 +367,8 @@ model Driver {
   photoMatchScore   Float?
   /// Why an admin rejected the last photo.
   photoRejectReason String?
+  /// Last passed daily selfie check (setting `dailySelfieCheckEnabled`): a live selfie matched to [selfieFile].
+  selfieCheckedAt   DateTime?
   isOnline          Boolean            @default(false)
   /// Temporarily paused until then (too many cancellations, [DriverBlock]); can't go online, dispatch skips them.
   blockedUntil      DateTime?

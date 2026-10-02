@@ -73,6 +73,12 @@ export const SETTING_DEFAULTS = {
    * check passes. Off: they wait as "Ready to approve" in Drivers › Approvals until an admin approves them.
    */
   driverAutoApprove: true,
+  /**
+   * Daily selfie check: before going online each day (IST), a driver takes a live selfie that must match the face of
+   * their approved identity check (Didit face match). Drivers without that reference face (approved before Didit, or
+   * Didit off) are never asked.
+   */
+  dailySelfieCheckEnabled: true,
   /** Free-trial length for new drivers. */
   trialDays: 30,
   /** Days a lapsed plan can still go online. */

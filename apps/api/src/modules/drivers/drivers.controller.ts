@@ -10,7 +10,7 @@ import type { Driver, KycDocument } from '../../generated/prisma/client.js';
 import { KycDocType, Role, TripKind } from '../../generated/prisma/enums.js';
 import type { BookingPrefs } from './booking-prefs.js';
 import { DriverEarningsService, type Earnings } from './driver-earnings.service.js';
-import { ADMIN_CANT_REGISTER, DriversService } from './drivers.service.js';
+import { ADMIN_CANT_REGISTER, type DriverProfile, DriversService } from './drivers.service.js';
 import { AuditInterceptor } from '../admin/audit.interceptor.js';
 import { BookingPrefsDto } from './dto/booking-prefs.dto.js';
 import { EarningsQueryDto } from './dto/earnings-query.dto.js';
@@ -52,16 +52,29 @@ export class DriversController {
     return { driver, accessToken };
   }
 
+  /** The driver and their account, with `selfieCheckRequired` and `selfieCheckedAt` (daily selfie check). */
   @Roles(Role.DRIVER)
   @Get('drivers/me')
-  me(@CurrentUser() user: AuthUser): Promise<Driver> {
+  me(@CurrentUser() user: AuthUser): Promise<DriverProfile> {
     return this.drivers.me(DriversController.driverId(user));
   }
 
   @Roles(Role.DRIVER)
   @Patch('drivers/me')
-  update(@CurrentUser() user: AuthUser, @Body() body: UpdateDriverDto): Promise<Driver> {
+  update(@CurrentUser() user: AuthUser, @Body() body: UpdateDriverDto): Promise<DriverProfile> {
     return this.drivers.update(DriversController.driverId(user), body);
+  }
+
+  /**
+   * Daily selfie check: multipart `file` (JPG / PNG / WebP ≤ 8 MB) → 200 {passed, checkedAt}; 422 retake (no face,
+   * several, another person); 409 no reference face yet; 429 after 5 tries today.
+   */
+  @Roles(Role.DRIVER)
+  @Post('drivers/me/selfie-check')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES } }))
+  selfieCheck(@CurrentUser() user: AuthUser, @UploadedFile() file?: UploadedBlob): Promise<{ passed: true; checkedAt: string }> {
+    return this.drivers.selfieCheck({ driverId: DriversController.driverId(user), file });
   }
 
   /** Booking preferences: pickup distance, trip length, go-to destination (dispatch only offers trips that fit). */
