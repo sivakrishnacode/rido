@@ -27,6 +27,8 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/files/[name]
       "content-type": res.headers.get("content-type") ?? "application/octet-stream",
       "content-disposition": "inline",
       "cache-control": "private, no-store",
+      // Uploaded files are shown as the type the API stored, never sniffed into HTML or script.
+      "x-content-type-options": "nosniff",
     },
   });
 }
