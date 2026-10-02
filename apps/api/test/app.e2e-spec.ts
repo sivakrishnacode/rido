@@ -1610,6 +1610,9 @@ describe('Tamil Taxi API (e2e)', () => {
       ],
     });
     expect((await http.get('/v1/drivers/me').set(driver).expect(200)).body.status).toBe('APPROVED');
+    // Approved: the gender (who gets Butterfly rides) is fixed; sending the same one is fine.
+    await http.patch('/v1/drivers/me').set(driver).send({ gender: 'FEMALE' }).expect(403);
+    await http.patch('/v1/drivers/me').set(driver).send({ gender: 'PREFER_NOT_TO_SAY', upiId: 'murugan@oksbi' }).expect(200);
     await http.post('/v1/kyc/session').set(driver).expect(409);
 
     // The approved live selfie is kept as the reference face; the profile photo is taken separately.

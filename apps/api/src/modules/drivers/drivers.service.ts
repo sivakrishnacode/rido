@@ -9,7 +9,7 @@ import { isGoodsTruck } from '../fares/goods-modes.js';
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, KycDocument, Prisma } from '../../generated/prisma/client.js';
-import { DriverStatus, IdentityStatus, KycDocType, KycStatus, Role, TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
+import { DriverStatus, Gender, IdentityStatus, KycDocType, KycStatus, Role, TripStatus, type VehicleKind } from '../../generated/prisma/enums.js';
 import { AuthService } from '../auth/auth.service.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
 import { nearbyVehicles, type NearbyVehicle } from './nearby-vehicles.js';
@@ -72,6 +72,15 @@ export class DriversService {
   /** Profile edits (D-25). Name and gender live on the user; the rest on the driver. */
   async update(driverId: string, dto: UpdateDriverDto): Promise<Driver> {
     const { name, gender, ...vehicle } = dto;
+    if (gender) {
+      // Gender decides who gets Butterfly (women-only) rides: set at sign-up, then changed only by support.
+      const current = await this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, select: { status: true, user: { select: { gender: true } } } });
+      // None stored reads as "prefer not to say" in the app, which sends that back on every profile save.
+      const stored = current.user.gender ?? Gender.PREFER_NOT_TO_SAY;
+      if (stored !== gender && current.status !== DriverStatus.PENDING) {
+        throw new ForbiddenException('Contact support to change your gender');
+      }
+    }
     const driver = await this.prisma.driver.update({
       where: { id: driverId },
       data: { ...vehicle, plate: vehicle.plate?.toUpperCase(), ...(name || gender ? { user: { update: { name, gender } } } : {}) },
