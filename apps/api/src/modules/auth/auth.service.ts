@@ -7,6 +7,7 @@ import { ENV } from '../../core/config/env.token.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { User } from '../../generated/prisma/client.js';
 import { Role } from '../../generated/prisma/enums.js';
+import type { LoginApp } from './dto/verify-otp.dto.js';
 import { OtpService } from './otp.service.js';
 
 /** Result of a successful OTP login. */
@@ -17,7 +18,21 @@ export interface LoginResult {
   readonly driverId?: string;
 }
 
-/** Phone + OTP sign-in for both apps; issues JWTs. */
+/**
+ * The role a login's token carries. ADMIN only for the admin panel ([app] `admin`), or, for older clients that name
+ * no app, when the account has no driver profile. An admin signing in to the driver app is their DRIVER self (with a
+ * driver profile; else a PASSENGER, who can register one), to the passenger app a PASSENGER: one phone can be an
+ * admin and a driver. [promote]: an ADMIN_PHONES number on an admin login becomes ADMIN in the database.
+ */
+export function loginRole(p: { app?: LoginApp; role: Role; isAdminPhone: boolean; hasDriver: boolean }): { role: Role; promote: boolean } {
+  const isAdminLogin = p.app === 'admin' || (p.app === undefined && !p.hasDriver);
+  const promote = p.isAdminPhone && isAdminLogin && p.role !== Role.ADMIN;
+  const role = promote ? Role.ADMIN : p.role;
+  if (role !== Role.ADMIN || isAdminLogin) return { role, promote };
+  return { role: p.app !== 'passenger' && p.hasDriver ? Role.DRIVER : Role.PASSENGER, promote };
+}
+
+/** Phone + OTP sign-in for both apps and the admin panel; issues JWTs. */
 @Injectable()
 export class AuthService {
   constructor(
@@ -31,19 +46,18 @@ export class AuthService {
     return `+91${phone.replace(/^\+91/, '')}`;
   }
 
-  async verify(params: { phone: string; code: string }): Promise<LoginResult> {
+  async verify(params: { phone: string; code: string; app?: LoginApp }): Promise<LoginResult> {
     const phone = AuthService.normalise(params.phone);
     if (!(await this.otp.verify(phone, params.code))) throw new UnauthorizedException('Incorrect OTP');
     const existing = await this.prisma.user.findUnique({ where: { phone }, include: { driver: true } });
     if (existing?.isBlocked) throw new ForbiddenException(existing.blockedReason ?? 'Your account is blocked. Contact support.');
     const created = existing ?? (await this.prisma.user.create({ data: { phone }, include: { driver: true } }));
-    // Phones in ADMIN_PHONES always sign in as ADMIN (admin panel).
-    const isAdmin = this.env.adminPhones.includes(phone);
-    const user = isAdmin && created.role !== Role.ADMIN
-      ? await this.prisma.user.update({ where: { id: created.id }, data: { role: Role.ADMIN }, include: { driver: true } })
-      : created;
-    const accessToken = await this.issueToken({ sub: user.id, role: user.role, driverId: user.driver?.id });
-    return { accessToken, isNewUser: !existing || !existing.name, user, driverId: user.driver?.id };
+    const { role, promote } = loginRole({ app: params.app, role: created.role, isAdminPhone: this.env.adminPhones.includes(phone), hasDriver: !!created.driver });
+    const user = promote ? await this.prisma.user.update({ where: { id: created.id }, data: { role: Role.ADMIN }, include: { driver: true } }) : created;
+    // A passenger token never acts as the driver profile (an admin in the passenger app).
+    const driverId = role === Role.PASSENGER ? undefined : user.driver?.id;
+    const accessToken = await this.issueToken({ sub: user.id, role, driverId });
+    return { accessToken, isNewUser: !existing || !existing.name, user, driverId };
   }
 
   /** Signs a JWT (also used after a role change, e.g. driver registration). */
