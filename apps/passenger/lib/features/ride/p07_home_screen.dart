@@ -22,8 +22,8 @@ import '../states/s08_service_unavailable_screen.dart';
 import 'widgets/dashed_border.dart';
 import 'widgets/upcoming_trip_card.dart';
 
-/// P-07 Home (Ride tab): full map around the pickup with nearby vehicles, greeting card,
-/// SOS, and a half-height sheet with search, saved places, recent destinations and a promo, ending in the
+/// P-07 Home (Ride tab): full map around the pickup with nearby vehicles, a top pill with the greeting and where
+/// the ride starts (tap to move the pickup), SOS, and a half-height sheet with search, saved places, recent destinations and a promo, ending in the
 /// "#NammaOoru · Made in Coimbatore" line art.
 /// P-07b: a "Trip in progress" banner while a ride or parcel is active.
 class P07HomeScreen extends ConsumerStatefulWidget {
@@ -138,11 +138,11 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   }
 
   String _greeting() {
-    if (widget.showcase) return 'Good afternoon,';
+    if (widget.showcase) return 'Good afternoon';
     final h = TtClock.now().hour;
-    if (h < 12) return 'Good morning,';
-    if (h < 17) return 'Good afternoon,';
-    return 'Good evening,';
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   void _chooseDrop(Place place) {
@@ -212,10 +212,16 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: _GreetingCard(greeting: _greeting(), profile: profile),
+                            child: _HelloPill(
+                              greeting: _greeting(),
+                              name: profile.name == kPlaceholderName ? '' : profile.firstName,
+                              // During a trip the pickup is the trip's, so it isn't offered for change here.
+                              pickup: tripActive ? null : ride.pickup,
+                              onPickup: tripActive || widget.showcase ? null : () => context.push(Routes.pinPickupOnMap),
+                            ),
                           ),
                           const SizedBox(width: TtSpacing.s),
-                          SosButton(size: 56, onPressed: () => context.push(Routes.sos)),
+                          SosButton(size: 52, onPressed: () => context.push(Routes.sos)),
                         ],
                       ),
                       if (!widget.showcase) _LocationBanners(outsideArea: _outsideArea, onFix: _fixLocation),
@@ -349,18 +355,41 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
   }
 }
 
-/// Top pill: initials avatar + "Good afternoon, Priya". Tapping opens the Account tab.
-class _GreetingCard extends StatelessWidget {
-  const _GreetingCard({required this.greeting, required this.profile});
+/// Top pill: "Good morning, Priya" over where the ride starts ("Mahaganapathi Nagar, Vellalore"); tap to move the
+/// pickup on the map (P-09). No avatar: riders have no photo, and initials only took room. During a trip ([pickup]
+/// null) it is the greeting alone.
+class _HelloPill extends StatelessWidget {
+  const _HelloPill({required this.greeting, required this.name, required this.pickup, this.onPickup});
+
+  /// "Good morning".
   final String greeting;
-  final PassengerProfile profile;
+
+  /// First name; empty until the rider has given one.
+  final String name;
+  final Place? pickup;
+  final VoidCallback? onPickup;
+
+  /// The phone's location reads "Current location" with the geocoded address: show its area instead ("Mahaganapathi
+  /// Nagar, Vellalore - Pattanam Rd"), skipping a door number.
+  static String pickupLabel(Place p) {
+    if (p.id != 'current' || p.address.trim().isEmpty) return p.name;
+    final parts = [
+      for (final part in p.address.split(','))
+        if (part.trim().isNotEmpty && !RegExp(r'^\d').hasMatch(part.trim())) part.trim(),
+    ];
+    return parts.isEmpty ? p.name : parts.take(2).join(', ');
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
+    final hello = name.isEmpty ? greeting : '$greeting, $name';
+    final p = pickup;
+    final where = p == null ? null : pickupLabel(p);
     return Semantics(
-      button: true,
-      label: 'Account, ${profile.name}',
+      button: onPickup != null,
+      label: where == null ? hello : '$hello. Pickup: $where${onPickup == null ? '' : '. Change pickup'}',
+      excludeSemantics: true,
       child: Material(
         color: TtColors.surface,
         shape: const StadiumBorder(),
@@ -368,24 +397,42 @@ class _GreetingCard extends StatelessWidget {
         shadowColor: TtColors.shadow,
         child: InkWell(
           customBorder: const StadiumBorder(),
-          onTap: () => context.go(Routes.account),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, TtSpacing.l, 6),
-            child: Row(
-              children: [
-                TtAvatar(initials: profile.initials, size: 44),
-                const SizedBox(width: TtSpacing.m),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(greeting, style: t.bodySmall.copyWith(color: TtColors.navy500), maxLines: 1),
-                      Text(profile.firstName, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ],
+          onTap: onPickup,
+          child: SizedBox(
+            height: 52,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (where == null)
+                          Text(hello, style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis)
+                        else ...[
+                          Text(hello, style: t.caption.copyWith(color: TtColors.navy500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 1),
+                          Row(
+                            children: [
+                              const Icon(Symbols.location_on_rounded, fill: 1, size: 16, color: TtColors.success),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(where, style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  if (onPickup != null) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Symbols.expand_more_rounded, size: 22, color: TtColors.navy500),
+                  ],
+                ],
+              ),
             ),
           ),
         ),

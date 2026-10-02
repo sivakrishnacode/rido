@@ -105,6 +105,11 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
     }
   }
 
+  /// Green for the pickup (as on every map and list), the coral drop pin otherwise.
+  Widget _pin(double size) => widget.forPickup
+      ? Icon(Symbols.location_on_rounded, fill: 1, color: TtColors.success, size: size)
+      : DropPin(size: size);
+
   @override
   Widget build(BuildContext context) {
     final t = context.type;
@@ -139,7 +144,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                                 style: t.bodySmallMedium.copyWith(color: TtColors.surface),
                               ),
                             ),
-                            const DropPin(size: 56),
+                            _pin(56),
                           ],
                         ),
                       ),
@@ -203,7 +208,7 @@ class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(padding: EdgeInsets.only(top: 2), child: DropPin(size: 26)),
+                    Padding(padding: const EdgeInsets.only(top: 2), child: _pin(26)),
                     const SizedBox(width: TtSpacing.m),
                     Expanded(
                       child: _locating
