@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Driver, KycDocument, Plan, Prisma, SupportTicket, Trip, User } from '../../generated/prisma/client.js';
-import { DriverStatus, KycDocType, Role, TicketStatus } from '../../generated/prisma/enums.js';
+import { DriverStatus, KycDocType, Role, TicketStatus, TripStatus } from '../../generated/prisma/enums.js';
 import type { Paged } from './admin.types.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
 import { NotifierService } from '../notifications/notifier.service.js';
@@ -127,7 +127,8 @@ export class AdminService {
   async trips(q: ListQueryDto): Promise<Paged<Omit<Trip, 'pathPolyline' | 'routePolyline'>>> {
     const { skip, take, page, pageSize } = paging(q);
     const where: Prisma.TripWhereInput = {
-      status: q.status ? (q.status as Trip['status']) : undefined,
+      // An unknown status (an edited URL) lists everything rather than failing the Prisma query.
+      status: isOneOf(q.status, Object.values(TripStatus)) ? q.status : undefined,
       kind: q.kind === 'RIDE' || q.kind === 'PARCEL' ? q.kind : undefined,
       vehicleKind: q.vehicle,
       needsReview: q.review === 'true' ? true : undefined,

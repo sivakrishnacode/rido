@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import type { Announcement, AuditLog, CancellationDue, Payment, Prisma } from '../../generated/prisma/client.js';
-import { TripStatus } from '../../generated/prisma/enums.js';
+import { PaymentStatus, TripStatus } from '../../generated/prisma/enums.js';
 import type { Paged } from './admin.types.js';
 import type { CreateAnnouncementDto } from './dto/announcement.dto.js';
 import type { ListQueryDto } from './dto/list-query.dto.js';
@@ -51,7 +51,8 @@ export class AdminOpsService {
   async payments(q: ListQueryDto): Promise<Paged<Payment>> {
     const page = q.page ?? 1;
     const pageSize = q.pageSize ?? 20;
-    const where: Prisma.PaymentWhereInput = { status: q.status ? (q.status as Payment['status']) : undefined };
+    const status = q.status && (Object.values(PaymentStatus) as string[]).includes(q.status) ? (q.status as PaymentStatus) : undefined;
+    const where: Prisma.PaymentWhereInput = { status };
     const [items, total] = await Promise.all([
       this.prisma.payment.findMany({
         where, skip: (page - 1) * pageSize, take: pageSize, orderBy: { createdAt: 'desc' },

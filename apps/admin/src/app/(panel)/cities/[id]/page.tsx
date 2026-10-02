@@ -63,7 +63,8 @@ export default async function CityPage({ params, searchParams }: PageProps<"/cit
           <ZonesEditor city={city} />
         </TabsContent>
         <TabsContent value="fares">
-          <FaresEditor cityId={city.id} fares={fares} />
+          {/* Remount on new fares (a save or a reset), so the inputs show what is stored. */}
+          <FaresEditor key={JSON.stringify(fares)} cityId={city.id} fares={fares} />
         </TabsContent>
         <TabsContent value="pricing">
           <PricingEditor cityId={city.id} pricing={pricing} />

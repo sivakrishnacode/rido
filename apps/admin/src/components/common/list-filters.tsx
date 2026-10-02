@@ -70,6 +70,8 @@ export function ListFilters({
             onChange={(e) => onSearch(e.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
+            // The API refuses longer searches (ListQueryDto.q).
+            maxLength={60}
             className="h-9 bg-card pl-9"
           />
         </div>
