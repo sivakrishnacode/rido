@@ -6,6 +6,7 @@ import '../common/trip_routes.dart';
 import 'parcel_flow.dart';
 import 'passenger_session.dart';
 import 'ride_flow.dart';
+import 'shifting_flow.dart';
 
 /// Live API: reopens the passenger's unfinished ride or parcel after a restart / sign-in.
 /// Returns the screen that shows it, or null when there is none (or in mock mode).
@@ -42,6 +43,9 @@ void resetSignedInState(WidgetRef ref) {
   ref
     ..invalidate(rideFlowProvider)
     ..invalidate(parcelFlowProvider)
+    ..invalidate(shiftingFlowProvider)
+    ..invalidate(identityProvider)
+    ..invalidate(upcomingTripsProvider)
     ..invalidate(passengerProfileProvider)
     ..invalidate(tripHistoryProvider)
     ..invalidate(recentDestinationsProvider)

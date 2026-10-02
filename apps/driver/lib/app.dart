@@ -99,6 +99,7 @@ class _TtDriverAppState extends ConsumerState<TtDriverApp> with WidgetsBindingOb
     if (!mounted) return;
     ref.read(realtimeProvider).disconnect();
     resetDriverData(ref);
+    ref.invalidate(signupProvider);
     if (_authPaths.contains(_path)) return;
     _router.go(Routes.welcome);
     final context = rootNavigatorKey.currentContext;

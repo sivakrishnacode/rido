@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import '../features/account/account_providers.dart';
+import 'booking_prefs.dart';
 import 'driver_session.dart';
 
 /// The signed-in driver's profile (Karthik by default; the API driver with the live API).
@@ -157,7 +158,10 @@ void resetDriverData(WidgetRef ref) {
     ..invalidate(paymentsProvider)
     ..invalidate(driverTicketsProvider)
     ..invalidate(driverEmergencyContactProvider)
-    ..invalidate(earningsProvider);
+    ..invalidate(earningsProvider)
+    ..invalidate(identityProvider)
+    ..invalidate(bookingPrefsProvider)
+    ..invalidate(cancelRateProvider);
 }
 
 /// What the driver entered during sign-up (D-03 … D-06), for the D-07 registration page.
