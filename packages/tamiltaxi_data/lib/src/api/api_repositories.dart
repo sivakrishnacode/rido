@@ -338,11 +338,12 @@ class ApiDriverRepository implements DriverRepository {
   @override
   Future<void> sendOtp(String phone) => api.post('/auth/otp', {'phone': apiPhone(phone)});
 
-  /// existingUser = already a driver; newUser = continue to sign-up (the token is kept for [register]).
+  /// existingUser = already a driver; newUser = continue to sign-up (the token is kept for [register]). Sent with
+  /// `app: 'driver'`, so the API checks the driver account (blocked drivers, the driver id in the token).
   @override
   Future<OtpResult> verifyOtp(String phone, String otp) async {
     try {
-      final res = _map(await api.post('/auth/verify', {'phone': apiPhone(phone), 'code': otp}));
+      final res = _map(await api.post('/auth/verify', {'phone': apiPhone(phone), 'code': otp, 'app': 'driver'}));
       final driverId = res['driverId'] as String?;
       await api.session.save(token: res['accessToken'] as String, driverId: driverId);
       return driverId == null ? OtpResult.newUser : OtpResult.existingUser;
@@ -387,8 +388,13 @@ class ApiDriverRepository implements DriverRepository {
       'plate': profile.plate,
       'upiId': profile.upiId,
     }));
-    final driver = _map(res['driver']);
-    await api.session.save(token: res['accessToken'] as String, driverId: driver['id'] as String);
+    // 201 for a new driver; 200 with the same driver and a fresh token when the first answer was lost and the
+    // driver sent it again. Either way the session is stored.
+    final driver = res['driver'] is Map ? _map(res['driver']) : res;
+    final token = res['accessToken'];
+    final id = driver['id'];
+    if (token is! String || id is! String) throw const ApiException(500, 'Something went wrong. Please try again.');
+    await api.session.save(token: token, driverId: id);
     return this.profile();
   }
 
