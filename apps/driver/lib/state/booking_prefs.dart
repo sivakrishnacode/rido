@@ -7,21 +7,24 @@ class BookingPrefsController extends AsyncNotifier<BookingPrefs> {
   @override
   Future<BookingPrefs> build() async {
     if (!ref.watch(isLiveApiProvider)) return const BookingPrefs();
-    return ref.read(liveJobsProvider).bookingPrefs();
+    return withoutExpired(await ref.read(liveJobsProvider).bookingPrefs(), DateTime.now());
   }
 
-  /// Saves [next]; the state becomes what the server stored. Throws on failure (state unchanged).
+  /// Saves [next]; the state becomes what the server stored. Throws on failure (state unchanged). A Go To / Stay In
+  /// whose time is up is dropped first: sent back, the server would start a fresh one.
   Future<void> save(BookingPrefs next) async {
+    final send = withoutExpired(next, DateTime.now());
     if (!ref.read(isLiveApiProvider)) {
-      state = AsyncData(next);
+      state = AsyncData(send);
       return;
     }
-    final saved = await ref.read(liveJobsProvider).setBookingPrefs(next);
+    final saved = await ref.read(liveJobsProvider).setBookingPrefs(send);
     if (ref.mounted) state = AsyncData(saved);
   }
 
   /// Saves [update] of the preferences as loaded (Home's Go To / Stay In, the saved areas). Throws on failure.
-  Future<void> change(BookingPrefs Function(BookingPrefs current) update) async => save(update(await future));
+  Future<void> change(BookingPrefs Function(BookingPrefs current) update) async =>
+      save(update(withoutExpired(await future, DateTime.now())));
 
   /// Adds [area] to the saved ones, replacing one with the same name ("Home" moved) or place.
   Future<void> saveArea(SavedArea area) => change((p) {
@@ -33,6 +36,15 @@ class BookingPrefsController extends AsyncNotifier<BookingPrefs> {
 }
 
 final bookingPrefsProvider = AsyncNotifierProvider<BookingPrefsController, BookingPrefs>(BookingPrefsController.new);
+
+/// [prefs] without a Go To / Stay In that ended before [now] (the server switched it off by then).
+BookingPrefs withoutExpired(BookingPrefs prefs, DateTime now) {
+  bool over(DateTime? until) => until != null && !until.isAfter(now);
+  final goToOver = prefs.goTo != null && over(prefs.goTo!.until);
+  final stayInOver = prefs.stayIn != null && over(prefs.stayIn!.until);
+  if (!goToOver && !stayInOver) return prefs;
+  return prefs.copyWith(goTo: goToOver ? () => null : null, stayIn: stayInOver ? () => null : null);
+}
 
 /// "Towards Home" / "Inside RS Puram" while Go To / Stay In is on at [now] (the request card tag), else null.
 String? directionTag(BookingPrefs? prefs, DateTime now) {

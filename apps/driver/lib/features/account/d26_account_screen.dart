@@ -94,7 +94,8 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
     final profileFailed = profile == null && profileAsync.hasError;
     final contactAsync = ref.watch(driverEmergencyContactProvider);
     final contact = contactAsync.value;
-    final prefs = ref.watch(bookingPrefsProvider).value;
+    final loadedPrefs = ref.watch(bookingPrefsProvider).value;
+    final prefs = loadedPrefs == null ? null : withoutExpired(loadedPrefs, DateTime.now());
     final prefsSub = prefs == null || !prefs.hasFilters ? 'Every request · voice, Go To, Stay In, parcels' : _cap(prefs.summary);
     // Counted as Account › Documents (D-07 read-only) counts them: the uploads plus the identity check, from the
     // same source (mock: every upload verified). It used to count every KYC record and skip the identity step.

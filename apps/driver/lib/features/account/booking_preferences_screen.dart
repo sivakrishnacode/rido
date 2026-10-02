@@ -70,8 +70,8 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
     final draft = _draft ?? loaded.value;
     if (_draft == null && loaded.hasValue) _draft = loaded.value;
     final voice = ref.watch(requestVoiceProvider);
-    // Go To / Stay In come from the stored preferences (their sheet saves at once).
-    final stored = loaded.value;
+    // Go To / Stay In come from the stored preferences (their sheet saves at once); one whose time is up is off.
+    final stored = loaded.value == null ? null : withoutExpired(loaded.value!, DateTime.now());
     // Bikes and scooters can carry goods-bike parcels too.
     final kind = ref.watch(driverProfileProvider).value?.vehicleKind;
     final isBike = kind == VehicleKind.bike || kind == VehicleKind.scooty;

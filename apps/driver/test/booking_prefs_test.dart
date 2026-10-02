@@ -10,6 +10,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/harness.dart';
+import 'support/live_fakes.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -93,6 +94,36 @@ void main() {
     final staying = BookingPrefs(stayIn: StayInArea(location: home.location, name: 'RS Puram', radiusKm: 5));
     expect(directionTag(staying, now), 'Inside RS Puram');
     expect(directionTag(const BookingPrefs(), now), isNull);
+  });
+
+  test('a Go To whose time is up is dropped; one still running (or not yet timed) stays', () {
+    final now = DateTime(2026, 10, 3, 12);
+    final over = BookingPrefs(goTo: GoToDestination(location: home.location, name: 'Home', until: now.subtract(const Duration(minutes: 1))));
+    expect(withoutExpired(over, now).goTo, isNull);
+    final running = BookingPrefs(stayIn: StayInArea(location: home.location, name: 'Home', radiusKm: 5, until: now.add(const Duration(hours: 1))));
+    expect(withoutExpired(running, now).stayIn, isNotNull);
+    expect(withoutExpired(const BookingPrefs().goingTo(home), now).goTo, isNotNull);
+  });
+
+  test('live: an expired Go To is not shown, and saving other preferences does not send it back', () async {
+    final rig = await LiveRig.create();
+    rig.jobs.prefs = BookingPrefs(
+      maxPickupKm: 3,
+      goTo: GoToDestination(location: home.location, name: 'Home', until: DateTime.now().subtract(const Duration(minutes: 5))),
+    );
+    final container = ProviderContainer(overrides: rig.overrides);
+    addTearDown(container.dispose);
+    final loaded = await container.read(bookingPrefsProvider.future);
+    expect(loaded.goTo, isNull);
+    expect(loaded.maxPickupKm, 3);
+
+    // The stored copy goes stale on the server's side too: change() never re-sends it.
+    rig.jobs.prefs = rig.jobs.prefs.copyWith(
+        goTo: () => GoToDestination(location: home.location, name: 'Home', until: DateTime.now().subtract(const Duration(minutes: 1))));
+    container.read(bookingPrefsProvider.notifier).state = AsyncData(rig.jobs.prefs);
+    await container.read(bookingPrefsProvider.notifier).change((p) => p.copyWith(parcels: false));
+    expect(rig.jobs.prefs.goTo, isNull);
+    expect(rig.jobs.prefs.parcels, isFalse);
   });
 
   testWidgets('set the farthest pickup, a minimum trip length and parcels off, then save', (tester) async {
