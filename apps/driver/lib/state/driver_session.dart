@@ -77,7 +77,8 @@ class DriverSessionState {
   /// Live API: getting a GPS fix and asking the API to go online.
   final bool goingOnline;
 
-  /// The daily selfie check (S-13) is due the first time each app session.
+  /// Mock mode: the simulated daily selfie check (S-13) is due the first time each app session. Live, the server
+  /// decides (403 `SELFIE_CHECK_REQUIRED` from going online).
   final bool selfieDoneThisSession;
 
   /// A request waiting for Accept / Decline (D-15 / D-20).
