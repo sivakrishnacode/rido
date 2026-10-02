@@ -7,6 +7,7 @@ import 'package:tamiltaxi_passenger/features/ride/p36_booked_later_screen.dart';
 import 'package:tamiltaxi_passenger/features/shifting/ph02_items_screen.dart';
 import 'package:tamiltaxi_passenger/features/shifting/ph03_schedule_screen.dart';
 import 'package:tamiltaxi_passenger/features/shifting/ph04_review_screen.dart';
+import 'package:tamiltaxi_passenger/features/shifting/widgets/shifting_widgets.dart';
 import 'package:tamiltaxi_passenger/router/routes.dart';
 import 'package:tamiltaxi_passenger/state/parcel_flow.dart';
 import 'package:tamiltaxi_passenger/state/shifting_flow.dart';
@@ -55,6 +56,8 @@ void main() {
     expect(find.text('Moving home?'), findsOneWidget);
     // No price before the new home is chosen.
     expect(find.text('Choose the new home to see the price'), findsOneWidget);
+    // …and no price placeholder, which looked like it was loading for ever.
+    expect(find.descendant(of: find.byType(ShiftingPriceBar), matching: find.byType(SkeletonBox)), findsNothing);
     flow.setDrop(Seed.raceCourse);
     await advance(tester, const Duration(milliseconds: 300));
     await tapText(tester, '2 BHK');

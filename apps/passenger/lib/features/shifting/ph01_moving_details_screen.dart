@@ -38,11 +38,13 @@ class PH01MovingDetailsScreen extends ConsumerWidget {
     }
 
     return ShiftingScaffold(
-      title: 'House shifting',
+      title: 'Packers & Movers',
       step: 1,
       onBack: () => context.canPop() ? context.pop() : context.go(Routes.parcel),
       bottom: ShiftingPriceBar(
         total: s.placesReady ? s.quote?.lines.total : null,
+        // No new home yet: nothing to price, so no placeholder that seems to load for ever.
+        pricing: s.placesReady,
         caption: s.placesReady ? '${size.helpers} helpers · ${s.vehicleOrSuggested.label} suggested' : 'Choose the new home to see the price',
         label: 'Add items',
         onPressed: showcase ? () {} : (s.placesReady ? () => context.push(Routes.shiftingItems) : null),

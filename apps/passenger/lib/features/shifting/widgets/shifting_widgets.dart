@@ -190,7 +190,8 @@ String floorShort(int floor) {
   return floorLabel(floor, false).split(' ').first;
 }
 
-/// One end of the move: the place (tap to change), its floor and whether there is a lift.
+/// One end of the move, compact: the place (tap to change; the green dot is the old home, the pin the new one), its
+/// floor and, above the ground floor, whether there is a lift.
 class MoveEndCard extends StatelessWidget {
   const MoveEndCard({
     super.key,
@@ -219,7 +220,7 @@ class MoveEndCard extends StatelessWidget {
     final t = context.type;
     final p = place;
     return Container(
-      margin: const EdgeInsets.only(bottom: TtSpacing.m),
+      margin: const EdgeInsets.only(bottom: TtSpacing.s),
       decoration: BoxDecoration(
         color: TtColors.surface,
         borderRadius: TtRadii.cardRadius,
@@ -229,44 +230,49 @@ class MoveEndCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
-            onTap: onPlace,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.s, TtSpacing.m),
-              child: Row(
-                children: [
-                  SizedBox(width: 28, child: Center(child: isPickup ? const PickupDot(size: 12) : const DropPin(size: 24))),
-                  const SizedBox(width: TtSpacing.m),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(isPickup ? 'Moving from' : 'Moving to', style: t.caption.copyWith(color: TtColors.navy500)),
-                        Text(
-                          p?.name ?? 'Choose the new home',
-                          style: t.bodySemibold.copyWith(color: p == null ? TtColors.coral600 : TtColors.navy900),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (p != null && p.address.isNotEmpty)
-                          Text(p.address, style: t.bodySmall.copyWith(color: TtColors.navy500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ],
+          Semantics(
+            button: true,
+            label: '${isPickup ? 'Moving from' : 'Moving to'} ${p?.name ?? 'not chosen yet'}',
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: onPlace,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(TtSpacing.m, 10, TtSpacing.s, 10),
+                child: Row(
+                  children: [
+                    SizedBox(width: 24, child: Center(child: isPickup ? const PickupDot(size: 10) : const DropPin(size: 22))),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p?.name ?? 'Choose the new home',
+                            style: t.bodySemibold.copyWith(color: p == null ? TtColors.coral600 : TtColors.navy900),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (p != null && p.address.isNotEmpty)
+                            Text(p.address, style: t.bodySmall.copyWith(color: TtColors.navy500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Icon(Symbols.chevron_right_rounded, color: TtColors.navy500),
-                ],
+                    const Icon(Symbols.chevron_right_rounded, color: TtColors.navy500),
+                  ],
+                ),
               ),
             ),
           ),
-          const Divider(height: 1),
+          const Divider(height: 1, indent: TtSpacing.m, endIndent: TtSpacing.m),
           Padding(
-            padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.s, TtSpacing.s, TtSpacing.s),
+            padding: const EdgeInsets.fromLTRB(TtSpacing.m, 0, TtSpacing.xs, 0),
             child: Row(
               children: [
                 const Icon(Symbols.stairs_2_rounded, size: 20, color: TtColors.navy700),
                 const SizedBox(width: TtSpacing.s),
                 Expanded(child: Text('Floor', style: t.bodySmallMedium.copyWith(color: TtColors.navy700))),
                 CountStepper(
+                  dense: true,
                   value: floor,
                   max: GoodsModeRates.maxFloor,
                   label: floorShort(floor),
@@ -283,7 +289,7 @@ class MoveEndCard extends StatelessWidget {
             child: floor == 0
                 ? const SizedBox(width: double.infinity)
                 : Padding(
-                    padding: const EdgeInsets.fromLTRB(TtSpacing.l, 0, TtSpacing.s, TtSpacing.s),
+                    padding: const EdgeInsets.fromLTRB(TtSpacing.m, 0, TtSpacing.xs, TtSpacing.xs),
                     child: Row(
                       children: [
                         const Icon(Symbols.elevator_rounded, size: 20, color: TtColors.navy700),
@@ -379,11 +385,15 @@ class ShiftingPriceBar extends StatelessWidget {
     required this.onPressed,
     this.caption,
     this.loading = false,
+    this.pricing = true,
     this.onDetails,
   });
 
-  /// Null while it is being priced (or there is nothing to price yet).
+  /// Null while it is being priced, or when there is nothing to price yet (see [pricing]).
   final int? total;
+
+  /// A null [total] is on its way (a placeholder shows); false: nothing to price yet, the [caption] says why.
+  final bool pricing;
   final String label;
   final VoidCallback? onPressed;
 
@@ -423,9 +433,11 @@ class ShiftingPriceBar extends StatelessWidget {
                           children: [
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 200),
-                              child: total == null
-                                  ? const SkeletonBox(key: ValueKey('none'), width: 72, height: 24)
-                                  : Text(formatInr(total!), key: ValueKey(total), style: TtTextStyles.tabular(t.h2)),
+                              child: total != null
+                                  ? Text(formatInr(total!), key: ValueKey(total), style: TtTextStyles.tabular(t.h2))
+                                  : pricing
+                                      ? const SkeletonBox(key: ValueKey('pricing'), width: 72, height: 24)
+                                      : const SizedBox.shrink(key: ValueKey('nothing')),
                             ),
                             if (onDetails != null && total != null) ...[
                               const SizedBox(width: 2),
@@ -434,7 +446,15 @@ class ShiftingPriceBar extends StatelessWidget {
                           ],
                         ),
                         if (caption != null)
-                          Text(caption!, style: t.caption.copyWith(color: TtColors.navy500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(
+                            caption!,
+                            // On its own (nothing priced yet) it is the bar's only line: a size up.
+                            style: total == null && !pricing
+                                ? t.bodySmall.copyWith(color: TtColors.navy700)
+                                : t.caption.copyWith(color: TtColors.navy500),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                       ],
                     ),
                   ),
