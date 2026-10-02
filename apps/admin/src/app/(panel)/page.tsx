@@ -110,7 +110,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 export default async function DashboardPage() {
-  const [stats, approvals, sos, flagged, blocked, cities, live, settings] = await Promise.all([
+  const [stats, approvals, sos, flagged, blocked, cities, live, settings, demand, heat] = await Promise.all([
     adminApi.stats(),
     // Optional extras: never let one count take the dashboard down.
     adminApi.approvals({ stage: "ready", pageSize: 5 }).catch(() => null),
@@ -120,12 +120,21 @@ export default async function DashboardPage() {
     adminApi.cities(),
     adminApi.live(),
     adminApi.settings().catch(() => null),
+    adminApi.demand().catch(() => null),
+    adminApi.heatmap({ metric: "pickups", ...presetRange("30d") }).catch(() => null),
   ]);
-  // Waiting for an admin: ready drivers first, else the uploads to review.
-  const waitingList =
+  // Then, together: the uploads to review when nobody is ready (ready drivers come first), and the hotspot names.
+  const [waitingList, hotspots] = await Promise.all([
     approvals && approvals.counts.ready === 0 && approvals.counts.documents > 0
-      ? await adminApi.approvals({ stage: "documents", pageSize: 5 }).catch(() => approvals)
-      : approvals;
+      ? adminApi.approvals({ stage: "documents", pageSize: 5 }).catch(() => approvals)
+      : approvals,
+    Promise.all(
+      (heat?.cells.slice(0, 5) ?? []).map(async (c) => {
+        const centre = cellCentre(c.cell);
+        return { ...c, ...centre, name: await placeNameAt(centre.lat, centre.lng) };
+      }),
+    ),
+  ]);
   const counts = approvals?.counts;
   const attention = [
     { label: "SOS open", count: sos?.open ?? 0, href: "/safety", icon: ShieldAlertIcon, isUrgent: true },
@@ -138,16 +147,8 @@ export default async function DashboardPage() {
   ].filter((a) => a.count > 0);
   const showPlans = settings?.driverPlansEnabled ?? true;
   const now = new Date();
-  const demand = await adminApi.demand().catch(() => null);
   const surging = demand?.cells.filter((c) => c.multiplier > 1) ?? [];
   const topSurge = surging.reduce((m, c) => Math.max(m, c.multiplier), 1);
-  const heat = await adminApi.heatmap({ metric: "pickups", ...presetRange("30d") }).catch(() => null);
-  const hotspots = await Promise.all(
-    (heat?.cells.slice(0, 5) ?? []).map(async (c) => {
-      const centre = cellCentre(c.cell);
-      return { ...c, ...centre, name: await placeNameAt(centre.lat, centre.lng) };
-    }),
-  );
   const activeCities = cities.filter((c) => c.isActive);
   const { center: c0 } = cityView(activeCities);
   const mapCenter: [number, number] = [c0.lat, c0.lng];
