@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
+import '../../state/driver_session.dart';
 import '../onboarding/widgets/signup_widgets.dart';
 
 /// S-13 Selfie check before going online: a panel over the dimmed home map with
 /// "Take selfie" → the D-09 camera (daily check).
-class S13SelfieCheckScreen extends StatelessWidget {
+class S13SelfieCheckScreen extends ConsumerWidget {
   const S13SelfieCheckScreen({super.key, this.showcase = false});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     void close() => Navigator.of(context).maybePop();
+    // Behind the panel: where the driver is (the last fix, or the demo car), else the first service city.
+    final session = ref.read(driverSessionProvider.notifier);
+    final center = session.position ?? session.vehicle.value?.position ?? CityDefaults.center;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -50,7 +55,7 @@ class S13SelfieCheckScreen extends StatelessWidget {
                   Positioned.fill(
                     child: ExcludeSemantics(
                       child: TtMap(
-                        center: Seed.gandhipuram.location,
+                        center: center,
                         interactive: false,
                         showAttribution: false,
                       ),
