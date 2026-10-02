@@ -10,6 +10,17 @@ function fakeRedis(store = new Map<string, string>()): RedisService {
       store.set(k, v);
       return 'OK';
     },
+    del: async (...keys: string[]) => keys.filter((k) => store.delete(k)).length,
+    multi() {
+      const ops: (() => unknown)[] = [];
+      const chain = {
+        set: (k: string, v: string) => (ops.push(() => store.set(k, v)), chain),
+        incr: (k: string) => (ops.push(() => store.set(k, String(Number(store.get(k) ?? 0) + 1))), chain),
+        expire: () => chain,
+        exec: async () => ops.map((op) => [null, op()]),
+      };
+      return chain;
+    },
   } as unknown as RedisService;
 }
 
@@ -79,15 +90,57 @@ describe('MapsService', () => {
     expect(route).toHaveBeenCalledTimes(1);
   });
 
-  it('never caches Places content (only place IDs may be stored): each call asks Google', async () => {
-    const autocomplete = vi.fn(async () => [{ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore' }]);
-    const placeDetails = vi.fn(async () => ({ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore', lat: 10.99, lng: 76.96 }));
-    const maps = new MapsService({ isEnabled: true, autocomplete, placeDetails } as unknown as GoogleMapsClient, fakeRedis());
-    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's', restriction: AREA });
-    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's', restriction: AREA });
-    await maps.details({ placeId: 'p1', sessionToken: 's' });
-    await maps.details({ placeId: 'p1', sessionToken: 's' });
-    expect(autocomplete).toHaveBeenCalledTimes(2);
+  it('answers [] to fewer than 4 characters without asking Google', async () => {
+    const autocomplete = vi.fn(async () => []);
+    const maps = new MapsService({ isEnabled: true, autocomplete } as unknown as GoogleMapsClient, fakeRedis());
+    expect(await maps.autocomplete({ input: '  Ukk  ', sessionToken: 's', restriction: AREA })).toEqual([]);
+    expect(await maps.autocomplete({ input: 'gan', sessionToken: 's' })).toEqual([]);
+    expect(autocomplete).not.toHaveBeenCalled();
+  });
+
+  it('keys autocomplete by normalised input, area and a ~1 km origin, never by user or session', () => {
+    const key = MapsService.autocompleteKey({ input: '  Ukkadam   Bus  Stand ', restriction: AREA, origin: { lat: 10.98833, lng: 76.96269 } });
+    expect(key).toBe('maps:ac1:10.750,76.690,11.290,77.240:10.99,76.96:ukkadam bus stand');
+    // Same search a few hundred metres away, typed differently: the same entry.
+    expect(MapsService.autocompleteKey({ input: 'ukkadam bus stand', restriction: AREA, origin: { lat: 10.9871, lng: 76.9612 } })).toBe(key);
+    expect(MapsService.autocompleteKey({ input: 'ukkadam bus stand', restriction: null })).toBe('maps:ac1:any:none:ukkadam bus stand');
+    expect(MapsService.autocompleteKey({ input: 'ukkadam bus stand', restriction: AREA, origin: { lat: 11.02, lng: 76.96 } })).not.toBe(key);
+  });
+
+  it('caches autocomplete answers for a day, passing the session token on a miss', async () => {
+    const store = new Map<string, string>();
+    const autocomplete = vi.fn(async () => [{ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore', distanceKm: 2.1 }]);
+    const maps = new MapsService({ isEnabled: true, autocomplete } as unknown as GoogleMapsClient, fakeRedis(store));
+    await maps.autocomplete({ input: 'Ukkadam', sessionToken: 's1', restriction: AREA });
+    expect(await maps.autocomplete({ input: ' ukkadam ', sessionToken: 's2', restriction: AREA })).toEqual([{ placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore', distanceKm: 2.1 }]);
+    expect(autocomplete).toHaveBeenCalledTimes(1);
+    expect(autocomplete).toHaveBeenCalledWith(expect.objectContaining({ input: 'ukkadam', sessionToken: 's1' }));
+    expect(store.get('maps:acs:s1')).toBe('1'); // one billed call in session s1, none in s2
+    expect(store.has('maps:acs:s2')).toBe(false);
+  });
+
+  it('serves a cached place unless the session made several billed autocomplete calls (Place Details then makes them free)', async () => {
+    const store = new Map<string, string>();
+    const place = { placeId: 'p1', name: 'Ukkadam', address: 'Coimbatore', lat: 10.99, lng: 76.96 };
+    const autocomplete = vi.fn(async (p: { input: string }) => [{ placeId: 'p1', name: p.input, address: '' }]);
+    const placeDetails = vi.fn(async () => place);
+    const maps = new MapsService({ isEnabled: true, autocomplete, placeDetails } as unknown as GoogleMapsClient, fakeRedis(store));
+    expect(await maps.details({ placeId: 'p1', sessionToken: 'a' })).toEqual(place);
+    // A session with one billed keystroke: the cache is cheaper.
+    await maps.autocomplete({ input: 'ukka', sessionToken: 'b' });
+    expect(await maps.details({ placeId: 'p1', sessionToken: 'b' })).toEqual(place);
+    expect(placeDetails).toHaveBeenCalledTimes(1);
+    // Two billed keystrokes: Place Details ends the session (and refreshes the cache).
+    await maps.autocomplete({ input: 'ukkad', sessionToken: 'c' });
+    await maps.autocomplete({ input: 'ukkada', sessionToken: 'c' });
+    expect(await maps.details({ placeId: 'p1', sessionToken: 'c' })).toEqual(place);
     expect(placeDetails).toHaveBeenCalledTimes(2);
+    expect(store.has('maps:acs:c')).toBe(false);
+  });
+
+  it('falls back to the cached place when Google fails', async () => {
+    const store = new Map<string, string>([['maps:pd1:p1', JSON.stringify({ placeId: 'p1', name: 'Ukkadam', address: '', lat: 10.99, lng: 76.96 })], ['maps:acs:s', '3']]);
+    const maps = new MapsService({ isEnabled: true, placeDetails: vi.fn(async () => null) } as unknown as GoogleMapsClient, fakeRedis(store));
+    expect((await maps.details({ placeId: 'p1', sessionToken: 's' }))?.lat).toBe(10.99);
   });
 });

@@ -8,13 +8,24 @@ import { GoogleMapsClient, type MatrixLeg, PlaceSuggestion, ResolvedPlace, RoadR
 import type { LatLngLiteral } from './polyline.js';
 
 const DAY_S = 86_400;
-/** Places content (suggestions, names, addresses) is never cached: Google's Places terms allow storing only place IDs. */
 /**
  * A fare route (distance, path: what the fare and the route-deviation check use) is kept 6 h so a quote and its
  * booking price the same route. Google's traffic-aware minutes change through the day, so they live in their own
  * key for 15 min (`maps:tt:*`); after that, one Pro call refreshes them (only the minutes, not the cached route).
+ * Autocomplete answers are kept a day (`maps:ac1:*`), resolved places 30 days (`maps:pd1:*`, Google allows caching
+ * coordinates that long); neither holds anything about the user. `maps:acs:<session>` counts one search session's
+ * billed autocomplete calls (see [MapsService.details]).
  */
-const TTL = { geocode: 30 * DAY_S, route: 6 * 3600, travel: 15 * 60 } as const;
+const TTL = { geocode: 30 * DAY_S, route: 6 * 3600, travel: 15 * 60, autocomplete: DAY_S, place: 30 * DAY_S, session: 300 } as const;
+
+/** Autocomplete needs this many characters (trimmed) before any lookup: shorter input answers [] at no cost. */
+export const AUTOCOMPLETE_MIN_CHARS = 4;
+/**
+ * A search session's autocomplete calls are free when Place Details (≈ the price of 1.8 autocomplete calls) ends it,
+ * else billed one by one. So a cached place is served only while the session made at most this many billed calls;
+ * after more, the details call to Google is the cheaper way to end it.
+ */
+const MAX_BILLED_FOR_CACHED_PLACE = 1;
 
 /**
  * Google Maps Platform with Redis caching (the biggest cost lever), and a local fallback
@@ -31,15 +42,60 @@ export class MapsService {
     return this.google.isEnabled;
   }
 
-  async autocomplete(params: { input: string; sessionToken: string; restriction?: LatLngBounds | null; origin?: LatLngLiteral }): Promise<PlaceSuggestion[] | null> {
-    const input = params.input.trim().toLowerCase();
-    if (input.length < 3) return [];
-    return this.google.autocomplete({ ...params, input });
+  /** "  Gandhi   Puram " → "gandhi puram": the form searches are sent and cached in. */
+  static normaliseInput(input: string): string {
+    return input.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
-  details(params: { placeId: string; sessionToken?: string }): Promise<ResolvedPlace | null> {
-    // Always from Google: it also ends the autocomplete session, so its keystrokes aren't billed one by one.
-    return this.google.placeDetails(params);
+  /**
+   * `maps:ac1:<area>:<origin>:<input>`: the same search (normalised) in the same area ([restriction] rectangle, or
+   * `any` for outstation) from about the same place ([origin] on a ~1 km grid, since suggestions carry their distance
+   * from it) shares one answer.
+   */
+  static autocompleteKey(p: { input: string; restriction?: LatLngBounds | null; origin?: LatLngLiteral }): string {
+    const r = p.restriction;
+    const area = r ? [r.low.lat, r.low.lng, r.high.lat, r.high.lng].map((v) => v.toFixed(3)).join(',') : 'any';
+    const origin = p.origin ? `${p.origin.lat.toFixed(2)},${p.origin.lng.toFixed(2)}` : 'none';
+    return `maps:ac1:${area}:${origin}:${MapsService.normaliseInput(p.input)}`;
+  }
+
+  private static sessionKey(sessionToken: string): string {
+    return `maps:acs:${sessionToken}`;
+  }
+
+  /**
+   * Places Autocomplete: [] under [AUTOCOMPLETE_MIN_CHARS] (no call), then the cached answer (a day), then Google
+   * with the client's session token. Null without Google or when it fails (callers fall back to seeded places).
+   */
+  async autocomplete(params: { input: string; sessionToken: string; restriction?: LatLngBounds | null; origin?: LatLngLiteral }): Promise<PlaceSuggestion[] | null> {
+    const input = MapsService.normaliseInput(params.input);
+    if (input.length < AUTOCOMPLETE_MIN_CHARS) return [];
+    if (!this.isGoogleEnabled) return null;
+    const key = MapsService.autocompleteKey(params);
+    const hit = await this.redis.get(key);
+    if (hit) return JSON.parse(hit) as PlaceSuggestion[];
+    const results = await this.google.autocomplete({ ...params, input });
+    if (results === null) return null;
+    const session = MapsService.sessionKey(params.sessionToken);
+    await this.redis.multi().set(key, JSON.stringify(results), 'EX', TTL.autocomplete).incr(session).expire(session, TTL.session).exec();
+    return results;
+  }
+
+  /**
+   * Coordinates for a suggestion. Cached 30 days by place ID, but a session that made several billed autocomplete
+   * calls ends with Google's Place Details instead (which makes those calls free, see [MAX_BILLED_FOR_CACHED_PLACE]);
+   * that also refreshes the cache. If Google fails, the cached place still answers.
+   */
+  async details(params: { placeId: string; sessionToken?: string }): Promise<ResolvedPlace | null> {
+    const key = `maps:pd1:${params.placeId}`;
+    const session = params.sessionToken ? MapsService.sessionKey(params.sessionToken) : null;
+    const [hit, billed] = await Promise.all([this.redis.get(key), session ? this.redis.get(session) : Promise.resolve(null)]);
+    const cached = hit ? (JSON.parse(hit) as ResolvedPlace) : null;
+    if (cached && Number(billed ?? 0) <= MAX_BILLED_FOR_CACHED_PLACE) return cached;
+    const place = await this.google.placeDetails(params);
+    if (session) await this.redis.del(session); // Place Details ended the session.
+    if (place) await this.redis.set(key, JSON.stringify(place), 'EX', TTL.place);
+    return place ?? cached;
   }
 
   reverseGeocode(point: LatLngLiteral): Promise<ResolvedPlace | null> {
