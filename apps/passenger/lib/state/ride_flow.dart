@@ -591,8 +591,15 @@ class RideFlowController extends Notifier<RideFlowState> {
     }
   }
 
-  /// Picks up an unfinished ride from the server (app restart). The phase tells the screen to open.
-  void restore(LiveTripUpdate update) => _startFollowing(update, restoring: true);
+  /// Picks up an unfinished ride from the server (app restart, a tapped notification). The phase tells the screen to
+  /// open. A ride already followed keeps its marker, routes, chat and ETA: the update only moves its status on.
+  void restore(LiveTripUpdate update) {
+    if (isFollowing(update.trip.id)) return _apply(update);
+    _startFollowing(update, restoring: true);
+  }
+
+  /// True while this controller follows trip [tripId] (live, not finished).
+  bool isFollowing(String tripId) => _session != null && state.tripId == tripId && state.isActive;
 
   void _startFollowing(LiveTripUpdate update, {required bool restoring}) {
     _stopFollowing();

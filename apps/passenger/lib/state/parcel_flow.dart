@@ -505,8 +505,15 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
     }
   }
 
-  /// Picks up an unfinished parcel from the server (app restart).
-  void restore(LiveTripUpdate update) => _startFollowing(update, restoring: true);
+  /// Picks up an unfinished parcel from the server (app restart, a tapped notification). A parcel already followed
+  /// keeps its marker, routes and chat: the update only moves its status on.
+  void restore(LiveTripUpdate update) {
+    if (isFollowing(update.trip.id)) return _apply(update);
+    _startFollowing(update, restoring: true);
+  }
+
+  /// True while this controller follows trip [tripId] (live, not finished).
+  bool isFollowing(String tripId) => _session != null && state.tripId == tripId && state.isActive;
 
   void _startFollowing(LiveTripUpdate update, {required bool restoring}) {
     _stopFollowing();

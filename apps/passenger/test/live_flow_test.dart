@@ -271,6 +271,31 @@ void main() {
     expect(ride().phase, RidePhase.planning);
   });
 
+  test('a tapped notification for the ride being followed keeps its marker, route, chat and ETA', () async {
+    flow().setDrop(Seed.brookefields);
+    await flow().book();
+    trips.push(trips.update('DRIVER_ASSIGNED', driver: _driver));
+    await _settle();
+    trips.locate(offsetPoint(Seed.gandhipuram.location, 2000, 90));
+    trips.message(ChatMessage(id: 'srv-1', text: 'Coming', fromMe: false, sentAt: DateTime.now()));
+    await _settle();
+    final approach = ride().approach;
+    final eta = ride().etaMin;
+    expect(approach, isNotEmpty);
+
+    // The push tap restores the active trip: the same one, so nothing is rebuilt.
+    flow().restore(trips.update('DRIVER_ASSIGNED', driver: _driver));
+    await _settle();
+    expect(ride().approach, same(approach));
+    expect(ride().chat.single.text, 'Coming');
+    expect(ride().etaMin, eta);
+    expect(flow().vehicle.value, isNotNull);
+
+    // A newer status still moves it on.
+    flow().restore(trips.update('DRIVER_ARRIVED', driver: _driver));
+    expect(ride().phase, RidePhase.arrived);
+  });
+
   test('Butterfly: a woman rider books "women only"; the choice is ignored for anyone else', () async {
     ProviderContainer rider(PassengerProfile p) {
       final c = ProviderContainer(overrides: [
