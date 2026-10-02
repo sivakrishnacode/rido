@@ -17,7 +17,7 @@ enum RequestPerk {
   butterfly('Butterfly', Symbols.female_rounded, TtColors.butterfly600, TtColors.butterfly50),
 
   /// House shifting: a goods truck with helpers for a slot (the card has a band with the home and the team).
-  shifting('House shifting', Symbols.home_rounded, TtColors.coral700, TtColors.coral50),
+  shifting('Packers & Movers', Symbols.home_rounded, TtColors.coral700, TtColors.coral50),
 
   /// A cab by the hour, or a trip to another town (the card has a band saying which, and when for later).
   rental('Rental', Symbols.timer_rounded, TtColors.navy900, TtColors.infoTint),
@@ -231,7 +231,7 @@ class _RequestStackViewState extends State<RequestStackView> {
   /// "New ride request", "New rental request", "2 delivery requests", or "3 requests" when rides and parcels are
   /// mixed.
   String _title(List<StackEntry> entries) {
-    if (entries.length == 1 && entries.single.request.isShifting) return 'New house shifting request';
+    if (entries.length == 1 && entries.single.request.isShifting) return 'New Packers & Movers request';
     if (entries.length == 1 && entries.single.request.isRental) return 'New rental request';
     if (entries.length == 1 && entries.single.request.isOutstation) return 'New outstation request';
     final deliveries = entries.where((e) => e.request.isDelivery).length;
@@ -517,7 +517,7 @@ class _ModeBand extends StatelessWidget {
     final shift = r.shifting;
     final (label, icon, what) = switch (r.modeTerms) {
       _ when shift != null => (
-          'House shifting',
+          'Packers & Movers',
           Symbols.home_rounded,
           [shift.homeSize.label, if (shift.lines case final l?) '${l.helperCount} helpers', if (r.isOutstation) 'another town'].join(' · '),
         ),

@@ -96,7 +96,7 @@ export class DriversService {
     if (dto.goTo && dto.stayIn) throw new BadRequestException('Turn off Go To to use Stay In');
     if (dto.shifting) {
       const { vehicleKind } = await this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, select: { vehicleKind: true } });
-      if (!isGoodsTruck(vehicleKind)) throw new BadRequestException('House shifting is for three-wheeler, mini truck, pickup and truck drivers');
+      if (!isGoodsTruck(vehicleKind)) throw new BadRequestException('Packers & Movers jobs are for three-wheeler, mini truck, pickup and truck drivers');
     }
     const now = new Date();
     const current = await this.bookingPrefs(driverId);

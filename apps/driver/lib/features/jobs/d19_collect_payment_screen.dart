@@ -130,7 +130,7 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
                         vehicle: _job.vehicle,
                         details: _job.shifting,
                         between: _job.shifting!.between,
-                        title: 'House shifting · ${_job.shifting!.homeSize.label}',
+                        title: 'Packers & Movers · ${_job.shifting!.homeSize.label}',
                       ),
                     ),
                     const SizedBox(height: TtSpacing.l),

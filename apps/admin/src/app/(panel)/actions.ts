@@ -231,7 +231,7 @@ const SECTION_LABEL: Record<PricingSection, string> = {
   rental: "Rental prices",
   outstation: "Outstation rates",
   goodsOutstation: "Goods to another town",
-  shifting: "House shifting prices",
+  shifting: "Packers & Movers prices",
 };
 
 /** Saves a city's own [section] (the API checks every value and says what's wrong). */

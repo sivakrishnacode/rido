@@ -119,7 +119,7 @@ abstract final class RequestSpeech {
     final helpers = shift?.lines?.helperCount;
     return switch (language) {
       VoiceLanguage.english => '${switch (terms) {
-            _ when shift != null => 'New house shifting, ${shift.homeSize.label}${helpers == null ? '' : ', bring $helpers helpers'}',
+            _ when shift != null => 'New packers and movers job, ${shift.homeSize.label}${helpers == null ? '' : ', bring $helpers helpers'}',
             RentalTerms t => 'New rental, ${t.hours} ${t.hours == 1 ? 'hour' : 'hours'}',
             OutstationTerms() => 'New outstation trip to ${r.drop.name}${roundTrip ? ', round trip' : ''}',
             null => r.isDelivery ? 'New delivery' : 'New ride',

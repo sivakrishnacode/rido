@@ -111,11 +111,11 @@ Notes:
 | PP-08 | Driver assigned · picking up | In the app | [parcel/PP-08.png](parcel/PP-08.png) |
 | PP-09 | Parcel in transit | In the app | [parcel/PP-09.png](parcel/PP-09.png) |
 | PP-10 | Parcel delivered | In the app | [parcel/PP-10.png](parcel/PP-10.png) |
-| PH-01 | House shifting · moving details | Added after the design | [parcel/PH-01.png](parcel/PH-01.png) |
-| PH-02 | House shifting · items (typed) | Added after the design | [parcel/PH-02.png](parcel/PH-02.png) |
-| PH-03 | House shifting · day and extras | Added after the design | [parcel/PH-03.png](parcel/PH-03.png) |
-| PH-04 | House shifting · review | Added after the design | [parcel/PH-04.png](parcel/PH-04.png) |
-| PH-05 | House shifting · booked | Added after the design | [parcel/PH-05.png](parcel/PH-05.png) |
+| PH-01 | Packers & Movers · moving details | Added after the design | [parcel/PH-01.png](parcel/PH-01.png) |
+| PH-02 | Packers & Movers · items (typed) | Added after the design | [parcel/PH-02.png](parcel/PH-02.png) |
+| PH-03 | Packers & Movers · day and extras | Added after the design | [parcel/PH-03.png](parcel/PH-03.png) |
+| PH-04 | Packers & Movers · review | Added after the design | [parcel/PH-04.png](parcel/PH-04.png) |
+| PH-05 | Packers & Movers · booked | Added after the design | [parcel/PH-05.png](parcel/PH-05.png) |
 
 ## Passenger states
 
@@ -164,12 +164,12 @@ Notes:
 | D-19 | Collect payment | In the app | [driver/D-19.png](driver/D-19.png) |
 | D-19c | Collect payment · rental with extra km and time | Added after the design | [driver/D-19c.png](driver/D-19c.png) |
 | D-20 | Incoming delivery request | In the app | [driver/D-20.png](driver/D-20.png) |
-| D-20c | Incoming request · house shifting | Added after the design | [driver/D-20c.png](driver/D-20c.png) |
+| D-20c | Incoming request · Packers & Movers | Added after the design | [driver/D-20c.png](driver/D-20c.png) |
 | D-21 | Delivery in progress | In the app | [driver/D-21.png](driver/D-21.png) |
-| D-21c | House shifting · at the pickup | Added after the design | [driver/D-21c.png](driver/D-21c.png) |
+| D-21c | Packers & Movers · at the pickup | Added after the design | [driver/D-21c.png](driver/D-21c.png) |
 | D-22a | Complete delivery with OTP | In the app | [driver/D-22a.png](driver/D-22a.png) |
 | D-22b | Collect from receiver | In the app | [driver/D-22b.png](driver/D-22b.png) |
-| D-22c | Collect · house shifting | Added after the design | [driver/D-22c.png](driver/D-22c.png) |
+| D-22c | Collect · Packers & Movers | Added after the design | [driver/D-22c.png](driver/D-22c.png) |
 | D-23 | Earnings | In the app | [driver/D-23.png](driver/D-23.png) |
 | D-23b | Earnings · trip detail sheet | In the app | [driver/D-23b.png](driver/D-23b.png) |
 | D-24 | Plan · active | Off while the app is free (paid plans switched off) | [driver/D-24.png](driver/D-24.png) |

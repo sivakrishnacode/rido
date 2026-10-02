@@ -172,7 +172,7 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
               <Field label="Model">{d.vehicleModel}</Field>
               <Field label="Colour">{d.vehicleColor || "–"}</Field>
               {GOODS_TRUCKS.includes(d.vehicleKind as GoodsTruck) && (
-                <Field label="House shifting" className="col-span-2">
+                <Field label="Packers & Movers" className="col-span-2">
                   {d.bookingPrefs?.shifting
                     ? `Takes moves · brings ${d.bookingPrefs.helpers ?? 2} helper${(d.bookingPrefs.helpers ?? 2) === 1 ? "" : "s"}`
                     : "Not taking moves (switched off in the driver app)"}

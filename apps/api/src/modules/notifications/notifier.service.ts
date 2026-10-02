@@ -144,7 +144,7 @@ export class NotifierService {
       const what =
         t.kind === TripKind.PARCEL
           ? t.shifting
-            ? 'house shifting'
+            ? 'Packers & Movers'
             : t.rideMode === RideMode.OUTSTATION
               ? 'outstation delivery'
               : 'delivery'

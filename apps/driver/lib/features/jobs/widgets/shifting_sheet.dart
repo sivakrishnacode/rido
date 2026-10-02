@@ -33,7 +33,7 @@ class _ShiftingDetails extends StatelessWidget {
       constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.75),
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          Text('House shifting · ${s.homeSize.label}', style: t.h2),
+          Text('Packers & Movers · ${s.homeSize.label}', style: t.h2),
           const SizedBox(height: 4),
           Text(
             [

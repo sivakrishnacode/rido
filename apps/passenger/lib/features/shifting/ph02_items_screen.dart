@@ -76,7 +76,7 @@ class _PH02ItemsScreenState extends ConsumerState<PH02ItemsScreen> {
     final full = items.length >= GoodsModeRates.maxItems;
 
     return ShiftingScaffold(
-      title: 'House shifting',
+      title: 'Packers & Movers',
       step: 2,
       bottom: ShiftingPriceBar(
         total: s.quote?.lines.total,

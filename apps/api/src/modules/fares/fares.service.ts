@@ -212,7 +212,7 @@ export class FaresService {
     const rates = pricing.shifting;
     const suggested = rates.sizes[p.details.homeSize].vehicle;
     const kind = p.vehicleKind ?? suggested;
-    if (!isGoodsTruck(kind)) throw new BadRequestException('House shifting is by three-wheeler, mini truck, pickup or truck');
+    if (!isGoodsTruck(kind)) throw new BadRequestException('Packers & Movers goes by three-wheeler, mini truck, pickup or truck');
     const route = await this.maps.estimate({ from: p.pickup, to: p.drop, vehicleKind: FaresService.routeVehicle(true) });
     const s = await this.settings.all();
     const plan = { distanceKm: route.distanceKm, durationMin: route.durationMin, ...(typeof route.travelMin === 'number' && { travelMin: route.travelMin }) };

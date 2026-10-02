@@ -31,7 +31,7 @@ class PH03ScheduleScreen extends ConsumerWidget {
     final helperRate = rates.helperRate(between: d.between);
 
     return ShiftingScaffold(
-      title: 'House shifting',
+      title: 'Packers & Movers',
       step: 3,
       bottom: ShiftingPriceBar(
         total: q?.lines.total,

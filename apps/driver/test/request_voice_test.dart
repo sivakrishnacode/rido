@@ -43,7 +43,7 @@ void main() {
 
   test('a house shift says the home and how many helpers to bring', () {
     final en = RequestSpeech.of(Seed.shiftingRequest, VoiceLanguage.english);
-    expect(en, startsWith('New house shifting, 1 BHK, bring 2 helpers. Pickup tomorrow at 9:00 AM.'));
+    expect(en, startsWith('New packers and movers job, 1 BHK, bring 2 helpers. Pickup tomorrow at 9:00 AM.'));
     expect(RequestSpeech.of(Seed.shiftingRequest, VoiceLanguage.tamil), startsWith('புதிய வீடு மாற்றம், 1 BHK, 2 உதவியாளர்கள்.'));
   });
 

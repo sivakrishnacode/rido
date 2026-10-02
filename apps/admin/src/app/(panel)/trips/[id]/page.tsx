@@ -81,7 +81,7 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
           </span>
         }
         description={[
-          t.shifting ? "House shifting" : isParcel ? "Parcel" : "Ride",
+          t.shifting ? "Packers & Movers" : isParcel ? "Parcel" : "Ride",
           t.rideMode === "RENTAL" ? "rental" : t.rideMode === "OUTSTATION" ? "to another town" : null,
           vehicleLabel(t.vehicleKind),
           `booked ${formatDateTime(t.createdAt)}`,
@@ -558,7 +558,7 @@ function ShiftingCard({ s }: { s: ShiftingInfo }) {
     <Card className="lg:col-span-3">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-semibold">
-          <HomeIcon className="size-4 text-coral-600" /> House shifting
+          <HomeIcon className="size-4 text-coral-600" /> Packers &amp; Movers
         </CardTitle>
         <CardDescription>
           {HOME_SIZE[s.homeSize]} · {s.between ? "to another town" : "in town"}

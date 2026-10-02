@@ -346,7 +346,7 @@ function ShiftingCard({ cityId, pricing }: { cityId: string; pricing: CityPricin
     : null;
   return (
     <SectionCard
-      title="House shifting"
+      title="Packers & Movers"
       description="The vehicle suggested for each home size (riders can change it), the helpers that come with it, packing and unpacking. In town the vehicle is priced at this city's in-town fare (no surge); to another town by the goods rates above. Weekends add the % to the whole price."
       isDefault={pricing.sections.shifting.isDefault}
       isDirty={s.isDirty}

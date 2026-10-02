@@ -1094,6 +1094,9 @@ tier per city (City › Fares).
 
 ## 6h. Goods to another town and house shifting (1 Oct 2026)
 
+In the apps and admin house shifting is called **Packers & Movers** (2 Oct 2026), the name the industry uses; the
+code, API fields and enums keep `shifting`.
+
 Built-in rates are in `fares/goods-modes.ts` (each city can set its own, see 6i), mirrored in `packages/tamiltaxi_data/lib/src/goods_modes.dart`; both test
 the shared `packages/tamiltaxi_data/test/fixtures/goods_mode_cases.json`. No surge on either. Goods trucks only
 (three-wheeler, mini truck, pickup, truck), never the goods bike.
@@ -1118,8 +1121,8 @@ the shared `packages/tamiltaxi_data/test/fixtures/goods_mode_cases.json`. No sur
     7 days) and `shifting` with its items. The trip waits `SCHEDULED` (parcels may now be `SCHEDULED` too) and is
     stored with `Trip.shifting` = the details + `lines` (migration `20261001230000_house_shifting`); `rideMode` is
     `OUTSTATION` when `between`, else `LOCAL`. The fare JSON is the vehicle's quote with the shift's `total`. The
-    driver's offer push says "house shifting" / "outstation delivery".
-- Admin: the trip page shows a House shifting card (home size, floors and lifts, extras, the items as typed, the
+    driver's offer push says "Packers & Movers" / "outstation delivery".
+- Admin: the trip page shows a Packers & Movers card (home size, floors and lifts, extras, the items as typed, the
   lines) and the mode and booked-for time in the header.
 
 **In the rider app:**
@@ -1142,17 +1145,17 @@ the shared `packages/tamiltaxi_data/test/fixtures/goods_mode_cases.json`. No sur
     Change (the routes are nested, so Change goes back with the earlier steps in place). Book → P-36 (PH-05).
 
 **Who gets a shift** (2 Oct 2026): only movers. A goods-truck driver (three-wheeler, mini truck, pickup, truck)
-switches on **House shifting jobs** in Account › Booking preferences and sets **Helpers you bring** (0–8, 2 to
+switches on **Packers & Movers jobs** in Account › Booking preferences and sets **Helpers you bring** (0–8, 2 to
 start). Stored in `Driver.bookingPrefs` as `shifting` / `helpers` (`PUT /drivers/me/booking-preferences`; a driver of
 any other vehicle gets 400). Dispatch offers a shift only to drivers who switched it on and bring at least its
 `lines.helperCount` (`takesShift`, `shiftHelpersOf` in `drivers/booking-prefs.ts`); a driver with no saved
 preferences never gets one. Their other filters (pickup distance, trip length, Go To / Stay In) still apply. Admin
-shows it on the driver page (Vehicle & payout › House shifting). Ordinary parcels are unchanged.
+shows it on the driver page (Vehicle & payout › Packers & Movers). Ordinary parcels are unchanged.
 
 **In the driver app:** a shift's request card (D-20c; the overlay carries `shifting` with its lines) has a band
-"House shifting · 1 BHK · 2 helpers" with the slot ("Pickup Tomorrow, 9–11 AM"), tags for the item count and
-packing, and the floor and lift at each stop; no ₹/km. The read-out says "New house shifting, 1 BHK, bring 2
-helpers". D-21c shows the floor at this end, the home and team, and "See 5 items" (the typed list, extras, both
+"Packers & Movers · 1 BHK · 2 helpers" with the slot ("Pickup Tomorrow, 9–11 AM"), tags for the item count and
+packing, and the floor and lift at each stop; no ₹/km. The read-out says "New packers and movers job, 1 BHK,
+bring 2 helpers". D-21c shows the floor at this end, the home and team, and "See 5 items" (the typed list, extras, both
 floors); no waiting timer. D-22c lists the shift's price lines. Goods to another town get the outstation band and
 ₹/km on the charged km.
 

@@ -139,7 +139,7 @@ class _BookingPreferencesScreenState extends ConsumerState<BookingPreferencesScr
                 _Card(children: [
                   _SwitchRow(
                     icon: Symbols.home_rounded,
-                    title: 'House shifting jobs',
+                    title: 'Packers & Movers jobs',
                     subtitle: 'Moves booked for a day and slot, with your helpers',
                     value: draft.shifting,
                     onChanged: (v) => update(draft.copyWith(shifting: v)),

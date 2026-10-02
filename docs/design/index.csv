@@ -69,11 +69,11 @@ PP-07,Finding a goods driver,passenger,parcel/PP-07.png,In the app
 PP-08,Driver assigned · picking up,passenger,parcel/PP-08.png,In the app
 PP-09,Parcel in transit,passenger,parcel/PP-09.png,In the app
 PP-10,Parcel delivered,passenger,parcel/PP-10.png,In the app
-PH-01,House shifting · moving details,passenger,parcel/PH-01.png,Added after the design
-PH-02,House shifting · items (typed),passenger,parcel/PH-02.png,Added after the design
-PH-03,House shifting · day and extras,passenger,parcel/PH-03.png,Added after the design
-PH-04,House shifting · review,passenger,parcel/PH-04.png,Added after the design
-PH-05,House shifting · booked,passenger,parcel/PH-05.png,Added after the design
+PH-01,Packers & Movers · moving details,passenger,parcel/PH-01.png,Added after the design
+PH-02,Packers & Movers · items (typed),passenger,parcel/PH-02.png,Added after the design
+PH-03,Packers & Movers · day and extras,passenger,parcel/PH-03.png,Added after the design
+PH-04,Packers & Movers · review,passenger,parcel/PH-04.png,Added after the design
+PH-05,Packers & Movers · booked,passenger,parcel/PH-05.png,Added after the design
 S-01,No drivers nearby,passenger,states/S-01.png,In the app
 S-02,Driver cancelled,passenger,states/S-02.png,In the app
 S-03,Cancel ride · confirm dialog,passenger,states/S-03.png,In the app
@@ -121,12 +121,12 @@ D-18b,Driver SOS,driver,driver/D-18b.png,In the app
 D-19,Collect payment,driver,driver/D-19.png,In the app
 D-19c,Collect payment · rental with extra km and time,driver,driver/D-19c.png,Added after the design
 D-20,Incoming delivery request,driver,driver/D-20.png,In the app
-D-20c,Incoming request · house shifting,driver,driver/D-20c.png,Added after the design
+D-20c,Incoming request · Packers & Movers,driver,driver/D-20c.png,Added after the design
 D-21,Delivery in progress,driver,driver/D-21.png,In the app
-D-21c,House shifting · at the pickup,driver,driver/D-21c.png,Added after the design
+D-21c,Packers & Movers · at the pickup,driver,driver/D-21c.png,Added after the design
 D-22a,Complete delivery with OTP,driver,driver/D-22a.png,In the app
 D-22b,Collect from receiver,driver,driver/D-22b.png,In the app
-D-22c,Collect · house shifting,driver,driver/D-22c.png,Added after the design
+D-22c,Collect · Packers & Movers,driver,driver/D-22c.png,Added after the design
 D-23,Earnings,driver,driver/D-23.png,In the app
 D-23b,Earnings · trip detail sheet,driver,driver/D-23b.png,In the app
 D-24,Plan · active,driver,driver/D-24.png,Off while the app is free (paid plans switched off)

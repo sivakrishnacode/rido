@@ -124,7 +124,7 @@ export class TripsService {
     const isGoods = FARE_RULES[dto.vehicleKind].isGoods;
     if (isGoods !== (dto.kind === TripKind.PARCEL)) throw new BadRequestException('Vehicle does not match trip kind');
     if (shifting) {
-      if (!isGoodsTruck(dto.vehicleKind)) throw new BadRequestException('House shifting is by three-wheeler, mini truck, pickup or truck');
+      if (!isGoodsTruck(dto.vehicleKind)) throw new BadRequestException('Packers & Movers goes by three-wheeler, mini truck, pickup or truck');
       if (!shifting.items?.length) throw new BadRequestException('Add the things you are moving');
     } else if (mode !== RideMode.LOCAL && dto.kind === TripKind.PARCEL) {
       if (mode !== RideMode.OUTSTATION || !isGoodsTruck(dto.vehicleKind)) {

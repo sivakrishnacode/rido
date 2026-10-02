@@ -70,7 +70,7 @@ void main() {
     expect(BookingPrefs.fromJson(const {}).shifting, isFalse);
     final mover = BookingPrefs.fromJson(const {'shifting': true, 'helpers': 12});
     expect((mover.shifting, mover.helpers), (true, 8));
-    expect(const BookingPrefs(shifting: true, helpers: 3).summary, 'house shifting with 3 helpers');
+    expect(const BookingPrefs(shifting: true, helpers: 3).summary, 'Packers & Movers with 3 helpers');
   });
 
   test('Go To and Stay In are never on together', () {
@@ -133,7 +133,7 @@ void main() {
   testWidgets('a goods-truck driver switches house shifting on and says how many helpers they bring', (tester) async {
     final container = await pumpRoute(tester, '/account/booking-preferences', overrides: [driverProfileProvider.overrideWith(_Mover.new)]);
     expect(find.text('Parcels too'), findsNothing, reason: 'bikes only');
-    await center(tester, find.text('House shifting jobs'));
+    await center(tester, find.text('Packers & Movers jobs'));
     expect(find.text('Helpers you bring'), findsNothing);
     await tester.tap(find.byType(Switch).last);
     await tester.pump();
@@ -153,7 +153,7 @@ void main() {
 
   testWidgets('a bike driver has no house shifting', (tester) async {
     await pumpRoute(tester, '/account/booking-preferences');
-    expect(find.text('House shifting jobs', skipOffstage: false), findsNothing);
+    expect(find.text('Packers & Movers jobs', skipOffstage: false), findsNothing);
   });
 
   testWidgets('add an area, turn Go To on, then Stay In there within 8 km (Go To goes off)', (tester) async {

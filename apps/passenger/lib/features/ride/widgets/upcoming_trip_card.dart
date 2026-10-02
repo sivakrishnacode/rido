@@ -9,7 +9,7 @@ import '../../../state/shifting_flow.dart' show slotLabel;
 /// What a trip booked for later is: "Rental · 4 hrs · 40 km", "Outstation · round trip", "House shifting · 1 BHK",
 /// "Goods · another town".
 String modeLabelOf(Trip trip) {
-  if (trip.shifting case final s?) return 'House shifting · ${s.homeSize.label}';
+  if (trip.shifting case final s?) return 'Packers & Movers · ${s.homeSize.label}';
   if (trip.isParcel) return trip.rideMode == RideMode.outstation ? 'Goods · another town' : 'Parcel';
   return rideModeLabel(trip.rideMode, trip.modeTerms) ?? 'Ride';
 }

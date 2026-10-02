@@ -122,7 +122,7 @@ class BookingPrefs {
         if (goTo != null) 'going to ${goTo!.name}',
         if (stayIn != null) 'staying in ${stayIn!.name}',
         if (hasTripFilters) tripFilterSummary,
-        if (shifting) 'house shifting with $helpers helper${helpers == 1 ? '' : 's'}',
+        if (shifting) 'Packers & Movers with $helpers helper${helpers == 1 ? '' : 's'}',
       ].join(' · ');
 
   /// "Pickup ≤ 2 km · trips over 5 km": the limits alone (Home shows Go To / Stay In on their own strip).
