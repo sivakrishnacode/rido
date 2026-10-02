@@ -672,7 +672,7 @@ class RideFlowController extends Notifier<RideFlowState> {
         // The API cancels the trip when the driver drops it; say who, when a driver was on the way.
         final hadDriver = state.phase == RidePhase.assigned || state.phase == RidePhase.arrived;
         final who = hadDriver ? '${state.driver.firstName} cancelled the ride' : 'Your ride was cancelled';
-        state = state.copyWith(phase: RidePhase.planning, busy: false, tripQuote: null);
+        state = _planningAgain(state.copyWith(busy: false, tripQuote: null));
         ref.invalidate(tripHistoryProvider);
         if (!byMe) {
           ref.read(appNoticeProvider.notifier).show(cancelledNotice(u, who: who, bookAgain: 'You can book again.'), goTo: Routes.ride);
@@ -828,7 +828,7 @@ class RideFlowController extends Notifier<RideFlowState> {
       await ref.read(rideRepositoryProvider).addTrip(_trip(TripStatus.cancelled));
       ref.invalidate(tripHistoryProvider);
     }
-    state = state.copyWith(phase: RidePhase.planning);
+    state = _planningAgain(state);
     return null;
   }
 
@@ -884,19 +884,19 @@ class RideFlowController extends Notifier<RideFlowState> {
     if (_live) {
       if (state.phase == RidePhase.noDrivers || state.phase == RidePhase.planning) {
         _stopFollowing();
-        state = state.copyWith(phase: RidePhase.planning, tripQuote: null);
+        state = _planningAgain(state.copyWith(tripQuote: null));
         return null;
       }
       return _cancelLive(CancelCode.changedMind, note: 'Cancelled while searching');
     }
     _sim.cancelAll();
-    state = state.copyWith(phase: RidePhase.planning);
+    state = _planningAgain(state);
     return null;
   }
 
   Future<String?> _cancelLive(CancelCode code, {String? note}) async {
     if (!state.isActive) {
-      state = state.copyWith(phase: RidePhase.planning);
+      state = _planningAgain(state);
       return null;
     }
     _cancelledByMe = true;
@@ -909,7 +909,7 @@ class RideFlowController extends Notifier<RideFlowState> {
       return apiErrorMessage(e);
     }
     _stopFollowing();
-    state = state.copyWith(phase: RidePhase.planning, busy: false, tripQuote: null);
+    state = _planningAgain(state.copyWith(busy: false, tripQuote: null));
     ref.invalidate(tripHistoryProvider);
     return null;
   }
@@ -932,15 +932,19 @@ class RideFlowController extends Notifier<RideFlowState> {
       }
       ref.invalidate(tripHistoryProvider);
       ref.invalidate(recentDestinationsProvider);
-      // The next ride is for "me" again (booking for someone else is chosen each time).
-      state = state.copyWith(phase: RidePhase.planning, tripQuote: null, busy: false, rider: null, womenDriver: null);
+      state = _planningAgain(state.copyWith(tripQuote: null, busy: false));
       return;
     }
     _sim.cancelAll();
     await ref.read(rideRepositoryProvider).addTrip(_trip(TripStatus.completed, rating: rating));
     ref.invalidate(tripHistoryProvider);
-    state = state.copyWith(phase: RidePhase.planning, rider: null, womenDriver: null);
+    state = _planningAgain(state);
   }
+
+  /// Back to planning after a ride ended or was cancelled (by anyone): the next ride is for "me" again with the
+  /// profile's Butterfly default (booking for someone else, and the P-10 Butterfly choice, are chosen each time).
+  static RideFlowState _planningAgain(RideFlowState s) =>
+      s.copyWith(phase: RidePhase.planning, rider: null, womenDriver: null);
 
   Trip _trip(TripStatus status, {int? rating}) {
     final q = state.quote;
