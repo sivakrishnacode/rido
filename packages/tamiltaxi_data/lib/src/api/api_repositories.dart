@@ -202,7 +202,7 @@ class ApiRideRepository implements RideRepository {
       if (drop != null && request.mode != RideMode.rental) 'drop': pointJson(drop),
       ...request.toJson(),
     }));
-    return [for (final q in _list(res['quotes'])) quoteFromJson(q)];
+    return quotesFromJson(res['quotes']);
   }
 
   /// `GET /trips/upcoming`.
@@ -248,11 +248,12 @@ class ApiRideRepository implements RideRepository {
     }));
     return [
       for (final v in _list(res['vehicles']))
-        NearbyVehicle(
-          kind: vehicleKindFromApi(v['vehicleKind'] ?? v['kind']),
-          position: LatLng((v['lat'] as num).toDouble(), (v['lng'] as num).toDouble()),
-          heading: (v['heading'] as num?)?.toDouble(),
-        ),
+        if (knownVehicleKind(v['vehicleKind'] ?? v['kind']) case final kind?)
+          NearbyVehicle(
+            kind: kind,
+            position: LatLng((v['lat'] as num).toDouble(), (v['lng'] as num).toDouble()),
+            heading: (v['heading'] as num?)?.toDouble(),
+          ),
     ];
   }
 
@@ -283,7 +284,7 @@ class ApiRideRepository implements RideRepository {
 Future<List<FareQuote>> _quotes(ApiClient api, Place from, Place to, String kind, {bool womenOnly = false}) async {
   final res = _map(await api.post(
       '/fares/quote', {'pickup': pointJson(from), 'drop': pointJson(to), 'kind': kind, if (womenOnly) 'womenOnly': true}, true));
-  return [for (final q in _list(res['quotes'])) quoteFromJson(q)];
+  return quotesFromJson(res['quotes']);
 }
 
 class ApiParcelRepository implements ParcelRepository {
@@ -298,7 +299,7 @@ class ApiParcelRepository implements ParcelRepository {
     if (!outstation) return _quotes(api, from, to, 'PARCEL');
     final res = _map(await api.post(
         '/fares/quote', {'pickup': pointJson(from), 'drop': pointJson(to), 'kind': 'PARCEL', 'rideMode': 'OUTSTATION'}, true));
-    return [for (final q in _list(res['quotes'])) quoteFromJson(q)];
+    return quotesFromJson(res['quotes']);
   }
 
   /// `POST /fares/shifting-quote`.

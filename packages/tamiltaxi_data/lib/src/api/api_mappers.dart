@@ -16,13 +16,15 @@ typedef Json = Map<String, dynamic>;
 
 String enumToApi(Enum e) => e.name.replaceAllMapped(RegExp('[A-Z]'), (m) => '_${m[0]}').toUpperCase();
 
-T enumFromApi<T extends Enum>(List<T> values, Object? raw, T fallback) {
-  if (raw is! String) return fallback;
+T enumFromApi<T extends Enum>(List<T> values, Object? raw, T fallback) => _enumOrNull(values, raw) ?? fallback;
+
+T? _enumOrNull<T extends Enum>(List<T> values, Object? raw) {
+  if (raw is! String) return null;
   final camel = raw.toLowerCase().replaceAllMapped(RegExp('_([a-z])'), (m) => m[1]!.toUpperCase());
   for (final v in values) {
     if (v.name == camel) return v;
   }
-  return fallback;
+  return null;
 }
 
 double _d(Object? v, [double fallback = 0]) => v is num ? v.toDouble() : fallback;
@@ -37,6 +39,16 @@ String apiPhone(String phone) {
 }
 
 VehicleKind vehicleKindFromApi(Object? raw) => enumFromApi(VehicleKind.values, raw, VehicleKind.bike);
+
+/// The app's vehicle for an API `vehicleKind`, or null for a tier this version doesn't know (a newer server added
+/// one). Lists the rider picks from drop those: shown as a second "Bike" at another price, it would book as BIKE.
+VehicleKind? knownVehicleKind(Object? raw) => _enumOrNull(VehicleKind.values, raw);
+
+/// `quotes` of a fare answer, without vehicles this app doesn't know ([knownVehicleKind]).
+List<FareQuote> quotesFromJson(Object? raw) => [
+      for (final q in (raw as List? ?? const []))
+        if (q is Map && knownVehicleKind(q['vehicleKind']) != null) quoteFromJson(q.cast<String, dynamic>()),
+    ];
 
 VehicleType vehicleTypeFor(VehicleKind kind) => Seed.allVehicles.firstWhere((v) => v.kind == kind);
 
@@ -141,7 +153,10 @@ TripStatus tripStatusFromApi(Object? raw) => switch (raw) {
       'COMPLETED' => TripStatus.completed,
       'DELIVERED' => TripStatus.delivered,
       // NO_DRIVERS and CANCELLED both end the trip without a ride.
-      _ => TripStatus.cancelled,
+      'NO_DRIVERS' || 'CANCELLED' => TripStatus.cancelled,
+      // A status this version doesn't know (a newer server) is not an ending: the trip goes on until the server says
+      // it ended.
+      _ => TripStatus.inProgress,
     };
 
 Json parcelToJson(ParcelDetails p) => {
@@ -425,7 +440,7 @@ ShiftingQuote shiftingQuoteFromJson(Json j) {
     modeTerms: terms is OutstationTerms ? terms : null,
     vehicles: [
       for (final v in _jsonList(j['vehicles']))
-        (kind: vehicleKindFromApi(v['vehicleKind']), total: _i(v['total']), suggested: v['suggested'] == true),
+        if (knownVehicleKind(v['vehicleKind']) case final kind?) (kind: kind, total: _i(v['total']), suggested: v['suggested'] == true),
     ],
     days: [
       for (final d in _jsonList(j['days']))
