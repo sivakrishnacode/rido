@@ -35,6 +35,10 @@ abstract final class TtColors {
   static const errorTint = Color(0xFFFEE2E2);
   static const infoTint = Color(0xFFE2E8F0);
 
+  /// A cool light blue for a tile next to a coral-50 one (Home › Outstation beside Rental), and its edge.
+  static const skyTint = Color(0xFFEDF4FD);
+  static const sky100 = Color(0xFFD3E4F8);
+
   // Map style
   static const mapLand = Color(0xFFEEF0F3);
   static const mapRoad = Color(0xFFFFFFFF);

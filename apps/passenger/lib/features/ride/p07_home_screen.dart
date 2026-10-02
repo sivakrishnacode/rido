@@ -710,12 +710,21 @@ class _MoreWaysRow extends ConsumerWidget {
                 title: 'Rental',
                 subtitle: from == null ? 'By the hour' : 'By the hour · from ${formatInr(from)}',
                 kind: VehicleKind.sedan,
+                tint: TtColors.coral50,
+                edge: TtColors.coral100,
                 onTap: onRental,
               ),
             ),
             const SizedBox(width: TtSpacing.s),
             Expanded(
-              child: _WayTile(title: 'Outstation', subtitle: 'To other towns · one way or return', kind: VehicleKind.suv, onTap: onOutstation),
+              child: _WayTile(
+                title: 'Outstation',
+                subtitle: 'One way or round trip',
+                kind: VehicleKind.suv,
+                tint: TtColors.skyTint,
+                edge: TtColors.sky100,
+                onTap: onOutstation,
+              ),
             ),
           ],
           ),
@@ -725,11 +734,21 @@ class _MoreWaysRow extends ConsumerWidget {
   }
 }
 
+/// A tinted tile (so it stands apart from the sheet): the title and what it is on the left, the car on the right.
 class _WayTile extends StatelessWidget {
-  const _WayTile({required this.title, required this.subtitle, required this.kind, required this.onTap});
+  const _WayTile({
+    required this.title,
+    required this.subtitle,
+    required this.kind,
+    required this.tint,
+    required this.edge,
+    required this.onTap,
+  });
   final String title;
   final String subtitle;
   final VehicleKind kind;
+  final Color tint;
+  final Color edge;
   final VoidCallback onTap;
 
   @override
@@ -740,24 +759,28 @@ class _WayTile extends StatelessWidget {
       label: '$title, $subtitle',
       excludeSemantics: true,
       child: Material(
-        color: TtColors.background,
-        borderRadius: TtRadii.cardRadius,
+        color: tint,
+        shape: RoundedRectangleBorder(borderRadius: TtRadii.cardRadius, side: BorderSide(color: edge)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(TtSpacing.m, TtSpacing.m, TtSpacing.s, TtSpacing.s),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+            child: Row(
               children: [
-                Row(children: [
-                  Expanded(child: Text(title, style: t.bodySemibold.copyWith(fontSize: 17))),
-                  const Icon(Symbols.arrow_forward_rounded, size: 18, color: TtColors.navy500),
-                ]),
-                Text(subtitle, style: t.caption.copyWith(color: TtColors.navy500), maxLines: 2),
-                const Spacer(),
-                const SizedBox(height: TtSpacing.xs),
-                Align(alignment: Alignment.bottomRight, child: VehicleArt(kind, width: 96, height: 50)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(title, style: t.bodySemibold),
+                      const SizedBox(height: 2),
+                      Text(subtitle, style: t.caption.copyWith(color: TtColors.navy700), maxLines: 2),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                VehicleArt(kind, width: 62, height: 38),
               ],
             ),
           ),

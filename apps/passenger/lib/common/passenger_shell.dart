@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
@@ -17,6 +18,14 @@ class PassengerShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Light screens under a transparent status bar: dark icons (a screen with a dark top sets its own region).
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
+      child: _scaffold(),
+    );
+  }
+
+  Widget _scaffold() {
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: TtBottomNav(
