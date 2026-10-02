@@ -22,6 +22,13 @@ import { DiditClient } from '../kyc/didit.client.js';
 import { REQUIRED_DOCS } from '../kyc/driver-approval.js';
 
 const PLATE_TAKEN = 'This number plate is already registered';
+/** A driver on one of these is on a trip. */
+const ON_TRIP: TripStatus[] = [TripStatus.DRIVER_ASSIGNED, TripStatus.DRIVER_ARRIVED, TripStatus.IN_PROGRESS, TripStatus.PICKED_UP];
+
+/** "TN 37 AB 4521" and "tn37ab4521" are the same plate. */
+export function samePlate(a: string, b: string): boolean {
+  return a.toUpperCase().replace(/\s+/g, '') === b.toUpperCase().replace(/\s+/g, '');
+}
 export const ADMIN_CANT_REGISTER = "An admin account can't register as a driver. Use another number";
 
 /** Driver registration, KYC and online status. */
@@ -98,24 +105,72 @@ export class DriversService {
     return this.prisma.kycDocument.findMany({ where: { driverId, type: { in: [...REQUIRED_DOCS] } }, orderBy: { type: 'asc' } });
   }
 
-  /** Profile edits (D-25). Name and gender live on the user; the rest on the driver. */
+  /**
+   * Profile edits (D-25). Name and gender live on the user; the rest on the driver. Name, model, colour and UPI change
+   * freely; gender only while PENDING. A new plate is a new vehicle: an uploaded RC goes back to "upload" with the
+   * reason, and an APPROVED / ON_HOLD driver goes back to PENDING and offline (out of dispatch), all in one
+   * transaction with a row in their admin history. Not while they are on a trip (409).
+   */
   async update(driverId: string, dto: UpdateDriverDto): Promise<Driver> {
     const { name, gender, ...vehicle } = dto;
+    const current = await this.prisma.driver.findUniqueOrThrow({
+      where: { id: driverId },
+      select: {
+        status: true,
+        plate: true,
+        userId: true,
+        user: { select: { gender: true } },
+        documents: { where: { type: KycDocType.VEHICLE_RC }, select: { status: true } },
+      },
+    });
     if (gender) {
       // Gender decides who gets Butterfly (women-only) rides: set at sign-up, then changed only by support.
-      const current = await this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, select: { status: true, user: { select: { gender: true } } } });
       // None stored reads as "prefer not to say" in the app, which sends that back on every profile save.
       const stored = current.user.gender ?? Gender.PREFER_NOT_TO_SAY;
       if (stored !== gender && current.status !== DriverStatus.PENDING) {
         throw new ForbiddenException('Contact support to change your gender');
       }
     }
-    const driver = await this.prisma.driver.update({
-      where: { id: driverId },
-      data: { ...vehicle, plate: vehicle.plate?.toUpperCase(), ...(name || gender ? { user: { update: { name, gender } } } : {}) },
-    });
-    await this.state.invalidate(driver.id);
-    return this.me(driver.id);
+    // The same plate typed with other spacing is not a change.
+    const plate = vehicle.plate && !samePlate(vehicle.plate, current.plate) ? vehicle.plate.toUpperCase() : undefined;
+    const leavesApproval = plate !== undefined && (current.status === DriverStatus.APPROVED || current.status === DriverStatus.ON_HOLD);
+    const isRcUploaded = current.documents.some((d) => d.status !== KycStatus.NOT_UPLOADED);
+    const resetsRc = plate !== undefined && (leavesApproval || isRcUploaded);
+    if (leavesApproval && (await this.prisma.trip.count({ where: { driverId, status: { in: ON_TRIP } } }))) {
+      throw new ConflictException('Finish your trip before changing the vehicle');
+    }
+    const user = name || gender ? { user: { update: { name, gender } } } : {};
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.driver.update({
+          where: { id: driverId },
+          data: { ...vehicle, plate, ...user, ...(leavesApproval ? { status: DriverStatus.PENDING, isOnline: false } : {}) },
+        });
+        if (!resetsRc) return;
+        const rc = { status: KycStatus.NOT_UPLOADED, fileUrl: null, rejectReason: `Upload the RC of your new vehicle (${plate})` };
+        await tx.kycDocument.upsert({
+          where: { driverId_type: { driverId, type: KycDocType.VEHICLE_RC } },
+          create: { driverId, type: KycDocType.VEHICLE_RC, ...rc },
+          update: rc,
+        });
+        await tx.auditLog.create({
+          data: {
+            actorId: current.userId,
+            action: 'PATCH /v1/drivers/me',
+            entity: 'drivers',
+            entityId: driverId,
+            data: { body: { plate }, from: { plate: current.plate, status: current.status }, to: { status: leavesApproval ? DriverStatus.PENDING : current.status } },
+          },
+        });
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2002') throw new ConflictException(PLATE_TAKEN);
+      throw e;
+    }
+    // Out of dispatch now, like going offline (the row is already offline).
+    if (leavesApproval) await this.goOffline(driverId);
+    await this.state.invalidate(driverId);
+    return this.me(driverId);
   }
 
   async bookingPrefs(driverId: string): Promise<BookingPrefs> {
@@ -300,8 +355,7 @@ export class DriversService {
     const tripId = await this.location.activeTrip(driverId);
     if (!tripId) return;
     const trip = await this.prisma.trip.findUnique({ where: { id: tripId }, select: { driverId: true, status: true } });
-    const onTrip: TripStatus[] = [TripStatus.DRIVER_ASSIGNED, TripStatus.DRIVER_ARRIVED, TripStatus.IN_PROGRESS, TripStatus.PICKED_UP];
-    if (trip?.driverId !== driverId || !onTrip.includes(trip.status)) await this.location.releaseBusy(driverId, tripId);
+    if (trip?.driverId !== driverId || !ON_TRIP.includes(trip.status)) await this.location.releaseBusy(driverId, tripId);
   }
 
   async goOffline(driverId: string): Promise<Driver> {
