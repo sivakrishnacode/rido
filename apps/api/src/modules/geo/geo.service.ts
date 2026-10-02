@@ -33,7 +33,8 @@ const CACHE_MS = 30_000;
  */
 @Injectable()
 export class GeoService {
-  private cache: { at: number; cities: CityIndex[] } | null = null;
+  /** [hasAnyCity]: any City row at all, active or not (none = a fresh install: everywhere is served). */
+  private cache: { at: number; cities: CityIndex[]; hasAnyCity: boolean } | null = null;
   private bounds: { at: number; value: LatLngBounds | null } | null = null;
 
   constructor(
@@ -47,21 +48,31 @@ export class GeoService {
   }
 
   private async cities(): Promise<CityIndex[]> {
-    if (this.cache && Date.now() - this.cache.at < CACHE_MS) return this.cache.cities;
-    const rows = await this.prisma.city.findMany({
-      where: { isActive: true },
-      include: { zones: { where: { isActive: true } }, fareRules: { where: { isActive: true } }, modePricing: true },
-    });
-    const cities = rows.map((city) => ({ city, service: new Set(city.serviceCells), pricing: effectivePricing(city.modePricing) }));
-    this.cache = { at: Date.now(), cities };
-    return cities;
+    return (await this.index()).cities;
   }
 
-  /** Looks up a point. With no cities configured, everything is serviceable (prototype default). */
+  private async index(): Promise<{ cities: CityIndex[]; hasAnyCity: boolean }> {
+    if (this.cache && Date.now() - this.cache.at < CACHE_MS) return this.cache;
+    const [rows, total] = await Promise.all([
+      this.prisma.city.findMany({
+        where: { isActive: true },
+        include: { zones: { where: { isActive: true } }, fareRules: { where: { isActive: true } }, modePricing: true },
+      }),
+      this.prisma.city.count(),
+    ]);
+    const cities = rows.map((city) => ({ city, service: new Set(city.serviceCells), pricing: effectivePricing(city.modePricing) }));
+    this.cache = { at: Date.now(), cities, hasAnyCity: total > 0 };
+    return this.cache;
+  }
+
+  /**
+   * Looks up a point. With no City rows at all (a fresh install), everything is serviceable; once cities exist, only
+   * an active city's service cells are, so switching every city off stops service everywhere.
+   */
   async locate(point: { lat: number; lng: number }): Promise<PointInfo> {
     const s = await this.settings.all();
-    const cities = await this.cities();
-    if (cities.length === 0) return { cityId: null, cell: null, isServiceable: true, zones: [], multiplier: s.currentMultiplier };
+    const { cities, hasAnyCity } = await this.index();
+    if (!hasAnyCity) return { cityId: null, cell: null, isServiceable: true, zones: [], multiplier: s.currentMultiplier };
     for (const { city, service } of cities) {
       const cell = cellAt(point.lat, point.lng, city.h3Resolution);
       if (!service.has(cell)) continue;
