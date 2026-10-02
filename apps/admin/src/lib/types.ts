@@ -226,6 +226,8 @@ export interface DriverBase {
   readonly photoUpdatedAt?: string | null;
   /** Live selfie from the approved Didit check (the reference photos are matched against). */
   readonly selfieFile?: string | null;
+  /** Last passed daily selfie check. */
+  readonly selfieCheckedAt?: string | null;
   /** A new photo with an unclear face match, waiting for an admin. */
   readonly pendingPhotoFile?: string | null;
   readonly photoMatchScore?: number | null;
@@ -879,6 +881,8 @@ export interface Settings {
   readonly driverPlansEnabled: boolean;
   /** On: approved as soon as every check passes. Off: ready drivers wait in Drivers › Approvals. */
   readonly driverAutoApprove: boolean;
+  /** Drivers take a daily selfie (matched to their verified face) before going online. */
+  readonly dailySelfieCheckEnabled: boolean;
   /** Contribute page (both apps). */
   readonly contributeUpiId: string;
   readonly contributePayeeName: string;

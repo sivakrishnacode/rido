@@ -329,7 +329,11 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
         <CardContent className="pt-4">
           <div className="flex flex-wrap items-start gap-6">
             <PhotoTile label="Shown to riders" file={d.photoFile} note={d.photoUpdatedAt ? `Since ${formatDateTime(d.photoUpdatedAt)}` : "None yet"} />
-            <PhotoTile label="Verified selfie (Didit)" file={d.selfieFile} note="Reference face, never shown to riders" />
+            <PhotoTile
+              label="Verified selfie (Didit)"
+              file={d.selfieFile}
+              note={`Reference face, never shown to riders · daily check ${d.selfieCheckedAt ? `passed ${formatDateTime(d.selfieCheckedAt)}` : "not taken yet"}`}
+            />
             {d.pendingPhotoFile && (
               <div className="flex flex-col gap-3">
                 <PhotoTile

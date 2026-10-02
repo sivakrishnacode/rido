@@ -89,6 +89,11 @@ describe("settings validation", () => {
     ]);
   });
 
+  it("takes the daily selfie check as a switch only", () => {
+    expect(validateSettings({ dailySelfieCheckEnabled: false })).toEqual({});
+    expect(Object.keys(validateSettings({ dailySelfieCheckEnabled: "off" }))).toEqual(["dailySelfieCheckEnabled"]);
+  });
+
   it("surge example matches the API formula (ratio 3 → 1.2×)", async () => {
     const { surgeExample } = await import("@/lib/validation");
     expect(surgeExample(3, 0.1, 1.5)).toBe(1.2);
