@@ -58,7 +58,6 @@ class FareBreakdown extends StatelessWidget {
         if (q.hasWaiting) waitingLine(q),
         if (q.hasCancellationFee) cancellationFeeLine(q),
         if (q.hasExtra) extraLine(q),
-        const FareLine('Tamil Taxi commission', 0, tag: '0%'),
       ],
     );
   }
@@ -95,7 +94,6 @@ class FareBreakdown extends StatelessWidget {
               note: pieces == null || pieces == 0 ? null : '$pieces × ${formatInr(l.dismantle ~/ pieces)}'),
         if (l.unpack > 0) FareLine('Unpacking', l.unpack),
         if (l.weekend > 0) FareLine('Weekend', l.weekend, tag: pct == null ? null : '+$pct%', signed: true),
-        const FareLine('Tamil Taxi commission', 0, tag: '0%'),
       ],
     );
   }
@@ -124,7 +122,6 @@ class FareBreakdown extends StatelessWidget {
         },
         if (q.hasCancellationFee) cancellationFeeLine(q),
         if (q.hasExtra) extraLine(q),
-        const FareLine('Tamil Taxi commission', 0, tag: '0%'),
       ],
     );
   }
@@ -168,14 +165,14 @@ class FareBreakdown extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(
-                      color: l.label.contains('commission') ? TtColors.coral50 : TtColors.warningTint,
+                      color: TtColors.warningTint,
                       borderRadius: TtRadii.pillRadius,
                     ),
                     child: Text(
                       l.tag!,
                       style: t.caption.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: l.label.contains('commission') ? TtColors.coral600 : TtColors.warningText,
+                        color: TtColors.warningText,
                       ),
                     ),
                   ),
@@ -194,7 +191,7 @@ class FareBreakdown extends StatelessWidget {
             l.signed ? formatInrSigned(l.amount) : formatInr(l.amount),
             style: TtTextStyles.tabular(
               (l.emphasis ? t.bodySemibold : t.bodyMedium).copyWith(
-                color: l.label.contains('commission') ? TtColors.success : TtColors.navy900,
+                color: TtColors.navy900,
               ),
             ),
           ),

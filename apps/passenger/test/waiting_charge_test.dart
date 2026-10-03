@@ -31,7 +31,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Subtotal'), findsOneWidget);
     expect(find.text('Base fare'), findsOneWidget);
-    expect(find.text('Tamil Taxi commission'), findsOneWidget);
+    expect(find.text('Tamil Taxi commission'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 

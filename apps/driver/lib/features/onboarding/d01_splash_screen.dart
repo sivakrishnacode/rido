@@ -97,7 +97,7 @@ class _D01SplashScreenState extends ConsumerState<D01SplashScreen> {
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: TtSpacing.xxl + TtSpacing.s),
-                  child: Text('0% commission',
+                  child: Text('Rides and deliveries near you',
                       textAlign: TextAlign.center,
                       style: context.type.body.copyWith(color: TtColors.navy300)),
                 ),

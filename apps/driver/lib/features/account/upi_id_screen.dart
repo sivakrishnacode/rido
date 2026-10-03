@@ -83,7 +83,7 @@ class _UpiIdScreenState extends ConsumerState<UpiIdScreen> {
       onRetry: () => ref.invalidate(driverProfileProvider),
       onSave: _filled ? _save : null,
       children: [
-        Text('Passengers pay you directly on this UPI ID. You keep 100%.',
+        Text('Passengers pay you directly on this UPI ID, straight to your bank. It also makes your payment QR.',
             style: t.body.copyWith(color: TtColors.navy700)),
         const SizedBox(height: TtSpacing.l),
         TtTextField(

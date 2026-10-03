@@ -9,9 +9,9 @@ import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import 'widgets/signup_widgets.dart';
 
-/// D-05 Choose vehicle: the vehicle types for the chosen work type with their monthly plan
-/// price and a "1st month free" tag. Pickup / truck show "₹—" and "Contact us". Live API: prices from
-/// the API's monthly plans.
+/// D-05 Choose vehicle: the vehicle types for the chosen work type with what each carries (passengers, or the load
+/// in kg / tonnes). Paid plans on: also the monthly plan price and a "1st month free" tag; pickup / truck show "₹—"
+/// and "Contact us". Live API: prices from the API's monthly plans.
 class D05ChooseVehicleScreen extends ConsumerStatefulWidget {
   const D05ChooseVehicleScreen({super.key, this.showcase = false});
 
@@ -85,7 +85,9 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
                   Text(
                       plansOn
                           ? '${rides ? 'Rides' : 'Deliveries'} · one flat plan per month, no commission.'
-                          : '${rides ? 'Rides' : 'Deliveries'} · free to use: 0% commission, no subscription.',
+                          : rides
+                          ? 'Pick the vehicle you drive. Bikes and scooties get small parcels too.'
+                          : 'Pick the vehicle you drive, by how much load it can carry.',
                       style: t.body.copyWith(color: TtColors.navy700)),
                   const SizedBox(height: TtSpacing.l),
                   for (final row in rows) ...[
@@ -143,10 +145,12 @@ class _VehicleCard extends StatelessWidget {
     final t = context.type;
     final price = this.price;
     final name = kind == VehicleKind.truck ? 'Truck 14ft / 17ft' : kind.label;
+    // "Tata Ace", "Bolero"… (the truck's body length is already in its name).
+    final hint = kind == VehicleKind.truck ? null : Seed.vehicle(kind).modelHint;
     return Semantics(
       selected: selected,
       button: true,
-      label: '$name, ${free ? 'free' : price == null ? 'price on request' : '${formatInr(price)} per month'}',
+      label: '$name, ${capacityText(kind)}${free ? '' : price == null ? ', price on request' : ', ${formatInr(price)} per month'}',
       excludeSemantics: true,
       child: Material(
         color: selected ? TtColors.coral50 : TtColors.surface,
@@ -176,6 +180,26 @@ class _VehicleCard extends StatelessWidget {
                 const SizedBox(height: TtSpacing.s),
                 Text(name, style: t.h2.copyWith(fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: TtSpacing.xs),
+                Row(children: [
+                  Icon(kind.isGoods ? Symbols.weight_rounded : Symbols.group_rounded, size: 18, color: TtColors.navy700),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(capacityText(kind),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TtTextStyles.tabular(t.bodyMedium.copyWith(color: TtColors.navy900))),
+                  ),
+                ]),
+                if (hint != null) ...[
+                  const SizedBox(height: 2),
+                  Text(hint, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.caption.copyWith(color: TtColors.navy500)),
+                ],
+                if (free && kind.isTwoWheeler) ...[
+                  const SizedBox(height: TtSpacing.s),
+                  const _Tag(label: '+ Parcels', bg: TtColors.successTint, fg: TtColors.successText),
+                ],
+                if (!free) ...[
+                const SizedBox(height: TtSpacing.s),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
@@ -183,11 +207,9 @@ class _VehicleCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text(free ? 'Free' : price == null ? '₹—' : formatInr(price), style: t.otp),
-                      if (!free) ...[
-                        const SizedBox(width: 4),
-                        Text('/ month', style: t.bodySmall.copyWith(color: TtColors.navy500)),
-                      ],
+                      Text(price == null ? '₹—' : formatInr(price), style: t.otp),
+                      const SizedBox(width: 4),
+                      Text('/ month', style: t.bodySmall.copyWith(color: TtColors.navy500)),
                     ],
                   ),
                 ),
@@ -196,10 +218,11 @@ class _VehicleCard extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    _Tag(label: free ? '0% commission' : '1st month free', bg: TtColors.successTint, fg: TtColors.successText),
-                    if (!free && price == null) const _Tag(label: 'Contact us', bg: TtColors.coral50, fg: TtColors.coral600),
+                    const _Tag(label: '1st month free', bg: TtColors.successTint, fg: TtColors.successText),
+                    if (price == null) const _Tag(label: 'Contact us', bg: TtColors.coral50, fg: TtColors.coral600),
                   ],
                 ),
+                ],
               ],
             ),
           ),
@@ -207,6 +230,19 @@ class _VehicleCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// What [kind] carries: "1 passenger", "3 passengers", "Up to 750 kg", "Up to 1.5 tonnes".
+@visibleForTesting
+String capacityText(VehicleKind kind) {
+  final v = Seed.vehicle(kind);
+  final seats = v.seats;
+  if (seats != null) return seats == 1 ? '1 passenger' : '$seats passengers';
+  final kg = v.capacityKg ?? 0;
+  if (kg < 1000) return 'Up to $kg kg';
+  final tonnes = kg / 1000;
+  final n = tonnes == tonnes.roundToDouble() ? tonnes.toStringAsFixed(0) : tonnes.toStringAsFixed(1);
+  return 'Up to $n ${tonnes == 1 ? 'tonne' : 'tonnes'}';
 }
 
 class _Tag extends StatelessWidget {

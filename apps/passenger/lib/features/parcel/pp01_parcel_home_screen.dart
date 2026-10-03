@@ -10,6 +10,7 @@ import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
 import '../../state/passenger_session.dart';
 import '../activity/widgets/trip_rows.dart';
+import 'pp05_prohibited_items_sheet.dart';
 import 'widgets/parcel_widgets.dart';
 
 /// PP-01 Parcel home: in town or to another town, pickup / drop, Packers & Movers, goods vehicle grid, recent parcels.
@@ -100,7 +101,7 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
                           },
                         ),
                         const SizedBox(height: 12),
-                        const _ZeroCommissionStrip(),
+                        const _ProhibitedItemsStrip(),
                         const SectionLabel('Recent', padding: EdgeInsets.fromLTRB(0, 20, 0, 10)),
                         AsyncView<List<Trip>>(
                           value: recent,
@@ -378,28 +379,31 @@ class _ShiftingCard extends StatelessWidget {
   }
 }
 
-class _ZeroCommissionStrip extends StatelessWidget {
-  const _ZeroCommissionStrip();
+/// "What can't I send?" strip: opens the prohibited-items list (PP-05) before the customer books.
+class _ProhibitedItemsStrip extends StatelessWidget {
+  const _ProhibitedItemsStrip();
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: const BoxDecoration(color: TtColors.surface, borderRadius: TtRadii.pillRadius),
-            child: Text(
-              '0%',
-              style: t.bodySmallMedium.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w700),
-            ),
+    return Material(
+      color: TtColors.coral50,
+      borderRadius: TtRadii.cardRadius,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => PP05ProhibitedItemsSheet.show(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              const Icon(Symbols.block_rounded, color: TtColors.coral600, size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: Text("What can't I send?", style: t.bodyMedium)),
+              Text('See list', style: t.bodySmallMedium.copyWith(color: TtColors.coral600)),
+              const Icon(Symbols.chevron_right_rounded, color: TtColors.coral600, size: 20),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(child: Text('Your driver keeps 100% of the fare', style: t.bodyMedium)),
-        ],
+        ),
       ),
     );
   }

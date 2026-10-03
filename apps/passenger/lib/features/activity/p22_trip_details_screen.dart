@@ -309,7 +309,7 @@ class _StopRow extends StatelessWidget {
   }
 }
 
-/// Itemised fare (P-22): base, distance, time, dashed rule, subtotal, peak, 0% commission and
+/// Itemised fare (P-22): base, distance, time, dashed rule, subtotal, peak and
 /// the bold "Paid to driver" total. Amounts are right-aligned in tabular figures.
 class _FareTable extends StatelessWidget {
   const _FareTable({required this.quote, required this.totalLabel});
@@ -321,7 +321,7 @@ class _FareTable extends StatelessWidget {
     final t = context.type;
     final perKm = quote.vehicle.fareRule.perKm;
     final perKmText = perKm == perKm.roundToDouble() ? perKm.toStringAsFixed(0) : perKm.toStringAsFixed(1);
-    Widget row(String label, String amount, {Widget? tag, bool bold = false, Color? amountColor}) => Padding(
+    Widget row(String label, String amount, {Widget? tag, bool bold = false}) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             children: [
@@ -339,7 +339,7 @@ class _FareTable extends StatelessWidget {
               const SizedBox(width: 12),
               Text(amount,
                   style: TtTextStyles.tabular(
-                      (bold ? t.bodySemibold : t.bodyMedium).copyWith(color: amountColor ?? TtColors.navy900))),
+                      (bold ? t.bodySemibold : t.bodyMedium).copyWith(color: TtColors.navy900))),
             ],
           ),
         );
@@ -366,8 +366,6 @@ class _FareTable extends StatelessWidget {
           row('Waiting charge · after ${quote.freeWaitMin} free min', formatInrSigned(quote.waitingCharge)),
         if (quote.hasCancellationFee) row('Previous cancellation fee', formatInrSigned(quote.previousCancellationFee)),
         if (quote.hasExtra) row('Extra you added', formatInrSigned(quote.extra)),
-        row('Tamil Taxi commission', formatInr(0),
-            tag: pill('0%', TtColors.coral50, TtColors.coral600), amountColor: TtColors.success),
         const Divider(height: 20),
         Row(
           children: [

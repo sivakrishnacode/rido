@@ -261,8 +261,6 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     } else {
       pill = const OfflineHeaderPill();
     }
-    final planWarning = !online && (status == PlanStatus.grace || status == PlanStatus.expired || status == PlanStatus.paused);
-    final showBadge = !gpsLost && !planWarning && !missed && !quiet;
 
     // ------------------------------------------------------------- top card
     Widget? topCard;
@@ -478,7 +476,6 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
             subtitle: subtitle,
             pill: pill,
             onlineRing: online && !gpsLost,
-            showBadge: showBadge,
           ),
           if (job != null)
             TripInProgressBanner(

@@ -1,6 +1,8 @@
 // D-04 / D-05: rides offer Bike, Scooty, Auto, Mini, Sedan and SUV (Auto Priority is a booking tier autos serve,
 // never a vehicle to register).
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/onboarding/d05_choose_vehicle_screen.dart';
 import 'package:tamiltaxi_driver/router/routes.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
@@ -14,6 +16,18 @@ void main() {
     }
     expect(find.text('Auto Priority', skipOffstage: false), findsNothing);
     expect(find.byType(VehicleArt, skipOffstage: false), findsNWidgets(6));
+    // What each carries, not the commission line on every card.
+    expect(find.text('1 passenger', skipOffstage: false), findsNWidgets(2));
+    expect(find.text('3 passengers', skipOffstage: false), findsOneWidget);
+    expect(find.text('0% commission', skipOffstage: false), findsNothing);
+  });
+
+  test('D-05 capacity: passengers for rides, kg or tonnes for goods', () {
+    expect(capacityText(VehicleKind.bike), '1 passenger');
+    expect(capacityText(VehicleKind.suv), '6 passengers');
+    expect(capacityText(VehicleKind.threeWheeler), 'Up to 500 kg');
+    expect(capacityText(VehicleKind.pickup), 'Up to 1.5 tonnes');
+    expect(capacityText(VehicleKind.truck), 'Up to 4 tonnes');
   });
 
   testWidgets('D-04: two-wheelers once, under Rides with "+ Parcels"; Deliveries lists the goods vehicles', (tester) async {

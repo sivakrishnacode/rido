@@ -61,7 +61,7 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
         children: [
           FareBreakdown.fromQuote(q, title: 'Fare breakdown', subtitle: '${q.vehicle.name} · ${formatKm(q.distanceKm)}'),
           const SizedBox(height: 8),
-          Text('Pay the driver directly by cash or UPI. Tamil Taxi takes no commission.',
+          Text('Pay the driver directly by cash or UPI when the job is done.',
               style: ctx.type.caption.copyWith(color: TtColors.navy500)),
           const SizedBox(height: 16),
           TtButton(label: 'Got it', onPressed: () => Navigator.of(ctx).pop()),

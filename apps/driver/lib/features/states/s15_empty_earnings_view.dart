@@ -7,8 +7,8 @@ import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../earnings/widgets/earnings_header.dart';
 
-/// S-15 Empty earnings: "No earnings yet this week", "Go online to start earning. You keep
-/// 100%." with Go online (→ Home). In the earnings screen it is the body; with [showcase]
+/// S-15 Empty earnings: "No earnings yet this week", "Go online to take rides…" with Go online
+/// (→ Home). In the earnings screen it is the body; with [showcase]
 /// it renders inside the earnings layout (navy header + tabs) like the design frame.
 class S15EmptyEarningsView extends StatefulWidget {
   const S15EmptyEarningsView({super.key, this.showcase = false, this.period = EarningsPeriod.week});
@@ -32,7 +32,7 @@ class _S15EmptyEarningsViewState extends State<S15EmptyEarningsView> {
           child: EmptyState(
             illustration: const TtIllustration(IllustrationKind.emptyEarnings, height: 180),
             title: 'No earnings yet ${periodSuffix(period)}',
-            message: 'Go online to start earning. You keep 100%.',
+            message: 'Go online to take rides. Your trips and fares will show up here.',
             actionLabel: 'Go online',
             onAction: unlessShowcase(context, widget.showcase, () => context.go(Routes.home)),
           ),

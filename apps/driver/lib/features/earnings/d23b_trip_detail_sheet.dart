@@ -8,7 +8,7 @@ import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 
-/// D-23b Trip detail sheet: route, time and trip reference, fare breakdown, "You kept ₹38 · commission ₹0", the
+/// D-23b Trip detail sheet: route, time and trip reference, fare breakdown, the
 /// passenger and Help (→ support). Only what the trip record has: no made-up ratings or city codes.
 class D23bTripDetailSheet extends ConsumerWidget {
   const D23bTripDetailSheet({super.key, this.trip, this.showcase = false});
@@ -112,23 +112,6 @@ class D23bTripDetailSheet extends ConsumerWidget {
             Expanded(child: Text('Fare · $paid', style: t.bodySemibold)),
             Text(formatInr(trip.fare), style: TtTextStyles.tabular(t.h1)),
           ]),
-        ]),
-      ),
-      const SizedBox(height: TtSpacing.m),
-      Container(
-        padding: const EdgeInsets.all(TtSpacing.l),
-        decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
-        child: Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: TtSpacing.s, vertical: 2),
-            decoration: const BoxDecoration(color: TtColors.surface, borderRadius: TtRadii.pillRadius),
-            child: Text('0%', style: t.caption.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w700)),
-          ),
-          const SizedBox(width: TtSpacing.m),
-          Expanded(
-            child: Text('You kept ${formatInr(trip.fare)} · commission ₹0',
-                style: TtTextStyles.tabular(t.bodySemibold)),
-          ),
         ]),
       ),
       const SizedBox(height: TtSpacing.m),

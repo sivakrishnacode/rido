@@ -3,7 +3,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'navy_header.dart';
 
-/// D-13 / D-14 navy header: avatar, greeting, status pill and the "0% commission" badge.
+/// D-13 / D-14 navy header: avatar, greeting and status pill.
 class HomeHeader extends StatelessWidget {
   const HomeHeader({
     super.key,
@@ -12,7 +12,6 @@ class HomeHeader extends StatelessWidget {
     required this.subtitle,
     required this.pill,
     required this.onlineRing,
-    required this.showBadge,
     this.photo,
   });
 
@@ -21,7 +20,6 @@ class HomeHeader extends StatelessWidget {
   final String subtitle;
   final Widget pill;
   final bool onlineRing;
-  final bool showBadge;
 
   /// The driver's profile photo; initials when null.
   final ImageProvider? photo;
@@ -54,14 +52,7 @@ class HomeHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: TtSpacing.s),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              pill,
-              if (showBadge) ...[const SizedBox(height: 6), const CommissionBadge(large: true)],
-            ],
-          ),
+          pill,
         ],
       ),
     );
@@ -140,7 +131,7 @@ class GoOnlineButton extends StatelessWidget {
   }
 }
 
-/// White floating card with today's figures ("₹0 today · 0 rides" / "You kept today ₹1,420").
+/// White floating card with today's figures ("₹0 today · 0 rides" / "Earned today ₹1,420 · 3 rides").
 class TodayCard extends StatelessWidget {
   const TodayCard({super.key, required this.earnings, required this.rides, required this.online, required this.onEarnings});
 
@@ -178,7 +169,7 @@ class TodayCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('You kept today', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+          Text('Earned today', style: t.bodySmall.copyWith(color: TtColors.navy500)),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -187,17 +178,17 @@ class TodayCard extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text.rich(
-                    TextSpan(children: [
-                      TextSpan(text: '$ridesLabel · '),
-                      TextSpan(
-                          text: '₹0',
-                          style: t.bodySmallMedium.copyWith(color: TtColors.success, fontWeight: FontWeight.w700)),
-                      const TextSpan(text: ' commission'),
-                    ]),
-                    textAlign: TextAlign.end,
-                    maxLines: 2,
-                    style: TtTextStyles.tabular(t.bodySmallMedium.copyWith(color: TtColors.navy700)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Flexible(
+                        child: Text(ridesLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TtTextStyles.tabular(t.bodySmallMedium.copyWith(color: TtColors.navy700))),
+                      ),
+                      const Icon(Symbols.chevron_right_rounded, size: 20, color: TtColors.navy500),
+                    ],
                   ),
                 ),
               ),

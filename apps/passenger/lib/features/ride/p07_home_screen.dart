@@ -326,7 +326,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
               ),
             ],
             const SizedBox(height: TtSpacing.l),
-            const _PromoCard(),
+            _SafetyCard(onTap: widget.showcase ? null : () => context.push(Routes.safety)),
           ],
         ),
       ),
@@ -531,40 +531,49 @@ class _SavedPlacesRow extends StatelessWidget {
   }
 }
 
-/// "Your driver keeps 100% of your fare" promo with a coral 0% circle.
-class _PromoCard extends StatelessWidget {
-  const _PromoCard();
+/// "Ride safer" card: emergency contacts and auto-share, opening Account › Safety.
+class _SafetyCard extends StatelessWidget {
+  const _SafetyCard({required this.onTap});
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.l, TtSpacing.m, TtSpacing.l),
-      decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Your driver keeps 100% of your fare', style: t.bodySemibold),
-                const SizedBox(height: 2),
-                Text(
-                  'Tamil Taxi is free for drivers: 0% commission, no subscription.',
-                  style: t.bodySmall.copyWith(color: TtColors.navy700),
+    return Material(
+      color: TtColors.coral50,
+      borderRadius: TtRadii.cardRadius,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.l, TtSpacing.m, TtSpacing.l),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(color: TtColors.surface, shape: BoxShape.circle),
+                child: const Icon(Symbols.shield_person_rounded, color: TtColors.coral600),
+              ),
+              const SizedBox(width: TtSpacing.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Ride safer', style: t.bodySemibold),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Add emergency contacts and share every trip with them live.',
+                      style: t.bodySmall.copyWith(color: TtColors.navy700),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const Icon(Symbols.chevron_right_rounded, color: TtColors.navy500),
+            ],
           ),
-          const SizedBox(width: TtSpacing.m),
-          Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(color: TtColors.coral500, shape: BoxShape.circle),
-            child: Text('0%', style: TtTextStyles.tabular(t.bodySemibold.copyWith(color: TtColors.surface))),
-          ),
-        ],
+        ),
       ),
     );
   }

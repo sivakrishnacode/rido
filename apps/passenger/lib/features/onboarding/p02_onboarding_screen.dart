@@ -15,7 +15,7 @@ class _Slide {
 }
 
 const _slides = [
-  _Slide('Lower fares, every ride', 'Bike, auto or cab across your city — with no commission added to your fare.'),
+  _Slide('Lower fares, every ride', 'Bike, auto or cab across your city. See the full fare before you book.'),
   _Slide(
     'Your driver keeps 100%',
     'Tamil Taxi is free for drivers: no commission, no subscription. Every rupee you pay goes to them.',
