@@ -33,7 +33,7 @@ enum _SaveAs {
 
 /// PP-03 Drop / receiver details: the drop on a map (any town when sending to another town; move the map to
 /// fine-tune the point), the receiver (or "I'm receiving it myself"), a landmark, and optionally save the drop as
-/// Home / Work / Shop.
+/// Home / Work / Shop. Confirm → PP-06 choose vehicle and book.
 class PP03DropDetailsScreen extends ConsumerStatefulWidget {
   const PP03DropDetailsScreen({super.key, this.showcase = false});
 
@@ -65,6 +65,9 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
     _phone = TextEditingController(text: localPhone(s.details.receiverPhone));
     final live = ref.read(isLiveApiProvider);
     _note = TextEditingController(text: s.details.dropNote.isEmpty && !live ? _sampleDropNote : s.details.dropNote);
+    // A parcel coming to the rider (PP-01 Switch): the receiver is already them.
+    final receiver = s.details.receiverPhone;
+    _self = receiver.trim().isNotEmpty && apiPhone(receiver) == apiPhone(ref.read(currentProfileProvider).phone);
   }
 
   @override
@@ -186,7 +189,7 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
     final d = ref.read(parcelFlowProvider).details;
     ctrl.updateDetails(d.copyWith(receiverName: name, receiverPhone: fullPhone(digits), dropNote: _note.text.trim()));
     _saveDrop();
-    context.push(Routes.parcelDetails);
+    context.push(Routes.parcelReview);
   }
 
   @override
@@ -195,7 +198,7 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
     final firstName = _name.text.trim().isEmpty ? 'The receiver' : _name.text.trim().split(' ').first;
     return Scaffold(
       backgroundColor: TtColors.surface,
-      appBar: const ParcelStepAppBar(title: 'Drop details', step: 2),
+      appBar: const TtAppBar(title: 'Drop details'),
       body: Column(
         children: [
           ParcelPinMap(

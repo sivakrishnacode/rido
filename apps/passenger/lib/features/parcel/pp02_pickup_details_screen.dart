@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
 import '../../state/passenger_session.dart';
 import 'widgets/parcel_widgets.dart';
@@ -10,8 +12,8 @@ import 'widgets/parcel_widgets.dart';
 /// Sample building / floor / landmark shown on PP-02.
 const _samplePickupNote = 'Flat 3B, Sri Lakshmi Apartments, near PSG Tech gate';
 
-/// PP-02 Pickup details: the pickup on a map (move it to fine-tune the point), the sender's name and phone, and the
-/// building / landmark. Confirm → PP-03 (searching the drop first when there is none yet).
+/// PP-02 Pickup details (optional, from the pickup row on PP-01 or "Choose pickup" on PP-06): the pickup on a map
+/// (move it to fine-tune the point), the sender's name and phone, and the building / landmark. Confirm → back.
 class PP02PickupDetailsScreen extends ConsumerStatefulWidget {
   const PP02PickupDetailsScreen({super.key, this.showcase = false});
 
@@ -70,7 +72,8 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
     final ctrl = ref.read(parcelFlowProvider.notifier);
     final d = ref.read(parcelFlowProvider).details;
     ctrl.updateDetails(d.copyWith(senderName: name, senderPhone: fullPhone(digits), pickupNote: _note.text.trim()));
-    openParcelDrop(context, ref);
+    if (context.canPop()) return context.pop();
+    context.go(Routes.parcel);
   }
 
   @override
@@ -79,7 +82,7 @@ class _PP02PickupDetailsScreenState extends ConsumerState<PP02PickupDetailsScree
     final pickup = ref.watch(parcelFlowProvider.select((s) => s.pickup));
     return Scaffold(
       backgroundColor: TtColors.surface,
-      appBar: const ParcelStepAppBar(title: 'Pickup details', step: 1),
+      appBar: const TtAppBar(title: 'Pickup details'),
       body: Column(
         children: [
           ParcelPinMap(

@@ -306,16 +306,9 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
               onPlace: (p) => _chooseDrop(p.place),
               onAdd: () => context.push(Routes.savedPlaceEditor()),
             ),
-            const SizedBox(height: TtSpacing.l),
-            if (!widget.showcase) ...[
-              const _UpcomingOnHome(),
-            ],
-            _MoreWaysRow(
-              onRental: () => context.push(Routes.rental),
-              onOutstation: () => context.push(Routes.outstation),
-            ),
             const SizedBox(height: TtSpacing.s),
-            for (var i = 0; i < places.length; i++) ...[
+            // The last few places first, in view when Home opens: one tap to the fares (P-10). Search has the rest.
+            for (var i = 0; i < places.length && i < 3; i++) ...[
               if (i > 0) const Divider(height: 1, indent: 52),
               LocationRow(
                 kind: LocationRowKind.recent,
@@ -325,6 +318,14 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                 onTap: () => _chooseDrop(places[i]),
               ),
             ],
+            const SizedBox(height: TtSpacing.l),
+            if (!widget.showcase) ...[
+              const _UpcomingOnHome(),
+            ],
+            _MoreWaysRow(
+              onRental: () => context.push(Routes.rental),
+              onOutstation: () => context.push(Routes.outstation),
+            ),
             const SizedBox(height: TtSpacing.l),
             _SafetyCard(onTap: widget.showcase ? null : () => context.push(Routes.safety)),
           ],

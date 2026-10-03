@@ -46,7 +46,7 @@ const Object _keep = Object();
 
 /// Parcel details for a new booking with the live API: nothing seeded, the sender comes from the profile.
 const ParcelDetails kEmptyParcelDetails = ParcelDetails(
-  category: ParcelCategory.clothes,
+  category: ParcelCategory.other,
   weight: WeightBand.under5,
   senderName: '',
   senderPhone: '',
@@ -62,15 +62,16 @@ class ParcelFlowState {
     this.drop = Seed.raceCourse,
     this.dropSet = false,
     this.vehicle = VehicleKind.threeWheeler,
+    // Like a new booking: nothing said about the parcel yet (PP-04 is optional).
     this.details = const ParcelDetails(
-      category: ParcelCategory.clothes,
-      weight: WeightBand.from5to20,
+      category: ParcelCategory.other,
+      weight: WeightBand.under5,
       senderName: 'Priya Raman',
       senderPhone: '+91 98765 43210',
       receiverName: Seed.receiverName,
       receiverPhone: Seed.receiverPhone,
     ),
-    this.noProhibitedItems = false,
+    this.detailsSet = false,
     this.phase = ParcelPhase.planning,
     this.driver = Seed.selvam,
     this.tripId = 'PC-DEMO',
@@ -95,7 +96,10 @@ class ParcelFlowState {
   final bool dropSet;
   final VehicleKind vehicle;
   final ParcelDetails details;
-  final bool noProhibitedItems;
+
+  /// The passenger filled in "What are you sending?" (PP-04, optional). Until then PP-06 offers to add it and the
+  /// parcel goes as "Other · Under 5 kg".
+  final bool detailsSet;
   final ParcelPhase phase;
   final DriverProfile driver;
   final String tripId;
@@ -164,7 +168,7 @@ class ParcelFlowState {
     bool? dropSet,
     VehicleKind? vehicle,
     ParcelDetails? details,
-    bool? noProhibitedItems,
+    bool? detailsSet,
     ParcelPhase? phase,
     DriverProfile? driver,
     String? tripId,
@@ -186,7 +190,7 @@ class ParcelFlowState {
     dropSet: dropSet ?? this.dropSet,
     vehicle: vehicle ?? this.vehicle,
     details: details ?? this.details,
-    noProhibitedItems: noProhibitedItems ?? this.noProhibitedItems,
+    detailsSet: detailsSet ?? this.detailsSet,
     phase: phase ?? this.phase,
     driver: driver ?? this.driver,
     tripId: tripId ?? this.tripId,
@@ -242,6 +246,8 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
 
   ParcelFlowState _freshLive() => ParcelFlowState(
     pickup: ref.read(placesRepositoryProvider).currentLocation,
+    // The bike carries most parcels and costs least; PP-06 offers the others.
+    vehicle: VehicleKind.goodsBike,
     details: kEmptyParcelDetails,
     driver: Seed.selvam,
     tripId: '',
@@ -317,7 +323,32 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
     }
   }
 
-  void setNoProhibitedItems(bool v) => state = state.copyWith(noProhibitedItems: v);
+  /// PP-04 Save: the parcel's category / weight are the passenger's own choice now.
+  void markDetailsSet() => state = state.copyWith(detailsSet: true);
+
+  /// PP-01 Switch: pickup and drop change places, and so do the sender and the receiver (a parcel coming to you).
+  /// An empty sender is the rider first, so after the switch the rider is the receiver.
+  void swapStops() {
+    final d = _detailsToSend;
+    _pickupChosen = true;
+    state = state.copyWith(
+      pickup: state.drop,
+      drop: state.pickup,
+      dropSet: true,
+      details: d.copyWith(
+        senderName: d.receiverName,
+        senderPhone: d.receiverPhone,
+        receiverName: d.senderName,
+        receiverPhone: d.senderPhone,
+        pickupNote: d.dropNote,
+        dropNote: d.pickupNote,
+      ),
+      route: roadPath(state.drop.location, state.pickup.location, mode: _mode),
+      serverQuotes: null,
+      quotesError: null,
+    );
+    _refreshRoute();
+  }
 
   void selectVehicle(VehicleKind v) => state = state.copyWith(vehicle: v);
 

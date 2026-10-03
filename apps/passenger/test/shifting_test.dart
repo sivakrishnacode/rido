@@ -136,8 +136,7 @@ void main() {
     expect(find.text('Up to 10\u00A0kg', skipOffstage: false), findsNothing, reason: 'no goods bike to other towns');
 
     final flow = container.read(parcelFlowProvider.notifier)
-      ..setDrop(Seed.outstationTowns[1])
-      ..setNoProhibitedItems(true);
+      ..setDrop(Seed.outstationTowns[1]);
     final q = container.read(parcelFlowProvider).quote;
     final terms = q.modeTerms! as OutstationTerms;
     expect(terms.perKm, 22);
@@ -161,19 +160,52 @@ void main() {
     expect(find.text('Shop'), findsOneWidget);
   });
 
-  testWidgets('PP-01: with no drop yet, "Tap to add drop" searches first instead of opening PP-03 on a made-up drop',
+  testWidgets('PP-01: with no drop yet, "Where should it go?" searches first instead of opening PP-03 on a made-up drop',
       (tester) async {
     final container = await pumpRoute(tester, Routes.parcel);
     await advance(tester, const Duration(milliseconds: 500));
     expect(container.read(parcelFlowProvider).dropSet, isFalse);
-    await tapText(tester, 'Tap to add drop');
+    await tapText(tester, 'Where should it go?');
     expect(find.text('Search for a place'), findsOneWidget);
     expect(find.text('Drop details'), findsNothing);
     // Backing out of the search stays on PP-01 with no drop.
     tester.state<NavigatorState>(find.byType(Navigator).last).pop();
     await advance(tester, const Duration(milliseconds: 500));
     expect(find.text('Drop details'), findsNothing);
-    expect(find.text('Tap to add drop'), findsOneWidget);
+    expect(find.text('Where should it go?'), findsOneWidget);
     expect(container.read(parcelFlowProvider).dropSet, isFalse);
+  });
+
+  testWidgets('PP-01 Switch: pickup and drop change places, and so do the sender and the receiver', (tester) async {
+    final container = await pumpRoute(tester, Routes.parcel);
+    await advance(tester, const Duration(milliseconds: 500));
+    final ctrl = container.read(parcelFlowProvider.notifier)..setDrop(Seed.raceCourse);
+    final before = container.read(parcelFlowProvider);
+    ctrl.swapStops();
+    final after = container.read(parcelFlowProvider);
+    expect(after.pickup.name, before.drop.name);
+    expect(after.drop.name, before.pickup.name);
+    expect(after.details.senderName, before.details.receiverName);
+    expect(after.details.receiverName, before.details.senderName);
+    expect(after.dropSet, isTrue);
+  });
+
+  testWidgets('PP-03 Confirm drop goes straight to PP-06; parcel details are optional there', (tester) async {
+    final container = await pumpRoute(tester, Routes.parcelDrop);
+    await advance(tester, const Duration(milliseconds: 500));
+    await tapText(tester, 'Confirm drop');
+    await advance(tester, const Duration(milliseconds: 800));
+    expect(find.text('Choose a vehicle'), findsOneWidget);
+    expect(find.text('What are you sending?'), findsOneWidget);
+    expect(find.text('By booking, you confirm no prohibited items.'), findsOneWidget);
+    expect(container.read(parcelFlowProvider).detailsSet, isFalse);
+    // Optional details: PP-04 Save comes back here with the parcel described.
+    await tapText(tester, 'What are you sending?');
+    await advance(tester, const Duration(milliseconds: 800));
+    await tapText(tester, 'Documents');
+    await tapText(tester, 'Save');
+    await advance(tester, const Duration(milliseconds: 800));
+    expect(container.read(parcelFlowProvider).detailsSet, isTrue);
+    expect(find.textContaining('Documents ·'), findsOneWidget);
   });
 }

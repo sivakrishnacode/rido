@@ -9,10 +9,11 @@ import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
 import '../../state/ride_flow.dart' show kChoosePickupForFares;
 import '../ride/widgets/mode_widgets.dart' show WhenChoice;
+import 'pp05_prohibited_items_sheet.dart';
 import 'widgets/parcel_widgets.dart';
 
-/// PP-06 Choose goods vehicle and review: route map, goods vehicles filtered by weight (with their load bed), who
-/// pays, fare breakdown and Book. To another town: the goods trucks by the km, one way, now or later (Schedule → P-36).
+/// PP-06 Choose goods vehicle and book: route map, goods vehicles filtered by weight (with their load bed), "What
+/// are you sending?" (optional, PP-04), who pays, fare breakdown, the prohibited-items note and Book. To another town: the goods trucks by the km, one way, now or later (Schedule → P-36).
 class PP06ChooseGoodsVehicleScreen extends ConsumerStatefulWidget {
   const PP06ChooseGoodsVehicleScreen({super.key, this.showcase = false});
 
@@ -130,15 +131,15 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text('Choose a vehicle', style: t.h1, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 2),
-                          Text(
-                            s.outstation
-                                ? 'To ${s.drop.name} · one way'
-                                : '${s.details.category.label} · ${s.details.weight.label}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: t.bodySmall.copyWith(color: TtColors.navy500),
-                          ),
+                          if (s.outstation) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              'To ${s.drop.name} · one way',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: t.bodySmall.copyWith(color: TtColors.navy500),
+                            ),
+                          ],
                           const SizedBox(height: 12),
                           if (!quotesReady)
                             s.pickup.isUnknownPickup
@@ -164,14 +165,18 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                             ),
                             const SizedBox(height: 10),
                           ],
+                          _DetailsRow(
+                            details: s.details,
+                            set: s.detailsSet,
+                            onTap: () => context.push(Routes.parcelDetails),
+                          ),
+                          const SizedBox(height: 16),
                           if (s.outstation) ...[
-                            const SizedBox(height: 6),
                             Text('When?', style: t.bodyMedium),
                             const SizedBox(height: 10),
                             WhenChoice(at: s.leaveAt, onChanged: widget.showcase ? (_) {} : ctrl.setLeaveAt),
                             const SizedBox(height: 16),
                           ],
-                          const SizedBox(height: 6),
                           Text('Who pays the driver?', style: t.bodyMedium),
                           const SizedBox(height: 10),
                           TtSegmented<ParcelPayer>(
@@ -217,8 +222,9 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                       ),
                     ),
                   ),
+                  _ProhibitedNote(onSeeList: () => PP05ProhibitedItemsSheet.show(context)),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                     child: TtButton(
                       label: quotesReady
                           ? '${s.leaveAt != null ? 'Schedule' : 'Book'} ${quote.vehicle.name} · ${formatInr(quote.total)}'
@@ -245,6 +251,96 @@ String _subtitle(FareQuote q, bool outstation) {
     return ['₹${terms.perKm.round()}/km · ${formatCount(terms.includedKm)} km', ?v.kind.bedLabel].join(' · ');
   }
   return ['${v.etaMin} min', ?v.kind.bedLabel, if (v.capacityKg != null) '${formatCount(v.capacityKg!)} kg'].join(' · ');
+}
+
+/// "What are you sending?": optional. Until it is filled in, the parcel goes as "Other · Under 5 kg".
+class _DetailsRow extends StatelessWidget {
+  const _DetailsRow({required this.details, required this.set, required this.onTap});
+  final ParcelDetails details;
+  final bool set;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return TtCard(
+      onTap: onTap,
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      child: Semantics(
+        button: true,
+        label: set ? 'Parcel: ${details.category.label}, ${details.weight.label}. Edit' : 'What are you sending? Optional. Add',
+        excludeSemantics: true,
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
+              child: Icon(set ? parcelCategoryIcon(details.category) : Symbols.inventory_2_rounded, color: TtColors.coral600, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    set ? '${details.category.label} · ${details.weight.label}' : 'What are you sending?',
+                    style: t.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    set ? 'Parcel details' : 'Optional · type, weight, photo',
+                    style: t.bodySmall.copyWith(color: TtColors.navy500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(set ? 'Edit' : 'Add', style: t.bodyMedium.copyWith(color: TtColors.coral600, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "By booking, you confirm no prohibited items · See list" just above Book.
+class _ProhibitedNote extends StatelessWidget {
+  const _ProhibitedNote({required this.onSeeList});
+  final VoidCallback onSeeList;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'By booking, you confirm no prohibited items.',
+              style: t.caption.copyWith(color: TtColors.navy700),
+            ),
+          ),
+          TextButton(
+            onPressed: onSeeList,
+            style: TextButton.styleFrom(
+              foregroundColor: TtColors.coral600,
+              minimumSize: const Size(48, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              textStyle: t.caption.copyWith(fontWeight: FontWeight.w600),
+            ),
+            child: const Text('See list'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _RouteChip extends StatelessWidget {

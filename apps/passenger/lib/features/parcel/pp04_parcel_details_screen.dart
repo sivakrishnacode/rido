@@ -6,25 +6,15 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
-import 'pp05_prohibited_items_sheet.dart';
 import 'widgets/parcel_widgets.dart';
 
-/// PP-04 Parcel details: category, weight, optional photo, prohibited-items check.
+/// PP-04 Parcel details (optional, from "What are you sending?" on PP-06): category, weight and a photo. Save → back
+/// to PP-06, where the weight decides which vehicles fit.
 class PP04ParcelDetailsScreen extends ConsumerWidget {
   const PP04ParcelDetailsScreen({super.key, this.showcase = false});
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
-
-  static IconData _categoryIcon(ParcelCategory c) => switch (c) {
-        ParcelCategory.documents => Symbols.description_rounded,
-        ParcelCategory.food => Symbols.lunch_dining_rounded,
-        ParcelCategory.clothes => Symbols.checkroom_rounded,
-        ParcelCategory.electronics => Symbols.devices_rounded,
-        ParcelCategory.household => Symbols.weekend_rounded,
-        ParcelCategory.furniture => Symbols.bed_rounded,
-        ParcelCategory.other => Symbols.more_horiz_rounded,
-      };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -35,7 +25,7 @@ class PP04ParcelDetailsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: TtColors.surface,
-      appBar: const ParcelStepAppBar(title: 'Parcel details', step: 3),
+      appBar: const TtAppBar(title: 'Parcel details'),
       body: Column(
         children: [
           Expanded(
@@ -49,7 +39,7 @@ class PP04ParcelDetailsScreen extends ConsumerWidget {
                   ChoiceChips<ParcelCategory>(
                     options: ParcelCategory.values,
                     labelOf: (c) => c.label,
-                    iconOf: _categoryIcon,
+                    iconOf: parcelCategoryIcon,
                     selected: {d.category},
                     onChanged: (c) => ctrl.updateDetails(d.copyWith(category: c)),
                   ),
@@ -69,10 +59,9 @@ class PP04ParcelDetailsScreen extends ConsumerWidget {
                     onChanged: ctrl.setPhoto,
                   ),
                   const SizedBox(height: 16),
-                  _ProhibitedCheck(
-                    value: s.noProhibitedItems,
-                    onChanged: (v) => ctrl.setNoProhibitedItems(v),
-                    onSeeList: () => PP05ProhibitedItemsSheet.show(context),
+                  Text(
+                    'Helps the driver come with the right vehicle and handle it with care.',
+                    style: t.caption.copyWith(color: TtColors.navy500),
                   ),
                 ],
               ),
@@ -83,67 +72,12 @@ class PP04ParcelDetailsScreen extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: TtButton(
-                label: 'Continue',
-                onPressed: s.noProhibitedItems ? () => context.push(Routes.parcelReview) : null,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProhibitedCheck extends StatelessWidget {
-  const _ProhibitedCheck({
-    required this.value,
-    required this.onChanged,
-    required this.onSeeList,
-  });
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final VoidCallback onSeeList;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.type;
-    return TtCard(
-      onTap: () => onChanged(!value),
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 4),
-      borderColor: value ? TtColors.coral100 : TtColors.divider,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Checkbox(
-            value: value,
-            onChanged: (v) => onChanged(v ?? false),
-            semanticLabel: 'My parcel has no prohibited items',
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('My parcel has no prohibited items', style: t.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text('Required. ', style: t.bodySmall.copyWith(color: TtColors.navy700)),
-                      TextButton(
-                        onPressed: onSeeList,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          minimumSize: const Size(48, 40),
-                          foregroundColor: TtColors.coral600,
-                          textStyle: t.bodySmall.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        child: const Text('See list'),
-                      ),
-                    ],
-                  ),
-                ],
+                label: 'Save',
+                onPressed: () {
+                  ctrl.markDetailsSet();
+                  if (context.canPop()) return context.pop();
+                  context.go(Routes.parcelReview);
+                },
               ),
             ),
           ),

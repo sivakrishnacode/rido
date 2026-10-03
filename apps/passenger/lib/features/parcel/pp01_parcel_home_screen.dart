@@ -13,7 +13,9 @@ import '../activity/widgets/trip_rows.dart';
 import 'pp05_prohibited_items_sheet.dart';
 import 'widgets/parcel_widgets.dart';
 
-/// PP-01 Parcel home: in town or to another town, pickup / drop, Packers & Movers, goods vehicle grid, recent parcels.
+/// PP-01 Parcel home: in town or to another town, the pickup (your location, you as the sender) and the drop with a
+/// Switch, Packers & Movers, goods vehicle shortcuts, recent parcels. Booking starts from the drop: search → PP-03
+/// drop details → PP-06 choose vehicle and book.
 class PP01ParcelHomeScreen extends ConsumerWidget {
   const PP01ParcelHomeScreen({super.key, this.showcase = false});
 
@@ -26,6 +28,11 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
     final flow = ref.watch(parcelFlowProvider);
     final ctrl = ref.read(parcelFlowProvider.notifier);
     final recent = ref.watch(recentParcelsProvider);
+    final me = ref.watch(currentProfileProvider);
+    final d = flow.details;
+    // Who the driver calls at the pickup: the sender typed on PP-02, else the rider (as booked).
+    final senderName = d.senderName.trim().isNotEmpty ? d.senderName : (me.name == kPlaceholderName ? '' : me.name);
+    final senderPhone = d.senderName.trim().isNotEmpty ? d.senderPhone : me.phone;
 
     return Scaffold(
       backgroundColor: TtColors.background,
@@ -73,8 +80,11 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
                         ],
                         _RouteCard(
                           flow: flow,
+                          sender: senderName.isEmpty ? null : '$senderName · ${localPhone(senderPhone)}',
                           onPickup: () => context.push(Routes.parcelPickup),
                           onDrop: () => openParcelDrop(context, ref),
+                          // A parcel coming to you (in town only: the pickup must be in the service area).
+                          onSwitch: flow.outstation ? null : () => showcase ? null : _switch(context, ref),
                         ),
                       ],
                     ),
@@ -95,9 +105,10 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
                           vehicles: flow.outstation
                               ? [for (final k in GoodsModeRates.goodsTrucks) Seed.vehicle(k)]
                               : Seed.goodsVehicles,
+                          // A shortcut: the vehicle is chosen, then the drop (PP-06 still offers the others).
                           onTap: (kind) {
                             ctrl.selectVehicle(kind);
-                            context.push(Routes.parcelPickup);
+                            openParcelDrop(context, ref);
                           },
                         ),
                         const SizedBox(height: 12),
@@ -138,6 +149,20 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
     );
   }
 
+  /// Switch: pickup and drop change places. With no drop yet, asks where the parcel comes from; your location
+  /// becomes the drop.
+  static Future<void> _switch(BuildContext context, WidgetRef ref) async {
+    final s = ref.read(parcelFlowProvider);
+    final ctrl = ref.read(parcelFlowProvider.notifier);
+    if (s.pickup.isUnknownPickup) return showTtSnack(context, 'Finding your location…');
+    if (!s.dropSet) {
+      final p = await showParcelPlacePicker(context, title: 'Pick up from');
+      if (p == null || !context.mounted) return;
+      ctrl.setDrop(p);
+    }
+    ctrl.swapStops();
+  }
+
   static String _activeMessage(ParcelFlowState f) {
     final name = f.driver.firstName;
     final receiver = f.details.receiverName.split(' ').first;
@@ -153,30 +178,39 @@ class PP01ParcelHomeScreen extends ConsumerWidget {
 }
 
 class _RouteCard extends StatelessWidget {
-  const _RouteCard({required this.flow, required this.onPickup, required this.onDrop});
+  const _RouteCard({required this.flow, required this.sender, required this.onPickup, required this.onDrop, this.onSwitch});
 
   final ParcelFlowState flow;
+
+  /// "Priya Raman · 98765 43210" under the pickup (null: no name yet).
+  final String? sender;
   final VoidCallback onPickup;
   final VoidCallback onDrop;
+
+  /// Null hides the Switch button.
+  final VoidCallback? onSwitch;
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
+    // Room on the right for the Switch button.
+    final right = onSwitch == null ? 12.0 : 60.0;
     Widget row({
       required Widget marker,
       required String label,
       required String value,
       required Color valueColor,
       required VoidCallback onTap,
-      bool chevron = false,
+      String? note,
       String semantics = '',
     }) => Semantics(
       button: true,
       label: semantics,
+      excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
+          padding: EdgeInsets.fromLTRB(12, 10, right, 10),
           child: Row(
             children: [
               SizedBox(width: 24, child: Center(child: marker)),
@@ -192,10 +226,17 @@ class _RouteCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (note != null)
+                      Text(
+                        note,
+                        style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                   ],
                 ),
               ),
-              Icon(Symbols.chevron_right_rounded, color: chevron ? TtColors.navy700 : TtColors.navy300, size: 20),
+              if (onSwitch == null) const Icon(Symbols.chevron_right_rounded, color: TtColors.navy300, size: 20),
             ],
           ),
         ),
@@ -210,26 +251,54 @@ class _RouteCard extends StatelessWidget {
         boxShadow: TtShadows.soft,
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
+      child: Stack(
         children: [
-          row(
-            marker: const PickupDot(size: 10),
-            label: 'Pickup from',
-            value: shortAddress(flow.pickup),
-            valueColor: TtColors.navy900,
-            onTap: onPickup,
-            semantics: 'Pickup from ${flow.pickup.name}. Edit pickup details',
+          Column(
+            children: [
+              row(
+                marker: const PickupDot(size: 10),
+                label: 'Pickup from',
+                value: shortAddress(flow.pickup),
+                valueColor: TtColors.navy900,
+                note: sender,
+                onTap: onPickup,
+                semantics: 'Pickup from ${flow.pickup.name}${sender == null ? '' : ', sender $sender'}. Edit pickup details',
+              ),
+              const Divider(height: 1, indent: 46, endIndent: 12),
+              row(
+                marker: const DropPin(size: 20),
+                label: 'Deliver to',
+                value: flow.dropSet ? shortAddress(flow.drop) : 'Where should it go?',
+                valueColor: flow.dropSet ? TtColors.navy900 : TtColors.coral600,
+                onTap: onDrop,
+                semantics: flow.dropSet ? 'Deliver to ${flow.drop.name}. Edit drop details' : 'Add a drop address',
+              ),
+            ],
           ),
-          const Divider(height: 1, indent: 46, endIndent: 12),
-          row(
-            marker: const DropPin(size: 20),
-            label: 'Deliver to',
-            value: flow.dropSet ? shortAddress(flow.drop) : 'Tap to add drop',
-            valueColor: flow.dropSet ? TtColors.navy900 : TtColors.coral600,
-            onTap: onDrop,
-            chevron: true,
-            semantics: flow.dropSet ? 'Deliver to ${flow.drop.name}. Edit drop details' : 'Add a drop address',
-          ),
+          if (onSwitch != null)
+            Positioned(
+              right: 10,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Tooltip(
+                  message: 'Switch pickup and drop',
+                  child: Material(
+                    color: TtColors.surface,
+                    shape: const CircleBorder(side: BorderSide(color: TtColors.divider)),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: onSwitch,
+                      child: const SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: Icon(Symbols.swap_vert_rounded, color: TtColors.navy900, size: 22),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

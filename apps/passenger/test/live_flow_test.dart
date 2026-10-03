@@ -702,7 +702,8 @@ void main() {
     parcel.updateDetails(kEmptyParcelDetails.copyWith(receiverName: 'Meena', senderName: 'Priya'));
     parcel.setDrop(Seed.raceCourse);
     expect(await parcel.book(), isNull);
-    expect(trips.calls.single, 'book:parcel:threeWheeler:Meena');
+    // The bike is the default parcel vehicle (cheapest; PP-06 offers the rest).
+    expect(trips.calls.single, 'book:parcel:goodsBike:Meena');
     expect(container.read(parcelFlowProvider).details.deliveryOtp, '5821');
 
     for (final (status, phase) in [

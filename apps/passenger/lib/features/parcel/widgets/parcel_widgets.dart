@@ -59,29 +59,16 @@ class ParcelVehicleArt extends StatelessWidget {
         );
 }
 
-/// Passenger app bar with a "Step x of 3" caption on the right (PP-02 … PP-04).
-class ParcelStepAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const ParcelStepAppBar({super.key, required this.title, required this.step});
-
-  final String title;
-  final int step;
-
-  @override
-  Size get preferredSize => const Size.fromHeight(64);
-
-  @override
-  Widget build(BuildContext context) => TtAppBar(
-        title: title,
-        actions: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Text('Step $step of 3', style: context.type.bodySmall.copyWith(color: TtColors.navy500)),
-            ),
-          ),
-        ],
-      );
-}
+/// The symbol for a parcel category (PP-04 chips, the PP-06 details row).
+IconData parcelCategoryIcon(ParcelCategory c) => switch (c) {
+      ParcelCategory.documents => Symbols.description_rounded,
+      ParcelCategory.food => Symbols.lunch_dining_rounded,
+      ParcelCategory.clothes => Symbols.checkroom_rounded,
+      ParcelCategory.electronics => Symbols.devices_rounded,
+      ParcelCategory.household => Symbols.weekend_rounded,
+      ParcelCategory.furniture => Symbols.bed_rounded,
+      ParcelCategory.other => Symbols.inventory_2_rounded,
+    };
 
 /// The pickup (PP-02) or drop (PP-03) in one compact row: its pin, name and address, and "Change".
 class ParcelLocationCard extends StatelessWidget {
