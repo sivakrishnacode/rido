@@ -94,6 +94,8 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     this.jobs.register<{ driverId: string }>(OFFER_EXPIRE_JOB, (job) => this.onTimeout(job.id, job.payload.driverId));
+    // A paused driver's open requests go to the next drivers at once (DriverBlocksService can't call us directly).
+    this.blocks.onPaused((driverId) => this.releaseOffers(driverId, null));
     this.jobs.register(RESEARCH_JOB, async (job) => void (await this.redis.sadd(PENDING_KEY, job.id)));
     const windowMs = await this.settings.get('batchWindowMs');
     this.ticker = setInterval(() => void this.tick(), Math.max(250, windowMs));
@@ -146,10 +148,10 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * [driverId] took [keptTripId]: their other open requests go to the next drivers right away (no decline or
-   * timeout counted against them).
+   * [driverId]'s open requests (but [keptTripId], the one they took) go to the next drivers right away (no decline or
+   * timeout counted against them): they took a trip, or were paused ([keptTripId] null).
    */
-  private async releaseOtherOffers(driverId: string, keptTripId: string): Promise<void> {
+  private async releaseOffers(driverId: string, keptTripId: string | null): Promise<void> {
     const others = (await this.redis.zrange(driverOffersKey(driverId), '0', '-1')).filter((t) => t !== keptTripId);
     for (const tripId of others) {
       if ((await this.offeredTo(tripId)) === driverId) await this.next(tripId);
@@ -174,7 +176,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
   async accepted(tripId: string, driverId: string): Promise<void> {
     await this.offerStats.record(driverId, 'accepted');
     await this.stop(tripId);
-    await this.releaseOtherOffers(driverId, tripId);
+    await this.releaseOffers(driverId, tripId);
   }
 
   /** A cancellation after accepting was judged [driverId]'s fault: counts against them in ranking. */

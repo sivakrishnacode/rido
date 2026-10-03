@@ -1072,9 +1072,24 @@ describe('Tamil Taxi API (e2e)', () => {
         data: Array.from({ length: 3 }, () => ({ tripId: trip.id, driverId, passengerId, by: 'DRIVER' as const, code: 'TOO_FAR' as const, fromStatus: 'DRIVER_ASSIGNED' as const, reassigned: true, isDriverFault: true, fault: 'DRIVER' as const })),
       });
       await prisma.driverBlock.updateMany({ where: { driverId }, data: { untilAt: new Date(Date.now() - 60_000) } }); // so the window starts before these rows
+      // A request open for them when the pause starts goes to the next driver; accepting is refused while paused.
+      const rider = { Authorization: `Bearer ${await login()}` };
+      const waiting = (await http.post('/v1/trips').set(rider).send({ kind: 'RIDE', vehicleKind: 'BIKE', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+      let offered = false;
+      for (let i = 0; i < 40 && !offered; i++) {
+        offered = (await http.get('/v1/trips/offer').set(driver)).body?.trip?.id === waiting.id;
+        if (!offered) await new Promise((res) => setTimeout(res, 250));
+      }
+      expect(offered).toBe(true);
       expect(await app.get(DriverBlocksService).afterCancel(driverId)).toBe('BLOCK');
       const again = (await prisma.driver.findUniqueOrThrow({ where: { id: driverId } })).blockedUntil!.getTime();
       expect(again - Date.now()).toBeGreaterThan(71.9 * 3_600_000);
+      expect(await redis.zcard(`dispatch:driver:${driverId}:offers`)).toBe(0);
+      expect(await redis.get(`dispatch:${waiting.id}:offer`)).not.toBe(driverId);
+      await redis.set(`dispatch:${waiting.id}:offer`, driverId, 'EX', 20); // even with the offer still theirs
+      expect((await http.post(`/v1/trips/${waiting.id}/accept`).set(driver).expect(403)).body.code).toBe('DRIVER_TEMP_BLOCKED');
+      await redis.del(`dispatch:${waiting.id}:offer`);
+      await http.post(`/v1/trips/${waiting.id}/cancel`).set(rider).send({}).expect(200);
       const admin = await adminAuth();
       const detail = (await http.get(`/v1/admin/drivers/${driverId}`).set(admin).expect(200)).body;
       expect(detail.blocks).toHaveLength(2);

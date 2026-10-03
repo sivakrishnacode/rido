@@ -29,6 +29,19 @@ describe('TripsService.accept', () => {
     expect(releaseBusy).toHaveBeenCalledWith('d1', 't1', false);
   });
 
+  it('refuses a driver who is not approved, is paused or is blocked, before claiming anything', async () => {
+    const onHold = setup({ writeWins: true, driver: { status: 'ON_HOLD' } });
+    await expect(onHold.trips.accept('d1', 't1')).rejects.toMatchObject({ status: 403, message: "You can't take trips while your account is on hold" });
+    const until = new Date(Date.now() + 3_600_000);
+    const paused = setup({ writeWins: true, driver: { blockedUntil: until } });
+    await expect(paused.trips.accept('d1', 't1')).rejects.toMatchObject({ status: 403, response: { code: 'DRIVER_TEMP_BLOCKED', details: { until: until.toISOString() } } });
+    const blocked = setup({ writeWins: true, driver: { user: { isBlocked: true } } });
+    await expect(blocked.trips.accept('d1', 't1')).rejects.toMatchObject({ status: 403 });
+    // A pause that has ended doesn't count.
+    const ended = setup({ writeWins: false, driver: { blockedUntil: new Date(Date.now() - 1000) } });
+    await expect(ended.trips.accept('d1', 't1')).rejects.toMatchObject({ status: 409 });
+  });
+
   it('keeps the driver busy when a step after a won write fails: the trip is theirs', async () => {
     const { trips, releaseBusy } = setup({ writeWins: true, afterWriteFails: true });
     await expect(trips.accept('d1', 't1')).rejects.toThrow('Redis hiccup');

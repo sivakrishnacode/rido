@@ -56,6 +56,8 @@ export interface CancelRateStats {
 @Injectable()
 export class DriverBlocksService implements OnModuleInit {
   private readonly logger = new Logger(DriverBlocksService.name);
+  /** Run when a pause starts (dispatch hands the driver's open requests to others), see [onPaused]. */
+  private readonly pausedHooks: ((driverId: string) => Promise<void>)[] = [];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -71,6 +73,11 @@ export class DriverBlocksService implements OnModuleInit {
 
   onModuleInit(): void {
     this.jobs.register(UNBLOCK_JOB, (j: Job<{ blockId: string }>) => this.expire(j.id, j.payload.blockId));
+  }
+
+  /** [hook] runs whenever a driver is paused (registered by DispatchService, which this service can't depend on). */
+  onPaused(hook: (driverId: string) => Promise<void>): void {
+    this.pausedHooks.push(hook);
   }
 
   /** The driver's rate now (cached 5 min; dropped on each of their cancellations). */
@@ -123,7 +130,10 @@ export class DriverBlocksService implements OnModuleInit {
     return stats.level;
   }
 
-  /** Pauses the driver (offline, out of the index, can't go online) until `cancelBlockHours` from [now]. */
+  /**
+   * Pauses the driver (offline, out of the index, can't go online or accept, open requests handed on) until
+   * `cancelBlockHours` from [now].
+   */
   private async block(driverId: string, stats: CancelRateStats, now: number): Promise<DriverBlock> {
     const s = await this.settings.all();
     const recent = await this.prisma.driverBlock.count({ where: { driverId, fromAt: { gte: new Date(now - CANCEL_RATE_WINDOW_MS) } } });
@@ -139,6 +149,8 @@ export class DriverBlocksService implements OnModuleInit {
     await this.state.invalidate(driverId);
     await this.redis.del(statsKey(driverId));
     await this.jobs.schedule(UNBLOCK_JOB, driverId, until.getTime(), { blockId: block.id });
+    // Requests still open for them go to the next drivers now.
+    for (const hook of this.pausedHooks) await hook(driverId).catch((e: Error) => this.logger.warn(`Releasing ${driverId}'s offers failed: ${e.message}`));
     const message = cancelRateMessage({ ...stats, level: 'BLOCK' }, s);
     this.events.toDriver(driverId, BLOCKED_EVENT, { until: until.toISOString(), ...message });
     void this.notifier.driverAccount({ driverId, kind: 'TEMP_BLOCKED', title: message.title, body: `${message.body}. You can go online again at ${istTime(until)}` });
