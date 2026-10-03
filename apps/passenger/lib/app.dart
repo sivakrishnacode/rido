@@ -12,6 +12,7 @@ import 'features/ride/safety_check_sheet.dart';
 import 'router/app_router.dart';
 import 'router/routes.dart';
 import 'state/app_notice.dart';
+import 'state/ride_flow.dart' show upcomingTripsProvider;
 import 'state/session_actions.dart';
 import 'state/trip_safety.dart';
 
@@ -29,6 +30,9 @@ class _TtPassengerAppState extends ConsumerState<TtPassengerApp> {
   StreamSubscription<void>? _unauthorized;
   StreamSubscription<PushData>? _pushTaps;
   StreamSubscription<SafetyCheck>? _safetyChecks;
+  StreamSubscription<Map<String, dynamic>>? _tripUpdates;
+  AppLifecycleListener? _lifecycle;
+  ApiSession? _session;
 
   /// Safety checks already shown (the socket event and the push tap are the same check), and one at a time.
   final _shownChecks = <String>{};
@@ -48,10 +52,17 @@ class _TtPassengerAppState extends ConsumerState<TtPassengerApp> {
       });
       // "Is everything OK?" while the app is open (socket), over whatever screen is up.
       _safetyChecks = ref.read(liveSafetyProvider).checks().listen((c) => _showSafetyCheck(c, openTrip: false));
+      // Trips the app isn't following (one booked for later starting its search, a driver accepting it) arrive on
+      // the rider's own room: follow them. The socket stays up while signed in for that.
+      _tripUpdates = ref.read(realtimeProvider).on('trip.updated').listen(_onTripUpdated);
+      _session = ref.read(apiClientProvider).session..tokenChanges.addListener(_connect);
+      _connect();
+      _lifecycle = AppLifecycleListener(onResume: _onResume);
       final push = ref.read(pushProvider);
       if (push != null) {
-        // Trip progress is already on screen while the app is open; chat and announcements still show.
-        push.suppress = (data) => data['type'] == 'trip';
+        // A trip's progress is already on screen while a flow follows it; any other trip's (and chat, announcements)
+        // still shows.
+        push.suppress = (data) => data['type'] == 'trip' && followedTripRoute(ref, data['tripId'] ?? '') != null;
         _pushTaps = push.taps.listen(_onPushTap);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final launch = push.takeLaunchTap();
@@ -61,15 +72,46 @@ class _TtPassengerAppState extends ConsumerState<TtPassengerApp> {
     }
   }
 
-  /// A tapped notification about a trip or its chat opens that trip's screen; a safety check opens its sheet.
-  Future<void> _onPushTap(PushData data) async {
-    if (data['type'] == 'safety') {
-      final check = SafetyCheck.fromJson(data);
-      return _showSafetyCheck(check, openTrip: !check.isArrival);
-    }
-    if (data['type'] != 'trip' && data['type'] != 'chat') return;
+  /// Signed in: keep the socket up (the rider's room carries trips booked for later and their driver).
+  void _connect() {
+    if (ref.read(authRepositoryProvider).isLoggedIn) ref.read(realtimeProvider).connect();
+  }
+
+  /// A trip update on the rider's room. One no flow follows, now searching or with a driver, is followed and opened
+  /// (unless another trip is on or being booked). Upcoming trips reload either way.
+  void _onTripUpdated(Map<String, dynamic> json) {
+    final id = json['id'];
+    if (id is! String || !mounted) return;
+    ref.invalidate(upcomingTripsProvider);
+    if (followedTripRoute(ref, id) != null || isBusyWithTrip(ref)) return;
+    if (!kOngoingStatuses.contains(json['status'])) return;
+    final route = followTrip(ref, LiveTripUpdate.fromJson(json));
+    if (route != null && !isSosOpen(_router)) _router.go(route);
+  }
+
+  /// Back in the app: a trip that started (or got a driver) meanwhile opens; the Upcoming list reloads.
+  Future<void> _onResume() async {
+    if (!ref.read(authRepositoryProvider).isLoggedIn) return;
+    _connect();
+    ref.invalidate(upcomingTripsProvider);
+    if (followedTripRoute(ref) != null || isBusyWithTrip(ref)) return;
     final route = await restoreActiveTrip(ref);
-    if (mounted && route != null) _router.go(route);
+    if (mounted && route != null && !isSosOpen(_router)) _router.go(route);
+  }
+
+  /// A tapped notification: a trip, its chat or a reminder about it opens that trip's screen (a finished one its
+  /// rating or details); a safety check opens its sheet; an identity result opens Verify identity.
+  Future<void> _onPushTap(PushData data) async {
+    switch (data['type']) {
+      case 'safety':
+        final check = SafetyCheck.fromJson(data);
+        return _showSafetyCheck(check, openTrip: !check.isArrival);
+      case 'identity':
+        if (ref.read(authRepositoryProvider).isLoggedIn) _router.go(Routes.verifyIdentity);
+      case 'trip' || 'chat' || 'nudge':
+        final route = await routeForTripPush(ref, data);
+        if (mounted && route != null && !isSosOpen(_router)) _router.go(route);
+    }
   }
 
   /// The I'm OK / Get help sheet for [check] (once per check); "Get help" opens the SOS screen. A night-start
@@ -102,6 +144,9 @@ class _TtPassengerAppState extends ConsumerState<TtPassengerApp> {
 
   @override
   void dispose() {
+    _session?.tokenChanges.removeListener(_connect);
+    _lifecycle?.dispose();
+    _tripUpdates?.cancel();
     _safetyChecks?.cancel();
     _unauthorized?.cancel();
     _pushTaps?.cancel();
