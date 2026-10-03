@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { ListFilters } from "@/components/common/list-filters";
 import { EmptyState, PageHeader } from "@/components/common/page";
+import { AttachmentThumb } from "@/components/common/photo-tile";
 import { Pager } from "@/components/common/pager";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +60,7 @@ export default async function SupportPage({ searchParams }: PageProps<"/support"
                   <TableCell className="max-w-md whitespace-normal">
                     <span className="block font-medium text-navy-900">{t.topic}</span>
                     <span className="line-clamp-2 text-sm text-navy-700">{t.description}</span>
+                    {t.attachmentFile && <AttachmentThumb file={t.attachmentFile} />}
                   </TableCell>
                   <TableCell>
                     {t.trip ? (

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Field, PageHeader } from "@/components/common/page";
+import { AttachmentThumb, PhotoTile } from "@/components/common/photo-tile";
 import { PlateBadge, StatusBadge } from "@/components/common/status";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -403,6 +404,10 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
               ) : (
                 <p className="text-sm text-muted-foreground">No parcel details recorded.</p>
               )}
+              <div className="mt-4 flex flex-wrap gap-4 border-t pt-4">
+                <PhotoTile label="Parcel (sender)" file={t.parcelPhotoFile} note={t.parcelPhotoFile ? "Taken before pickup" : "Not added"} />
+                <PhotoTile label="Proof of delivery" file={t.deliveryPhotoFile} note={t.deliveryPhotoFile ? "Taken by the driver at the drop" : "Not taken"} />
+              </div>
             </CardContent>
           </Card>
         )}
@@ -495,6 +500,7 @@ export default async function TripPage({ params }: PageProps<"/trips/[id]">) {
                       {tk.topic} <StatusBadge status={tk.status} />
                     </p>
                     <p className="mt-1 text-sm text-navy-700">{tk.description}</p>
+                    {tk.attachmentFile && <AttachmentThumb file={tk.attachmentFile} />}
                     <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(tk.createdAt)}</p>
                   </li>
                 ))}
