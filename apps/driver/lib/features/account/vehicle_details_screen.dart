@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../router/routes.dart';
 import '../../state/driver_account.dart';
+import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import 'widgets/edit_form_scaffold.dart';
 
@@ -54,29 +56,63 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
 
   bool get _plateOk => kPlatePattern.hasMatch(_plate.text.trim());
 
+  /// The API takes 2–60 characters.
+  bool get _modelOk {
+    final n = _model.text.trim().length;
+    return n >= 2 && n <= 60;
+  }
+
+  static String _plateKey(String plate) => plate.replaceAll(RegExp(r'\s'), '').toUpperCase();
+
+  /// Saves. Live, a new number plate needs a new RC check: the driver confirms first; once saved the API puts them
+  /// back under review (offline, RC to upload again), so the app goes offline and opens the registration page.
   Future<void> _save() async {
     setState(() => _tried = true);
-    if (_model.text.trim().isEmpty || !_plateOk) return;
+    if (!_modelOk || !_plateOk) return;
     if (widget.showcase) {
       showTtSnack(context, 'Design preview: nothing is saved');
       return;
     }
     final current = ref.read(driverProfileProvider).value;
     if (current == null) return;
+    final plate = _plate.text.trim().toUpperCase();
+    final newPlate = ref.read(isLiveApiProvider) && _plateKey(plate) != _plateKey(current.plate);
+    if (newPlate) {
+      final ok = await showTtConfirm(
+        context,
+        title: 'Change the number plate?',
+        message: "Changing the number plate needs a new RC check. You can't go online until an admin verifies it.",
+        confirmLabel: 'Change plate',
+        cancelLabel: 'Keep the old plate',
+        icon: Symbols.directions_car_rounded,
+      );
+      if (!ok || !mounted) return;
+    }
     setState(() => _saving = true);
     try {
       await ref.read(driverProfileProvider.notifier).save(current.copyWith(
             vehicleModel: _model.text.trim(),
             vehicleColor: _color.text.trim(),
-            plate: _plate.text.trim().toUpperCase(),
+            plate: plate,
           ));
     } on Exception catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      showTtSnack(context, userMessage(e));
+      showTtSnack(context, e is ApiException && e.status == 409 ? 'This number plate is already registered' : userMessage(e));
       return;
     }
     if (!mounted) return;
+    if (newPlate) {
+      // Under review again: offline here too (the server already is), and the RC row shows what to upload.
+      ref
+        ..invalidate(driverProfileProvider)
+        ..invalidate(kycProvider);
+      await ref.read(driverSessionProvider.notifier).goOffline(tellServer: false);
+      if (!mounted) return;
+      context.go(Routes.documents);
+      showTtSnack(context, 'Plate saved. Upload the RC of your new vehicle');
+      return;
+    }
     showTtSnack(context, 'Vehicle details saved', success: true);
     context.pop();
   }
@@ -118,7 +154,7 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
           label: 'Model',
           controller: _model,
           textCapitalization: TextCapitalization.words,
-          errorText: _tried && _model.text.trim().isEmpty ? 'Enter the vehicle model' : null,
+          errorText: _tried && !_modelOk ? 'Enter the vehicle model (2 to 60 letters)' : null,
         ),
         const SizedBox(height: TtSpacing.l),
         TtTextField(label: 'Colour', controller: _color, textCapitalization: TextCapitalization.words),
@@ -130,7 +166,7 @@ class _VehicleDetailsScreenState extends ConsumerState<VehicleDetailsScreen> {
           errorText: _tried && !_plateOk ? 'Use the format TN 37 AB 4521' : null,
         ),
         const SizedBox(height: TtSpacing.m),
-        Text('A change of vehicle may need a new RC check.', style: t.caption),
+        Text('A new number plate needs a new RC check before you can go online.', style: t.caption),
       ],
     );
   }
