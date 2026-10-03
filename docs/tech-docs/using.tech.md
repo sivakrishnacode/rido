@@ -1251,8 +1251,8 @@ use the built-in rates; a booked price is always the server's.
   deletion URL (`https://tamiltaxi.co.in/delete-account/`) for both apps. The download buttons say "Coming soon to
   Google Play" until `site.onPlayStore` is set to `true`; then they link to `com.tamiltaxi.passenger` /
   `com.tamiltaxi.driver` (a test checks these match each app's `applicationId`).
-- **Hosting:** already hosted separately by the owner; repository pushes trigger automatic deployment. Cheapest options: a Caddy `file_server` block on the existing EC2
-  (copy `out/` to the server), or GitHub / Cloudflare Pages (free).
+- **Hosting:** already hosted separately by the owner; repository pushes trigger automatic deployment.
+  EC2 staging serves only the API and admin.
 
 ## 7. Maps and location
 

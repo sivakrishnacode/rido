@@ -2,7 +2,8 @@
 
 The work interrupted by Claude's session limit has been recovered and completed on local `main` by Codex.
 Source: the original **Driver app login black screen after OTP** conversation and its five agent worktrees.
-The original conversation and worktrees were preserved. No agent history was rewritten, and no throwaway screenshot test was imported.
+The original conversation was preserved. Agent histories and unfinished patches were backed up before worktree cleanup.
+No agent history was rewritten, and no throwaway screenshot test was imported.
 
 ## Recovery
 
@@ -69,7 +70,8 @@ the completion message itself is saved for the next resume. No conversation hist
 
 ## Rollout
 
-These changes are local commits on `main`. This recovery did not push, deploy, alter application secrets, or start new Claude agents.
+The initial recovery created local commits on `main`. The owner subsequently requested staging deployment and branch cleanup;
+see the deployment entry in `using.tech.md`. No new Claude agents were started.
 The account-deletion storage implementation requires the deployment's existing S3 role to permit `s3:DeleteObject` on KYC files.
 Device camera, Didit verification, notifications and production S3 must still be verified with real configured services when released;
 widget/API tests use fakes for these integrations.
@@ -123,3 +125,18 @@ ea58c79 feat(driver): changing the number plate asks first and opens the RC chec
 - `e331c99` — finish driver jobs, recovery/onboarding findings and design screenshots.
 
 The final documentation commit follows these in `git log`.
+
+## Owner-requested integration and cleanup
+
+On 3 Oct 2026, all five original agent histories were recorded as merged (`0ce6c27`) after verifying their changes
+were already present on main. This integration record left the verified source tree unchanged. Five obsolete agent
+worktrees and their local branches were removed; only `main` remains. Recoverable Git history, dirty patches and
+untracked worktree files are retained locally in `.claude/recovery-backups/20261003-completed` (ignored by Git).
+
+API/admin staging deployment and its four migrations passed health and signed-in smoke checks. The temporary EC2
+website host was removed at the owner's request; their existing website host deploys from repository pushes.
+Both Android release APKs built successfully and passed `apksigner verify`; they are in
+`dist/tamiltaxi-passenger.apk` and `dist/tamiltaxi-driver.apk`, with SHA-256 hashes in
+`dist/staging-release-20261003.json`. They use the staging HTTPS API. These generated artifacts are not committed.
+
+S3 KYC deletion remains pending the IAM permission documented in `staging-kyc-delete-policy.json`.
