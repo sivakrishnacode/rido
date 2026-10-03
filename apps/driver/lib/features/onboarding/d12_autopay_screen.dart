@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import '../states/s14_payment_failed_dialog.dart';
@@ -48,6 +49,7 @@ class _D12AutopayScreenState extends ConsumerState<D12AutopayScreen> {
   }
 
   Future<void> _approve() async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     final app = _app;
     if (app == null || _processing) return;
     setState(() => _processing = true);

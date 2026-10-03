@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import 'widgets/signup_widgets.dart';
@@ -52,6 +53,7 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
   }
 
   void _continue() {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     ref.read(signupProvider.notifier).update((d) => d.copyWith(vehicle: _selected));
     context.push(Routes.personalDetails);
   }

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../earnings/widgets/earnings_header.dart';
 
@@ -33,7 +34,7 @@ class _S15EmptyEarningsViewState extends State<S15EmptyEarningsView> {
             title: 'No earnings yet ${periodSuffix(period)}',
             message: 'Go online to start earning. You keep 100%.',
             actionLabel: 'Go online',
-            onAction: () => context.go(Routes.home),
+            onAction: unlessShowcase(context, widget.showcase, () => context.go(Routes.home)),
           ),
         ),
       );

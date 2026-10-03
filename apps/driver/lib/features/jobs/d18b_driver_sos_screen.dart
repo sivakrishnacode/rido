@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../common/launch.dart';
 import '../account/account_providers.dart';
 import '../../state/driver_account.dart';
@@ -105,6 +106,7 @@ class _D18bDriverSosScreenState extends ConsumerState<D18bDriverSosScreen> {
   }
 
   Future<void> _call112() async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     final ok = await showTtConfirm(
       context,
       title: 'Call 112?',

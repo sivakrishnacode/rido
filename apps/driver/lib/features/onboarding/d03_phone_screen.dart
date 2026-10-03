@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
@@ -41,6 +42,7 @@ class _D03PhoneScreenState extends ConsumerState<D03PhoneScreen> {
   }
 
   Future<void> _send() async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     if (_digits.length != 10 || _sending) return;
     final formatted = '${_digits.substring(0, 5)} ${_digits.substring(5)}';
     setState(() => _sending = true);

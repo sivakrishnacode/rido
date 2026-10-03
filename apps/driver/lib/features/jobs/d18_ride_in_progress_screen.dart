@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../common/launch.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
@@ -86,11 +87,8 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
         return;
       }
     }
-    if (widget.showcase) {
-      context.push(Routes.collect);
-    } else {
-      context.pushReplacement(Routes.collect);
-    }
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
+    context.pushReplacement(Routes.collect);
   }
 
   /// Live API: warns early when the GPS is already outside the drop radius (the API decides).
@@ -195,12 +193,13 @@ class _D18RideInProgressScreenState extends ConsumerState<D18RideInProgressScree
                   Positioned(
                     right: TtSpacing.gutter,
                     top: TtSpacing.l,
-                    child: NavigatePill(onPressed: () => openNavigation(context, _job.drop.location)),
+                    child: NavigatePill(
+                        onPressed: unlessShowcase(context, widget.showcase, () => openNavigation(context, _job.drop.location))!),
                   ),
                 Positioned(
                   right: TtSpacing.gutter,
                   bottom: TtSpacing.xl,
-                  child: SosButton(onPressed: () => context.push(Routes.sos)),
+                  child: SosButton(onPressed: unlessShowcase(context, widget.showcase, () => context.push(Routes.sos))!),
                 ),
               ]),
             ),

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
 import 'widgets/signup_widgets.dart';
@@ -90,6 +91,7 @@ class _D08UploadDocumentScreenState extends ConsumerState<D08UploadDocumentScree
   }
 
   Future<void> _use() async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     if (_submitting) return;
     if (_live) return _upload();
     setState(() => _submitting = true);

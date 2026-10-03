@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../common/go_online.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -33,6 +34,7 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
     final date = formatDate(plan.nextDebit);
 
     Future<void> goOnline() async {
+      if (showcase) return showTtSnack(context, kPreviewNote);
       ref.read(driverSessionProvider.notifier).markSelfieDone();
       await goOnlineOrExplain(context, ref, toHome: true);
     }
@@ -40,7 +42,7 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: PopScope(
-        canPop: false,
+        canPop: showcase,
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) context.go(Routes.home);
         },

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../state/driver_account.dart';
 
 /// S-14 Autopay payment failed (amber dialog). Pops `'retry'` ("Retry with another UPI app")
@@ -58,7 +59,7 @@ class S14PaymentFailedDialog extends ConsumerWidget {
                   const SizedBox(height: TtSpacing.l),
                   TtButton(
                     label: 'Retry with another UPI app',
-                    onPressed: () => Navigator.of(context).pop('retry'),
+                    onPressed: unlessShowcase(context, showcase, () => Navigator.of(context).pop('retry')),
                   ),
                   const SizedBox(height: TtSpacing.xs),
                   TextButton(
@@ -67,7 +68,7 @@ class S14PaymentFailedDialog extends ConsumerWidget {
                       minimumSize: const Size.fromHeight(48),
                       textStyle: t.button,
                     ),
-                    onPressed: () => Navigator.of(context).pop('later'),
+                    onPressed: unlessShowcase(context, showcase, () => Navigator.of(context).pop('later')),
                     child: Text('Pay later ($days days left)'),
                   ),
                 ],

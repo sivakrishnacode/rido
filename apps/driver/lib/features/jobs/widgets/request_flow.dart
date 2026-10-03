@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../../common/showcase.dart';
 import '../../../common/job_routes.dart';
 import '../../home/widgets/direction_panel.dart';
 import '../../../state/driver_session.dart';
@@ -108,10 +109,7 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
   /// Live API: accepting can fail when the offer went to someone else; the next stacked request (if any) stays.
   Future<void> accept() async {
     if (_handledId == _last.id) return;
-    if (showcase) {
-      context.push(acceptedRoute(seed));
-      return;
-    }
+    if (showcase) return showTtSnack(context, kPreviewNote);
     _handledId = _last.id;
     setState(() => accepting = true);
     try {
