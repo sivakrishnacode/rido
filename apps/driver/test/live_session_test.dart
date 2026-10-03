@@ -529,6 +529,62 @@ void main() {
     expect(jobs.calls.last, 'cancel:VEHICLE_ISSUE');
   });
 
+  test('a lost accept answer: the server did assign the trip, so the job carries on', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(liveOffer('t1'));
+    await pumpEventQueue();
+    jobs.acceptAssignsThenFails = true;
+    await session().acceptRequest();
+    expect(state().job?.id, 't1');
+    expect(state().phase, JobPhase.toPickup);
+    expect(state().incoming, isNull);
+  });
+
+  test('a lost accept answer for a trip that went elsewhere still fails', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(liveOffer('t1'));
+    await pumpEventQueue();
+    jobs.acceptError = const OfflineException();
+    await expectLater(session().acceptRequest(), throwsA(isA<OfflineException>()));
+    expect(state().job, isNull);
+  });
+
+  test('a job step refused because the trip was cancelled meanwhile ends the job', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(liveOffer('t1'));
+    await pumpEventQueue();
+    await session().acceptRequest();
+    // The passenger cancelled while the socket was down: the server no longer has this job for the driver.
+    jobs.current = null;
+    jobs.tooFar = false;
+    final before = jobs.activeChecks;
+    await expectLater(session().startTrip(otp: '0000'), throwsA(isA<ApiException>()));
+    await pumpEventQueue();
+    expect(jobs.activeChecks, greaterThan(before));
+    expect(state().job, isNull);
+    expect(state().notice?.jobEnded, isTrue);
+  });
+
+  test("the driver's own cancel refused with 404 (already gone) ends the job; a lost one checks with the server", () async {
+    await session().goOnline();
+    jobs.offersCtl.add(liveOffer('t1'));
+    await pumpEventQueue();
+    await session().acceptRequest();
+    jobs.cancelError = const ApiException(404, 'Trip not found');
+    await session().cancelJob(code: CancelCode.vehicleIssue);
+    expect(state().job, isNull);
+
+    jobs.offersCtl.add(liveOffer('t2'));
+    await pumpEventQueue();
+    await session().acceptRequest();
+    jobs
+      ..cancelError = const OfflineException()
+      ..current = null; // The cancel went through; only its answer was lost.
+    await expectLater(session().cancelJob(code: CancelCode.vehicleIssue), throwsA(isA<OfflineException>()));
+    await pumpEventQueue();
+    expect(state().job, isNull);
+  });
+
   test('going offline stops offers and tells the API', () async {
     await session().goOnline();
     await session().goOffline();
