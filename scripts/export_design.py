@@ -88,7 +88,7 @@ def main():
             rows.append((frame_id, name, app, dest, status(frame_id, app)))
 
     with open(os.path.join(OUT, 'index.csv'), 'w', newline='') as fh:
-        w = csv.writer(fh)
+        w = csv.writer(fh, lineterminator='\n')
         w.writerow(['frame_id', 'screen_name', 'app', 'file', 'status'])
         w.writerows(rows)
 
