@@ -152,6 +152,7 @@ class PP08ParcelDriverAssignedScreen extends ConsumerWidget {
                         rating: driver.rating,
                         vehicle: driver.vehicleModel,
                         plate: driver.plate,
+                        vehicleKind: driver.vehicleKind,
                         bordered: false,
                         photo: ref.watch(driverPhotoProvider(driver.photoPath)),
                       ),

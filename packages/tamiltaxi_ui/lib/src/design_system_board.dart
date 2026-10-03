@@ -747,6 +747,7 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
           rating: Seed.karthik.rating,
           vehicle: '${Seed.karthik.vehicleModel} · ${Seed.karthik.vehicleColor}',
           plate: Seed.karthik.plate,
+          vehicleKind: Seed.karthik.vehicleKind,
           statusText: '2 min away',
           onCall: () => _snack('Calling Karthik'),
           onChat: () => _snack('Opening chat'),
@@ -758,6 +759,7 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
           rating: Seed.murugan.rating,
           vehicle: '${Seed.murugan.vehicleModel} · ${Seed.murugan.vehicleColor}',
           plate: Seed.murugan.plate,
+          vehicleKind: Seed.murugan.vehicleKind,
           rides: formatInr(Seed.murugan.rides).replaceAll('₹', ''),
           statusText: 'Arrived',
           onCall: () => _snack('Calling Murugan'),
@@ -768,9 +770,12 @@ class _DesignSystemBoardState extends State<DesignSystemBoard> {
           spacing: TtSpacing.m,
           runSpacing: TtSpacing.s,
           crossAxisAlignment: WrapCrossAlignment.center,
-          children: [NumberPlate(plate: Seed.karthik.plate), NumberPlate(plate: Seed.arun.plate, large: true)],
+          children: [
+            NumberPlate(plate: Seed.karthik.plate, vehicle: Seed.karthik.vehicleKind),
+            NumberPlate(plate: Seed.arun.plate, vehicle: Seed.arun.vehicleKind, large: true),
+          ],
         ),
-        caption('Number plate · Indian HSRP style, normal and large'),
+        caption('Number plate · white for bikes and scooters, yellow T-board for the rest; normal and large'),
       ]),
 
       // Fare breakdown

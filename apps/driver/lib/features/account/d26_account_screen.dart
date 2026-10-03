@@ -282,7 +282,7 @@ class _ProfileHeader extends StatelessWidget {
           const SizedBox(height: TtSpacing.xs),
           Row(children: [
             Text('${profile.vehicleKind.label} · ', style: t.body.copyWith(color: Colors.white70)),
-            Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: NumberPlate(plate: profile.plate))),
+            Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: NumberPlate(plate: profile.plate, vehicle: profile.vehicleKind))),
           ]),
         ]),
       ),

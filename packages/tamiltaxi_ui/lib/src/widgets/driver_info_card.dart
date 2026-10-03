@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import '../theme/tt_colors.dart';
 import '../theme/tt_tokens.dart';
@@ -16,6 +17,7 @@ class DriverInfoCard extends StatelessWidget {
     required this.rating,
     required this.vehicle,
     required this.plate,
+    this.vehicleKind,
     this.rides,
     this.statusText,
     this.statusColor = TtColors.success,
@@ -32,6 +34,9 @@ class DriverInfoCard extends StatelessWidget {
   /// "Honda Activa · Grey"
   final String vehicle;
   final String plate;
+
+  /// Picks the plate colour (see [NumberPlate]).
+  final VehicleKind? vehicleKind;
 
   /// Shown as "(1,240 rides)".
   final String? rides;
@@ -103,7 +108,7 @@ class DriverInfoCard extends StatelessWidget {
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: NumberPlate(plate: plate),
+                  child: NumberPlate(plate: plate, vehicle: vehicleKind),
                 ),
               ),
               if (statusText != null) ...[

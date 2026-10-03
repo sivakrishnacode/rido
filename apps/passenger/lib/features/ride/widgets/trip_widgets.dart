@@ -135,7 +135,7 @@ class TripDriverRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        NumberPlate(plate: driver.plate),
+        NumberPlate(plate: driver.plate, vehicle: driver.vehicleKind),
       ],
     );
   }
@@ -169,7 +169,7 @@ class CompactDriverRow extends StatelessWidget {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
-                child: NumberPlate(plate: driver.plate),
+                child: NumberPlate(plate: driver.plate, vehicle: driver.vehicleKind),
               ),
             ],
           ),

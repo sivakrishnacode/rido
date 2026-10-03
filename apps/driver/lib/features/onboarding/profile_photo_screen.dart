@@ -166,7 +166,7 @@ class RiderPreviewCard extends StatelessWidget {
             ]),
           ),
           const SizedBox(width: TtSpacing.s),
-          NumberPlate(plate: profile.plate),
+          NumberPlate(plate: profile.plate, vehicle: profile.vehicleKind),
         ]),
       ),
     );
