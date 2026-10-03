@@ -11,8 +11,20 @@ import {
 import { FileStorageService, type UploadedBlob } from '../../core/storage/file-storage.service.js';
 import { DriverEarningsService } from './driver-earnings.service.js';
 import type { UpdateDriverDto } from './dto/update-driver.dto.js';
-import type { BookingPrefsDto } from './dto/booking-prefs.dto.js';
-import { type Area, type BookingPrefs, DEFAULT_HELPERS, type GoTo, GO_TO_HOURS, readPrefs, type StayIn, STAY_IN_HOURS } from './booking-prefs.js';
+import type { BookingPrefsDto, ServiceDto } from './dto/booking-prefs.dto.js';
+import {
+  type Area,
+  type BookingPrefs,
+  DEFAULT_HELPERS,
+  type GoTo,
+  GO_TO_HOURS,
+  readPrefs,
+  type ServiceKey,
+  servicesFor,
+  type StayIn,
+  STAY_IN_HOURS,
+} from './booking-prefs.js';
+import { PARCEL_TWO_WHEELERS } from './vehicle-match.js';
 import { isGoodsTruck } from '../fares/goods-modes.js';
 
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
@@ -262,9 +274,9 @@ export class DriversService {
       throw new BadRequestException('Shortest trip must be less than the longest trip');
     }
     if (dto.goTo && dto.stayIn) throw new BadRequestException('Turn off Go To to use Stay In');
-    if (dto.shifting) {
-      const { vehicleKind } = await this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, select: { vehicleKind: true } });
-      if (!isGoodsTruck(vehicleKind)) throw new BadRequestException('Packers & Movers jobs are for three-wheeler, mini truck, pickup and truck drivers');
+    const { vehicleKind } = await this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, select: { vehicleKind: true } });
+    if (dto.shifting && !isGoodsTruck(vehicleKind)) {
+      throw new BadRequestException('Packers & Movers jobs are for three-wheeler, mini truck, pickup and truck drivers');
     }
     const now = new Date();
     const current = await this.bookingPrefs(driverId);
@@ -288,12 +300,42 @@ export class DriversService {
       maxTripKm: dto.maxTripKm ?? null,
       goTo,
       stayIn,
-      parcels: dto.parcels ?? current.parcels ?? true,
+      // Older apps send parcels for bikes only; an auto takes parcels only when switched on in Services.
+      parcels: PARCEL_TWO_WHEELERS.includes(vehicleKind) ? (dto.parcels ?? current.parcels) : current.parcels,
+      rentals: current.rentals,
+      outstation: current.outstation,
       areas: dto.areas === undefined ? (current.areas ?? []) : (dto.areas ?? []).map(place),
       // Not sent (an older app): what is stored stays.
       shifting: dto.shifting ?? current.shifting ?? false,
       helpers: dto.helpers ?? current.helpers ?? DEFAULT_HELPERS,
+      pauses: current.pauses,
     };
+    await this.prisma.driver.update({ where: { id: driverId }, data: { bookingPrefs: prefs as Prisma.InputJsonValue } });
+    return prefs;
+  }
+
+  /**
+   * Services: switches [service] on (a pause ends), or off for [dto.pauseMinutes] (then it comes back on by itself) or
+   * until the driver starts it again. Only the services their vehicle has (servicesFor); the main one can't go off.
+   */
+  async setService(driverId: string, service: ServiceKey, dto: ServiceDto): Promise<BookingPrefs> {
+    const { vehicleKind } = await this.prisma.driver.findUniqueOrThrow({ where: { id: driverId }, select: { vehicleKind: true } });
+    if (!servicesFor(vehicleKind).includes(service)) throw new BadRequestException("Your vehicle doesn't have this service");
+    const now = new Date();
+    const current = await this.bookingPrefs(driverId);
+    const pauses = { ...current.pauses };
+    delete pauses[service];
+    const timed = dto.on ? null : (dto.pauseMinutes ?? null);
+    if (!dto.on) {
+      pauses[service] = {
+        until: timed === null ? null : new Date(now.getTime() + timed * 60_000).toISOString(),
+        reason: dto.reason?.trim() || null,
+      };
+    }
+    // A timed pause leaves the service on underneath (it comes back by itself); "until I start it" switches it off.
+    const on = dto.on || timed !== null;
+    const prefs: BookingPrefs = { ...current, [service]: on, pauses };
+    if (service === 'shifting' && dto.on) prefs.helpers = dto.helpers ?? current.helpers ?? DEFAULT_HELPERS;
     await this.prisma.driver.update({ where: { id: driverId }, data: { bookingPrefs: prefs as Prisma.InputJsonValue } });
     return prefs;
   }

@@ -147,7 +147,7 @@ class _Included extends StatelessWidget {
               children: [
                 Text('For a ${size == HomeSize.fewItems ? 'few items' : size.label}', style: t.bodySemibold),
                 Text(
-                  '${vehicle.label}${vehicle.bedLabel == null ? '' : ' · ${vehicle.bedLabel}'} · $helpers helper${helpers == 1 ? '' : 's'} to load and unload',
+                  '${vehicle.label} · ${Seed.vehicle(vehicle).capacityLabel} · $helpers helper${helpers == 1 ? '' : 's'} to load and unload',
                   style: t.bodySmall.copyWith(color: TtColors.navy700),
                 ),
               ],

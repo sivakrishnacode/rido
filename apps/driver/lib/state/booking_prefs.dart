@@ -33,6 +33,31 @@ class BookingPrefsController extends AsyncNotifier<BookingPrefs> {
       });
 
   Future<void> removeArea(SavedArea area) => change((p) => p.copyWith(areas: [for (final a in p.areas) if (a != area) a]));
+
+  /// Services: [service] on (a pause ends), or off for [pauseFor] (it comes back by itself) or, null, until switched on
+  /// again, with an optional [reason]; Packers & Movers on with the [helpers] they bring. Throws on failure.
+  Future<void> setService(DriverService service, {required bool on, Duration? pauseFor, String? reason, int? helpers}) async {
+    if (ref.read(isLiveApiProvider)) {
+      final saved = await ref
+          .read(liveJobsProvider)
+          .setService(service, on: on, pauseMinutes: pauseFor?.inMinutes, reason: reason, helpers: helpers);
+      if (ref.mounted) state = AsyncData(saved);
+      return;
+    }
+    // Mock mode: the same rules as the server, in memory.
+    final p = withoutExpired(await future, DateTime.now());
+    final pauses = {...p.pauses}..remove(service);
+    if (!on) pauses[service] = ServicePause(until: pauseFor == null ? null : DateTime.now().add(pauseFor), reason: reason);
+    final value = on || pauseFor != null;
+    state = AsyncData(p.copyWith(
+      pauses: pauses,
+      parcels: service == DriverService.parcels ? value : null,
+      rentals: service == DriverService.rentals ? value : null,
+      outstation: service == DriverService.outstation ? value : null,
+      shifting: service == DriverService.shifting ? value : null,
+      helpers: service == DriverService.shifting && on ? helpers : null,
+    ));
+  }
 }
 
 final bookingPrefsProvider = AsyncNotifierProvider<BookingPrefsController, BookingPrefs>(BookingPrefsController.new);

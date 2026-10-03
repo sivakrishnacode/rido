@@ -4,9 +4,9 @@ import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
 import { Prisma, type Trip } from '../../generated/prisma/client.js';
-import { CancelCode, CancelledBy, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
+import { CancelCode, CancelledBy, RideMode, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
-import { fitsPrefs, readPrefs, shiftHelpersOf, takesShift } from '../drivers/booking-prefs.js';
+import { fitsPrefs, readPrefs, serviceOn, shiftHelpersOf, takesShift } from '../drivers/booking-prefs.js';
 import { driverKindsFor, isPriority, tripVehicleFor } from '../drivers/vehicle-match.js';
 import { TripDriversService } from '../drivers/trip-drivers.service.js';
 import { applyWomenPref, womenAmong } from '../drivers/women-drivers.js';
@@ -317,11 +317,13 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * [drivers] whose booking preferences accept [trip] (one query for all of them). A house shift goes only to movers
-   * who switched shifting on and bring at least the helpers it needs (no saved preferences: not a mover).
+   * who switched shifting on and bring at least the helpers it needs (no saved preferences: not a mover); a rental or
+   * an outstation trip only to drivers with that service on and not paused (Services).
    */
   private async fittingPrefs<T extends { driverId: string; lat: number; lng: number; distanceKm: number }>(drivers: T[], trip: Trip): Promise<T[]> {
     if (!drivers.length) return drivers;
     const helpers = shiftHelpersOf(trip);
+    const service = trip.rideMode === RideMode.RENTAL ? 'rentals' : trip.rideMode === RideMode.OUTSTATION ? 'outstation' : null;
     const rows = await this.prisma.driver.findMany({
       where: { id: { in: [...new Set(drivers.map((d) => d.driverId))] }, bookingPrefs: { not: Prisma.DbNull } },
       select: { id: true, bookingPrefs: true },
@@ -332,6 +334,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
     return drivers.filter((d) => {
       const p = prefs.get(d.driverId);
       if (helpers !== null && !takesShift(p, helpers)) return false;
+      if (service && !serviceOn(p, service)) return false;
       return !p || fitsPrefs(p, d, trip);
     });
   }

@@ -243,14 +243,14 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
   }
 }
 
-/// "6 min · 5 ft bed · 750 kg"; to another town "₹26/km · 104 km · 5 ft bed".
+/// "6 min · Up to 750 kg"; to another town "₹26/km · 104 km · Up to 750 kg". Goods go by weight only.
 String _subtitle(FareQuote q, bool outstation) {
   final v = q.vehicle;
   final terms = q.modeTerms;
   if (outstation && terms is OutstationTerms) {
-    return ['₹${terms.perKm.round()}/km · ${formatCount(terms.includedKm)} km', ?v.kind.bedLabel].join(' · ');
+    return ['₹${terms.perKm.round()}/km · ${formatCount(terms.includedKm)} km', v.capacityLabel].join(' · ');
   }
-  return ['${v.etaMin} min', ?v.kind.bedLabel, if (v.capacityKg != null) '${formatCount(v.capacityKg!)} kg'].join(' · ');
+  return ['${v.etaMin} min', v.capacityLabel].join(' · ');
 }
 
 /// "What are you sending?": optional. Until it is filled in, the parcel goes as "Other · Under 5 kg".

@@ -250,6 +250,14 @@ abstract final class Seed {
     capacityKg: 10,
     subscriptionPrice: 2000,
   );
+  /// Parcel on Auto: a passenger auto (or a goods 3-wheeler) takes it at auto rates, inside the auto, up to 100 kg.
+  static const autoParcel = VehicleType(
+    kind: VehicleKind.autoParcel,
+    name: 'Auto',
+    fareRule: FareRule(base: 25, perKm: 9, perMin: 0.3, minFare: 40, waitPerMin: 1),
+    etaMin: 4,
+    capacityKg: 100,
+  );
   static const threeWheeler = VehicleType(
     kind: VehicleKind.threeWheeler,
     name: '3-wheeler',
@@ -279,15 +287,14 @@ abstract final class Seed {
   );
   static const truck = VehicleType(
     kind: VehicleKind.truck,
-    name: 'Truck 14ft / 17ft',
+    name: 'Truck',
     fareRule: FareRule(base: 500, perKm: 70, perMin: 1.5, minFare: 1000, waitPerMin: 4),
     etaMin: 15,
     capacityKg: 4000,
-    modelHint: '14ft / 17ft',
   );
 
   static const List<VehicleType> rideVehicles = [bike, scooty, auto, autoPriority, cab, sedan, suv];
-  static const List<VehicleType> goodsVehicles = [goodsBike, threeWheeler, miniTruck, pickupTruck, truck];
+  static const List<VehicleType> goodsVehicles = [goodsBike, autoParcel, threeWheeler, miniTruck, pickupTruck, truck];
   static const List<VehicleType> allVehicles = [...rideVehicles, ...goodsVehicles];
 
   static VehicleType vehicle(VehicleKind kind) => allVehicles.firstWhere((v) => v.kind == kind);
@@ -371,7 +378,7 @@ abstract final class Seed {
   /// The driver assigned when a vehicle of [kind] is booked.
   static DriverProfile driverFor(VehicleKind kind) => switch (kind) {
         VehicleKind.bike || VehicleKind.scooty => karthik,
-        VehicleKind.auto || VehicleKind.autoPriority => murugan,
+        VehicleKind.auto || VehicleKind.autoPriority || VehicleKind.autoParcel => murugan,
         VehicleKind.cab || VehicleKind.sedan || VehicleKind.suv => arun,
         VehicleKind.goodsBike => vignesh,
         VehicleKind.threeWheeler => selvam,

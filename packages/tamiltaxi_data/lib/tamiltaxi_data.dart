@@ -44,6 +44,7 @@ export 'src/models/place.dart';
 export 'src/models/trip.dart';
 export 'src/models/vehicle.dart';
 export 'src/pricing.dart';
+export 'src/rate_card.dart';
 export 'src/providers.dart';
 export 'src/repositories/repositories.dart';
 export 'src/ride_modes.dart';

@@ -13,6 +13,7 @@ import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'account_providers.dart';
 import 'refer_driver_sheet.dart';
+import 'services_screen.dart';
 
 /// D-26 Driver account: profile header, Refer a driver, Documents, Vehicle details, UPI ID,
 /// Emergency contact, Contribute, Help & support, Terms, Design gallery, Log out and Delete account.
@@ -99,7 +100,7 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
     final contact = contactAsync.value;
     final loadedPrefs = ref.watch(bookingPrefsProvider).value;
     final prefs = loadedPrefs == null ? null : withoutExpired(loadedPrefs, DateTime.now());
-    final prefsSub = prefs == null || !prefs.hasFilters ? 'Every request · voice, Go To, Stay In, parcels' : _cap(prefs.summary);
+    final prefsSub = prefs == null || !prefs.hasFilters ? 'Every request · voice, Go To, Stay In' : _cap(prefs.summary);
     // Counted as Account › Documents (D-07 read-only) counts them: the uploads plus the identity check, from the
     // same source (mock: every upload verified). It used to count every KYC record and skip the identity step.
     final kyc = ref.watch(isLiveApiProvider) ? ref.watch(kycProvider).value : Seed.kycAllVerified;
@@ -164,6 +165,18 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                   title: 'Vehicle details',
                   subtitle: profile?.vehicleLabel ?? (profileFailed ? 'Not loaded' : 'Loading…'),
                   onTap: act(() => context.push(Routes.vehicleDetails)),
+                ),
+                TtListTile(
+                  icon: Symbols.apps_rounded,
+                  title: 'Services',
+                  subtitle: profile == null ? 'Loading…' : servicesSummary(profile.vehicleKind, prefs ?? const BookingPrefs(), DateTime.now()),
+                  onTap: act(() => context.push(Routes.services)),
+                ),
+                TtListTile(
+                  icon: Symbols.receipt_long_rounded,
+                  title: 'Rate card',
+                  subtitle: 'What each trip pays',
+                  onTap: act(() => context.push(Routes.rateCard)),
                 ),
                 TtListTile(
                   icon: Symbols.tune_rounded,

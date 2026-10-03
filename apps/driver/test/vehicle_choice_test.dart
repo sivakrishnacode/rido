@@ -35,7 +35,7 @@ void main() {
     expect(find.byType(VehicleArt), findsNWidgets(10));
     expect(find.text('Bike'), findsOneWidget);
     expect(find.text('Scooty'), findsOneWidget);
-    expect(find.text('+ Parcels'), findsNWidgets(2));
+    expect(find.text('+ Parcels'), findsNWidgets(3), reason: 'bike, scooty and auto');
     expect(find.text('Mini truck'), findsOneWidget);
   });
 }

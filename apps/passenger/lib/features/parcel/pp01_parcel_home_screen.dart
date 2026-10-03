@@ -364,13 +364,17 @@ class _VehicleTile extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // One line ("Truck 14ft / 17ft" shrinks a little), so the tiles in a row stay the same height.
+                  // One line (a long name shrinks a little), so the tiles in a row stay the same height.
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(vehicle.name, style: t.bodySemibold, maxLines: 1),
                   ),
-                  Text(vehicle.capacityLabel, style: t.bodySmall.copyWith(color: TtColors.navy500)),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(vehicle.capacityLabel, style: t.bodySmall.copyWith(color: TtColors.navy500), maxLines: 1),
+                  ),
                 ],
               ),
             ),

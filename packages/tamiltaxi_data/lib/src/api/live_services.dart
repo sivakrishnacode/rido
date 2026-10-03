@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../goods_modes.dart';
 import '../ride_modes.dart';
 import '../models/booking_prefs.dart';
+import '../rate_card.dart';
 import '../models/cancellation.dart';
 import '../models/driver.dart';
 import '../models/driver_fix.dart';
@@ -256,6 +257,22 @@ class LiveJobs {
   /// Replaces them; returns what the server saved (a go-to / stay-in comes back with when it switches off).
   Future<BookingPrefs> setBookingPrefs(BookingPrefs prefs) async =>
       BookingPrefs.fromJson(_map(await api.put('/drivers/me/booking-preferences', prefs.toJson())));
+
+  /// Services: [service] on, or paused for [pauseMinutes] (null: until the driver starts it again), with an optional
+  /// [reason]; Packers & Movers on with the [helpers] they bring. Returns the preferences as saved.
+  Future<BookingPrefs> setService(DriverService service, {required bool on, int? pauseMinutes, String? reason, int? helpers}) async =>
+      BookingPrefs.fromJson(_map(await api.put('/drivers/me/services/${service.name}', {
+        'on': on,
+        'pauseMinutes': ?pauseMinutes,
+        'reason': ?reason,
+        'helpers': ?helpers,
+      })));
+
+  /// The Rate card for the city at [at] (`GET /fares/rate-card`; built-in rates without a point).
+  Future<RateCard> rateCard(LatLng? at) async => RateCard.fromJson(_map(await api.get('/fares/rate-card', query: {
+        if (at != null) 'lat': at.latitude.toStringAsFixed(5),
+        if (at != null) 'lng': at.longitude.toStringAsFixed(5),
+      })));
 
   /// The driver's cancellation rate (Home banner) and pause.
   Future<DriverCancelRate> cancelRate() async => DriverCancelRate.fromJson(_map(await api.get('/drivers/me/cancel-rate')));

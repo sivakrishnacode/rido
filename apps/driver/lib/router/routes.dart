@@ -55,6 +55,8 @@ abstract final class Routes {
   static const emergencyContact = '/account/emergency-contact';
   static const contribute = '/account/contribute';
   static const bookingPreferences = '/account/booking-preferences';
+  static const services = '/account/services';
+  static const rateCard = '/account/rate-card';
   static const help = '/help';
   /// [tripId]: the ticket is about that trip (support sees which one).
   static String newTicket({String? topic, String? tripId}) {

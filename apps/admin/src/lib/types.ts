@@ -8,7 +8,10 @@ import type { CancelCode, CancelFault, CancelledBy } from "./cancel";
 export type Role = "PASSENGER" | "DRIVER" | "ADMIN";
 export type Gender = "FEMALE" | "MALE" | "PREFER_NOT_TO_SAY";
 export type WorkType = "RIDES" | "DELIVERIES";
-/** Ride tiers (CAB is "Mini"; AUTO_PRIORITY is a booking tier served by autos, never a driver's vehicle), then goods. */
+/**
+ * Ride tiers (CAB is "Mini"; AUTO_PRIORITY is a booking tier served by autos, never a driver's vehicle), then goods
+ * (AUTO_PARCEL, "Parcel on Auto", is a booking tier too: autos that take parcels and goods 3-wheelers).
+ */
 export type VehicleKind =
   | "BIKE"
   | "SCOOTY"
@@ -18,6 +21,7 @@ export type VehicleKind =
   | "SEDAN"
   | "SUV"
   | "GOODS_BIKE"
+  | "AUTO_PARCEL"
   | "THREE_WHEELER"
   | "MINI_TRUCK"
   | "PICKUP"
@@ -100,13 +104,14 @@ export const VEHICLE_KINDS: readonly VehicleKind[] = [
   "SEDAN",
   "SUV",
   "GOODS_BIKE",
+  "AUTO_PARCEL",
   "THREE_WHEELER",
   "MINI_TRUCK",
   "PICKUP",
   "TRUCK",
 ];
-/** What a driver can drive (every kind except the Auto Priority booking tier). */
-export const DRIVER_VEHICLE_KINDS: readonly VehicleKind[] = VEHICLE_KINDS.filter((k) => k !== "AUTO_PRIORITY");
+/** What a driver can drive (every kind except the Auto Priority and Parcel on Auto booking tiers). */
+export const DRIVER_VEHICLE_KINDS: readonly VehicleKind[] = VEHICLE_KINDS.filter((k) => k !== "AUTO_PRIORITY" && k !== "AUTO_PARCEL");
 export const ROLES: readonly Role[] = ["PASSENGER", "DRIVER", "ADMIN"];
 export const WORK_TYPES: readonly WorkType[] = ["RIDES", "DELIVERIES"];
 export const KYC_STATUSES: readonly KycStatus[] = ["UNDER_REVIEW", "REJECTED", "NOT_UPLOADED", "VERIFIED"];

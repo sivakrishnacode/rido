@@ -131,7 +131,7 @@ class _PH04ReviewScreenState extends ConsumerState<PH04ReviewScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      [(q?.vehicle ?? s.vehicleOrSuggested).label, ?(q?.vehicle ?? s.vehicleOrSuggested).bedLabel].join(' · '),
+                      '${(q?.vehicle ?? s.vehicleOrSuggested).label} · ${Seed.vehicle(q?.vehicle ?? s.vehicleOrSuggested).capacityLabel}',
                       style: t.bodySemibold,
                     ),
                     Text(

@@ -8,11 +8,11 @@ import { Roles } from '../../core/auth/roles.decorator.js';
 import { FileStorageService, MAX_UPLOAD_BYTES, type UploadedBlob } from '../../core/storage/file-storage.service.js';
 import type { Driver, KycDocument } from '../../generated/prisma/client.js';
 import { KycDocType, Role, TripKind } from '../../generated/prisma/enums.js';
-import type { BookingPrefs } from './booking-prefs.js';
+import { type BookingPrefs, SERVICE_KEYS, type ServiceKey } from './booking-prefs.js';
 import { DriverEarningsService, type Earnings } from './driver-earnings.service.js';
 import { ADMIN_CANT_REGISTER, type DriverProfile, DriversService } from './drivers.service.js';
 import { AuditInterceptor } from '../admin/audit.interceptor.js';
-import { BookingPrefsDto } from './dto/booking-prefs.dto.js';
+import { BookingPrefsDto, ServiceDto } from './dto/booking-prefs.dto.js';
 import { EarningsQueryDto } from './dto/earnings-query.dto.js';
 import { LocationDto } from './dto/location.dto.js';
 import { NearbyQueryDto } from './dto/nearby-query.dto.js';
@@ -88,6 +88,17 @@ export class DriversController {
   @Put('drivers/me/booking-preferences')
   setBookingPrefs(@CurrentUser() user: AuthUser, @Body() body: BookingPrefsDto): Promise<BookingPrefs> {
     return this.drivers.setBookingPrefs(DriversController.driverId(user), body);
+  }
+
+  /** Services: switch one on, or pause it (for some minutes, or until started again). Returns the preferences. */
+  @Roles(Role.DRIVER)
+  @Put('drivers/me/services/:service')
+  setService(
+    @CurrentUser() user: AuthUser,
+    @Param('service', new ParseEnumPipe(Object.fromEntries(SERVICE_KEYS.map((k) => [k, k])))) service: ServiceKey,
+    @Body() body: ServiceDto,
+  ): Promise<BookingPrefs> {
+    return this.drivers.setService(DriversController.driverId(user), service, body);
   }
 
   /** D-23: ?period=today|week|month. */

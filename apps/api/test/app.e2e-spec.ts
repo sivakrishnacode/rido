@@ -543,7 +543,7 @@ describe('Tamil Taxi API (e2e)', () => {
     const saravanampatti = { ...home, name: 'Saravanampatti', radiusKm: 5 };
     await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ goTo: home, stayIn: saravanampatti }).expect(400);
     const saved = (await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ stayIn: saravanampatti, areas: [home] }).expect(200)).body;
-    expect(saved).toMatchObject({ goTo: null, stayIn: { name: 'Saravanampatti', radiusKm: 5 }, parcels: true, areas: [home] });
+    expect(saved).toMatchObject({ goTo: null, stayIn: { name: 'Saravanampatti', radiusKm: 5 }, areas: [home] });
     expect(new Date(saved.stayIn.until).getTime() - Date.now()).toBeGreaterThan(11.9 * 3_600_000);
 
     // Gandhipuram → Brookefields is outside Saravanampatti: the closer driver staying there never gets it.
@@ -588,6 +588,41 @@ describe('Tamil Taxi API (e2e)', () => {
     await http.post(`/v1/trips/${next.id}/cancel`).set(pax).send({}).expect(200);
     await http.put('/v1/drivers/me/booking-preferences').set(auth).send({ parcels: true }).expect(200);
     for (const d of [bike, farther]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`);
+  });
+
+  it('Parcel on Auto: an auto takes parcels only once switched on in Services, and not while paused', async () => {
+    // Race Course, away from the other tests' drivers.
+    const RACE_COURSE = { lat: 11.0005, lng: 76.9757, name: 'Race Course' };
+    const auto = await onlineDriver('AUTO', { lat: 11.0006, lng: 76.9758 });
+    const auth = { Authorization: `Bearer ${auto}` };
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const parcel = { kind: 'PARCEL', vehicleKind: 'AUTO_PARCEL', pickup: RACE_COURSE, drop: BROOKEFIELDS };
+    const quotes = (await http.post('/v1/fares/quote').set(quoter).send({ pickup: RACE_COURSE, drop: BROOKEFIELDS, kind: 'PARCEL' }).expect(200)).body.quotes;
+    const autoParcel = quotes.find((q: { vehicleKind: string }) => q.vehicleKind === 'AUTO_PARCEL');
+    expect(autoParcel).toBeDefined();
+
+    // Off by default for autos: no offer.
+    const first = (await http.post('/v1/trips').set(pax).send(parcel).expect(201)).body;
+    expect((await http.post(`/v1/trips/${first.id}/accept`).set(auth)).status).not.toBe(200);
+    await http.post(`/v1/trips/${first.id}/cancel`).set(pax).send({}).expect(200);
+
+    // Switched on: the auto takes it as Parcel on Auto at its fare.
+    expect((await http.put('/v1/drivers/me/services/parcels').set(auth).send({ on: true }).expect(200)).body.parcels).toBe(true);
+    const trip = (await http.post('/v1/trips').set(pax).send(parcel).expect(201)).body;
+    const accepted = await acceptWhenOffered(trip.id, auto);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body).toMatchObject({ kind: 'PARCEL', vehicleKind: 'AUTO_PARCEL', fareTotal: autoParcel.total });
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+
+    // Paused for 30 minutes, with a reason: skipped again. Rentals aren't an auto's service.
+    const paused = (await http.put('/v1/drivers/me/services/parcels').set(auth).send({ on: false, pauseMinutes: 30, reason: 'Too far' }).expect(200)).body;
+    expect(paused.pauses.parcels).toMatchObject({ reason: 'Too far' });
+    const again = (await http.post('/v1/trips').set(pax).send(parcel).expect(201)).body;
+    expect((await http.post(`/v1/trips/${again.id}/accept`).set(auth)).status).not.toBe(200);
+    await http.post(`/v1/trips/${again.id}/cancel`).set(pax).send({}).expect(200);
+    await http.put('/v1/drivers/me/services/rentals').set(auth).send({ on: false }).expect(400);
+    await http.put('/v1/drivers/me/services/parcels').set(auth).send({ on: true }).expect(200);
+    await http.post('/v1/drivers/me/offline').set(auth);
   });
 
   it('"Who\'s riding?": a father books Butterfly for his daughter; the driver sees her; reports switch it off', async () => {

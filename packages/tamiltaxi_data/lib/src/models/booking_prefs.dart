@@ -1,6 +1,57 @@
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'vehicle.dart';
+
+/// A service a driver switches on or off, or pauses for a while (driver app › Services; the API's `ServiceKey`). The
+/// vehicle's main service (rides; parcels for goods vehicles) is always on and isn't one of these.
+enum DriverService {
+  /// Bikes, scooters and autos: parcels too (two-wheelers on by default, autos off: it's their passenger seat).
+  parcels,
+
+  /// Cabs: rentals by the hour.
+  rentals,
+
+  /// Cabs: outstation trips; goods trucks: goods to another town.
+  outstation,
+
+  /// Goods trucks: Packers & Movers (off by default: they need helpers).
+  shifting;
+
+  /// The services [kind] can switch on and off (same as the API's `servicesFor`).
+  static List<DriverService> availableFor(VehicleKind kind) => switch (kind) {
+        VehicleKind.bike || VehicleKind.scooty || VehicleKind.auto => const [parcels],
+        VehicleKind.cab || VehicleKind.sedan || VehicleKind.suv => const [rentals, outstation],
+        VehicleKind.threeWheeler || VehicleKind.miniTruck || VehicleKind.pickup || VehicleKind.truck => const [outstation, shifting],
+        _ => const [],
+      };
+}
+
+/// A paused service: off until [until], or until the driver starts it again (null). [reason] is for us.
+@immutable
+class ServicePause {
+  const ServicePause({this.until, this.reason});
+  final DateTime? until;
+  final String? reason;
+
+  /// Still running at [now].
+  bool runningAt(DateTime now) => until == null || until!.isAfter(now);
+
+  static ServicePause? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    return ServicePause(
+      until: raw['until'] is String ? DateTime.tryParse(raw['until'] as String)?.toLocal() : null,
+      reason: raw['reason'] is String ? raw['reason'] as String : null,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) => other is ServicePause && other.until == until && other.reason == reason;
+
+  @override
+  int get hashCode => Object.hash(until, reason);
+}
+
 /// A place the driver saved ("Home", "RS Puram stand") to switch Go To or Stay In on with one tap.
 @immutable
 class SavedArea {
@@ -87,20 +138,48 @@ class BookingPrefs {
     this.maxTripKm,
     this.goTo,
     this.stayIn,
-    this.parcels = true,
+    this.parcels,
+    this.rentals,
+    this.outstation,
     this.areas = const [],
     this.shifting = false,
     this.helpers = defaultHelpers,
+    this.pauses = const {},
   });
   final double? maxPickupKm;
   final double? minTripKm;
   final double? maxTripKm;
   final GoToDestination? goTo;
   final StayInArea? stayIn;
-  final bool parcels;
+  /// Parcels too, as the driver chose it; null: the vehicle's default ([isOn]).
+  final bool? parcels;
+
+  /// Rentals / outstation as chosen; null: on.
+  final bool? rentals;
+  final bool? outstation;
   final List<SavedArea> areas;
   final bool shifting;
   final int helpers;
+
+  /// The services paused now (from the server; Services pauses them).
+  final Map<DriverService, ServicePause> pauses;
+
+  /// Whether [service] is on for a [kind] driver at [now] (same rules as the API's `serviceOn`).
+  bool isOn(DriverService service, VehicleKind kind, DateTime now) {
+    if (pauseOf(service, now) != null) return false;
+    return switch (service) {
+      DriverService.parcels => parcels ?? kind != VehicleKind.auto,
+      DriverService.rentals => rentals ?? true,
+      DriverService.outstation => outstation ?? true,
+      DriverService.shifting => shifting,
+    };
+  }
+
+  /// [service]'s pause still running at [now], else null.
+  ServicePause? pauseOf(DriverService service, DateTime now) {
+    final p = pauses[service];
+    return p != null && p.runningAt(now) ? p : null;
+  }
 
   /// Helpers a mover can say they bring (same as the API), and the start.
   static const maxHelpers = 8;
@@ -146,9 +225,12 @@ class BookingPrefs {
     GoToDestination? Function()? goTo,
     StayInArea? Function()? stayIn,
     bool? parcels,
+    bool? rentals,
+    bool? outstation,
     List<SavedArea>? areas,
     bool? shifting,
     int? helpers,
+    Map<DriverService, ServicePause>? pauses,
   }) =>
       BookingPrefs(
         maxPickupKm: maxPickupKm != null ? maxPickupKm() : this.maxPickupKm,
@@ -157,9 +239,12 @@ class BookingPrefs {
         goTo: goTo != null ? goTo() : this.goTo,
         stayIn: stayIn != null ? stayIn() : this.stayIn,
         parcels: parcels ?? this.parcels,
+        rentals: rentals ?? this.rentals,
+        outstation: outstation ?? this.outstation,
         areas: areas ?? this.areas,
         shifting: shifting ?? this.shifting,
         helpers: helpers ?? this.helpers,
+        pauses: pauses ?? this.pauses,
       );
 
   /// Go To [area] (Stay In goes off), or neither when null.
@@ -180,7 +265,9 @@ class BookingPrefs {
         'maxTripKm': maxTripKm,
         'goTo': goTo?.toJson(),
         'stayIn': stayIn?.toJson(),
-        'parcels': parcels,
+        // Unset stays unset (an auto's parcels are off until switched on in Services). Rentals, outstation and the
+        // pauses are set in Services (`PUT /drivers/me/services/…`); the server keeps them.
+        'parcels': ?parcels,
         'areas': [for (final a in areas) a.toJson()],
         'shifting': shifting,
         'helpers': helpers,
@@ -194,7 +281,13 @@ class BookingPrefs {
       maxTripKm: km(j['maxTripKm']),
       goTo: GoToDestination.fromJson(j['goTo']),
       stayIn: StayInArea.fromJson(j['stayIn']),
-      parcels: j['parcels'] != false,
+      parcels: j['parcels'] is bool ? j['parcels'] as bool : null,
+      rentals: j['rentals'] is bool ? j['rentals'] as bool : null,
+      outstation: j['outstation'] is bool ? j['outstation'] as bool : null,
+      pauses: {
+        if (j['pauses'] is Map)
+          for (final s in DriverService.values) s: ?ServicePause.fromJson((j['pauses'] as Map)[s.name]),
+      },
       shifting: j['shifting'] == true,
       helpers: j['helpers'] is num ? (j['helpers'] as num).toInt().clamp(0, maxHelpers) : defaultHelpers,
       areas: [

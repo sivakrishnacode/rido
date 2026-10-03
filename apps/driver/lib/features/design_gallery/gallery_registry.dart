@@ -6,6 +6,8 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../state/driver_session.dart' show JobPhase;
 import '../../router/routes.dart';
 import '../account/d26_account_screen.dart';
+import '../account/rate_card_screen.dart';
+import '../account/services_screen.dart';
 import '../earnings/d23_earnings_screen.dart';
 import '../earnings/d23b_trip_detail_sheet.dart';
 import '../home/d13_home_screen.dart';
@@ -130,6 +132,13 @@ final List<GalleryEntry> galleryEntries = [
   _e('D-25a', 'Home · grace period', _p6, (_) => const D13HomeScreen(variant: HomeVariant.grace, showcase: true)),
   _e('D-25b', 'Home · plan expired', _p6, (_) => const D13HomeScreen(variant: HomeVariant.expired, showcase: true)),
   _e('D-26', 'Driver account', _p6, (_) => const D26AccountScreen(showcase: true)),
+  _e('D-40', 'Services', _p6, (_) => const ServicesScreen(showcase: true)),
+  _e('D-40b', 'Services · pause sheet', _p6,
+      (_) => const ShowcaseFrame.sheet(
+            title: 'D-40b Pause a service',
+            child: PauseServiceSheet(title: 'Parcels', reasons: ['Too far', 'Long waits', 'Low pay', 'Other']),
+          )),
+  _e('D-41', 'Rate card', _p6, (_) => const RateCardScreen(showcase: true)),
   // Part 7
   _e('S-10', 'Account on hold', _p7, (_) => const S10AccountOnHoldScreen(showcase: true)),
   _e('S-10b', 'Paused for cancellations', _p7,

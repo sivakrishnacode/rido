@@ -11,11 +11,12 @@ import {
   IsString,
   Length,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 
-import { MAX_AREAS, MAX_HELPERS } from '../booking-prefs.js';
+import { MAX_AREAS, MAX_HELPERS, MAX_PAUSE_MINUTES } from '../booking-prefs.js';
 
 /** A saved place ("Home", the stand) for Go To / Stay In. */
 export class AreaDto {
@@ -74,7 +75,7 @@ export class BookingPrefsDto {
   @Type(() => StayInDto)
   stayIn?: StayInDto | null;
 
-  /** Bike drivers: goods-bike parcel requests too. */
+  /** Bike and scooter drivers: goods-bike parcel requests too (older apps; Services uses PUT …/services/:service). */
   @IsOptional()
   @IsBoolean()
   parcels?: boolean | null;
@@ -96,4 +97,29 @@ export class BookingPrefsDto {
   @ValidateNested({ each: true })
   @Type(() => AreaDto)
   areas?: AreaDto[] | null;
+}
+
+/** PUT /drivers/me/services/:service. On, or off for [pauseMinutes] (absent / null: until the driver starts it again). */
+export class ServiceDto {
+  @IsBoolean()
+  on!: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(5)
+  @Max(MAX_PAUSE_MINUTES)
+  pauseMinutes?: number | null;
+
+  /** Why they paused it ("Too far", "Long waits"…), for us. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  reason?: string | null;
+
+  /** Packers & Movers: the helpers they bring (switching it on). */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(MAX_HELPERS)
+  helpers?: number | null;
 }

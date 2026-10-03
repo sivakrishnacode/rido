@@ -1,4 +1,5 @@
-import { fitsPrefs, MAX_AREAS, readPrefs, shiftHelpersOf, takesShift } from './booking-prefs.js';
+import { VehicleKind } from '../../generated/prisma/enums.js';
+import { fitsPrefs, MAX_AREAS, readPrefs, serviceOn, servicesFor, shiftHelpersOf, takesShift } from './booking-prefs.js';
 
 const now = new Date('2026-09-29T10:00:00Z');
 // Gandhipuram → the pickup is ~1.4 km away.
@@ -51,10 +52,13 @@ describe('readPrefs', () => {
       maxTripKm: 12,
       goTo: null,
       stayIn: null,
-      parcels: true,
+      parcels: undefined,
+      rentals: undefined,
+      outstation: undefined,
       areas: [],
       shifting: false,
       helpers: 2,
+      pauses: {},
     });
     const goTo = { lat: 11, lng: 77, name: 'Home', until: '2026-09-29T09:00:00Z' };
     expect(readPrefs({ goTo }, now).goTo).toBeNull();
@@ -90,5 +94,39 @@ describe('house shifting opt-in', () => {
     expect(shiftHelpersOf({ shifting: { lines: { helperCount: 4 } } })).toBe(4);
     expect(shiftHelpersOf({ shifting: null })).toBeNull();
     expect(shiftHelpersOf({})).toBeNull();
+  });
+});
+
+describe('services', () => {
+  it('each vehicle has its own optional services; the main one is always on', () => {
+    expect(servicesFor(VehicleKind.BIKE)).toEqual(['parcels']);
+    expect(servicesFor(VehicleKind.AUTO)).toEqual(['parcels']);
+    expect(servicesFor(VehicleKind.SEDAN)).toEqual(['rentals', 'outstation']);
+    expect(servicesFor(VehicleKind.MINI_TRUCK)).toEqual(['outstation', 'shifting']);
+    expect(servicesFor(VehicleKind.GOODS_BIKE)).toEqual([]);
+  });
+
+  it('parcels: on for two-wheelers, off for autos until they switch it on', () => {
+    expect(serviceOn(readPrefs({}, now), 'parcels', VehicleKind.BIKE)).toBe(true);
+    expect(serviceOn(undefined, 'parcels', VehicleKind.AUTO)).toBe(false);
+    expect(serviceOn(readPrefs({ parcels: true }, now), 'parcels', VehicleKind.AUTO)).toBe(true);
+    expect(serviceOn(readPrefs({ parcels: false }, now), 'parcels', VehicleKind.SCOOTY)).toBe(false);
+  });
+
+  it('a timed pause holds the service off until it ends; "until I start it" holds it off', () => {
+    const until = '2026-09-29T10:30:00Z';
+    const paused = readPrefs({ parcels: true, pauses: { parcels: { until, reason: 'Too far' } } }, now);
+    expect(paused.pauses?.parcels).toEqual({ until, reason: 'Too far' });
+    expect(serviceOn(paused, 'parcels', VehicleKind.AUTO)).toBe(false);
+    const later = readPrefs({ parcels: true, pauses: { parcels: { until, reason: 'Too far' } } }, new Date('2026-09-29T10:31:00Z'));
+    expect(serviceOn(later, 'parcels', VehicleKind.AUTO)).toBe(true);
+    const off = readPrefs({ outstation: false, pauses: { outstation: { until: null, reason: null } } }, now);
+    expect(serviceOn(off, 'outstation')).toBe(false);
+    expect(serviceOn(off, 'rentals')).toBe(true);
+  });
+
+  it('a paused Packers & Movers takes no shifts', () => {
+    expect(takesShift(readPrefs({ shifting: true, helpers: 2 }, now), 2)).toBe(true);
+    expect(takesShift(readPrefs({ shifting: true, helpers: 2, pauses: { shifting: { until: null } } }, now), 2)).toBe(false);
   });
 });

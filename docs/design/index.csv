@@ -135,6 +135,9 @@ D-24c,Plan · cancelled,driver,driver/D-24c.png,Off while the app is free (paid 
 D-25a,Home · grace period,driver,driver/D-25a.png,Off while the app is free (paid plans switched off)
 D-25b,Home · plan expired,driver,driver/D-25b.png,Off while the app is free (paid plans switched off)
 D-26,Driver account,driver,driver/D-26.png,In the app
+D-40,Services,driver,driver/D-40.png,Added after the design
+D-40b,Services · pause sheet,driver,driver/D-40b.png,Added after the design
+D-41,Rate card,driver,driver/D-41.png,Added after the design
 S-10,Account on hold,driver,states/S-10.png,In the app
 S-10b,Paused for cancellations,driver,states/S-10b.png,Added after the design
 S-11,Missed ride request,driver,states/S-11.png,In the app

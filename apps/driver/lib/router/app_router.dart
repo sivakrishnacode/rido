@@ -9,6 +9,8 @@ import '../features/account/d26_account_screen.dart';
 import '../features/account/driver_emergency_contact_screen.dart';
 import '../features/account/driver_help_screen.dart';
 import '../features/account/driver_new_ticket_screen.dart';
+import '../features/account/rate_card_screen.dart';
+import '../features/account/services_screen.dart';
 import '../features/account/upi_id_screen.dart';
 import '../features/account/vehicle_details_screen.dart';
 import '../features/design_gallery/design_gallery_screen.dart';
@@ -200,6 +202,8 @@ GoRouter createDriverRouter({
                   path: 'booking-preferences',
                   builder: (_, _) => const BookingPreferencesScreen(),
                 ),
+                GoRoute(path: 'services', builder: (_, _) => const ServicesScreen()),
+                GoRoute(path: 'rate-card', builder: (_, _) => const RateCardScreen()),
                 GoRoute(
                   path: 'emergency-contact',
                   builder: (_, _) => const DriverEmergencyContactScreen(),

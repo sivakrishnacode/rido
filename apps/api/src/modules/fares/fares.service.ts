@@ -20,6 +20,7 @@ import {
   type ShiftingLines,
   shiftingLines,
 } from './goods-modes.js';
+import type { ModePricing } from './pricing.js';
 import { CAB_TIERS, isCabTier, type ModeTerms, modeQuote, type OutstationTerms, outstationTerms, rentalPackage, rentalTerms } from './ride-modes.js';
 
 /** A rental / outstation quote with the terms it agrees to. */
@@ -54,6 +55,29 @@ const DAY_MS = 86_400_000;
 export function istDayAt(now: Date, dayOffset: number, hour: number): Date {
   const istMidnight = Math.floor((now.getTime() + IST_MS) / DAY_MS) * DAY_MS;
   return new Date(istMidnight + dayOffset * DAY_MS + hour * 3_600_000 - IST_MS);
+}
+
+/** One vehicle's in-town rates on a rate card. */
+export interface RateCardRule {
+  base: number;
+  perKm: number;
+  perMin: number;
+  minFare: number;
+  waitPerMin: number;
+}
+
+/**
+ * The driver app's Rate card for a city: every vehicle's in-town rates (the city's, else built-in), the waiting
+ * charge, the peak cap, the cancellation fee (null while off) and the up-front prices (rentals, outstation, goods to
+ * another town, shifting).
+ */
+export interface RateCard {
+  rules: Record<VehicleKind, RateCardRule>;
+  freeWaitMin: number;
+  waitMaxCharge: number;
+  maxMultiplier: number;
+  cancellationFee: number | null;
+  pricing: ModePricing;
 }
 
 export interface QuoteWithEta extends FareQuote {
@@ -110,6 +134,29 @@ export class FaresService {
       const mine = etas.slice(next, (next += nearestPer[i].length));
       return { ...q, pickupEtaMin: mine.length === 0 ? null : Math.min(...mine) };
     });
+  }
+
+  /** The rate card for the city at [point] (built-in rates without a point or outside every city). */
+  async rateCard(point: GeoPoint | null): Promise<RateCard> {
+    const cityId = point ? (await this.geo.locate(point)).cityId : null;
+    const s = await this.settings.all();
+    const kinds = Object.keys(FARE_RULES) as VehicleKind[];
+    const city = await Promise.all(kinds.map((k) => this.geo.fareRule(cityId, k)));
+    const rules = Object.fromEntries(
+      kinds.map((k, i) => {
+        const b = FARE_RULES[k];
+        const r = city[i];
+        return [k, { base: r?.base ?? b.base, perKm: r?.perKm ?? b.perKm, perMin: r?.perMin ?? b.perMin, minFare: r?.minFare ?? b.minFare, waitPerMin: r?.waitPerMin ?? b.waitPerMin }];
+      }),
+    ) as Record<VehicleKind, RateCardRule>;
+    return {
+      rules,
+      freeWaitMin: s.freeWaitMin,
+      waitMaxCharge: s.waitMaxCharge,
+      maxMultiplier: s.maxMultiplier,
+      cancellationFee: s.cancellationFeeEnabled ? s.cancellationFee : null,
+      pricing: await this.geo.pricing(cityId),
+    };
   }
 
   async quoteAll(params: { pickup: GeoPoint; drop: GeoPoint; kind: TripKind }): Promise<FareQuote[]> {

@@ -178,6 +178,9 @@ Notes:
 | D-25a | Home · grace period | Off while the app is free (paid plans switched off) | [driver/D-25a.png](driver/D-25a.png) |
 | D-25b | Home · plan expired | Off while the app is free (paid plans switched off) | [driver/D-25b.png](driver/D-25b.png) |
 | D-26 | Driver account | In the app | [driver/D-26.png](driver/D-26.png) |
+| D-40 | Services | Added after the design | [driver/D-40.png](driver/D-40.png) |
+| D-40b | Services · pause sheet | Added after the design | [driver/D-40b.png](driver/D-40b.png) |
+| D-41 | Rate card | Added after the design | [driver/D-41.png](driver/D-41.png) |
 | D-27 | Profile photo | Added after the design | [driver/D-27.png](driver/D-27.png) |
 | D-28 | My documents | Added after the design | [driver/D-28.png](driver/D-28.png) |
 | D-29 | Vehicle details | Added after the design | [driver/D-29.png](driver/D-29.png) |

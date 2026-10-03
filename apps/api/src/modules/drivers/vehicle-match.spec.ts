@@ -33,4 +33,11 @@ describe('vehicle match', () => {
     expect(DRIVER_VEHICLE_KINDS).toContain(VehicleKind.SCOOTY);
     expect(DRIVER_VEHICLE_KINDS).toContain(VehicleKind.SUV);
   });
+
+  it('Parcel on Auto goes to autos and goods 3-wheelers; an auto takes a parcel as Parcel on Auto', () => {
+    expect(driverKindsFor(VehicleKind.AUTO_PARCEL)).toEqual([VehicleKind.AUTO_PARCEL, VehicleKind.AUTO, VehicleKind.THREE_WHEELER]);
+    expect(tripVehicleFor(VehicleKind.AUTO, TripKind.PARCEL)).toBe(VehicleKind.AUTO_PARCEL);
+    expect(tripVehicleFor(VehicleKind.AUTO, TripKind.RIDE)).toBe(VehicleKind.AUTO);
+    expect(DRIVER_VEHICLE_KINDS).not.toContain(VehicleKind.AUTO_PARCEL);
+  });
 });

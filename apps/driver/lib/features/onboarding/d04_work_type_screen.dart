@@ -9,7 +9,7 @@ import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import 'widgets/signup_widgets.dart';
 
-/// D-04 Choose work type: "Rides: carry passengers" (bikes and scooties also get small parcels, "Parcels too") or
+/// D-04 Choose work type: "Rides: carry passengers" (bikes, scooties and autos can take parcels too, "+ Parcels") or
 /// "Deliveries: carry goods" (3-wheeler, mini truck, pickup, truck). Step 1 of 3 from the D-07
 /// registration page (work type → vehicle → details).
 class D04WorkTypeScreen extends ConsumerStatefulWidget {
@@ -53,7 +53,7 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
                   const SizedBox(height: TtSpacing.l),
                   _WorkCard(
                     title: 'Rides: carry passengers',
-                    subtitle: 'Bike, scooty, auto or car. Bikes and scooties carry small parcels too',
+                    subtitle: 'Bike, scooty, auto or car. Bikes, scooties and autos can take parcels too',
                     vehicles: const [
                       VehicleKind.bike,
                       VehicleKind.scooty,
@@ -169,8 +169,8 @@ class _WorkCard extends StatelessWidget {
                                       Text(vehicles[i] == VehicleKind.truck ? 'Truck' : vehicles[i].label,
                                           style: t.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                                       // The tag line is kept on every tile of the card so the tiles stay one height.
-                                      if (vehicles.any((v) => v.isTwoWheeler))
-                                        Text(vehicles[i].isTwoWheeler ? '+ Parcels' : '',
+                                      if (vehicles.any(_takesParcels))
+                                        Text(_takesParcels(vehicles[i]) ? '+ Parcels' : '',
                                             style: t.caption.copyWith(color: TtColors.successText, fontWeight: FontWeight.w600)),
                                     ],
                                   ),
@@ -188,3 +188,6 @@ class _WorkCard extends StatelessWidget {
     );
   }
 }
+
+/// Ride vehicles that can take parcels too (Services): bikes, scooties and autos.
+bool _takesParcels(VehicleKind k) => DriverService.availableFor(k).contains(DriverService.parcels);

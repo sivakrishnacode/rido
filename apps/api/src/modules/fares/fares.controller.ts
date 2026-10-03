@@ -6,7 +6,7 @@ import { RideMode, TripKind } from '../../generated/prisma/enums.js';
 import { QuoteRequestDto } from './dto/quote-request.dto.js';
 import { ShiftingQuoteDto } from './dto/shifting.dto.js';
 import { GeoService } from '../geo/geo.service.js';
-import { FaresService, istDayAt, type QuoteWithEta, type ShiftingQuoteResult } from './fares.service.js';
+import { FaresService, istDayAt, type QuoteWithEta, type RateCard, type ShiftingQuoteResult } from './fares.service.js';
 import type { ModePricing } from './pricing.js';
 import { type RentalPackage, RENTAL_PACKAGES } from './ride-modes.js';
 
@@ -38,6 +38,13 @@ export class FaresController {
   async rates(@Query() q: { lat?: string; lng?: string }): Promise<{ packages: readonly RentalPackage[]; pricing: ModePricing }> {
     const at = pointOf(q);
     return { packages: RENTAL_PACKAGES, pricing: at ? await this.geo.pricingAt(at) : await this.geo.pricing(null) };
+  }
+
+  /** The driver app's Rate card: every vehicle's in-town rates and extras in the city at `?lat&lng`. */
+  @Public()
+  @Get('rate-card')
+  rateCard(@Query() q: { lat?: string; lng?: string }): Promise<RateCard> {
+    return this.fares.rateCard(pointOf(q));
   }
 
   @RateLimit(LIMITS.faresQuote)

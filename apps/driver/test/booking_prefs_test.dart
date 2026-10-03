@@ -32,7 +32,6 @@ void main() {
       'maxTripKm': null,
       'goTo': null,
       'stayIn': null,
-      'parcels': true,
       'areas': <Object>[],
       'shifting': false,
       'helpers': 2,
@@ -65,8 +64,18 @@ void main() {
     expect(back.goTo!.until, isNotNull);
     expect(back.parcels, isFalse);
     expect(back.areas, [home]);
-    // An older server: no parcels field means parcels on.
-    expect(BookingPrefs.fromJson(const {}).parcels, isTrue);
+    // Not set: the vehicle's default (on for bikes, off for autos: their passenger seat).
+    final unset = BookingPrefs.fromJson(const {});
+    expect(unset.parcels, isNull);
+    expect(unset.isOn(DriverService.parcels, VehicleKind.bike, DateTime.now()), isTrue);
+    expect(unset.isOn(DriverService.parcels, VehicleKind.auto, DateTime.now()), isFalse);
+    // A pause from the server holds the service off until it ends.
+    final paused = BookingPrefs.fromJson({
+      'parcels': true,
+      'pauses': {'parcels': {'until': DateTime.now().add(const Duration(minutes: 30)).toUtc().toIso8601String(), 'reason': 'Too far'}},
+    });
+    expect(paused.isOn(DriverService.parcels, VehicleKind.auto, DateTime.now()), isFalse);
+    expect(paused.isOn(DriverService.parcels, VehicleKind.auto, DateTime.now().add(const Duration(hours: 1))), isTrue);
     // House shifting: off unless switched on; helpers within 0–8.
     expect(BookingPrefs.fromJson(const {}).shifting, isFalse);
     final mover = BookingPrefs.fromJson(const {'shifting': true, 'helpers': 12});
@@ -126,13 +135,14 @@ void main() {
     expect(rig.jobs.prefs.parcels, isFalse);
   });
 
-  testWidgets('set the farthest pickup, a minimum trip length and parcels off, then save', (tester) async {
+  testWidgets('set the farthest pickup and a minimum trip length, then save; Services is a link', (tester) async {
     final container = await pumpRoute(tester, '/account/booking-preferences');
     expect(find.byType(BookingPreferencesScreen), findsOneWidget);
     expect(find.text('Any distance'), findsOneWidget);
     expect(find.text('Go To / Stay In'), findsOneWidget);
-    // The demo driver rides a bike: parcels too, on by default.
-    expect(find.text('Parcels too'), findsOneWidget);
+    // Parcels and the other services moved to Services.
+    expect(find.text('Parcels too'), findsNothing);
+    expect(find.text('Services', skipOffstage: false), findsOneWidget);
 
     await tester.tap(find.byTooltip('More').first);
     await tester.pump();
@@ -146,10 +156,6 @@ void main() {
     await tester.pump();
     expect(find.text('5.0 km'), findsOneWidget);
 
-    await center(tester, find.text('Parcels too'));
-    await tester.tap(find.byType(Switch).last);
-    await tester.pump();
-
     await center(tester, find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pump(const Duration(milliseconds: 300));
@@ -157,34 +163,70 @@ void main() {
     expect(saved.maxPickupKm, 1.5);
     expect(saved.minTripKm, 5);
     expect(saved.maxTripKm, isNull);
-    expect(saved.parcels, isFalse);
     await tester.pump(const Duration(seconds: 5)); // snack
   });
 
-  testWidgets('a goods-truck driver switches house shifting on and says how many helpers they bring', (tester) async {
-    final container = await pumpRoute(tester, '/account/booking-preferences', overrides: [driverProfileProvider.overrideWith(_Mover.new)]);
-    expect(find.text('Parcels too'), findsNothing, reason: 'bikes only');
-    await center(tester, find.text('Packers & Movers jobs'));
-    expect(find.text('Helpers you bring'), findsNothing);
+  testWidgets('Services: a goods-truck driver switches Packers & Movers on with the helpers they bring', (tester) async {
+    final container = await pumpRoute(tester, '/account/services', overrides: [driverProfileProvider.overrideWith(_Mover.new)]);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Always on'), findsOneWidget, reason: 'parcels, their main service');
+    expect(find.text('Goods to another town'), findsOneWidget);
+    await center(tester, find.text('Packers & Movers'));
     await tester.tap(find.byType(Switch).last);
-    await tester.pump();
-    await center(tester, find.text('Helpers you bring'));
-    expect(find.text('Moves needing up to 2. The customer pays for them in the price.'), findsOneWidget);
-    await tester.tap(find.byTooltip('More helpers'));
+    await tester.pumpAndSettle();
+    expect(find.text('Helpers you bring'), findsOneWidget);
+    await tester.tap(find.byTooltip('More'));
     await tester.pump();
     expect(find.text('Moves needing up to 3. The customer pays for them in the price.'), findsOneWidget);
-
-    await center(tester, find.text('Save'));
-    await tester.tap(find.text('Save'));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Switch on'));
+    await tester.pumpAndSettle();
     final saved = container.read(bookingPrefsProvider).value!;
     expect((saved.shifting, saved.helpers), (true, 3));
+    expect(find.text('With 3 helpers'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5)); // snack
   });
 
-  testWidgets('a bike driver has no house shifting', (tester) async {
-    await pumpRoute(tester, '/account/booking-preferences');
-    expect(find.text('Packers & Movers jobs', skipOffstage: false), findsNothing);
+  testWidgets('Services: an auto driver switches parcels on, then pauses them for 30 minutes', (tester) async {
+    final container = await pumpRoute(tester, '/account/services', overrides: [driverProfileProvider.overrideWith(_AutoDriver.new)]);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Auto rides'), findsOneWidget);
+    expect(find.text('Packers & Movers'), findsNothing);
+    final kind = VehicleKind.auto;
+    bool parcelsOn() => container.read(bookingPrefsProvider).value!.isOn(DriverService.parcels, kind, DateTime.now());
+    expect(parcelsOn(), isFalse, reason: 'off for autos until switched on');
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    expect(parcelsOn(), isTrue);
+    await tester.pump(const Duration(seconds: 5)); // snack
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    expect(find.text('Pause Parcels?'), findsOneWidget);
+    expect(tester.widget<TtButton>(find.widgetWithText(TtButton, 'Pause')).onPressed, isNull, reason: 'pick how long first');
+    await tester.tap(find.text('30 min'));
+    await tester.tap(find.text('Too far'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TtButton, 'Pause'));
+    await tester.pumpAndSettle();
+    final p = container.read(bookingPrefsProvider).value!.pauseOf(DriverService.parcels, DateTime.now());
+    expect(p?.reason, 'Too far');
+    expect(parcelsOn(), isFalse);
+    expect(find.textContaining('Paused till'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5)); // snack
+  });
+
+  testWidgets('Rate card: an auto driver sees Auto, Auto Priority and Parcels rates', (tester) async {
+    await pumpRoute(tester, '/account/rate-card', overrides: [driverProfileProvider.overrideWith(_AutoDriver.new)]);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Auto Priority'), findsOneWidget);
+    expect(find.text('Base fare'), findsOneWidget);
+    expect(find.text('₹25'), findsOneWidget);
+    await tester.tap(find.text('Auto Priority'));
+    await tester.pump();
+    expect(find.text('₹30'), findsOneWidget);
+    await tester.tap(find.text('Parcels'));
+    await tester.pump();
+    expect(find.text('₹40'), findsOneWidget, reason: 'Parcel on Auto minimum fare');
   });
 
   testWidgets('add an area, turn Go To on, then Stay In there within 8 km (Go To goes off)', (tester) async {
@@ -287,4 +329,9 @@ void main() {
 class _Mover extends DriverProfileController {
   @override
   Future<DriverProfile> build() async => Seed.selvam;
+}
+
+class _AutoDriver extends DriverProfileController {
+  @override
+  Future<DriverProfile> build() async => Seed.murugan;
 }

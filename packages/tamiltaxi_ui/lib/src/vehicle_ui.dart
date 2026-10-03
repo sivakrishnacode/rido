@@ -7,7 +7,7 @@ extension VehicleKindUi on VehicleKind {
   /// Material Symbols Rounded icon used on chips, small tiles and as the fallback art.
   IconData get icon => switch (this) {
         VehicleKind.bike || VehicleKind.scooty || VehicleKind.goodsBike => Symbols.two_wheeler_rounded,
-        VehicleKind.auto || VehicleKind.autoPriority => Symbols.electric_rickshaw_rounded,
+        VehicleKind.auto || VehicleKind.autoPriority || VehicleKind.autoParcel => Symbols.electric_rickshaw_rounded,
         VehicleKind.cab || VehicleKind.sedan => Symbols.local_taxi_rounded,
         VehicleKind.suv => Symbols.airport_shuttle_rounded,
         VehicleKind.threeWheeler => Symbols.electric_rickshaw_rounded,
@@ -20,7 +20,7 @@ extension VehicleKindUi on VehicleKind {
   String get label => switch (this) {
         VehicleKind.bike || VehicleKind.goodsBike => 'Bike',
         VehicleKind.scooty => 'Scooty',
-        VehicleKind.auto => 'Auto',
+        VehicleKind.auto || VehicleKind.autoParcel => 'Auto',
         VehicleKind.autoPriority => 'Auto Priority',
         VehicleKind.cab => 'Mini',
         VehicleKind.sedan => 'Sedan',
@@ -31,22 +31,12 @@ extension VehicleKindUi on VehicleKind {
         VehicleKind.truck => 'Truck',
       };
 
-  /// Goods vehicles: the load bed's length, to judge what fits ("5 ft bed"); null for the rest.
-  String? get bedLabel => switch (this) {
-        VehicleKind.goodsBike => 'Carrier box',
-        VehicleKind.threeWheeler => '4.5 ft bed',
-        VehicleKind.miniTruck => '5 ft bed',
-        VehicleKind.pickup => '8 ft bed',
-        VehicleKind.truck => '14 ft bed',
-        _ => null,
-      };
-
   /// The 3/4 render in `assets/vehicles/` (built by scripts/vehicle_icons/build.py); every vehicle has one. Nullable so
   /// a vehicle added later can show [icon] until its render arrives.
   String? get artAsset => switch (this) {
         VehicleKind.bike || VehicleKind.goodsBike => 'packages/tamiltaxi_ui/assets/vehicles/bike.webp',
         VehicleKind.scooty => 'packages/tamiltaxi_ui/assets/vehicles/scooty.webp',
-        VehicleKind.auto => 'packages/tamiltaxi_ui/assets/vehicles/auto.webp',
+        VehicleKind.auto || VehicleKind.autoParcel => 'packages/tamiltaxi_ui/assets/vehicles/auto.webp',
         VehicleKind.autoPriority => 'packages/tamiltaxi_ui/assets/vehicles/auto_priority.webp',
         VehicleKind.cab => 'packages/tamiltaxi_ui/assets/vehicles/mini.webp',
         VehicleKind.sedan => 'packages/tamiltaxi_ui/assets/vehicles/sedan.webp',
@@ -60,7 +50,7 @@ extension VehicleKindUi on VehicleKind {
   /// Marker glyph class for the map.
   MapVehicleType get mapType => switch (this) {
         VehicleKind.bike || VehicleKind.scooty || VehicleKind.goodsBike => MapVehicleType.bike,
-        VehicleKind.auto || VehicleKind.autoPriority || VehicleKind.threeWheeler => MapVehicleType.auto,
+        VehicleKind.auto || VehicleKind.autoPriority || VehicleKind.autoParcel || VehicleKind.threeWheeler => MapVehicleType.auto,
         VehicleKind.cab || VehicleKind.sedan || VehicleKind.suv => MapVehicleType.car,
         VehicleKind.miniTruck || VehicleKind.pickup || VehicleKind.truck => MapVehicleType.truck,
       };

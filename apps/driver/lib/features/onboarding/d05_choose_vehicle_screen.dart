@@ -86,7 +86,7 @@ class _D05ChooseVehicleScreenState extends ConsumerState<D05ChooseVehicleScreen>
                       plansOn
                           ? '${rides ? 'Rides' : 'Deliveries'} · one flat plan per month, no commission.'
                           : rides
-                          ? 'Pick the vehicle you drive. Bikes and scooties get small parcels too.'
+                          ? 'Pick the vehicle you drive. Bikes, scooties and autos can take parcels too.'
                           : 'Pick the vehicle you drive, by how much load it can carry.',
                       style: t.body.copyWith(color: TtColors.navy700)),
                   const SizedBox(height: TtSpacing.l),
@@ -144,9 +144,9 @@ class _VehicleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.type;
     final price = this.price;
-    final name = kind == VehicleKind.truck ? 'Truck 14ft / 17ft' : kind.label;
-    // "Tata Ace", "Bolero"… (the truck's body length is already in its name).
-    final hint = kind == VehicleKind.truck ? null : Seed.vehicle(kind).modelHint;
+    final name = kind.label;
+    // "Tata Ace", "Bolero"…
+    final hint = Seed.vehicle(kind).modelHint;
     return Semantics(
       selected: selected,
       button: true,
@@ -194,7 +194,7 @@ class _VehicleCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(hint, maxLines: 1, overflow: TextOverflow.ellipsis, style: t.caption.copyWith(color: TtColors.navy500)),
                 ],
-                if (free && kind.isTwoWheeler) ...[
+                if (free && DriverService.availableFor(kind).contains(DriverService.parcels)) ...[
                   const SizedBox(height: TtSpacing.s),
                   const _Tag(label: '+ Parcels', bg: TtColors.successTint, fg: TtColors.successText),
                 ],

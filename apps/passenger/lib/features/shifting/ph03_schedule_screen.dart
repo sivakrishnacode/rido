@@ -358,7 +358,8 @@ class _VehicleChoice extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        kind.bedLabel ?? '',
+                        // Short: the price shares the line.
+                        '${formatCount(Seed.vehicle(kind).capacityKg ?? 0)} kg',
                         style: t.caption.copyWith(color: TtColors.navy500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
