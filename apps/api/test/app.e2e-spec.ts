@@ -667,6 +667,22 @@ describe('Tamil Taxi API (e2e)', () => {
     await http.post('/v1/drivers/me/offline').set(auth);
   });
 
+  it('"Book any": adds sent at the same moment keep the 3-vehicle cap and every fare', async () => {
+    const pax = { Authorization: `Bearer ${await login()}` };
+    const trip = (await http.post('/v1/trips').set(pax).send({ kind: 'RIDE', vehicleKind: 'CAB', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(201)).body;
+    // Truly parallel requests need a listening server (supertest would otherwise start and stop one per request).
+    const server = app.getHttpServer();
+    if (!server.address()) await new Promise<void>((resolve) => server.listen(0, resolve));
+    const kinds = ['SEDAN', 'SUV', 'AUTO', 'BIKE'];
+    const answers = await Promise.all(kinds.map((vehicleKind) => request(server).post(`/v1/trips/${trip.id}/also`).set(pax).send({ vehicleKind })));
+    expect(answers.filter((a) => a.status === 200)).toHaveLength(3);
+    expect(answers.filter((a) => a.status !== 200).every((a) => a.status === 400 || a.status === 409)).toBe(true);
+    const now = await prisma.trip.findUniqueOrThrow({ where: { id: trip.id } });
+    expect(now.alsoKinds).toHaveLength(3);
+    expect(Object.keys(now.alsoFares as object).sort()).toEqual([...now.alsoKinds].sort());
+    await http.post(`/v1/trips/${trip.id}/cancel`).set(pax).send({}).expect(200);
+  });
+
   it('"Book any": a slow cab search adds Auto, and the auto driver takes it at the auto fare', async () => {
     // Arrange: no cab nearby, an auto driver at the pickup.
     const passenger = await login();
