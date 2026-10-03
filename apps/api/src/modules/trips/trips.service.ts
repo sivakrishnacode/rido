@@ -4,6 +4,7 @@ import { randomInt } from 'node:crypto';
 import type { AuthUser } from '../../core/auth/auth-user.js';
 import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
+import { RedisService } from '../../core/redis/redis.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
 import { CancelCode, CancelFault, CancelledBy, DriverStatus, DueStatus, Gender, RideMode, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
@@ -46,6 +47,11 @@ const HEAT_RES = 8;
 
 /** "Book any": at most this many vehicles added to one search. */
 const MAX_ALSO_KINDS = 3;
+
+/** A rider's trip in these is still searching or under way: no second trip for now meanwhile. */
+const IN_PROGRESS = [TripStatus.SEARCHING, TripStatus.DRIVER_ASSIGNED, TripStatus.DRIVER_ARRIVED, TripStatus.IN_PROGRESS, TripStatus.PICKED_UP] as const;
+/** How long one booking may hold the rider's booking lock. */
+const BOOKING_LOCK_S = 15;
 
 /** Another vehicle a searching passenger could add: free drivers of it are within the maximum search radius. */
 export interface VehicleAlternative {
@@ -113,14 +119,33 @@ export class TripsService {
     private readonly safety: SafetyMonitorService,
     private readonly maps: MapsService,
     private readonly tripDrivers: TripDriversService,
+    private readonly redis: RedisService,
   ) {}
 
   /**
    * Quotes, stores and starts dispatching a trip. A rental or outstation trip (cab tiers) is priced by its package or
    * per km (ride-modes.ts); booked for later ([BookTripDto.scheduledAt]) it waits as SCHEDULED and dispatch starts
-   * `scheduledDispatchLeadMin` before the pickup time ([startScheduled]).
+   * `scheduledDispatchLeadMin` before the pickup time ([startScheduled]). A trip for now while another one of the
+   * rider's is still searching or under way → 409 `TRIP_IN_PROGRESS` (bookings for later are fine).
    */
   async book(passengerId: string, dto: BookTripDto): Promise<Trip> {
+    // One booking at a time per rider, so two quick taps can't both pass the trip-in-progress check.
+    const lock = `trips:booking:${passengerId}`;
+    if ((await this.redis.set(lock, '1', 'EX', BOOKING_LOCK_S, 'NX')) !== 'OK') throw new ConflictException('Your booking is already on its way');
+    try {
+      return await this.createBooking(passengerId, dto);
+    } finally {
+      await this.redis.del(lock);
+    }
+  }
+
+  /** 409 while the rider has a trip searching or under way (SEARCHING … PICKED_UP; not one booked for later). */
+  private async checkNoTripInProgress(passengerId: string): Promise<void> {
+    const open = await this.prisma.trip.findFirst({ where: { passengerId, status: { in: [...IN_PROGRESS] } }, select: { id: true } });
+    if (open) throw new ConflictException({ code: 'TRIP_IN_PROGRESS', message: 'You already have a trip in progress', details: { tripId: open.id } });
+  }
+
+  private async createBooking(passengerId: string, dto: BookTripDto): Promise<Trip> {
     const shifting = dto.shifting;
     // A house shift to another town is priced by the km like goods to another town.
     const mode = shifting ? (shifting.between ? RideMode.OUTSTATION : RideMode.LOCAL) : (dto.rideMode ?? RideMode.LOCAL);
@@ -139,6 +164,10 @@ export class TripsService {
     }
     const now = new Date();
     const { scheduledAt, returnAt } = bookingTimes(dto, mode, now, { shifting: !!shifting });
+    const s = await this.settings.all();
+    const dispatchAt = scheduledAt ? scheduledAt.getTime() - s.scheduledDispatchLeadMin * 60_000 : now.getTime();
+    const isLater = dispatchAt > now.getTime();
+    if (!isLater) await this.checkNoTripInProgress(passengerId);
     // A rental starts and ends wherever the rider says on the way: its drop is the pickup.
     const drop = mode === RideMode.RENTAL ? dto.pickup : dto.drop;
     if (!drop) throw new BadRequestException('Choose where you are going');
@@ -189,9 +218,6 @@ export class TripsService {
     // The road route that quote just fetched, from the cache (no extra Google call), for the route-deviation check.
     const road =
       mode === RideMode.RENTAL ? null : await this.maps.cachedRoute({ from: dto.pickup, to: drop, vehicleKind: dto.vehicleKind }).catch(() => null);
-    const s = await this.settings.all();
-    const dispatchAt = scheduledAt ? scheduledAt.getTime() - s.scheduledDispatchLeadMin * 60_000 : now.getTime();
-    const isLater = dispatchAt > now.getTime();
     const trip = await this.prisma.trip.create({
       data: {
         kind: dto.kind,

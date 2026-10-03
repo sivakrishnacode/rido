@@ -165,6 +165,9 @@ describe('Tamil Taxi API (e2e)', () => {
       .expect(201)).body;
     // The pickup's landmark is kept for the driver.
     expect(trip.pickupLandmark).toBe('Near KG Hospital');
+    // A second trip for now while this one is searching is refused, pointing at it.
+    const twice = await http.post('/v1/trips').set('Authorization', `Bearer ${passenger}`).send({ kind: 'RIDE', vehicleKind: 'AUTO', pickup: GANDHIPURAM, drop: BROOKEFIELDS }).expect(409);
+    expect(twice.body).toMatchObject({ code: 'TRIP_IN_PROGRESS', message: 'You already have a trip in progress', details: { tripId: trip.id } });
     const auth = { Authorization: `Bearer ${driver}` };
     // Matching runs in ~2 s batches: retry until this driver has the offer.
     let accepted = 0;
