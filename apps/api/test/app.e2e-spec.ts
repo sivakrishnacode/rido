@@ -14,7 +14,7 @@ import { AuthService } from '../src/modules/auth/auth.service.js';
 import { SettingsService } from '../src/modules/settings/settings.service.js';
 import { DriverBlocksService } from '../src/modules/trips/driver-blocks.service.js';
 import { statsKey } from '../src/modules/trips/driver-rank.js';
-import { DEMAND_RES } from '../src/modules/geo/demand.service.js';
+import { DEMAND_RES, DemandService, SURGE_CELLS_KEY } from '../src/modules/geo/demand.service.js';
 import { cellAt } from '../src/modules/geo/h3.util.js';
 import { haversineMeters } from '../src/modules/fares/fare-engine.js';
 import { DriverLocationService } from '../src/modules/drivers/driver-location.service.js';
@@ -1845,5 +1845,11 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(found.map((d) => d.driverId)).not.toContain('ghost-driver');
     expect(await redis.sismember(`h3:drv:BIKE:${cell}`, 'ghost-driver')).toBe(0);
     expect(await redis.exists('driver:cell:ghost-driver')).toBe(0);
+
+    // Surge cells are tracked in a set (no KEYS scan): a cell that stopped surging loses its multiplier.
+    await redis.multi().set('h3:surge:stale-cell', '1.4', 'EX', 180).sadd(SURGE_CELLS_KEY, 'stale-cell').exec();
+    await app.get(DemandService).refresh(true);
+    expect(await redis.exists('h3:surge:stale-cell')).toBe(0);
+    for (const c of await redis.smembers(SURGE_CELLS_KEY)) expect(await redis.exists(`h3:surge:${c}`)).toBe(1);
   });
 });

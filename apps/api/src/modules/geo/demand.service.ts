@@ -11,6 +11,9 @@ import { DemandLevel, smoothSurge, surgeFor } from './surge.js';
 export const DEMAND_RES = 7;
 const DRIVER_RES = 8;
 const SNAPSHOT_KEY = 'h3:demand:snapshot';
+/** The cells that have an `h3:surge:<cell>` multiplier now. */
+export const SURGE_CELLS_KEY = 'h3:surge-cells';
+const SURGE_TTL_S = 180;
 const TICK_MS = 60_000;
 
 /** One hexagon's live demand vs supply. */
@@ -103,10 +106,13 @@ export class DemandService implements OnModuleInit, OnModuleDestroy {
     // Smooth across ring-1 neighbours so prices don't jump at hex edges, then publish per cell.
     const raw = new Map(result.map((c) => [c.cell, c.multiplier]));
     const smoothed = smoothSurge(raw, (c) => gridDisk(c, 1));
-    const previous = await this.redis.keys('h3:surge:*');
+    // The cells surging last time are a set (not a KEYS scan of the whole keyspace every minute).
+    const previous = await this.redis.smembers(SURGE_CELLS_KEY);
     const tx = this.redis.multi();
-    for (const k of previous) if (!smoothed.has(k.slice('h3:surge:'.length))) tx.del(k);
-    for (const [cell, m] of smoothed) tx.set(`h3:surge:${cell}`, String(m), 'EX', 180);
+    for (const cell of previous) if (!smoothed.has(cell)) tx.del(`h3:surge:${cell}`);
+    tx.del(SURGE_CELLS_KEY);
+    for (const [cell, m] of smoothed) tx.set(`h3:surge:${cell}`, String(m), 'EX', SURGE_TTL_S);
+    if (smoothed.size > 0) tx.sadd(SURGE_CELLS_KEY, ...smoothed.keys()).expire(SURGE_CELLS_KEY, SURGE_TTL_S);
     await tx.exec();
     for (const c of result) (c as { multiplier: number }).multiplier = smoothed.get(c.cell) ?? 1;
     const snap: DemandSnapshot = { at: new Date().toISOString(), windowMin: s.demandWindowMin, cells: result.sort((a, b) => b.ratio - a.ratio) };
