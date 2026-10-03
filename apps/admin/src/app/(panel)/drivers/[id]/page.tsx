@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { ApprovalChecks, missingChecks } from "@/components/common/approval-checks";
+import { PhotoTile } from "@/components/common/photo-tile";
 import { EmptyState, Field, PageHeader } from "@/components/common/page";
 import { KycProgress, OnlineDot, PlateBadge, StatusBadge } from "@/components/common/status";
 import { TripRouteCell } from "@/components/common/trip-bits";
@@ -329,11 +330,7 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
         <CardContent className="pt-4">
           <div className="flex flex-wrap items-start gap-6">
             <PhotoTile label="Shown to riders" file={d.photoFile} note={d.photoUpdatedAt ? `Since ${formatDateTime(d.photoUpdatedAt)}` : "None yet"} />
-            <PhotoTile
-              label="Verified selfie (Didit)"
-              file={d.selfieFile}
-              note={`Reference face, never shown to riders · daily check ${d.selfieCheckedAt ? `passed ${formatDateTime(d.selfieCheckedAt)}` : "not taken yet"}`}
-            />
+            <PhotoTile label="Verified selfie (Didit)" file={d.selfieFile} note="Reference face, never shown to riders" />
             {d.pendingPhotoFile && (
               <div className="flex flex-col gap-3">
                 <PhotoTile
@@ -345,6 +342,12 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
               </div>
             )}
           </div>
+          {d.selfieFile && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Daily selfie check (matched to the verified selfie before going online):{" "}
+              {d.selfieCheckedAt ? `last passed ${formatDateTime(d.selfieCheckedAt)}` : "not taken yet"}
+            </p>
+          )}
           {d.photoRejectReason && !d.pendingPhotoFile && (
             <p className="mt-3 text-xs text-error">Last photo rejected: {d.photoRejectReason}</p>
           )}
@@ -522,27 +525,5 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
         <PersonRecord userId={d.user.id} driverId={d.id} />
       </Suspense>
     </>
-  );
-}
-
-/** A stored photo (opened through the admin's /files proxy), or an empty square. */
-function PhotoTile({ label, file, note }: { label: string; file?: string | null; note: string }) {
-  return (
-    <figure className="w-36">
-      {file ? (
-        <a href={docFileHref(file)} target="_blank" rel="noreferrer noopener">
-          {/* eslint-disable-next-line @next/next/no-img-element -- private, token-proxied file; next/image can't optimise it */}
-          <img src={docFileHref(file)} alt={label} className="size-36 rounded-xl border object-cover" />
-        </a>
-      ) : (
-        <div className="flex size-36 items-center justify-center rounded-xl border border-dashed text-xs text-muted-foreground">
-          No photo
-        </div>
-      )}
-      <figcaption className="mt-1.5">
-        <span className="block text-xs font-medium text-navy-900">{label}</span>
-        <span className="block text-xs text-muted-foreground">{note}</span>
-      </figcaption>
-    </figure>
   );
 }

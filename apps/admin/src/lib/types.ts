@@ -463,6 +463,9 @@ export interface TripBase {
   readonly gpsPoints?: number;
   readonly gpsMockCount?: number;
   readonly distanceCalcFailed?: boolean;
+  /** Parcel only: the sender's photo of the parcel and the driver's proof of delivery (stored files). */
+  readonly parcelPhotoFile?: string | null;
+  readonly deliveryPhotoFile?: string | null;
   readonly reassignCount?: number;
   readonly startedAt: string | null;
   readonly endedAt: string | null;
@@ -510,6 +513,8 @@ export interface SupportTicketBase {
   readonly tripId: string | null;
   readonly topic: string;
   readonly description: string;
+  /** One photo the user added (stored file). */
+  readonly attachmentFile?: string | null;
   readonly status: TicketStatus;
   readonly createdAt: string;
   readonly updatedAt: string;
