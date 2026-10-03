@@ -1768,6 +1768,12 @@ RDS + 2 API instances behind an ALB with the Socket.IO Redis adapter (events are
 HTTP keep-alive is 65 s (`main.ts`); with Node's 5 s default the apps sometimes reused a closed connection and showed
 "You're offline". The apps also retry idempotent requests once after a dropped connection (`ApiClient`).
 
+**Website staging host (3 Oct 2026):** the HTTPS Compose profile also serves the static `apps/web/out` export
+through Caddy's `WEB_HOST` (default `web.localhost`). Build the website before deploying and copy `apps/web/out`
+to the same location under `/opt/tamiltaxi`; staging uses `web.65-0-233-253.sslip.io`. The API/admin images are unchanged
+by this hosting addition. For account deletion, the instance role also needs `s3:DeleteObject` on
+`arn:aws:s3:::rido-uploads-786020471552/kyc/*`; the current deployment profile has no IAM administration rights.
+
 **Redeploy** (images are built locally so the small instance never runs `next build`):
 
 ```bash

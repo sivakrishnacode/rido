@@ -111,8 +111,10 @@ services:
     environment:
       API_HOST: ${API_HOST:-api.localhost}
       ADMIN_HOST: ${ADMIN_HOST:-admin.localhost}
+      WEB_HOST: ${WEB_HOST:-web.localhost}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./apps/web/out:/srv/website:ro
       - caddy_data:/data
       - caddy_config:/config
     ports:
