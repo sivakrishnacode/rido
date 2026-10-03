@@ -43,13 +43,18 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
 
   String get _rateName => _isDelivery ? (_job.parcel?.receiverName ?? _job.customerName) : _job.customerName;
 
+  /// "Received cash / on UPI". Mock mode (and the gallery) asks for the passenger's stars first; live there is no API
+  /// for drivers rating riders, so no sheet that throws the stars away.
   Future<void> _received(PaymentMode mode) async {
     if (_busy) return;
+    final live = !widget.showcase && ref.read(isLiveApiProvider);
+    if (!live) {
+      final stars = await RateCustomerSheet.show(context, name: _rateName.split(' ').first);
+      if (stars == null || !mounted) return;
+    }
     if (widget.showcase) return showTtSnack(context, kPreviewNote);
-    final stars = await RateCustomerSheet.show(context, name: _rateName.split(' ').first);
-    if (stars == null || !mounted) return;
     setState(() => _busy = true);
-    if (!widget.showcase) await ref.read(driverSessionProvider.notifier).collectPayment(mode);
+    await ref.read(driverSessionProvider.notifier).collectPayment(mode);
     if (!mounted) return;
     showTtSnack(context, '${formatInr(_job.fare)} added. You keep 100%.', success: true);
     context.go(Routes.home);
