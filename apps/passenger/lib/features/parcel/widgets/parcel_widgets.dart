@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -188,7 +189,8 @@ class ParcelPinMap extends ConsumerStatefulWidget {
     this.folded = false,
     this.height = 180,
     this.interactive = true,
-    this.coverBottom = 0,
+    this.visibleHeight,
+    this.pinShown,
   });
 
   final Place place;
@@ -201,9 +203,13 @@ class ParcelPinMap extends ConsumerStatefulWidget {
   final double height;
   final bool interactive;
 
-  /// How much of the map's bottom a sheet covers (PP-03's movable sheet, at rest). The pin and the chosen point
-  /// sit in the middle of the part above it, and the Google logo just above the sheet.
-  final double coverBottom;
+  /// How much of the map shows, around its middle (PP-03: the map slides under a movable sheet): the Google map is
+  /// padded to it, so its logo sits just above the sheet. The padding is the same above and below, so the camera's
+  /// centre (the chosen point, under the pin) stays the middle of the map: changing it moves nothing. Null: all.
+  final double? visibleHeight;
+
+  /// Whether the pin shows (PP-03 hides it while the sheet leaves too little map). Null: always.
+  final ValueListenable<bool>? pinShown;
 
   @override
   ConsumerState<ParcelPinMap> createState() => _ParcelPinMapState();
@@ -214,7 +220,6 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
   final _map = TtMapController();
   late final LatLng _start = widget.place.location;
   late LatLng _centre = _start;
-  double _zoomNow = _zoom;
   Timer? _debounce;
   int _request = 0;
   bool _locating = false;
@@ -245,13 +250,6 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
       _locating = false;
       _map.animateTo(to, _zoom);
     }
-    // The sheet settled somewhere else: the padded area's centre moved with it. Android keeps the view when the
-    // padding changes, so bring the chosen point back under the pin (it moves to the new centre too).
-    if (widget.coverBottom != old.coverBottom && TtMap.usesGoogle) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _map.animateTo(_centre, _zoomNow);
-      });
-    }
   }
 
   @override
@@ -262,7 +260,6 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
   }
 
   void _onMove(TtCamera camera, bool hasGesture) {
-    _zoomNow = camera.zoom;
     if (!_touched) return;
     _centre = camera.center;
     _debounce?.cancel();
@@ -290,6 +287,7 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
   Widget build(BuildContext context) {
     final t = context.type;
     final label = _locating ? 'Finding the address…' : (widget.isPickup ? 'Pickup here' : 'Drop here');
+    final visible = widget.visibleHeight;
     // Folds by clipping, not resizing: the native map keeps its size and doesn't re-lay out every frame.
     return ClipRect(
       child: AnimatedAlign(
@@ -303,13 +301,7 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
             label: '${widget.isPickup ? 'Pickup' : 'Drop'} on the map. Move the map to adjust the point',
             child: Stack(
               children: [
-                // Google: the whole height, padded by the sheet (the logo stays above it). flutter_map (no key):
-                // only the part above the sheet, so its centre is the pin's.
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  bottom: TtMap.usesGoogle ? 0 : widget.coverBottom,
+                Positioned.fill(
                   child: Listener(
                     onPointerDown: (_) {
                       _down++;
@@ -322,45 +314,37 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
                       center: _start,
                       zoom: _zoom,
                       interactive: widget.interactive,
-                      mapPadding: TtMap.usesGoogle ? EdgeInsets.only(bottom: widget.coverBottom) : EdgeInsets.zero,
+                      mapPadding: TtMap.usesGoogle && visible != null
+                          ? EdgeInsets.symmetric(vertical: math.max(0, (widget.height - visible) / 2))
+                          : EdgeInsets.zero,
                       onPositionChanged: _onMove,
                     ),
                   ),
                 ),
-                // Fixed pin: its tip on the centre of the map above the sheet.
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  bottom: widget.coverBottom,
-                  child: IgnorePointer(
-                    // Hidden while the sheet leaves too little map for it (pulled all the way up).
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 150),
-                      opacity: widget.height - widget.coverBottom < 120 ? 0 : 1,
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 70),
-                          child: SizedBox(
-                            height: 70,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 150),
-                                  child: Container(
-                                    key: ValueKey(label),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.pillRadius),
-                                    child: Text(label, style: t.caption.copyWith(color: TtColors.surface, fontWeight: FontWeight.w600)),
-                                  ),
+                // Fixed pin: its tip on the map's centre.
+                IgnorePointer(
+                  child: _PinVisibility(
+                    shown: widget.pinShown,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 70),
+                        child: SizedBox(
+                          height: 70,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 150),
+                                child: Container(
+                                  key: ValueKey(label),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.pillRadius),
+                                  child: Text(label, style: t.caption.copyWith(color: TtColors.surface, fontWeight: FontWeight.w600)),
                                 ),
-                                Icon(Symbols.location_on_rounded,
-                                    fill: 1, size: 44, color: widget.isPickup ? TtColors.success : TtColors.coral500),
-                              ],
-                            ),
+                              ),
+                              Icon(Symbols.location_on_rounded,
+                                  fill: 1, size: 44, color: widget.isPickup ? TtColors.success : TtColors.coral500),
+                            ],
                           ),
                         ),
                       ),
@@ -372,6 +356,25 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Fades [child] out while [shown] is false; always shown without it.
+class _PinVisibility extends StatelessWidget {
+  const _PinVisibility({required this.shown, required this.child});
+  final ValueListenable<bool>? shown;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = this.shown;
+    if (shown == null) return child;
+    return ValueListenableBuilder<bool>(
+      valueListenable: shown,
+      child: child,
+      builder: (context, on, child) =>
+          AnimatedOpacity(duration: const Duration(milliseconds: 150), opacity: on ? 1 : 0, child: child),
     );
   }
 }

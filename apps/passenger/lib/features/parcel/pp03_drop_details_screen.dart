@@ -69,10 +69,17 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
   /// The form is a sheet over the map: drag it down for more map to move the pin, up for the form.
   final _sheet = DraggableScrollableController();
 
-  /// Where the sheet came to rest (a fraction of the body), for the map's padding; null: where it started.
+  /// The sheet's size while it moves (a fraction of the body; null: where it started). The map follows it.
+  final _sheetSize = ValueNotifier<double?>(null);
+
+  /// Where the sheet came to rest, for the map's padding (null: where it started).
   double? _restSize;
   double _startSize = 0.62;
   Timer? _settle;
+
+  /// The body's height in the last layout, and whether the sheet leaves enough map for the pin.
+  double _bodyHeight = 0;
+  final _pinShown = ValueNotifier<bool>(true);
 
   /// The keyboard is up: the sheet opened all the way, and goes back to [_beforeKeyboard] when it closes. Null
   /// until the first build: a keyboard still closing from the search that opened PP-03 changes nothing.
@@ -98,6 +105,8 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
   void dispose() {
     _settle?.cancel();
     _sheet.dispose();
+    _sheetSize.dispose();
+    _pinShown.dispose();
     _name.dispose();
     _phone.dispose();
     _note.dispose();
@@ -247,6 +256,8 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
 
   /// The sheet moved: once it rests, the map's padding follows (not every frame: the native map would re-lay out).
   bool _onSheetMoved(DraggableScrollableNotification n) {
+    _sheetSize.value = n.extent;
+    _pinShown.value = _bodyHeight * (1 - n.extent) >= 120;
     _settle?.cancel();
     _settle = Timer(const Duration(milliseconds: 180), () {
       if (mounted && n.extent != _restSize) setState(() => _restSize = n.extent);
@@ -274,17 +285,33 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
                 final minSize = (150 / full).clamp(0.15, 0.5);
                 _startSize = (1 - 220 / full).clamp(minSize, 0.85);
                 final firstSize = widget.onMap ? minSize : _startSize;
-                final cover = math.min(h * (_restSize ?? firstSize), h - 80);
+                _bodyHeight = h;
+                // The map is as tall as the most of it the sheet ever shows (pulled down to the drop's card). It
+                // slides half as far as the sheet: its middle, where the pin is, stays the middle of the map that
+                // shows, and pin and map move together, so the point under the pin never changes.
+                final mapHeight = full * (1 - minSize);
+                double shown(double? size) => h * (1 - (size ?? firstSize));
                 return Stack(
                   children: [
-                    Positioned.fill(
-                      child: ParcelPinMap(
-                        place: _drop,
-                        isPickup: false,
-                        height: h,
-                        coverBottom: cover,
-                        interactive: !widget.showcase,
-                        onMoved: _setDrop,
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      height: mapHeight,
+                      child: ValueListenableBuilder<double?>(
+                        valueListenable: _sheetSize,
+                        builder: (context, size, map) =>
+                            Transform.translate(offset: Offset(0, (shown(size) - mapHeight) / 2), child: map),
+                        child: ParcelPinMap(
+                          place: _drop,
+                          isPickup: false,
+                          height: mapHeight,
+                          // Once the sheet rests: the Google logo just above it.
+                          visibleHeight: math.min(shown(_restSize), mapHeight),
+                          pinShown: _pinShown,
+                          interactive: !widget.showcase,
+                          onMoved: _setDrop,
+                        ),
                       ),
                     ),
                     NotificationListener<DraggableScrollableNotification>(
