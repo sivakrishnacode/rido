@@ -57,3 +57,10 @@ String formatCountdown(Duration d) {
 
 /// Indian number grouping without the rupee sign: 1240 → "1,240".
 String formatCount(num n) => _inr.format(n);
+
+/// A short reference for a long database id, for people to read out to support: its last 8 letters and digits,
+/// upper case ("cmukukz5p000007mktoqdmwr9" → "#TOQDMWR9").
+String formatRef(String id) {
+  final s = id.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+  return '#${(s.length > 8 ? s.substring(s.length - 8) : s).toUpperCase()}';
+}

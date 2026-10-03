@@ -159,55 +159,7 @@ class _SupportHomeViewState extends State<SupportHomeView> {
                     style: t.bodySmall,
                   ),
                 ),
-              LayoutBuilder(
-                builder: (context, c) {
-                  final w = (c.maxWidth - 12) / 2;
-                  return Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      for (final topic in topics)
-                        SizedBox(
-                          width: w,
-                          child: TtCard(
-                            onTap: () => widget.onTopic(topic),
-                            color: topic == 'Safety concern'
-                                ? TtColors.errorTint
-                                : TtColors.surface,
-                            borderColor: topic == 'Safety concern'
-                                ? const Color(0xFFFECACA)
-                                : TtColors.divider,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 16,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  helpTopicIcon(topic),
-                                  color: topic == 'Safety concern'
-                                      ? TtColors.error
-                                      : TtColors.navy700,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    topic,
-                                    style: t.bodyMedium.copyWith(
-                                      color: topic == 'Safety concern'
-                                          ? TtColors.error
-                                          : TtColors.navy900,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
+              _TopicGrid(topics: topics, onTopic: widget.onTopic),
               const SectionLabel('My tickets'),
               if (widget.ticketsError != null)
                 TtCard(
@@ -235,7 +187,7 @@ class _SupportHomeViewState extends State<SupportHomeView> {
                       onTap: () => showDialog<void>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: Text('${tk.topic} · #${tk.id}'),
+                          title: Text('${tk.topic} · ${formatRef(tk.id)}'),
                           content: Text(
                             '${tk.description}\n\nStatus: ${tk.status.label}. We usually reply within 24 hours.',
                           ),
@@ -258,7 +210,7 @@ class _SupportHomeViewState extends State<SupportHomeView> {
                                   style: t.bodySemibold,
                                 ),
                                 Text(
-                                  '#${tk.id} · ${tk.status == TicketStatus.open ? 'Raised ${formatRelativeDay(tk.createdAt, withTime: true)}' : 'Updated ${formatRelativeDay(tk.updatedAt ?? tk.createdAt, withTime: true)}'}',
+                                  '${formatRef(tk.id)} · ${tk.status == TicketStatus.open ? 'Raised ${formatRelativeDay(tk.createdAt, withTime: true)}' : 'Updated ${formatRelativeDay(tk.updatedAt ?? tk.createdAt, withTime: true)}'}',
                                   style: t.bodySmall.copyWith(
                                     color: TtColors.navy500,
                                   ),
@@ -309,6 +261,68 @@ class _SupportHomeViewState extends State<SupportHomeView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The help topics, two to a row. A row's tiles share one height (a label may wrap to two lines) and an odd last
+/// topic takes the whole row, so the grid has no ragged edges.
+class _TopicGrid extends StatelessWidget {
+  const _TopicGrid({required this.topics, required this.onTopic});
+  final List<String> topics;
+  final ValueChanged<String> onTopic;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      for (var i = 0; i < topics.length; i += 2)
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
+          child: i + 1 < topics.length
+              ? IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: _TopicTile(topics[i], onTap: () => onTopic(topics[i]))),
+                      const SizedBox(width: 12),
+                      Expanded(child: _TopicTile(topics[i + 1], onTap: () => onTopic(topics[i + 1]))),
+                    ],
+                  ),
+                )
+              : _TopicTile(topics[i], wide: true, onTap: () => onTopic(topics[i])),
+        ),
+    ],
+  );
+}
+
+/// A topic: icon over its label in the grid, icon beside it when [wide]. Safety concern is red.
+class _TopicTile extends StatelessWidget {
+  const _TopicTile(this.topic, {required this.onTap, this.wide = false});
+  final String topic;
+  final VoidCallback onTap;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    final safety = topic == 'Safety concern';
+    final icon = Icon(helpTopicIcon(topic), color: safety ? TtColors.error : TtColors.navy700);
+    final label = Text(
+      topic,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: context.type.bodyMedium.copyWith(color: safety ? TtColors.error : TtColors.navy900),
+    );
+    return TtCard(
+      onTap: onTap,
+      color: safety ? TtColors.errorTint : TtColors.surface,
+      borderColor: safety ? const Color(0xFFFECACA) : TtColors.divider,
+      padding: const EdgeInsets.all(14),
+      child: wide
+          ? Row(children: [icon, const SizedBox(width: 10), Expanded(child: label)])
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [icon, const SizedBox(height: 8), label],
+            ),
     );
   }
 }
