@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import 'widgets/signup_widgets.dart';
 
@@ -73,7 +74,9 @@ class D02WelcomeScreen extends StatelessWidget {
             ),
             BottomActions(
               children: [
-                TtButton(label: 'Join as a driver', onPressed: () => context.push(Routes.phone(signup: true))),
+                TtButton(
+                    label: 'Join as a driver',
+                    onPressed: unlessShowcase(context, showcase, () => context.push(Routes.phone(signup: true)))),
                 const SizedBox(height: TtSpacing.xs),
                 Semantics(
                   button: true,
@@ -81,7 +84,7 @@ class D02WelcomeScreen extends StatelessWidget {
                   excludeSemantics: true,
                   child: InkWell(
                     borderRadius: TtRadii.pillRadius,
-                    onTap: () => context.push(Routes.phone(signup: false)),
+                    onTap: unlessShowcase(context, showcase, () => context.push(Routes.phone(signup: false))),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 48),
                       child: Center(

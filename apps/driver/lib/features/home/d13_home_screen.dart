@@ -5,6 +5,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/go_online.dart';
+import '../../common/showcase.dart';
 import '../../common/job_routes.dart';
 import '../../common/launch.dart';
 import '../../common/measure_size.dart';
@@ -126,6 +127,9 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
     }
   }
 
+  /// Design gallery frames: buttons show a note instead of going online, paying or leaving the gallery.
+  VoidCallback? _act(VoidCallback action) => unlessShowcase(context, _showcase, action);
+
   String _greeting() {
     final h = TtClock.now().hour;
     if (h < 12) return 'Good morning';
@@ -134,6 +138,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
   }
 
   Future<void> _goOnline() async {
+    if (_showcase) return showTtSnack(context, kPreviewNote);
     final demo = ref.read(demoSettingsProvider);
     if (!_api && demo.accountOnHold) {
       context.push(Routes.accountOnHold);
@@ -154,6 +159,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
   }
 
   Future<void> _resumePlan() async {
+    if (_showcase) return showTtSnack(context, kPreviewNote);
     try {
       await ref.read(planProvider.notifier).resume();
       if (mounted) showTtSnack(context, 'Plan resumed. You can go online.', success: true);
@@ -325,7 +331,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         title: "You're paused ${pausedUntilLabel(pausedUntil, DateTime.now())}",
         message: 'You cancelled too many rides this week. You can go online again after that.',
         actionLabel: 'Details',
-        onAction: () => context.push(Routes.accountPaused(pausedUntil)),
+        onAction: _act(() => context.push(Routes.accountPaused(pausedUntil))),
       );
     } else if (cancelRate != null && cancelRate.shouldWarn && job == null) {
       topCard = TtBanner(
@@ -338,7 +344,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
       topCard = GraceBanner(
         daysLeft: plan?.graceDaysLeft ?? 2,
         amount: price,
-        onPay: () => context.push(Routes.autopay(purpose: 'pay')),
+        onPay: _act(() => context.push(Routes.autopay(purpose: 'pay')))!,
       );
     } else if (!online && status == PlanStatus.expired) {
       topCard = const DecoratedBox(
@@ -361,7 +367,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         earnings: earnings,
         rides: rides,
         online: online,
-        onEarnings: () => context.go(Routes.earnings),
+        onEarnings: _act(() => context.go(Routes.earnings))!,
       );
     }
 
@@ -418,7 +424,7 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         // Filters on: say so, or a quiet evening looks like the app is broken.
         if (prefs != null && prefs.hasTripFilters) ...[
           const SizedBox(height: TtSpacing.m),
-          FiltersOnRow(summary: prefs.tripFilterSummary, onEdit: () => context.push(Routes.bookingPreferences)),
+          FiltersOnRow(summary: prefs.tripFilterSummary, onEdit: _act(() => context.push(Routes.bookingPreferences))!),
         ],
         const SizedBox(height: TtSpacing.l),
         TtButton.secondary(label: 'Go offline', onPressed: _goOfflineOrShowcase),
@@ -434,9 +440,9 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
         price: price,
         onGoOnline: _goOnline,
         goingOnline: session.goingOnline,
-        onRenew: () => context.push(Routes.autopay(purpose: 'pay')),
+        onRenew: _act(() => context.push(Routes.autopay(purpose: 'pay')))!,
         onResume: _resumePlan,
-        onPlan: () => context.go(Routes.plan),
+        onPlan: _act(() => context.go(Routes.plan))!,
       );
     }
 
@@ -481,10 +487,10 @@ class _D13HomeScreenState extends ConsumerState<D13HomeScreen> {
               subtitle: _live && session.phase == JobPhase.toPickup
                   ? '${job.customerName} · ${job.pickup.name}'
                   : '${job.customerName} → ${job.drop.name}',
-              onOpen: () {
+              onOpen: _act(() {
                 final route = routeForJob(_live ? session.phase : JobPhase.toDrop, delivery: job.isDelivery);
                 if (route != null) context.push(route);
-              },
+              })!,
             ),
           if (gpsLost)
             S16GpsWeakBanner(

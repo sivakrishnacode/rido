@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_session.dart';
@@ -44,6 +45,7 @@ class _D19CollectPaymentScreenState extends ConsumerState<D19CollectPaymentScree
 
   Future<void> _received(PaymentMode mode) async {
     if (_busy) return;
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     final stars = await RateCustomerSheet.show(context, name: _rateName.split(' ').first);
     if (stars == null || !mounted) return;
     setState(() => _busy = true);

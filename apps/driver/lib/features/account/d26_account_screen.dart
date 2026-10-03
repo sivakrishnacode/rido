@@ -5,6 +5,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/flags.dart';
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/booking_prefs.dart';
 import '../../state/driver_account.dart';
@@ -86,6 +87,8 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.type;
+    // Design gallery frame: rows show a note instead of logging out, deleting or opening real screens.
+    VoidCallback? act(VoidCallback? action) => unlessShowcase(context, widget.showcase, action);
     final live = !widget.showcase && ref.watch(isLiveApiProvider);
     final profileAsync = ref.watch(driverProfileProvider);
     // Live: the real profile or nothing (a skeleton, then Retry): never the seed driver.
@@ -130,7 +133,7 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
               TtCard(
                 color: TtColors.coral50,
                 borderColor: TtColors.coral100,
-                onTap: () => ReferDriverSheet.show(context),
+                onTap: act(() => ReferDriverSheet.show(context)),
                 child: Row(children: [
                   Container(
                     width: 48,
@@ -154,25 +157,25 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                   icon: Symbols.folder_shared_rounded,
                   title: 'Documents',
                   subtitle: docsSub,
-                  onTap: () => context.push(Routes.accountDocuments),
+                  onTap: act(() => context.push(Routes.accountDocuments)),
                 ),
                 TtListTile(
                   icon: profile?.vehicleKind.icon ?? Symbols.directions_car_rounded,
                   title: 'Vehicle details',
                   subtitle: profile?.vehicleLabel ?? (profileFailed ? 'Not loaded' : 'Loading…'),
-                  onTap: () => context.push(Routes.vehicleDetails),
+                  onTap: act(() => context.push(Routes.vehicleDetails)),
                 ),
                 TtListTile(
                   icon: Symbols.tune_rounded,
                   title: 'Booking preferences',
                   subtitle: prefsSub,
-                  onTap: () => context.push(Routes.bookingPreferences),
+                  onTap: act(() => context.push(Routes.bookingPreferences)),
                 ),
                 TtListTile(
                   icon: Symbols.account_balance_rounded,
                   title: 'UPI ID',
                   subtitle: profile?.upiId ?? (profileFailed ? 'Not loaded' : 'Loading…'),
-                  onTap: () => context.push(Routes.upiId),
+                  onTap: act(() => context.push(Routes.upiId)),
                 ),
                 TtListTile(
                   icon: Symbols.contact_emergency_rounded,
@@ -182,35 +185,35 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                       : emergencyContactLabel(contact).isEmpty
                           ? 'Add someone to alert in an emergency'
                           : emergencyContactLabel(contact),
-                  onTap: () {
+                  onTap: act(() {
                     if (contactAsync.hasError) ref.invalidate(driverEmergencyContactProvider);
                     context.push(Routes.emergencyContact);
-                  },
+                  }),
                 ),
                 TtListTile(
                   icon: Symbols.volunteer_activism_rounded,
                   title: 'Contribute',
                   subtitle: 'Tamil Taxi is free. Help keep it running',
-                  onTap: () => context.push(Routes.contribute),
+                  onTap: act(() => context.push(Routes.contribute)),
                 ),
                 TtListTile(
                   icon: Symbols.support_agent_rounded,
                   title: 'Help & support',
                   subtitle: 'Chat, call, tickets',
-                  onTap: () => context.push(Routes.help),
+                  onTap: act(() => context.push(Routes.help)),
                 ),
                 TtListTile(
                   icon: Symbols.policy_rounded,
                   title: 'Terms',
                   subtitle: 'Driver terms & privacy',
-                  onTap: () => context.push(Routes.legal('terms')),
+                  onTap: act(() => context.push(Routes.legal('terms'))),
                 ),
                 if (kShowDesignGallery)
                   TtListTile(
                     icon: Symbols.palette_rounded,
                     title: 'Design gallery',
                     subtitle: 'Every screen and demo controls',
-                    onTap: () => context.push(Routes.gallery),
+                    onTap: act(() => context.push(Routes.gallery)),
                   ),
               ]),
               const SizedBox(height: TtSpacing.m),
@@ -221,7 +224,7 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                   destructive: true,
                   showChevron: false,
                   trailing: _leaving == _Leaving.logout ? _spinner : null,
-                  onTap: _leaving == _Leaving.none ? _logout : null,
+                  onTap: act(_leaving == _Leaving.none ? _logout : null),
                 ),
                 TtListTile(
                   icon: Symbols.delete_forever_rounded,
@@ -230,7 +233,7 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                   destructive: true,
                   showChevron: false,
                   trailing: _leaving == _Leaving.delete ? _spinner : null,
-                  onTap: _leaving == _Leaving.none ? _deleteAccount : null,
+                  onTap: act(_leaving == _Leaving.none ? _deleteAccount : null),
                 ),
               ]),
             ],

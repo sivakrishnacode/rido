@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
@@ -109,6 +110,7 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
   }
 
   Future<void> _save() async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     if (_saving) return;
     if (!_valid) {
       setState(() => _tried = true);

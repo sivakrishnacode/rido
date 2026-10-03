@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart' show driverPlansEnabledProvider;
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../onboarding/widgets/signup_widgets.dart';
 
@@ -138,7 +139,7 @@ class S10AccountOnHoldScreen extends ConsumerWidget {
                 TtButton(
                   label: 'Contact support',
                   icon: Symbols.support_agent_rounded,
-                  onPressed: () => context.push(Routes.help),
+                  onPressed: unlessShowcase(context, showcase, () => context.push(Routes.help)),
                 ),
               ],
             ),

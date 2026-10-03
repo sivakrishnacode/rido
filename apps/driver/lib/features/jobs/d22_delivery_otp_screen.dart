@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
@@ -72,10 +73,7 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen>
       _fail('Wrong OTP, please try again');
       return;
     }
-    if (widget.showcase) {
-      context.push(Routes.collectDelivery);
-      return;
-    }
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     await c.completeDelivery();
     if (mounted) context.pushReplacement(Routes.collectDelivery);
   }

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../common/go_online.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
@@ -38,6 +39,7 @@ class _D09SelfieScreenState extends ConsumerState<D09SelfieScreen> {
   }
 
   void _take() {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     if (_capturing) return;
     setState(() => _capturing = true);
     _timer = Timer(_captureTime, () {

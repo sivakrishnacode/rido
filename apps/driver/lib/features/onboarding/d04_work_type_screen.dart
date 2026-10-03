@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 import 'widgets/signup_widgets.dart';
@@ -25,6 +26,7 @@ class _D04WorkTypeScreenState extends ConsumerState<D04WorkTypeScreen> {
   late WorkType _selected = widget.showcase ? WorkType.rides : ref.read(signupProvider).workType;
 
   void _continue() {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     ref.read(signupProvider.notifier).setWorkType(_selected);
     context.push(Routes.chooseVehicle);
   }

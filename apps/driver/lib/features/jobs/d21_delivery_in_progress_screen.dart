@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../common/launch.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
@@ -66,6 +67,7 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
       case JobPhase.atPickup:
         live ? await step(c.startTrip) : setState(() => _localPhase = JobPhase.toDrop);
       default:
+        if (widget.showcase) return showTtSnack(context, kPreviewNote);
         if (live) {
           c.reachedDrop();
           context.pushReplacement(Routes.deliveryOtp);

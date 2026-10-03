@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../common/start_route.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -65,6 +66,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
   String get _apiPhone => _live ? apiPhone(widget.phone) : widget.phone;
 
   Future<void> _resend() async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     _startCountdown();
     try {
       await ref.read(driverRepositoryProvider).sendOtp(_apiPhone);
@@ -75,6 +77,7 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
   }
 
   Future<void> _verify() async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     if (_code.length != 6 || _verifying) return;
     setState(() => _verifying = true);
     OtpResult result;

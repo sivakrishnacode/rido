@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
@@ -79,10 +80,7 @@ class _D17RideOtpScreenState extends ConsumerState<D17RideOtpScreen>
       _fail(_wrongOtp);
       return;
     }
-    if (widget.showcase) {
-      context.push(Routes.trip);
-      return;
-    }
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     await session.startTrip();
     if (mounted) context.pushReplacement(Routes.trip);
   }

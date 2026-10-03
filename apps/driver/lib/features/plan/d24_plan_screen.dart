@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../common/load_error.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
@@ -23,6 +24,7 @@ class D24PlanScreen extends ConsumerWidget {
   final bool showcase;
 
   Future<void> _run(BuildContext context, Future<void> Function() action, String done) async {
+    if (showcase) return showTtSnack(context, kPreviewNote);
     try {
       await action();
       if (context.mounted) showTtSnack(context, done, success: true);
@@ -82,9 +84,10 @@ class D24PlanScreen extends ConsumerWidget {
     final price = plan.monthlyPrice;
     final priceText = price == null ? '₹—' : formatInr(price);
     final end = formatDate(plan.nextDebit);
-    void pay() => context.push(Routes.autopay(purpose: 'pay'));
+    void pay() => showcase ? showTtSnack(context, kPreviewNote) : context.push(Routes.autopay(purpose: 'pay'));
 
     Future<void> pause() async {
+      if (showcase) return showTtSnack(context, kPreviewNote);
       final ok = await showTtConfirm(
         context,
         title: 'Pause your plan?',
@@ -97,6 +100,7 @@ class D24PlanScreen extends ConsumerWidget {
     }
 
     Future<void> cancel() async {
+      if (showcase) return showTtSnack(context, kPreviewNote);
       final ok = await showTtConfirm(
         context,
         title: 'Cancel your plan?',
@@ -262,7 +266,7 @@ class D24PlanScreen extends ConsumerWidget {
         actions = [
           TtButton(label: status == PlanStatus.grace ? 'Pay $priceText now' : 'Renew $priceText', onPressed: pay),
           const SizedBox(height: TtSpacing.s),
-          TtButton.secondary(label: 'Change UPI app', onPressed: () => context.push(Routes.autopay(purpose: 'change'))),
+          TtButton.secondary(label: 'Change UPI app', onPressed: unlessShowcase(context, showcase, () => context.push(Routes.autopay(purpose: 'change')))),
         ];
       case PlanStatus.trial || PlanStatus.active:
         content = [savings, ...history];
@@ -271,7 +275,7 @@ class D24PlanScreen extends ConsumerWidget {
             Expanded(
               child: TtButton.secondary(
                 label: 'Change UPI app',
-                onPressed: () => context.push(Routes.autopay(purpose: 'change')),
+                onPressed: unlessShowcase(context, showcase, () => context.push(Routes.autopay(purpose: 'change'))),
               ),
             ),
             const SizedBox(width: TtSpacing.m),

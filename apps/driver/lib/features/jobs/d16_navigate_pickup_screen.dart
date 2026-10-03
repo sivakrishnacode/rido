@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../common/launch.dart';
 import '../../router/routes.dart';
 import '../../state/driver_session.dart';
@@ -38,6 +39,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
   bool get _live => !widget.showcase && ref.read(driverSessionProvider).job != null;
 
   Future<void> _arrived() async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     if (_busy) return;
     if (_live) {
       setState(() => _busy = true);
@@ -66,6 +68,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
   }
 
   Future<void> _cancel() async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
     // Butterfly (women riders): the rider at the pickup may turn out not to be a woman.
     final reasons = [if (_job.isButterfly) kRiderNotWoman, ...CancelCode.forDriver];
     final reason = await showDialog<CancelCode>(context: context, builder: (_) => _CancelReasonDialog(reasons: reasons));
@@ -142,6 +145,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                   shape: RoundedRectangleBorder(borderRadius: TtRadii.cardRadius),
                   position: PopupMenuPosition.under,
                   onSelected: (v) {
+                    if (widget.showcase) return showTtSnack(context, kPreviewNote);
                     if (v == 'help') context.push(Routes.help);
                     if (v == 'cancel') _cancel();
                   },
@@ -216,7 +220,7 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
                   RoundIconButton(
                     icon: Symbols.chat_rounded,
                     tooltip: 'Chat with ${_job.customerName}',
-                    onPressed: () => context.push(Routes.chat),
+                    onPressed: unlessShowcase(context, widget.showcase, () => context.push(Routes.chat))!,
                   ),
                   const SizedBox(width: TtSpacing.m),
                   RoundIconButton(

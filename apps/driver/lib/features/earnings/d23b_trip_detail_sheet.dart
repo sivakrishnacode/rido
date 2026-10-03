@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 
@@ -136,11 +137,11 @@ class D23bTripDetailSheet extends ConsumerWidget {
           ]),
         ),
         TextButton.icon(
-          onPressed: () {
+          onPressed: unlessShowcase(context, showcase, () {
             final router = GoRouter.of(context);
             Navigator.of(context).maybePop();
             router.push(Routes.help);
-          },
+          }),
           icon: const Icon(Symbols.support_agent_rounded),
           label: const Text('Help'),
         ),
