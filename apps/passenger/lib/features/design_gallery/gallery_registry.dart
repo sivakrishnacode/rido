@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
@@ -190,15 +191,35 @@ class DesignSystemScreen extends StatelessWidget {
 }
 
 /// Opens one designed frame on its own with seed data.
-class GalleryFrameView extends StatelessWidget {
+///
+/// The gallery ships in every build, also with the live API. There each frame runs in a sandbox of its own (a fresh
+/// provider container: seed data, no API), so its buttons (Book, Cancel, Done, Add contact, Submit…) can never book,
+/// cancel, rate or save anything on the signed-in account.
+class GalleryFrameView extends ConsumerStatefulWidget {
   const GalleryFrameView({super.key, required this.frameId});
   final String frameId;
 
   @override
+  ConsumerState<GalleryFrameView> createState() => _GalleryFrameViewState();
+}
+
+class _GalleryFrameViewState extends ConsumerState<GalleryFrameView> {
+  /// Live API only: the frame's own seed-data container.
+  late final ProviderContainer? _sandbox = ref.read(isLiveApiProvider) ? ProviderContainer() : null;
+
+  @override
+  void dispose() {
+    _sandbox?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final entry = galleryEntryById(frameId);
-    if (entry == null) return _FrameNotFound(frameId: frameId);
-    return entry.builder(context);
+    final entry = galleryEntryById(widget.frameId);
+    if (entry == null) return _FrameNotFound(frameId: widget.frameId);
+    final sandbox = _sandbox;
+    if (sandbox == null) return entry.builder(context);
+    return UncontrolledProviderScope(container: sandbox, child: Builder(builder: entry.builder));
   }
 }
 
