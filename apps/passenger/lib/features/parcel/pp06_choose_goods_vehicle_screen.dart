@@ -7,6 +7,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../common/map_insets.dart';
 import '../../router/routes.dart';
 import '../../state/parcel_flow.dart';
+import '../../state/ride_flow.dart' show kChoosePickupForFares;
 import '../ride/widgets/mode_widgets.dart' show WhenChoice;
 import 'widgets/parcel_widgets.dart';
 
@@ -140,7 +141,13 @@ class _PP06ChooseGoodsVehicleScreenState extends ConsumerState<PP06ChooseGoodsVe
                           ),
                           const SizedBox(height: 12),
                           if (!quotesReady)
-                            _QuotesPending(error: s.quotesError, onRetry: ctrl.loadQuotes)
+                            s.pickup.isUnknownPickup
+                                ? _QuotesPending(
+                                    error: kChoosePickupForFares,
+                                    actionLabel: 'Choose pickup',
+                                    onRetry: () => context.push(Routes.parcelPickup),
+                                  )
+                                : _QuotesPending(error: s.quotesError, onRetry: ctrl.loadQuotes)
                           else
                           for (final q in quotes) ...[
                             VehicleOptionCard(
@@ -261,9 +268,10 @@ class _RouteChip extends StatelessWidget {
 
 /// Live API: goods fares are loading, or failed with [error] and a Retry.
 class _QuotesPending extends StatelessWidget {
-  const _QuotesPending({required this.error, required this.onRetry});
+  const _QuotesPending({required this.error, required this.onRetry, this.actionLabel = 'Try again'});
   final String? error;
   final VoidCallback onRetry;
+  final String actionLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +288,7 @@ class _QuotesPending extends StatelessWidget {
         children: [
           Text(message, style: context.type.body.copyWith(color: TtColors.navy700), textAlign: TextAlign.center),
           const SizedBox(height: 8),
-          TtButton.text(label: 'Try again', onPressed: onRetry),
+          TtButton.text(label: actionLabel, onPressed: onRetry),
         ],
       ),
     );

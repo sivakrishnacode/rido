@@ -175,8 +175,10 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
     final tripActive = widget.showTripBanner || ride.isActive || parcel.isActive;
     final sheetSize = tripActive ? 0.42 : 0.58;
+    // Before the phone is located the pickup is a stand-in: no pin and no vehicles around a guessed point.
+    final noPickup = ride.pickup.isUnknownPickup && !widget.showcase;
     // Free vehicles of every kind around the pickup (live: `GET /drivers/nearby`, every 15 s), like RedTaxi's map.
-    final showNearby = !tripActive;
+    final showNearby = !tripActive && !noPickup;
 
     return Scaffold(
       backgroundColor: TtColors.surface,
@@ -195,7 +197,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                         : _cameraFor(ride.pickup.location),
                     zoom: _zoom,
                     mapPadding: sheetMapPadding(c.maxHeight * (padded ?? sheetSize)),
-                    pickup: ref.watch(rideFlowProvider.select((r) => r.pickup.location)),
+                    pickup: noPickup ? null : ride.pickup.location,
                     vehicles: showNearby
                         ? nearbyMarkers(ref, ref.watch(rideFlowProvider.select((r) => r.pickup.location)))
                         : const [],

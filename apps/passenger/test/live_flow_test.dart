@@ -11,6 +11,7 @@ import 'package:tamiltaxi_passenger/state/app_notice.dart';
 import 'package:tamiltaxi_passenger/state/parcel_flow.dart';
 import 'package:tamiltaxi_passenger/state/passenger_session.dart';
 import 'package:tamiltaxi_passenger/state/ride_flow.dart';
+import 'package:tamiltaxi_passenger/state/shifting_flow.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _driver = DriverProfile(
@@ -500,6 +501,46 @@ void main() {
     expect(ride().drop.location, ride().pickup.location);
     flow().setDrop(Seed.brookefields);
     expect(ride().dropSet, isTrue);
+  });
+
+  test('before the phone is located the pickup is "Choose your pickup": no fares, no booking from it', () async {
+    final api = ApiClient(baseUrl: 'http://localhost:0/v1', session: ApiSession(await SharedPreferences.getInstance()));
+    final c = ProviderContainer(overrides: [
+      isLiveApiProvider.overrideWithValue(true),
+      realtimeProvider.overrideWithValue(realtime),
+      liveTripsProvider.overrideWithValue(trips),
+      placesRepositoryProvider.overrideWith((ref) => ApiPlacesRepository(api)),
+    ]);
+    addTearDown(c.dispose);
+    final f = c.read(rideFlowProvider.notifier);
+    expect(c.read(rideFlowProvider).pickup.isUnknownPickup, isTrue);
+    expect(c.read(rideFlowProvider).pickup.name, 'Choose your pickup');
+    f.setDrop(Seed.brookefields);
+    await f.loadQuotes();
+    expect(c.read(rideFlowProvider).quotesError, kChoosePickupForFares);
+    expect(await f.book(), kChoosePickupFirst);
+    expect(trips.calls, isEmpty, reason: 'nothing booked to the city centre');
+
+    final parcel = c.read(parcelFlowProvider.notifier);
+    expect(c.read(parcelFlowProvider).pickup.isUnknownPickup, isTrue);
+    parcel.setDrop(Seed.raceCourse);
+    expect(await parcel.book(), kChoosePickupFirst);
+
+    final move = c.read(shiftingFlowProvider.notifier);
+    move.setDrop(Seed.raceCourse);
+    await move.refreshQuote();
+    expect(c.read(shiftingFlowProvider).quoteError, kChooseMovePickup);
+    expect((await move.book()).error, kChooseMovePickup);
+
+    // The phone answers: every flow that hasn't been given a pickup takes it.
+    final here = Seed.gandhipuram.copyWith(id: 'current', name: 'Current location');
+    f.useDeviceLocation(here);
+    parcel.useDeviceLocation(here);
+    move.useDeviceLocation(here);
+    expect(c.read(rideFlowProvider).pickup.id, 'current');
+    expect(c.read(parcelFlowProvider).pickup.id, 'current');
+    expect(c.read(shiftingFlowProvider).pickup.id, 'current');
+    expect(await f.book(), isNull);
   });
 
   test('Skip on P-20 sends no rating', () async {

@@ -1,7 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
-/// A named point in Coimbatore.
+/// Id of the pickup that stands in before the phone's location is known (no GPS fix yet, or location is off). It is
+/// not a place: the apps say "Choose your pickup", and nothing is quoted or booked from it.
+const String kUnknownPickupId = 'pickup-unknown';
+
+/// A named point (a search result, a pin, a saved place, a trip's stop).
 @immutable
 class Place {
   const Place({
@@ -26,6 +30,9 @@ class Place {
 
   /// "Brookefields Mall, Krishnasamy Rd, RS Puram"
   String get fullAddress => '$name, $address';
+
+  /// The stand-in pickup before the phone's location is known ([kUnknownPickupId]).
+  bool get isUnknownPickup => id == kUnknownPickupId;
 
   Place copyWith({String? id, String? name, String? address, LatLng? location, String? landmark, double? distanceKm}) => Place(
         id: id ?? this.id,

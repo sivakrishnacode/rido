@@ -9,6 +9,9 @@ import 'passenger_session.dart';
 import 'pricing.dart';
 import 'ride_flow.dart' show upcomingTripsProvider;
 
+/// The move's pickup isn't known yet (no location): the price waits for it.
+const kChooseMovePickup = 'Choose where you are moving from';
+
 const Object _keep = Object();
 
 /// A house shift being planned (PH-01 … PH-04): where from and to, the home and its items, the day and slot, the
@@ -117,6 +120,9 @@ class ShiftingFlowController extends Notifier<ShiftingFlowState> {
   Timer? _debounce;
   int _request = 0;
 
+  /// The rider chose the pickup: the phone's location no longer replaces it.
+  bool _pickupChosen = false;
+
   bool get _live => ref.read(isLiveApiProvider);
 
   @override
@@ -157,6 +163,17 @@ class ShiftingFlowController extends Notifier<ShiftingFlowState> {
 
   void setBetween(bool v) => _set(state.copyWith(details: state.details.copyWith(between: v)));
   void setPickup(Place p) {
+    _pickupChosen = true;
+    _setPickup(p);
+  }
+
+  /// The phone's location: the pickup while the rider hasn't chosen one.
+  void useDeviceLocation(Place p) {
+    if (_pickupChosen || state.busy) return;
+    _setPickup(p);
+  }
+
+  void _setPickup(Place p) {
     _set(state.copyWith(pickup: p));
     unawaited(_loadPricing(p.location));
   }
@@ -229,6 +246,10 @@ class ShiftingFlowController extends Notifier<ShiftingFlowState> {
   void _requote() {
     final drop = state.drop;
     if (drop == null) return;
+    if (state.pickup.isUnknownPickup) {
+      state = state.copyWith(quote: null, quoteError: kChooseMovePickup);
+      return;
+    }
     if (!_live) {
       state = state.copyWith(
         quote: GoodsModeRates.quote(state.pickup, drop, state.details, vehicle: state.vehicle, at: state.slot, pricing: state.pricing),
@@ -244,7 +265,7 @@ class ShiftingFlowController extends Notifier<ShiftingFlowState> {
   Future<void> refreshQuote() async {
     final drop = state.drop;
     if (drop == null) return;
-    if (!_live) return _requote();
+    if (!_live || state.pickup.isUnknownPickup) return _requote();
     final id = ++_request;
     state = state.copyWith(quoteError: null);
     try {
@@ -262,6 +283,7 @@ class ShiftingFlowController extends Notifier<ShiftingFlowState> {
   Future<({String? error, Trip? trip})> book() async {
     final drop = state.drop;
     final q = state.quote;
+    if (state.pickup.isUnknownPickup) return (error: kChooseMovePickup, trip: null);
     if (drop == null) return (error: 'Choose where you are moving to', trip: null);
     if (state.details.items.isEmpty) return (error: 'Add the things you are moving', trip: null);
     if (q == null) return (error: 'Getting the price…', trip: null);

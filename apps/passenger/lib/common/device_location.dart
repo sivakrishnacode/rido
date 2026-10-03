@@ -5,6 +5,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import '../state/parcel_flow.dart';
 import '../state/ride_flow.dart';
+import '../state/shifting_flow.dart';
 
 /// Outcome of asking for the phone's location.
 enum LocateResult {
@@ -106,6 +107,8 @@ class DeviceLocationController extends Notifier<LatLng?> {
     // Only where the rider hasn't chosen a pickup themselves (coming back to the app must not move it).
     ref.read(rideFlowProvider.notifier).useDeviceLocation(here);
     if (live) ref.read(parcelFlowProvider.notifier).useDeviceLocation(here);
+    // A move being planned (a new one starts from places.currentLocation, set above).
+    if (live && ref.exists(shiftingFlowProvider)) ref.read(shiftingFlowProvider.notifier).useDeviceLocation(here);
     return inArea ? LocateResult.inArea : LocateResult.outsideArea;
   }
 

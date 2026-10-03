@@ -46,6 +46,10 @@ RidePhase? ridePhaseForStatus(String status, RidePhase current) => switch (statu
 
 const Object _keep = Object();
 
+/// Fares and booking wait for a real pickup (the phone's location, or one the rider chose).
+const kChoosePickupForFares = 'Choose your pickup to see the fares';
+const kChoosePickupFirst = 'Choose your pickup first';
+
 @immutable
 class RideFlowState {
   const RideFlowState({
@@ -380,6 +384,7 @@ class RideFlowController extends Notifier<RideFlowState> {
   Future<({String? error, Trip? trip})> bookForLater() async {
     final m = state.mode;
     if (m == null || !m.isLater) return (error: 'Choose a pickup time', trip: null);
+    if (state.pickup.isUnknownPickup) return (error: kChoosePickupFirst, trip: null);
     if (state.busy) return (error: null, trip: null);
     state = state.copyWith(busy: true);
     try {
@@ -475,6 +480,11 @@ class RideFlowController extends Notifier<RideFlowState> {
   Future<void> loadQuotes() async {
     if (!_live) return;
     final a = state.pickup, b = state.drop;
+    if (a.isUnknownPickup) {
+      // No fares from a guessed point: they load once the pickup is set (setPickup asks again).
+      state = state.copyWith(serverQuotes: null, quotesError: kChoosePickupForFares);
+      return;
+    }
     state = state.copyWith(serverQuotes: null, quotesError: null);
     final m = state.mode;
     try {
@@ -594,6 +604,7 @@ class RideFlowController extends Notifier<RideFlowState> {
 
   // ------------------------------------------------------------- live trips
   Future<String?> _bookLive() async {
+    if (state.pickup.isUnknownPickup) return kChoosePickupFirst;
     if (state.busy) return null;
     state = state.copyWith(busy: true);
     try {
