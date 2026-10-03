@@ -69,6 +69,7 @@ apps/api/uploads/
 
 # Local tooling
 sync_config.jsonc
+**/android/.kotlin/
 
 # Owner's source vehicle renders (some show real car makers' logos). The apps use the cleaned WebPs in
 # packages/tamiltaxi_ui/assets/vehicles/, built from them by scripts/vehicle_icons/build.py.
