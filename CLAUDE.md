@@ -9,6 +9,9 @@ This file holds the working rules plus a quick map of the repo. **The full techn
 [docs/tech-docs/using.tech.md](docs/tech-docs/using.tech.md)** (stack versions, env vars, endpoints, H3, FCM, AWS).
 The owner's recommendations live at the top of that doc.
 
+The interrupted 2 Oct audit is complete: see
+[the 3 Oct completion handoff](docs/tech-docs/claude-completion-2026-10-03.md) before resuming its old agents.
+
 ---
 
 ## 1. Working rules (always follow)
