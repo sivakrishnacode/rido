@@ -104,7 +104,8 @@ Demo codes:
 `cp apps/api/.env.example apps/api/.env`, so the seeder can reach the Docker Postgres.
 
 In both apps, **Account › Design gallery** opens any screen on its own. Its **Demo controls** force states such as
-no drivers, a driver who cancels, offline or GPS lost.
+no drivers, a driver who cancels, offline or GPS lost. The row is hidden in normal builds; add
+`--dart-define=TT_DESIGN_GALLERY=true` to `flutter run` to show it.
 
 Maps work without any keys: CARTO tiles, seeded places and straight-line distances. For Google Maps, see
 [docs/GOOGLE_MAPS_SETUP.md](docs/GOOGLE_MAPS_SETUP.md).
