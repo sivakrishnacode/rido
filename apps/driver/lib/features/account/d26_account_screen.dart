@@ -142,7 +142,7 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('Refer a driver', style: t.h2),
-                      Text('Invite drivers you know · Code ${Seed.referralCode}', style: t.bodySmall),
+                      Text('Invite the drivers you know', style: t.bodySmall),
                     ]),
                   ),
                   const Icon(Symbols.chevron_right_rounded, color: TtColors.coral600),
