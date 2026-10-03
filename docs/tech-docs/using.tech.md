@@ -1251,7 +1251,7 @@ use the built-in rates; a booked price is always the server's.
   deletion URL (`https://tamiltaxi.co.in/delete-account/`) for both apps. The download buttons say "Coming soon to
   Google Play" until `site.onPlayStore` is set to `true`; then they link to `com.tamiltaxi.passenger` /
   `com.tamiltaxi.driver` (a test checks these match each app's `applicationId`).
-- **Hosting:** staging preview deployed 3 Oct 2026 through Caddy; production can use any static host. Cheapest options: a Caddy `file_server` block on the existing EC2
+- **Hosting:** already hosted separately by the owner; repository pushes trigger automatic deployment. Cheapest options: a Caddy `file_server` block on the existing EC2
   (copy `out/` to the server), or GitHub / Cloudflare Pages (free).
 
 ## 7. Maps and location
@@ -1747,13 +1747,11 @@ shifting quote and rental quotes, and for test drivers the shifting opt-in (pick
 then off again; bike `+919100000601` refused with 400). `rido-sg` also allows `110.226.112.99` (SSH, 2 Oct). Apps need
 new APKs for the new screens.
 
-**Deployed 3 Oct 2026:** interrupted Claude audit completion, API/admin image source `e108838`, staging HTTPS
-configuration `1f70352`. The four migrations `daily_selfie_check`, `trip_photos`, `ticket_attachment` and
+**Deployed 3 Oct 2026:** interrupted Claude audit completion, API/admin image source `e108838`, API/admin staging deployment. The four migrations `daily_selfie_check`, `trip_photos`, `ticket_attachment` and
 `account_deletion` applied successfully. API/admin containers passed health checks. Public HTTPS checks returned 200
 for API health, app-config, admin login and website home/privacy/terms/delete-account. Signed-in admin dashboard,
 approvals, users, support, settings and search returned 200, as did the corresponding API reads. Unauthenticated
-fare quotes/shifting quotes and place autocomplete returned 401; public rate cards still returned 200. Website preview is now at
-`https://web.65-0-233-253.sslip.io`; its production domain and mailbox are still launch tasks.
+fare quotes/shifting quotes and place autocomplete returned 401; public rate cards still returned 200. The temporary website preview was then disabled at the owner's request; website publishing uses the existing external hosting integration.
 The deployment used a 4.6 MB artifact archive layered over the previous images (package/Dockerfile dependencies
 were unchanged). Database/config backup: `/opt/tamiltaxi/backups/20261003-e108838`; rollback images:
 `tamiltaxi-api:rollback-20261003-e108838` / `tamiltaxi-admin:rollback-20261003-e108838`.
@@ -1785,11 +1783,9 @@ RDS + 2 API instances behind an ALB with the Socket.IO Redis adapter (events are
 HTTP keep-alive is 65 s (`main.ts`); with Node's 5 s default the apps sometimes reused a closed connection and showed
 "You're offline". The apps also retry idempotent requests once after a dropped connection (`ApiClient`).
 
-**Website staging host (3 Oct 2026):** the HTTPS Compose profile also serves the static `apps/web/out` export
-through Caddy's `WEB_HOST` (default `web.localhost`). Build the website before deploying and copy `apps/web/out`
-to the same location under `/opt/tamiltaxi`; staging uses `web.65-0-233-253.sslip.io`. The API/admin images are unchanged
-by this hosting addition. For account deletion, the instance role also needs `s3:DeleteObject` on
-`arn:aws:s3:::rido-uploads-786020471552/kyc/*`; the current deployment profile has no IAM administration rights.
+**Website hosting:** the owner hosts `apps/web` separately; pushing the repository triggers that hosting provider's
+automatic deployment. The EC2 staging stack serves API/admin only. The temporary website host added during the
+3 Oct deployment was removed at the owner's request; do not add website hosting to EC2 redeploys.
 
 **Redeploy** (images are built locally so the small instance never runs `next build`):
 
@@ -1841,7 +1837,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Two-wheeler routing | **Changed (28 Sep 2026)**: the backend routes every vehicle as DRIVE. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3× Essentials, 7k free); bike fares are priced on the car route so the booked fare matches P-10. Google Routes billing: `vehicleStopover` (fare routes) bills at Pro; ETAs stay Essentials |
 | Google search in pickers | **Done**: saved-place editor and parcel picker search through the API |
 | Google Maps improvements | **Done (28 Sep 2026)**: shortest-route fares (`computeAlternativeRoutes`), traffic-aware travel time for display (`travelMin`, fare unchanged), "Near X" pickup landmarks (address descriptors → `Trip.pickupLandmark`), service-area-restricted search with distances, and one Route Matrix call for driver ETAs. Billing table in 7. Later: a phone check of P-09 / D-16 with real landmarks. Plus-code addresses not typed `plus_code` ("X2JR+9H, ELGI Nagar") are skipped or trimmed: **Done (28 Sep 2026)** |
-| Website | **Built (30 Sep 2026), staging deployed (3 Oct 2026)**, see 6e and 9b. Before Play submission: register `tamiltaxi.co.in` and host `out/`, create the `support@tamiltaxi.co.in` mailbox (the site and driver app publish it), set `site.onPlayStore` once live. In-app privacy text: **Done (1 Oct 2026)**: it now says drivers see the rider's phone number (as the website does) and the chat header no longer says "Number hidden"; masking would need a paid telephony service. **Self-serve account deletion: Done (3 Oct 2026)** in both apps and admin; trip addresses/routes remain in historical records |
+| Website | **Built (30 Sep 2026), externally hosted by the owner**, see 6e and 9b. Before Play submission: confirm the production domain and create the `support@tamiltaxi.co.in` mailbox (the site and driver app publish it), set `site.onPlayStore` once live. In-app privacy text: **Done (1 Oct 2026)**: it now says drivers see the rider's phone number (as the website does) and the chat header no longer says "Number hidden"; masking would need a paid telephony service. **Self-serve account deletion: Done (3 Oct 2026)** in both apps and admin; trip addresses/routes remain in historical records |
 | Support WhatsApp | **Done (3 Oct 2026)**: both apps open `wa.me/<number>` and telephone links for the configured support number; no fake default number, buttons hide while unconfigured |
 | H3 | See plan below |
 

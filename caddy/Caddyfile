@@ -11,10 +11,3 @@
 	encode gzip
 	reverse_proxy admin:3001
 }
-
-# Static Next.js export; build apps/web before starting the HTTPS profile.
-{$WEB_HOST} {
-	encode gzip
-	root * /srv/website
-	file_server
-}
