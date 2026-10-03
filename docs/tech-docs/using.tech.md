@@ -33,7 +33,7 @@ The API/admin and website commits already on `main` were preserved; the 34 remai
 were applied, and unfinished changes were completed. Detailed checks and task coverage are recorded in
 [claude-completion-2026-10-03.md](claude-completion-2026-10-03.md).
 
-- Auth verification sends `app: passenger|driver|admin`; maps/places/fares require an authenticated caller.
+- Auth verification sends `app: passenger|driver|admin`; maps/places/fare quotes require an authenticated caller; rate cards remain public.
   Admin place proxy/reverse calls forward the token, autocomplete starts at 4 trimmed characters, and changing an
   account's role/block state invalidates cached authorization for existing sessions immediately.
 - Driver daily selfie: `POST /drivers/me/selfie-check` (`file`) matches the identity-check reference through Didit;
@@ -1251,7 +1251,7 @@ use the built-in rates; a booked price is always the server's.
   deletion URL (`https://tamiltaxi.co.in/delete-account/`) for both apps. The download buttons say "Coming soon to
   Google Play" until `site.onPlayStore` is set to `true`; then they link to `com.tamiltaxi.passenger` /
   `com.tamiltaxi.driver` (a test checks these match each app's `applicationId`).
-- **Hosting (not deployed yet):** any static host. Cheapest options: a Caddy `file_server` block on the existing EC2
+- **Hosting:** staging preview deployed 3 Oct 2026 through Caddy; production can use any static host. Cheapest options: a Caddy `file_server` block on the existing EC2
   (copy `out/` to the server), or GitHub / Cloudflare Pages (free).
 
 ## 7. Maps and location
@@ -1747,6 +1747,23 @@ shifting quote and rental quotes, and for test drivers the shifting opt-in (pick
 then off again; bike `+919100000601` refused with 400). `rido-sg` also allows `110.226.112.99` (SSH, 2 Oct). Apps need
 new APKs for the new screens.
 
+**Deployed 3 Oct 2026:** interrupted Claude audit completion, API/admin image source `e108838`, staging HTTPS
+configuration `1f70352`. The four migrations `daily_selfie_check`, `trip_photos`, `ticket_attachment` and
+`account_deletion` applied successfully. API/admin containers passed health checks. Public HTTPS checks returned 200
+for API health, app-config, admin login and website home/privacy/terms/delete-account. Signed-in admin dashboard,
+approvals, users, support, settings and search returned 200, as did the corresponding API reads. Unauthenticated
+fare quotes/shifting quotes and place autocomplete returned 401; public rate cards still returned 200. Website preview is now at
+`https://web.65-0-233-253.sslip.io`; its production domain and mailbox are still launch tasks.
+The deployment used a 4.6 MB artifact archive layered over the previous images (package/Dockerfile dependencies
+were unchanged). Database/config backup: `/opt/tamiltaxi/backups/20261003-e108838`; rollback images:
+`tamiltaxi-api:rollback-20261003-e108838` / `tamiltaxi-admin:rollback-20261003-e108838`.
+
+**Remaining infrastructure permission:** a harmless DeleteObject request for a unique nonexistent key confirmed
+`AccessDenied`. Account records can be anonymised, but remote KYC file cleanup requires the role permission in
+[staging-kyc-delete-policy.json](staging-kyc-delete-policy.json). The `rido` AWS profile cannot administer IAM.
+An authorised IAM administrator can add this scoped policy to `rido-ec2-uploads` (policy name `tamiltaxi-kyc-delete`);
+then repeat the harmless permission check. No real account was deleted during deployment smoke tests.
+
 - **Slow upload (mobile data, ~100 KB/s):** when no `package.json`, `package-lock.json`, Dockerfile or migration changed
   since the deployed build, ship only the build outputs (~3 MB instead of ~450 MB): copy `apps/api/dist`,
   `apps/api/prisma` and `apps/api/src/generated` out of the new API image and `/app/apps/admin` out of the new admin
@@ -1824,7 +1841,7 @@ If your IP changes, SSH times out: re-authorize port 22 in `rido-sg` for the new
 | Two-wheeler routing | **Changed (28 Sep 2026)**: the backend routes every vehicle as DRIVE. TWO_WHEELER is beta (Google requires an in-app warning) and bills at Routes Enterprise (3× Essentials, 7k free); bike fares are priced on the car route so the booked fare matches P-10. Google Routes billing: `vehicleStopover` (fare routes) bills at Pro; ETAs stay Essentials |
 | Google search in pickers | **Done**: saved-place editor and parcel picker search through the API |
 | Google Maps improvements | **Done (28 Sep 2026)**: shortest-route fares (`computeAlternativeRoutes`), traffic-aware travel time for display (`travelMin`, fare unchanged), "Near X" pickup landmarks (address descriptors → `Trip.pickupLandmark`), service-area-restricted search with distances, and one Route Matrix call for driver ETAs. Billing table in 7. Later: a phone check of P-09 / D-16 with real landmarks. Plus-code addresses not typed `plus_code` ("X2JR+9H, ELGI Nagar") are skipped or trimmed: **Done (28 Sep 2026)** |
-| Website | **Built (30 Sep 2026)**, see 6e; not deployed. Before Play submission: register `tamiltaxi.co.in` and host `out/`, create the `support@tamiltaxi.co.in` mailbox (the site and driver app publish it), set `site.onPlayStore` once live. In-app privacy text: **Done (1 Oct 2026)**: it now says drivers see the rider's phone number (as the website does) and the chat header no longer says "Number hidden"; masking would need a paid telephony service. **Self-serve account deletion: Done (3 Oct 2026)** in both apps and admin; trip addresses/routes remain in historical records |
+| Website | **Built (30 Sep 2026), staging deployed (3 Oct 2026)**, see 6e and 9b. Before Play submission: register `tamiltaxi.co.in` and host `out/`, create the `support@tamiltaxi.co.in` mailbox (the site and driver app publish it), set `site.onPlayStore` once live. In-app privacy text: **Done (1 Oct 2026)**: it now says drivers see the rider's phone number (as the website does) and the chat header no longer says "Number hidden"; masking would need a paid telephony service. **Self-serve account deletion: Done (3 Oct 2026)** in both apps and admin; trip addresses/routes remain in historical records |
 | Support WhatsApp | **Done (3 Oct 2026)**: both apps open `wa.me/<number>` and telephone links for the configured support number; no fake default number, buttons hide while unconfigured |
 | H3 | See plan below |
 

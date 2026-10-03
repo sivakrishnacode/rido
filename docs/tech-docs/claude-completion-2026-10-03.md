@@ -15,7 +15,7 @@ Admin's six unfinished files were completed as `62460a0` (authenticated place ca
 
 | Area | Result |
 | --- | --- |
-| API/platform | Auth app intent; signed-in maps/places/fares; 4-character search; 429 handling; offer phone privacy; dispatch/routing fixes and tests. |
+| API/platform | Auth app intent; signed-in maps/places/fare quotes (rate cards remain public); 4-character search; 429 handling; offer phone privacy; dispatch/routing fixes and tests. |
 | API/admin | Plate changes reset RC/approval; daily selfie gate; trip photos/ticket attachments; deletion and session revocation; idempotent registration; scheduled lead configuration; driver status events; admin approval, sign-out, CSV, file proxy and settings fixes. |
 | Website/legal | Public policy, terms and deletion instructions align with implemented behavior; account deletion is self-service in apps with support fallback. |
 | Driver account/onboarding | Real profile loading/errors, expired preferences, support call/WhatsApp, plain invite, emergency contact names, shared online refusal handling, inert gallery actions, real trip details, one logout/offline call, deletion, plate change confirmation, live rider-rating removal, empty-plan recovery, live KYC/identity loading/retry, cached approval status, safe registration polling, identity CTA/errors, DOB/dead-route removal, catch-all startup/OTP/register recovery. |
