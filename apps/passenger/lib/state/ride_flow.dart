@@ -51,6 +51,7 @@ class RideFlowState {
   const RideFlowState({
     this.pickup = Seed.gandhipuram,
     this.drop = Seed.brookefields,
+    this.dropSet = true,
     this.vehicle = VehicleKind.bike,
     this.womenDriver,
     this.rider,
@@ -94,6 +95,9 @@ class RideFlowState {
 
   final Place pickup;
   final Place drop;
+
+  /// False until the rider chooses where to (live: nothing is chosen for them; [drop] then holds the pickup).
+  final bool dropSet;
   final VehicleKind vehicle;
   /// Butterfly choice on P-10; null = the profile's default ("Prefer women driver" in Safety preferences).
   /// Use [RideFlowController.womenDriver] for the effective value.
@@ -184,6 +188,7 @@ class RideFlowState {
   RideFlowState copyWith({
     Place? pickup,
     Place? drop,
+    bool? dropSet,
     VehicleKind? vehicle,
     Object? womenDriver = _keep,
     Object? rider = _keep,
@@ -208,6 +213,7 @@ class RideFlowState {
   }) => RideFlowState(
     pickup: pickup ?? this.pickup,
     drop: drop ?? this.drop,
+    dropSet: dropSet ?? (drop != null || this.dropSet),
     vehicle: vehicle ?? this.vehicle,
     womenDriver: identical(womenDriver, _keep) ? this.womenDriver : womenDriver as WomenDriverPref?,
     rider: identical(rider, _keep) ? this.rider : rider as OtherRider?,
@@ -272,8 +278,9 @@ class RideFlowController extends Notifier<RideFlowState> {
       _stopFollowing();
     });
     if (ref.read(isLiveApiProvider)) {
+      // Live: the pickup is the phone's location; no drop until the rider chooses one (never a seeded place).
       final here = ref.read(placesRepositoryProvider).currentLocation;
-      return RideFlowState(pickup: here, route: const []);
+      return RideFlowState(pickup: here, drop: here, dropSet: false, route: const []);
     }
     Future.microtask(_refreshRoute);
     final chat = ref.read(rideRepositoryProvider).chatSeed();

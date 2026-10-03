@@ -495,6 +495,13 @@ void main() {
     expect(ride().pickup.location, Seed.raceCourse.location);
   });
 
+  test('live: no drop is chosen for the rider (no seeded place)', () {
+    expect(ride().dropSet, isFalse);
+    expect(ride().drop.location, ride().pickup.location);
+    flow().setDrop(Seed.brookefields);
+    expect(ride().dropSet, isTrue);
+  });
+
   test('Skip on P-20 sends no rating', () async {
     await flow().book();
     trips.push(trips.update('COMPLETED', driver: _driver));

@@ -30,16 +30,32 @@ class P09PinOnMapScreen extends ConsumerStatefulWidget {
 class _P09PinOnMapScreenState extends ConsumerState<P09PinOnMapScreen> {
   static const double _zoom = 16;
   final _map = TtMapController();
-  late final Place _initial = widget.showcase
-      ? Seed.brookefields
-      : widget.forPickup
-      ? ref.read(rideFlowProvider).pickup
-      : ref.read(rideFlowProvider).drop;
+  late final Place _initial = widget.showcase ? Seed.brookefields : _start();
   late Place _place = _initial;
   late LatLng _centre = _initial.location;
   bool _locating = false;
   Timer? _debounce;
   int _request = 0;
+
+  /// Where the pin starts: the pickup, or the drop when one is chosen. With no drop yet (and for a saved place) it
+  /// starts on the pickup as a new pin, never on a place nobody chose.
+  Place _start() {
+    final ride = ref.read(rideFlowProvider);
+    if (widget.forPickup) return ride.pickup;
+    if (!widget.pickOnly && ride.dropSet) return ride.drop;
+    final at = ride.pickup.location;
+    return Place(id: 'pin-${at.latitude},${at.longitude}', name: 'Pinned location', address: '', location: at);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // A new pin: its address now, before the map is moved.
+    if (!widget.showcase && _initial.id.startsWith('pin-')) {
+      _locating = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _geocode());
+    }
+  }
 
   @override
   void dispose() {
