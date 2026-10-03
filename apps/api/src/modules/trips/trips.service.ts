@@ -5,7 +5,7 @@ import type { AuthUser } from '../../core/auth/auth-user.js';
 import { JobsService } from '../../core/jobs/jobs.service.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import type { Prisma, Trip } from '../../generated/prisma/client.js';
-import { CancelCode, CancelFault, CancelledBy, DueStatus, Gender, RideMode, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
+import { CancelCode, CancelFault, CancelledBy, DriverStatus, DueStatus, Gender, RideMode, TripKind, TripStatus, type VehicleKind, WomenDriverPref } from '../../generated/prisma/enums.js';
 import { DriverLocationService } from '../drivers/driver-location.service.js';
 import { TripDriversService } from '../drivers/trip-drivers.service.js';
 import { MAX_RIDER_NOT_WOMAN } from '../drivers/women-drivers.js';
@@ -37,7 +37,7 @@ import { checkNearStop, positionForCheck } from './trip-position.js';
 import { averageRating } from './driver-rating.js';
 import { fareReviewNotes, mergeReviewNote } from './fare-review.js';
 import { TripOtpGuard } from './trip-otp-guard.js';
-import { DriverBlocksService } from './driver-blocks.service.js';
+import { DriverBlocksService, istTime } from './driver-blocks.service.js';
 import { canReassign, canTransition, isFinished } from './trip-transitions.js';
 import { ALL_TRIP_JOBS, noShowAt, pickupCapAt, pickupCheckAt, setOffAt, stuckAt, TRIP_JOBS } from './trip-timeouts.js';
 
@@ -301,6 +301,7 @@ export class TripsService {
   }
 
   async accept(driverId: string, tripId: string): Promise<Trip> {
+    await this.checkCanTakeTrips(driverId);
     if ((await this.dispatch.offeredTo(tripId)) !== driverId) throw new ConflictException('This request is no longer available');
     // One active trip per driver: claimed before the database write, released again only if the write lost (or never
     // ran). Once the trip is theirs, a later step failing must not free them while they hold it.
@@ -317,6 +318,23 @@ export class TripsService {
       throw new ConflictException('Trip already taken or cancelled');
     }
     return this.assigned(driverId, tripId, won);
+  }
+
+  /**
+   * Only an approved driver who is not paused (too many cancellations) and not blocked takes trips: an offer can still
+   * be open when an admin puts them on hold or the pause starts. 403 otherwise (`DRIVER_TEMP_BLOCKED` while paused).
+   */
+  private async checkCanTakeTrips(driverId: string): Promise<void> {
+    const d = await this.prisma.driver.findUnique({ where: { id: driverId }, select: { status: true, blockedUntil: true, user: { select: { isBlocked: true } } } });
+    if (!d || d.user.isBlocked) throw new ForbiddenException('Your account is blocked. Contact support.');
+    if (d.status !== DriverStatus.APPROVED) throw new ForbiddenException(`You can't take trips while your account is ${d.status.toLowerCase().replace('_', ' ')}`);
+    if (d.blockedUntil && d.blockedUntil.getTime() > Date.now()) {
+      throw new ForbiddenException({
+        code: 'DRIVER_TEMP_BLOCKED',
+        message: `You cancelled too many rides, so you can't take trips until ${istTime(d.blockedUntil)}`,
+        details: { until: d.blockedUntil.toISOString() },
+      });
+    }
   }
 
   /**
