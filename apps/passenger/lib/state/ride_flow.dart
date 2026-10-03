@@ -257,6 +257,9 @@ class RideFlowController extends Notifier<RideFlowState> {
   /// Set while the passenger's own cancel is in flight, so the resulting CANCELLED push shows no notice.
   bool _cancelledByMe = false;
 
+  /// The rider chose the pickup (searched or pinned it): the phone's location no longer replaces it until a ride ends.
+  bool _pickupChosen = false;
+
   bool get _live => ref.read(isLiveApiProvider);
 
   /// Live vehicle marker position for map screens (simulated, or the driver's GPS when live).
@@ -292,7 +295,20 @@ class RideFlowController extends Notifier<RideFlowState> {
   DemoSettings get _demo => ref.read(demoSettingsProvider);
 
   // ---------------------------------------------------------------- planning
+  /// The rider's pickup. "Use current location" (id `current`) keeps following the phone.
   void setPickup(Place p) {
+    _pickupChosen = p.id != 'current';
+    _setPickup(p);
+  }
+
+  /// The phone's location (first fix, back in the app): it becomes the pickup only while the rider hasn't chosen one
+  /// and no ride is on.
+  void useDeviceLocation(Place p) {
+    if (_pickupChosen || state.isActive) return;
+    _setPickup(p);
+  }
+
+  void _setPickup(Place p) {
     final before = state.pickup;
     final hadQuotes = state.serverQuotes != null || state.quotesError != null;
     if (_samePlace(before, p)) {
@@ -937,18 +953,21 @@ class RideFlowController extends Notifier<RideFlowState> {
       }
       ref.invalidate(tripHistoryProvider);
       ref.invalidate(recentDestinationsProvider);
+      // The next ride starts where the rider is now (Home locates again), not at this ride's pickup.
+      _pickupChosen = false;
       state = _planningAgain(state.copyWith(tripQuote: null, busy: false));
       return;
     }
     _sim.cancelAll();
     await ref.read(rideRepositoryProvider).addTrip(_trip(TripStatus.completed, rating: rating));
     ref.invalidate(tripHistoryProvider);
+    _pickupChosen = false;
     state = _planningAgain(state);
   }
 
   /// Back to planning after a ride ended or was cancelled (by anyone): the next ride is for "me" again with the
   /// profile's Butterfly default (booking for someone else, and the P-10 Butterfly choice, are chosen each time).
-  static RideFlowState _planningAgain(RideFlowState s) =>
+  RideFlowState _planningAgain(RideFlowState s) =>
       s.copyWith(phase: RidePhase.planning, rider: null, womenDriver: null);
 
   Trip _trip(TripStatus status, {int? rating}) {

@@ -467,6 +467,34 @@ void main() {
     expect(container.read(parcelFlowProvider).etaMin, 11);
   });
 
+  test('the phone location replaces the pickup only until the rider chooses one, and again after a ride', () async {
+    final here = Seed.gandhipuram.copyWith(id: 'current', name: 'Current location');
+    flow().useDeviceLocation(here);
+    expect(ride().pickup.id, 'current');
+
+    // Chosen by hand (P-08 / P-09): coming back to the app (a new GPS fix) keeps it.
+    flow().setPickup(Seed.rsPuram);
+    flow().useDeviceLocation(here.copyWith(location: Seed.peelamedu.location));
+    expect(ride().pickup, Seed.rsPuram);
+
+    // "Use current location" follows the phone again.
+    flow().setPickup(here);
+    flow().useDeviceLocation(here.copyWith(location: Seed.peelamedu.location));
+    expect(ride().pickup.location, Seed.peelamedu.location);
+
+    // After a ride, the next one starts where the rider is.
+    flow().setPickup(Seed.rsPuram);
+    flow().setDrop(Seed.brookefields);
+    await flow().book();
+    flow().useDeviceLocation(here);
+    expect(ride().pickup, Seed.rsPuram, reason: 'no change during a ride');
+    trips.push(trips.update('COMPLETED', driver: _driver));
+    await _settle();
+    await flow().finishRide();
+    flow().useDeviceLocation(here.copyWith(location: Seed.raceCourse.location));
+    expect(ride().pickup.location, Seed.raceCourse.location);
+  });
+
   test('Skip on P-20 sends no rating', () async {
     await flow().book();
     trips.push(trips.update('COMPLETED', driver: _driver));

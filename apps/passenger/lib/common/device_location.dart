@@ -103,8 +103,8 @@ class DeviceLocationController extends Notifier<LatLng?> {
     final here = place.copyWith(id: 'current', name: 'Current location', address: place.fullAddress);
     // Default pickup everywhere (P-08 "Use current location", new parcel bookings) is the real location.
     if (places is ApiPlacesRepository) places.currentLocation = here;
-    final ride = ref.read(rideFlowProvider);
-    if (!ride.isActive) ref.read(rideFlowProvider.notifier).setPickup(here);
+    // Only where the rider hasn't chosen a pickup themselves (coming back to the app must not move it).
+    ref.read(rideFlowProvider.notifier).useDeviceLocation(here);
     if (live) ref.read(parcelFlowProvider.notifier).useDeviceLocation(here);
     return inArea ? LocateResult.inArea : LocateResult.outsideArea;
   }
