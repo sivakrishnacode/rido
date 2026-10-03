@@ -154,6 +154,10 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // A ride just ended: the next one starts where the rider is now.
+    ref.listen(rideFlowProvider.select((r) => r.phase), (prev, next) {
+      if (!widget.showcase && prev == RidePhase.completed && next == RidePhase.planning) _locate(ask: false);
+    });
     final demo = ref.watch(demoSettingsProvider);
     final ride = ref.watch(rideFlowProvider);
     final parcel = ref.watch(parcelFlowProvider);
