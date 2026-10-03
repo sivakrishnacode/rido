@@ -461,28 +461,36 @@ export class TripsService {
     return this.publish(tripId, 'PASSENGER');
   }
 
-  /** Adds [vehicleKind] to a searching trip ("Book any"): its drivers get the offer too, at that vehicle's fare. */
+  /**
+   * Adds [vehicleKind] to a searching trip ("Book any"): its drivers get the offer too, at that vehicle's fare. The
+   * write is guarded on the vehicle list it was checked with, so two adds at once can't both pass the
+   * [MAX_ALSO_KINDS] cap or drop each other's fare: the one that lost looks again (up to 3 times).
+   */
   async addVehicle(passengerId: string, tripId: string, vehicleKind: VehicleKind): Promise<Trip> {
-    const trip = await this.searchingTrip(passengerId, tripId);
-    if (trip.rideMode !== RideMode.LOCAL) throw new BadRequestException('Rentals and outstation trips keep the vehicle you booked');
-    if (FARE_RULES[vehicleKind].isGoods !== FARE_RULES[trip.vehicleKind].isGoods) {
-      throw new BadRequestException("That vehicle can't take this trip");
+    for (let attempt = 1; ; attempt++) {
+      const trip = await this.searchingTrip(passengerId, tripId);
+      if (trip.rideMode !== RideMode.LOCAL) throw new BadRequestException('Rentals and outstation trips keep the vehicle you booked');
+      if (FARE_RULES[vehicleKind].isGoods !== FARE_RULES[trip.vehicleKind].isGoods) {
+        throw new BadRequestException("That vehicle can't take this trip");
+      }
+      if (vehicleKind === trip.vehicleKind || trip.alsoKinds.includes(vehicleKind)) {
+        return this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE });
+      }
+      if (trip.alsoKinds.length >= MAX_ALSO_KINDS) throw new BadRequestException('You already added the other vehicles');
+      const quote = await this.fares.quoteOnRoute({
+        pickup: { lat: trip.pickupLat, lng: trip.pickupLng },
+        route: { distanceKm: trip.distanceKm, durationMin: trip.durationMin },
+        vehicleKind,
+      });
+      const alsoFares = { ...(trip.alsoFares as Record<string, FareQuote> | null), [vehicleKind]: quote };
+      const { count } = await this.prisma.trip.updateMany({
+        where: { id: tripId, status: TripStatus.SEARCHING, alsoKinds: { equals: trip.alsoKinds } },
+        data: { alsoKinds: { set: [...trip.alsoKinds, vehicleKind] }, alsoFares: alsoFares as unknown as Prisma.InputJsonValue },
+      });
+      if (count === 1) break;
+      // Another add (or the end of the search) got in first: check again with the trip as it is now.
+      if (attempt >= 3) throw new ConflictException('The search just changed. Please try again');
     }
-    if (vehicleKind === trip.vehicleKind || trip.alsoKinds.includes(vehicleKind)) {
-      return this.prisma.trip.findUniqueOrThrow({ where: { id: tripId }, include: TRIP_INCLUDE });
-    }
-    if (trip.alsoKinds.length >= MAX_ALSO_KINDS) throw new BadRequestException('You already added the other vehicles');
-    const quote = await this.fares.quoteOnRoute({
-      pickup: { lat: trip.pickupLat, lng: trip.pickupLng },
-      route: { distanceKm: trip.distanceKm, durationMin: trip.durationMin },
-      vehicleKind,
-    });
-    const alsoFares = { ...(trip.alsoFares as Record<string, FareQuote> | null), [vehicleKind]: quote };
-    const { count } = await this.prisma.trip.updateMany({
-      where: { id: tripId, status: TripStatus.SEARCHING },
-      data: { alsoKinds: { push: vehicleKind }, alsoFares: alsoFares as unknown as Prisma.InputJsonValue },
-    });
-    if (count === 0) throw new ConflictException('The search has already ended');
     await this.dispatch.widen(tripId);
     return this.publish(tripId, 'PASSENGER');
   }
