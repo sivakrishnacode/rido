@@ -140,8 +140,12 @@ class FakeJobs extends LiveJobs {
   @override
   Future<LiveTripUpdate> accept(String tripId) async {
     calls.add('accept');
+    if (acceptAssignsThenFails) {
+      current = liveUpdate(tripId, 'DRIVER_ASSIGNED');
+      throw const OfflineException();
+    }
     if (acceptError != null) throw acceptError!;
-    return liveUpdate(tripId, 'DRIVER_ASSIGNED');
+    return current = liveUpdate(tripId, 'DRIVER_ASSIGNED');
   }
 
   @override
@@ -152,14 +156,14 @@ class FakeJobs extends LiveJobs {
     positions.add(at);
     if (tooFar && farReason == null) throw _tooFar('pickup', 850);
     calls.add(farReason == null ? 'arrived' : 'arrived:$farReason');
-    return liveUpdate(tripId, 'DRIVER_ARRIVED');
+    return current = liveUpdate(tripId, 'DRIVER_ARRIVED');
   }
 
   @override
   Future<LiveTripUpdate> start(String tripId, {String? otp}) async {
     calls.add('start:$otp');
     if (otp != '1234') throw const ApiException(400, 'Wrong OTP, please try again');
-    return liveUpdate(tripId, 'IN_PROGRESS');
+    return current = liveUpdate(tripId, 'IN_PROGRESS');
   }
 
   @override
@@ -168,17 +172,33 @@ class FakeJobs extends LiveJobs {
     if (otp != null && otp != '5678') throw const ApiException(400, 'Wrong OTP, please try again');
     if (tooFar && farReason == null) throw _tooFar('drop', 1200);
     calls.add(farReason == null ? 'complete' : 'complete:$farReason');
+    current = null;
     return liveUpdate(tripId, 'COMPLETED');
   }
 
   @override
   Future<LiveTripUpdate> cancel(String tripId, {CancelCode code = CancelCode.other, String? note}) async {
     calls.add('cancel:${code.api}');
+    if (cancelError != null) throw cancelError!;
+    current = null;
     return liveUpdate(tripId, 'CANCELLED');
   }
 
   @override
-  Future<LiveTripUpdate?> active() async => null;
+  Future<LiveTripUpdate?> active() async {
+    activeChecks++;
+    return current;
+  }
+
+  int activeChecks = 0;
+
+  /// The driver's job as the server sees it (GET /trips/active): set by accept / arrived / start, cleared by complete
+  /// and cancel; tests set it to null to play a cancel the app missed.
+  LiveTripUpdate? current;
+
+  /// The server assigns the trip but the accept answer is lost (OfflineException).
+  bool acceptAssignsThenFails = false;
+  Object? cancelError;
   @override
   Future<void> heartbeat(DriverFix fix) async => calls.add('heartbeat');
 }

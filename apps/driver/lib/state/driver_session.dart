@@ -207,6 +207,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   static const _gpsHealAfter = Duration(seconds: 20);
   static const _heartbeatEvery = Duration(seconds: 30);
 
+  /// Socket down: how often the job / open offers are checked over HTTP instead.
+  static const _pollEvery = Duration(seconds: 15);
+  DateTime? _lastPoll;
+
   /// Live position of the driver's vehicle.
   ValueListenable<VehicleFix?> get vehicle => _sim.vehicle;
 
@@ -426,15 +430,53 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       _setLeg(_position ?? job.pickup.location, job.pickup.location, job.vehicle, job.pickupEtaMin);
       _watchJob(job.id);
     } on ApiException catch (e) {
+      // A server error may come after the trip was assigned: check before giving up.
+      if (e.status >= 500 && await _recoverAccepted(r)) return;
       // Gone (someone else took it, or it was cancelled): the next stacked request, if any.
       if (ref.mounted && state.incoming?.id == r.id) _promoteNext();
       if (e.status == 404 || e.status == 409) throw const ApiException(409, 'This request is no longer available');
       rethrow;
     } catch (_) {
+      // The answer was lost (timeout, dropped connection; the POST is not retried) while the server may have assigned
+      // the trip: if it is this driver's job now, carry on with it.
+      if (await _recoverAccepted(r)) return;
       if (ref.mounted && state.incoming?.id == r.id) _promoteNext();
       rethrow;
     } finally {
       _acceptingId = null;
+    }
+  }
+
+  /// After a failed accept: true (and the job restored) when the server says the driver is on [offer]'s trip.
+  Future<bool> _recoverAccepted(RideRequest offer) async {
+    try {
+      final active = await _jobs.active();
+      if (!ref.mounted || active == null || active.trip.id != offer.id) return false;
+      final phase = jobPhaseForStatus(active.status);
+      if (phase == JobPhase.none) return false;
+      final job = rideRequestFromUpdate(active, offer: offer);
+      state = state.copyWith(
+        clearIncoming: true,
+        job: job,
+        phase: phase,
+        missedRequest: false,
+        noShowAt: active.noShowAt,
+        waiting: waitingOf(active),
+      );
+      _setLeg(_position ?? job.pickup.location, phase == JobPhase.toPickup ? job.pickup.location : job.drop.location,
+          job.vehicle, phase == JobPhase.toPickup ? job.pickupEtaMin : job.tripMin);
+      _watchJob(job.id);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// A job step was refused as if the trip moved on (400 / 404 / 409): it may have been cancelled while the socket
+  /// was down. Checks with the server (the error still shows); [_syncJob] ends the job if it's gone.
+  void _checkAfterRefusal(Object error) {
+    if (error is ApiException && error.tooFar == null && const {400, 404, 409}.contains(error.status)) {
+      unawaited(_syncJob());
     }
   }
 
@@ -458,7 +500,13 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
-      final update = await _jobs.arrived(job.id, at: _position, farReason: farReason);
+      final LiveTripUpdate update;
+      try {
+        update = await _jobs.arrived(job.id, at: _position, farReason: farReason);
+      } catch (e) {
+        _checkAfterRefusal(e);
+        rethrow;
+      }
       if (ref.mounted) {
         state = state.copyWith(
           phase: JobPhase.atPickup,
@@ -484,7 +532,13 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
-      final update = await _jobs.start(job.id, otp: job.isDelivery ? null : otp);
+      final LiveTripUpdate update;
+      try {
+        update = await _jobs.start(job.id, otp: job.isDelivery ? null : otp);
+      } catch (e) {
+        _checkAfterRefusal(e);
+        rethrow;
+      }
       if (!ref.mounted) return;
       // The fare now includes any waiting charge; a rental's clock runs from the server's start time.
       final started = update.json['startedAt'] is String ? DateTime.tryParse(update.json['startedAt'] as String)?.toLocal() : null;
@@ -506,7 +560,13 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
-      final update = await _jobs.complete(job.id, at: _position, farReason: farReason);
+      final LiveTripUpdate update;
+      try {
+        update = await _jobs.complete(job.id, at: _position, farReason: farReason);
+      } catch (e) {
+        _checkAfterRefusal(e);
+        rethrow;
+      }
       if (!ref.mounted) return;
       _unwatchJob();
       // The final fare (it may include the passenger's earlier cancellation fee, a rental's extra km and minutes):
@@ -540,7 +600,12 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final job = _jobOrGone();
     if (job == null) return;
     if (_live) {
-      await _jobs.complete(job.id, otp: otp, at: _position, farReason: farReason);
+      try {
+        await _jobs.complete(job.id, otp: otp, at: _position, farReason: farReason);
+      } catch (e) {
+        _checkAfterRefusal(e);
+        rethrow;
+      }
       if (!ref.mounted) return;
       _unwatchJob();
     }
@@ -611,6 +676,18 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       _cancelling = true;
       try {
         if (job != null) await _jobs.cancel(job.id, code: code, note: note);
+      } on ApiException catch (e) {
+        // 403 / 404: the trip is no longer this driver's (cancelled meanwhile, or the first answer was lost): ended.
+        if (e.status != 403 && e.status != 404) {
+          _cancelling = false;
+          unawaited(_syncJob());
+          rethrow;
+        }
+      } catch (_) {
+        // Lost answer: the server may have cancelled it; the check ends the job if so.
+        _cancelling = false;
+        unawaited(_syncJob());
+        rethrow;
       } finally {
         _cancelling = false;
       }
@@ -865,6 +942,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final realtime = ref.read(realtimeProvider);
     if (realtime.isConnected) return;
     realtime.connect();
+    // No socket, so no `trip.updated` / `trip.offer`: ask over HTTP now and then (a passenger cancel, offers).
+    if (_lastPoll == null || now.difference(_lastPoll!) >= _pollEvery) {
+      _lastPoll = now;
+      unawaited(state.onJob ? _syncJob() : _recoverOffer());
+    }
     final last = _lastFix;
     if (last != null && (_lastHeartbeat == null || now.difference(_lastHeartbeat!) >= _heartbeatEvery)) {
       _lastHeartbeat = now;
