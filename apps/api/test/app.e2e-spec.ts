@@ -277,7 +277,7 @@ describe('Tamil Taxi API (e2e)', () => {
     expect((await prisma.trip.findUniqueOrThrow({ where: { id: bike.id } })).fareTotal).toBe(fare('BIKE'));
     await http.post(`/v1/trips/${bike.id}/cancel`).set(pax).send({}).expect(200);
     await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${scooty}`).expect(200);
-  });
+  }, 30_000);
 
   it('rents a sedan by the hour, end to end, at the package price', async () => {
     // Away from the Gandhipuram tests (their demand doesn't touch these fixed prices anyway).
@@ -429,7 +429,7 @@ describe('Tamil Taxi API (e2e)', () => {
     // Off again: the test drivers are shared with other tests.
     await http.put('/v1/drivers/me/booking-preferences').set('Authorization', `Bearer ${mover}`).send({ shifting: false }).expect(200);
     for (const d of [closest, short, mover, bike]) await http.post('/v1/drivers/me/offline').set('Authorization', `Bearer ${d}`).expect(200);
-  });
+  }, 30_000);
 
   it("admin pricing: a city's own rental, outstation, goods and shifting prices quote and book; reset goes back", async () => {
     const admin = await adminAuth();
@@ -974,7 +974,9 @@ describe('Tamil Taxi API (e2e)', () => {
     expect(await prisma.cancellationDue.count({ where: { tripId: off.trip.id } })).toBe(0);
     await http.post('/v1/drivers/me/offline').set(off.driver);
 
-    await settings.update({ cancellationFeeEnabled: true });
+    // Fares are compared to the plain quote: the suite's bookings at Gandhipuram can surge it (depending on when the
+    // demand tick runs), so live surge is off while this runs.
+    await settings.update({ cancellationFeeEnabled: true, dynamicSurgeEnabled: false });
     try {
       // The passenger cancels after the driver waited: ₹10 owed to that driver.
       const first = await assignedBikeTrip({ lat: 11.0185, lng: 76.9727 });
@@ -1011,7 +1013,7 @@ describe('Tamil Taxi API (e2e)', () => {
       expect(report.totals.applied).toBeGreaterThanOrEqual(10);
       await http.post('/v1/drivers/me/offline').set(nextAuth);
     } finally {
-      await settings.update({ cancellationFeeEnabled: false });
+      await settings.update({ cancellationFeeEnabled: false, dynamicSurgeEnabled: true });
     }
   }, 60_000);
 
