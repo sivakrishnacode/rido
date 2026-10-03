@@ -5,8 +5,12 @@ cd "$(dirname "$0")/.."
 BASE_DB="${DATABASE_URL:-postgresql://tamiltaxi:tamiltaxi@localhost:5432/tamiltaxi?schema=public}"
 REDIS_BASE="${REDIS_URL:-redis://localhost:6380}"
 if [ -f .env ]; then
-  BASE_DB="$(grep '^DATABASE_URL=' .env | cut -d= -f2- | tr -d '"')"
-  REDIS_BASE="$(grep '^REDIS_URL=' .env | cut -d= -f2- | tr -d '"')"
+  if [ -z "${DATABASE_URL:-}" ]; then
+    BASE_DB="$(grep '^DATABASE_URL=' .env | cut -d= -f2- | tr -d '"')"
+  fi
+  if [ -z "${REDIS_URL:-}" ]; then
+    REDIS_BASE="$(grep '^REDIS_URL=' .env | cut -d= -f2- | tr -d '"')"
+  fi
 fi
 export DATABASE_URL="$(echo "$BASE_DB" | sed -E 's#/([a-z_]+)\?#/tamiltaxi_test?#')"
 export REDIS_URL="${REDIS_BASE%/}/1"
