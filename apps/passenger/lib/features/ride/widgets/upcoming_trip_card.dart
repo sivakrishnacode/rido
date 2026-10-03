@@ -116,31 +116,44 @@ class UpcomingTripCard extends ConsumerWidget {
 }
 
 /// Asks, then cancels a trip booked for later; tells the rider how it went.
-Future<void> confirmCancelUpcoming(BuildContext context, WidgetRef ref, Trip trip) async {
+Future<void> confirmCancelUpcoming(
+  BuildContext context,
+  WidgetRef ref,
+  Trip trip,
+) async {
   final ok = await showTtConfirm(
     context,
     title: 'Cancel this booking?',
-    message: '${modeLabelOf(trip)}${trip.scheduledAt == null ? '' : ', ${whenLabelOf(trip)}'}. Nothing is charged.',
+    message:
+        '${modeLabelOf(trip)}${trip.scheduledAt == null ? '' : ', ${whenLabelOf(trip)}'}. Nothing is charged.',
     confirmLabel: 'Cancel booking',
     cancelLabel: 'Keep it',
     destructive: true,
     icon: Symbols.event_busy_rounded,
   );
   if (!ok || !context.mounted) return;
-  final error = await ref.read(rideFlowProvider.notifier).cancelUpcoming(trip.id);
+  final error = await ref
+      .read(rideFlowProvider.notifier)
+      .cancelUpcoming(trip.id);
   if (!context.mounted) return;
   showTtSnack(context, error ?? 'Booking cancelled', success: error == null);
 }
 
 /// Every upcoming trip with Cancel (Activity); nothing when there are none.
 class UpcomingTripsSection extends ConsumerWidget {
-  const UpcomingTripsSection({super.key, this.showcase = false});
+  const UpcomingTripsSection({super.key, this.showcase = false, this.parcel});
   final bool showcase;
+  final bool? parcel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
-    final trips = showcase ? const <Trip>[] : (ref.watch(upcomingTripsProvider).value ?? const <Trip>[]);
+    final trips =
+        (showcase
+                ? const <Trip>[]
+                : (ref.watch(upcomingTripsProvider).value ?? const <Trip>[]))
+            .where((t) => parcel == null || t.isParcel == parcel)
+            .toList();
     if (trips.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: TtSpacing.l),

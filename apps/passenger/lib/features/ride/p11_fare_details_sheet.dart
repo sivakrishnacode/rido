@@ -55,10 +55,24 @@ class P11FareDetailsSheet extends ConsumerWidget {
         const SizedBox(height: TtSpacing.l),
         Row(
           children: [
-            const Icon(Symbols.info_rounded, color: TtColors.coral600, size: 22),
+            const Icon(
+              Symbols.info_rounded,
+              color: TtColors.coral600,
+              size: 22,
+            ),
             const SizedBox(width: TtSpacing.s),
-            Text('Things to know', style: t.bodySemibold.copyWith(fontSize: 17)),
+            Text(
+              'Things to know',
+              style: t.bodySemibold.copyWith(fontSize: 17),
+            ),
           ],
+        ),
+        const SizedBox(height: TtSpacing.m),
+        _Note(
+          icon: Symbols.timer_rounded,
+          color: TtColors.navy700,
+          text:
+              'Waiting is free for ${q.freeWaitMin} minutes at pickup, then ${formatInr(q.waitPerMin)} per minute (up to ${formatInr(q.waitMaxCharge)}).',
         ),
         const SizedBox(height: TtSpacing.m),
         for (final (icon, color, text) in _thingsToKnow) ...[
@@ -66,19 +80,37 @@ class P11FareDetailsSheet extends ConsumerWidget {
           const SizedBox(height: TtSpacing.m),
         ],
         const SizedBox(height: TtSpacing.s),
-        TtButton.secondary(label: 'Got it', onPressed: () => Navigator.of(context).maybePop()),
+        TtButton.secondary(
+          label: 'Got it',
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
       ],
     );
   }
 }
 
-/// P-11 "Things to know": only rules Tamil Taxi really applies (no waiting or cancel fees exist in the fare engine).
+/// P-11 "Things to know": only rules Tamil Taxi really applies (waiting terms come from the quote).
 const _thingsToKnow = <(IconData, Color, String)>[
-  (Symbols.lock_rounded, TtColors.success, 'Your fare is locked when you book. Its time charge uses a fixed 18 km/h, not the traffic time on the map, so slow traffic won\'t change it.'),
-  (Symbols.trending_up_rounded, TtColors.coral500, 'Surge is capped at 1.5x and all of it goes to your driver.'),
-  (Symbols.payments_rounded, TtColors.navy700, 'Pay your driver by cash or UPI when the ride ends. Tamil Taxi takes 0% of it.'),
-  (Symbols.timer_off_rounded, TtColors.navy700, 'No waiting charges and no cancellation fees.'),
-  (Symbols.pin_rounded, TtColors.navy700, 'Share your 4-digit ride OTP only when you are in the vehicle.'),
+  (
+    Symbols.lock_rounded,
+    TtColors.success,
+    'Your fare is locked when you book. Its time charge uses a fixed 18 km/h, not the traffic time on the map, so slow traffic won\'t change it.',
+  ),
+  (
+    Symbols.trending_up_rounded,
+    TtColors.coral500,
+    'Surge is capped at 1.5x and all of it goes to your driver.',
+  ),
+  (
+    Symbols.payments_rounded,
+    TtColors.navy700,
+    'Pay your driver by cash or UPI when the ride ends. Tamil Taxi takes 0% of it.',
+  ),
+  (
+    Symbols.pin_rounded,
+    TtColors.navy700,
+    'Share your 4-digit ride OTP only when you are in the vehicle.',
+  ),
 ];
 
 class _Note extends StatelessWidget {

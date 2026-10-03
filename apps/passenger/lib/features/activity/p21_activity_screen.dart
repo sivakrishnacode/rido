@@ -64,7 +64,7 @@ class _P21ActivityScreenState extends ConsumerState<P21ActivityScreen> with Sing
                     _TripList(
                       trips: _filter(trips, i),
                       // Rentals and outstation trips booked for later (rides only).
-                      showUpcoming: i != 2,
+                      parcel: i == 0 ? null : i == 2,
                       emptyTitle: switch (i) {
                         1 => 'No rides yet',
                         2 => 'No parcels yet',
@@ -83,18 +83,28 @@ class _P21ActivityScreenState extends ConsumerState<P21ActivityScreen> with Sing
 }
 
 class _TripList extends ConsumerWidget {
-  const _TripList({required this.trips, required this.emptyTitle, required this.onRefresh, this.showUpcoming = false});
+  const _TripList({
+    required this.trips,
+    required this.emptyTitle,
+    required this.onRefresh,
+    this.parcel,
+  });
 
   final List<Trip> trips;
   final String emptyTitle;
   final Future<void> Function() onRefresh;
-  final bool showUpcoming;
+  final bool? parcel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final upcoming = showUpcoming ? (ref.watch(upcomingTripsProvider).value ?? const <Trip>[]) : const <Trip>[];
+    final upcoming = (ref.watch(upcomingTripsProvider).value ?? const <Trip>[])
+        .where((t) => parcel == null || t.isParcel == parcel)
+        .toList();
     if (trips.isEmpty && upcoming.isEmpty) {
-      return S06EmptyActivityView(title: emptyTitle, onBookRide: () => context.go(Routes.ride));
+      return S06EmptyActivityView(
+        title: emptyTitle,
+        onBookRide: () => context.go(Routes.ride),
+      );
     }
     return RefreshIndicator(
       onRefresh: () async {
@@ -106,8 +116,11 @@ class _TripList extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
           if (upcoming.isNotEmpty) ...[
-            const UpcomingTripsSection(),
-            if (trips.isNotEmpty) ...[Text('PAST', style: context.type.overline), const SizedBox(height: 8)],
+            UpcomingTripsSection(parcel: parcel),
+            if (trips.isNotEmpty) ...[
+              Text('PAST', style: context.type.overline),
+              const SizedBox(height: 8),
+            ],
           ],
           if (trips.isNotEmpty) TripRowsGroup(trips: trips, byDay: true),
         ],

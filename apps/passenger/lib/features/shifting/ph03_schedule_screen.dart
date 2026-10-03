@@ -31,18 +31,25 @@ class PH03ScheduleScreen extends ConsumerWidget {
     final helperRate = rates.helperRate(between: d.between);
 
     return ShiftingScaffold(
+      error: s.quoteError,
+      onRetry: () => ref.read(shiftingFlowProvider.notifier).refreshQuote(),
       title: 'Packers & Movers',
       step: 3,
       bottom: ShiftingPriceBar(
+        pricing: s.quoteError == null,
         total: q?.lines.total,
         caption: q == null
             ? (s.quoteError ?? 'Getting the price…')
             : '${q.vehicle.label} · ${q.lines.helperCount} helpers · see the price',
         label: 'Review',
-        onDetails: q == null ? null : () => showShiftingPrice(context, q, details: d),
+        onDetails: q == null
+            ? null
+            : () => showShiftingPrice(context, q, details: d),
         onPressed: showcase
             ? () {}
-            : (q == null || !open.contains(s.slotHour) ? null : () => context.push(Routes.shiftingReview)),
+            : (q == null || !open.contains(s.slotHour)
+                  ? null
+                  : () => context.push(Routes.shiftingReview)),
       ),
       children: [
         ShiftingSection(

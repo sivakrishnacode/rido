@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_ui/tamiltaxi_ui.dart' show PhotoAttachment;
 
 import '../router/routes.dart';
 import 'app_notice.dart';
 import 'live_trip.dart';
 import 'passenger_session.dart';
-import 'ride_flow.dart' show kChoosePickupFirst, kChoosePickupForFares, upcomingTripsProvider;
+import 'ride_flow.dart'
+    show kChoosePickupFirst, kChoosePickupForFares, upcomingTripsProvider;
 
 enum ParcelPhase {
   /// PP-01 … PP-06: filling in details.
@@ -427,8 +429,40 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
         final eta = (total * (1 - p)).ceil();
         if (eta != state.etaMin) state = state.copyWith(etaMin: eta);
       },
-      onDone: () => state = state.copyWith(phase: ParcelPhase.delivered, etaMin: 0, deliveredAt: TtClock.now()),
+      onDone: () => state = state.copyWith(
+        phase: ParcelPhase.delivered,
+        etaMin: 0,
+        deliveredAt: TtClock.now(),
+      ),
     );
+  }
+
+  PhotoAttachment? photo;
+  void setPhoto(PhotoAttachment? value) {
+    photo = value;
+    updateDetails(state.details.copyWith(hasPhoto: value != null));
+  }
+
+  Future<void> _uploadPhoto(String tripId) async {
+    final value = photo;
+    if (value == null) return;
+    try {
+      await ref
+          .read(apiClientProvider)
+          .upload(
+            '/trips/$tripId/parcel-photo',
+            field: 'file',
+            bytes: value.bytes,
+            filename: value.name,
+          );
+      photo = null;
+    } catch (_) {
+      if (ref.mounted) {
+        ref
+            .read(appNoticeProvider.notifier)
+            .show('Your parcel is booked, but the photo could not upload.');
+      }
+    }
   }
 
   // ------------------------------------------------------------- live trips
@@ -445,9 +479,12 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
             pickup: state.pickup,
             drop: state.drop,
             parcel: _detailsToSend,
-            mode: state.outstation ? const ModeRequest(mode: RideMode.outstation) : null,
+            mode: state.outstation
+                ? const ModeRequest(mode: RideMode.outstation)
+                : null,
           );
       _startFollowing(update, restoring: false);
+      await _uploadPhoto(update.trip.id);
       return null;
     } catch (e) {
       state = state.copyWith(busy: false);
@@ -475,6 +512,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
               mode: ModeRequest(mode: RideMode.outstation, leaveAt: at),
             );
         trip = update.trip;
+        await _uploadPhoto(trip.id);
         // Inside the server's dispatch lead it searches at once: follow it like a parcel booked now (PP-07).
         if (update.status != 'SCHEDULED' && ref.mounted) {
           _startFollowing(update, restoring: false);

@@ -10,31 +10,67 @@ const shiftingSteps = ['Moving', 'Items', 'Day & extras'];
 /// A house-shifting screen: app bar, the step bar ([step] 1–3; null on the review), a scrolling body and a pinned
 /// [bottom] (usually [ShiftingPriceBar]).
 class ShiftingScaffold extends StatelessWidget {
-  const ShiftingScaffold({super.key, required this.title, this.step, required this.children, required this.bottom, this.onBack});
+  const ShiftingScaffold({
+    super.key,
+    required this.title,
+    this.step,
+    required this.children,
+    required this.bottom,
+    this.onBack,
+    this.error,
+    this.onRetry,
+  });
 
   final String title;
   final int? step;
   final List<Widget> children;
   final Widget bottom;
   final VoidCallback? onBack;
+  final String? error;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: TtColors.background,
-        appBar: TtAppBar(title: title, onBack: onBack),
-        body: Column(
-          children: [
-            if (step case final s?) _StepBar(step: s),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, TtSpacing.xl),
-                children: children,
-              ),
+    backgroundColor: TtColors.background,
+    appBar: TtAppBar(title: title, onBack: onBack),
+    body: Column(
+      children: [
+        if (step case final s?) _StepBar(step: s),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              TtSpacing.l,
+              TtSpacing.m,
+              TtSpacing.l,
+              TtSpacing.xl,
             ),
-            bottom,
-          ],
+            children: [
+              if (error != null)
+                TtCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        error!,
+                        style: context.type.bodySmall.copyWith(
+                          color: TtColors.error,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: onRetry,
+                        child: const Text('Retry price'),
+                      ),
+                    ],
+                  ),
+                ),
+              ...children,
+            ],
+          ),
         ),
-      );
+        bottom,
+      ],
+    ),
+  );
 }
 
 /// Three thin bars with the step names under them; done and current steps in coral.

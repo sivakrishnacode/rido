@@ -55,22 +55,25 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
       _kind = e.kind;
       _place = e.place;
       if (e.kind == SavedPlaceKind.other) _name.text = e.label;
-      if (e.id == Seed.home.id && !ref.read(isLiveApiProvider)) _note.text = '14, NSR Road, near Bharathi Park';
+      _note.text = e.note;
+      if (e.id == Seed.home.id && !ref.read(isLiveApiProvider)) {
+        _note.text = '14, NSR Road, near Bharathi Park';
+      }
     } else {
       final taken = p.savedPlaces.map((s) => s.kind).toSet();
       _kind = !taken.contains(SavedPlaceKind.home)
           ? SavedPlaceKind.home
           : !taken.contains(SavedPlaceKind.work)
-              ? SavedPlaceKind.work
-              : SavedPlaceKind.other;
+          ? SavedPlaceKind.work
+          : SavedPlaceKind.other;
     }
   }
 
   String get _label => switch (_kind) {
-        SavedPlaceKind.home => 'Home',
-        SavedPlaceKind.work => 'Work',
-        SavedPlaceKind.other => _name.text.trim(),
-      };
+    SavedPlaceKind.home => 'Home',
+    SavedPlaceKind.work => 'Work',
+    SavedPlaceKind.other => _name.text.trim(),
+  };
 
   bool get _canSave => _place != null && _label.isNotEmpty && !_saving;
 
@@ -103,8 +106,16 @@ class _P23bSavedPlaceEditorScreenState extends ConsumerState<P23bSavedPlaceEdito
     }
     id ??= 'sp-${DateTime.now().microsecondsSinceEpoch}';
     final label = _label;
-    final saved = await ref.read(passengerProfileProvider.notifier).saveSavedPlace(
-          SavedPlace(id: id, label: label, kind: _kind, place: place),
+    final saved = await ref
+        .read(passengerProfileProvider.notifier)
+        .saveSavedPlace(
+          SavedPlace(
+            id: id,
+            label: label,
+            kind: _kind,
+            place: place,
+            note: _note.text.trim(),
+          ),
         );
     if (!mounted) return;
     setState(() => _saving = false);

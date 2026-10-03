@@ -6,12 +6,18 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
+import '../../state/live_trip.dart';
 import 'p25_help_screen.dart';
 
 /// P-25b Raise a ticket: topic chips, the trip (preselected from [tripId], "Change" picks another),
 /// what happened, an optional screenshot, and Submit. The new ticket shows in "My tickets" as Open.
 class P25bNewTicketScreen extends ConsumerStatefulWidget {
-  const P25bNewTicketScreen({super.key, this.topic, this.tripId, this.showcase = false});
+  const P25bNewTicketScreen({
+    super.key,
+    this.topic,
+    this.tripId,
+    this.showcase = false,
+  });
 
   final String? topic;
   final String? tripId;
@@ -55,23 +61,68 @@ class _P25bNewTicketScreenState extends ConsumerState<P25bNewTicketScreen> {
     if (picked != null && mounted) setState(() => _tripId = picked);
   }
 
-  Future<void> _submit(String topic, String description) async {
-    // The rider may leave while it sends: [ref] is gone by then, the container is not.
+  Future<void> _submit(
+    String topic,
+    String description, [
+    PhotoAttachment? photo,
+  ]) async {
+    if (widget.showcase) return showTtSnack(context, 'Design preview');
     final container = ProviderScope.containerOf(context, listen: false);
+    final repo = ref.read(supportRepositoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    SupportTicket ticket;
     try {
-      await ref.read(supportRepositoryProvider).raiseTicket(topic: topic, description: description, tripId: _tripId);
-    } on OfflineException {
-      if (mounted) showTtSnack(context, "You're offline. Try again when you're connected.");
+      ticket = await repo.raiseTicket(
+        topic: topic,
+        description: description,
+        tripId: _tripId,
+      );
+    } catch (e) {
+      if (mounted) showTtSnack(context, apiErrorMessage(e));
       return;
-    } on ApiException catch (e) {
-      // e.g. the description is too short for the API's validation.
-      if (mounted) showTtSnack(context, e.message);
-      return;
+    }
+    bool photoFailed = false;
+    if (photo != null) {
+      try {
+        await repo.uploadAttachment(ticket.id, photo.bytes, photo.name);
+      } catch (_) {
+        photoFailed = true;
+      }
     }
     container.invalidate(ticketsProvider);
     if (!mounted) return;
-    showTtSnack(context, 'Ticket raised. We usually reply within 24 hours.', success: true);
     _close();
+    if (photoFailed && photo != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Ticket raised, but the photo could not upload.'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () async {
+              try {
+                await repo.uploadAttachment(ticket.id, photo.bytes, photo.name);
+              } catch (_) {
+                if (messenger.mounted) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Photo upload failed. Try again when connected.',
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ),
+      );
+    } else {
+      showTtSnack(
+        context,
+        'Ticket raised. We usually reply within 24 hours.',
+        success: true,
+      );
+    }
   }
 
   @override
@@ -99,16 +150,23 @@ class _P25bNewTicketScreenState extends ConsumerState<P25bNewTicketScreen> {
           : NewTicketView(
               topics: ref.read(supportRepositoryProvider).topics(driver: false),
               initialTopic: widget.topic,
-              trip: trip == null ? null : supportTripRef(trip, withVehicle: true),
+              trip: trip == null
+                  ? null
+                  : supportTripRef(trip, withVehicle: true),
               onChangeTrip: trips.length > 1 ? () => _changeTrip(trips) : null,
               onSubmit: _submit,
+              onSubmitWithPhoto: _submit,
             ),
     );
   }
 }
 
 class _TripOption extends StatelessWidget {
-  const _TripOption({required this.trip, required this.selected, required this.onTap});
+  const _TripOption({
+    required this.trip,
+    required this.selected,
+    required this.onTap,
+  });
   final Trip trip;
   final bool selected;
   final VoidCallback onTap;

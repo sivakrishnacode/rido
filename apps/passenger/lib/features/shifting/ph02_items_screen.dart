@@ -53,36 +53,55 @@ class _PH02ItemsScreenState extends ConsumerState<PH02ItemsScreen> {
   }
 
   Future<void> _paste() async {
-    final items = await showTtSheet<List<ShiftingItem>>(context, builder: (_) => const _PasteListSheet());
+    final items = await showTtSheet<List<ShiftingItem>>(
+      context,
+      builder: (_) => const _PasteListSheet(),
+    );
     if (items == null || items.isEmpty || !mounted) return;
     // The list growing is the confirmation (a snack would cover the Next button).
     ref.read(shiftingFlowProvider.notifier).addItems(items);
   }
 
   Future<void> _edit(int index, ShiftingItem item) async {
-    final result = await showTtSheet<ShiftingItem?>(context, builder: (_) => _EditItemSheet(item: item));
+    final result = await showTtSheet<ShiftingItem?>(
+      context,
+      builder: (_) => _EditItemSheet(item: item),
+    );
     if (!mounted || result == null) return;
     final flow = ref.read(shiftingFlowProvider.notifier);
     // An empty name from the sheet's Remove.
-    result.name.isEmpty ? flow.removeItem(index) : flow.updateItem(index, result);
+    result.name.isEmpty
+        ? flow.removeItem(index)
+        : flow.updateItem(index, result);
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final s = widget.showcase ? ShiftingFlowState.sample() : ref.watch(shiftingFlowProvider);
+    final s = widget.showcase
+        ? ShiftingFlowState.sample()
+        : ref.watch(shiftingFlowProvider);
     final items = s.details.items;
     final count = s.details.itemCount;
     final full = items.length >= GoodsModeRates.maxItems;
 
     return ShiftingScaffold(
+      error: s.quoteError,
+      onRetry: () => ref.read(shiftingFlowProvider.notifier).refreshQuote(),
       title: 'Packers & Movers',
       step: 2,
       bottom: ShiftingPriceBar(
+        pricing: s.quoteError == null,
         total: s.quote?.lines.total,
-        caption: items.isEmpty ? 'Add at least one item' : '${items.length} item${items.length == 1 ? '' : 's'} · $count in all',
+        caption: items.isEmpty
+            ? 'Add at least one item'
+            : '${items.length} item${items.length == 1 ? '' : 's'} · $count in all',
         label: 'Day & extras',
-        onPressed: widget.showcase ? () {} : (items.isEmpty ? null : () => context.push(Routes.shiftingSchedule)),
+        onPressed: widget.showcase
+            ? () {}
+            : (items.isEmpty
+                  ? null
+                  : () => context.push(Routes.shiftingSchedule)),
       ),
       children: [
         Row(

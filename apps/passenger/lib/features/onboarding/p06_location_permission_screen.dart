@@ -28,16 +28,23 @@ class P06LocationPermissionScreen extends ConsumerWidget {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: c.maxHeight),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: TtSpacing.xl, vertical: TtSpacing.xl),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: TtSpacing.xl,
+                        vertical: TtSpacing.xl,
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const _PinIllustration(size: 240),
                           const SizedBox(height: TtSpacing.xxl),
-                          Text('Allow location access', style: t.display, textAlign: TextAlign.center),
+                          Text(
+                            'Allow location access',
+                            style: t.display,
+                            textAlign: TextAlign.center,
+                          ),
                           const SizedBox(height: TtSpacing.m),
                           Text(
-                            'So your driver finds you at the exact spot — even in busy Gandhipuram.',
+                            'So your driver finds you at the exact spot — even on a busy street.',
                             style: t.body.copyWith(color: TtColors.navy700),
                             textAlign: TextAlign.center,
                           ),

@@ -7,11 +7,15 @@ import '../../../router/routes.dart';
 
 /// A trip's status for lists and details: the pill / text kind and its word.
 (StatusKind, String) tripStatusOf(Trip trip) => switch (trip.status) {
-      TripStatus.completed => (StatusKind.completed, 'Completed'),
-      TripStatus.delivered => (StatusKind.delivered, 'Delivered'),
-      TripStatus.cancelled => (StatusKind.cancelled, 'Cancelled'),
-      _ => (StatusKind.inProgress, 'In progress'),
-    };
+  TripStatus.completed => (StatusKind.completed, 'Completed'),
+  TripStatus.delivered => (StatusKind.delivered, 'Delivered'),
+  TripStatus.cancelled => (StatusKind.cancelled, 'Cancelled'),
+  TripStatus.scheduled => (
+    StatusKind.inProgress,
+    'Scheduled · ${formatWhen(trip.scheduledAt ?? trip.startedAt)}',
+  ),
+  _ => (StatusKind.inProgress, 'In progress'),
+};
 
 /// One past trip in a list, two lines (~60 dp, so a phone shows ten or more): the icon, where it went (the pickup is
 /// usually "Current location"; P-22 has both), when and with what, and on the right the fare with its status under

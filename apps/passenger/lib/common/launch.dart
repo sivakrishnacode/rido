@@ -31,8 +31,30 @@ Future<void> openWhatsApp(BuildContext context, String text) async {
   await _open(context, uri, 'WhatsApp is not installed');
 }
 
+/// Opens a WhatsApp chat with [phone] (support), [text] typed in.
+Future<void> openWhatsAppTo(
+  BuildContext context,
+  String phone,
+  String text,
+) async {
+  var digits = phone.replaceAll(RegExp(r'\D'), '');
+  if (digits.length == 10) digits = '91$digits';
+  final uri = Uri.parse(
+    'https://wa.me/$digits?text=${Uri.encodeComponent(text)}',
+  );
+  await _open(context, uri, 'WhatsApp is not installed');
+}
+
+/// Opens [uri] in the browser or the app that handles it (the Play Store listing).
+Future<void> openLink(BuildContext context, Uri uri) =>
+    _open(context, uri, 'Could not open the link');
+
 /// The system share sheet ("More").
-Future<void> shareText(BuildContext context, String text, {String? subject}) async {
+Future<void> shareText(
+  BuildContext context,
+  String text, {
+  String? subject,
+}) async {
   try {
     await SharePlus.instance.share(ShareParams(text: text, subject: subject));
   } catch (_) {

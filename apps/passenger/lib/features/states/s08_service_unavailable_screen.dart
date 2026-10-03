@@ -48,11 +48,17 @@ class S08ServiceUnavailableView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
-    final pin = this.pin ?? Seed.outsideArea.location;
-    final cities = ref.watch(serviceCitiesProvider).value ?? const <ServiceCity>[];
+    final pin =
+        this.pin ??
+        (ref.watch(isLiveApiProvider)
+            ? CityDefaults.center
+            : Seed.outsideArea.location);
+    final cities =
+        ref.watch(serviceCitiesProvider).value ?? const <ServiceCity>[];
     // The nearest service city (from the API; the demo city in mock mode).
     final centre = nearestCity(cities, pin)?.center ?? CityDefaults.center;
-    final southEdge = offsetPoint(centre, Seed.serviceRadiusKm * 1000, 180);
+    final area =
+        ref.watch(_serviceAreaProvider).value ?? const <List<LatLng>>[];
     return LayoutBuilder(
       builder: (context, c) {
         const sheetMin = 330.0;
@@ -67,12 +73,19 @@ class S08ServiceUnavailableView extends ConsumerWidget {
               child: TtMap(
                 center: centre,
                 zoom: 10,
-                fitPoints: [pin, southEdge],
+                fitPoints: [pin, centre, for (final ring in area) ...ring],
                 // The pin's label draws ~70 px above its point: leave room for it below the status bar.
-                fitPadding: EdgeInsets.fromLTRB(32, MediaQuery.paddingOf(context).top + 96, 32, 56),
+                fitPadding: EdgeInsets.fromLTRB(
+                  32,
+                  MediaQuery.paddingOf(context).top + 96,
+                  32,
+                  56,
+                ),
                 // The service area as its H3 outline (hexes, never a circle).
                 polygons: [
-                  for (final ring in ref.watch(_serviceAreaProvider).value ?? const <List<LatLng>>[])
+                  for (final ring
+                      in ref.watch(_serviceAreaProvider).value ??
+                          const <List<LatLng>>[])
                     MapPolygon(
                       points: ring,
                       fillColor: TtColors.coral500.withValues(alpha: 0.14),

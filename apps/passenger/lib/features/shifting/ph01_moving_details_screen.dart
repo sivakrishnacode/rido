@@ -38,22 +38,31 @@ class PH01MovingDetailsScreen extends ConsumerWidget {
     }
 
     return ShiftingScaffold(
+      error: s.quoteError,
+      onRetry: () => ref.read(shiftingFlowProvider.notifier).refreshQuote(),
       title: 'Packers & Movers',
       step: 1,
-      onBack: () => context.canPop() ? context.pop() : context.go(Routes.parcel),
+      onBack: () =>
+          context.canPop() ? context.pop() : context.go(Routes.parcel),
       bottom: ShiftingPriceBar(
         total: s.placesReady ? s.quote?.lines.total : null,
         // No new home yet: nothing to price, so no placeholder that seems to load for ever.
-        pricing: s.placesReady,
-        caption: s.placesReady ? '${size.helpers} helpers · ${s.vehicleOrSuggested.label} suggested' : 'Choose the new home to see the price',
+        pricing: s.placesReady && s.quoteError == null,
+        caption: s.placesReady
+            ? '${size.helpers} helpers · ${s.vehicleOrSuggested.label} suggested'
+            : 'Choose the new home to see the price',
         label: 'Add items',
-        onPressed: showcase ? () {} : (s.placesReady ? () => context.push(Routes.shiftingItems) : null),
+        onPressed: showcase
+            ? () {}
+            : (s.placesReady ? () => context.push(Routes.shiftingItems) : null),
       ),
       children: [
         Text('Moving home?', style: t.h1),
         const SizedBox(height: 4),
-        Text('A truck, helpers and packing if you want it. You see the full price before you book.',
-            style: t.bodySmall.copyWith(color: TtColors.navy500)),
+        Text(
+          'A truck, helpers and packing if you want it. You see the full price before you book.',
+          style: t.bodySmall.copyWith(color: TtColors.navy500),
+        ),
         const SizedBox(height: TtSpacing.l),
         TtSegmented<bool>(
           options: const [false, true],

@@ -4,12 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/launch.dart';
+
 import '../../router/routes.dart';
 import '../../state/passenger_session.dart';
 import '../states/s04_no_internet_screen.dart';
 
 /// A trip as a help shortcut: "Gandhipuram → Brookefields · Today, 3:28 PM · ₹38".
-SupportTripRef supportTripRef(Trip trip, {bool withVehicle = false}) => SupportTripRef(
+SupportTripRef supportTripRef(Trip trip, {bool withVehicle = false}) =>
+    SupportTripRef(
       id: trip.id,
       title: '${trip.fromLabel} → ${trip.toLabel}',
       subtitle: [
@@ -23,6 +26,21 @@ SupportTripRef supportTripRef(Trip trip, {bool withVehicle = false}) => SupportT
 /// P-25 Help & support: search, recent trip shortcut, topics, "My tickets", WhatsApp and
 /// Raise a ticket. [tripId] (from P-22) is carried into the new ticket.
 class P25HelpScreen extends ConsumerWidget {
+  /// "Delete my account": riders delete it themselves, from Account.
+  static Future<void> _deleteHelp(BuildContext context) async {
+    final go = await showTtConfirm(
+      context,
+      title: 'Delete my account',
+      message:
+          'You can delete your account yourself: Account › Delete account (at the bottom). Your profile, saved '
+          'places and contacts go; past trips stay on record without your name or number.',
+      icon: Symbols.person_remove_rounded,
+      confirmLabel: 'Go to Account',
+      cancelLabel: 'Not now',
+    );
+    if (go && context.mounted) context.go(Routes.account);
+  }
+
   const P25HelpScreen({super.key, this.tripId, this.showcase = false});
 
   final String? tripId;
@@ -42,21 +60,42 @@ class P25HelpScreen extends ConsumerWidget {
     recent ??= trips.isEmpty ? null : trips.first;
 
     final offline = tickets.error is OfflineException;
+    final support = ref.watch(appConfigProvider).value;
     return Scaffold(
       appBar: const TtAppBar(title: 'Help & support'),
       body: offline
-          ? S04NoInternetView(onRetry: () {
-              ref.invalidate(ticketsProvider);
-              ref.invalidate(tripHistoryProvider);
-            })
+          ? S04NoInternetView(
+              onRetry: () {
+                ref.invalidate(ticketsProvider);
+                ref.invalidate(tripHistoryProvider);
+              },
+            )
           : SupportHomeView(
               topics: ref.read(supportRepositoryProvider).topics(driver: false),
               tickets: tickets.value,
+              ticketsError: tickets.hasError
+                  ? 'Could not load tickets. Try again.'
+                  : null,
+              onRetryTickets: () => ref.invalidate(ticketsProvider),
               recentTrip: recent == null ? null : supportTripRef(recent),
-              onRecentTrip: recent == null ? null : () => context.push(Routes.newTicket(tripId: recent!.id)),
-              onTopic: (topic) => context.push(Routes.newTicket(topic: topic, tripId: tripId)),
-              onRaiseTicket: () => context.push(Routes.newTicket(tripId: tripId)),
-              onWhatsApp: () => showTtSnack(context, 'Opening WhatsApp'),
+              onRecentTrip: recent == null
+                  ? null
+                  : () => context.push(Routes.newTicket(tripId: recent!.id)),
+              onTopic: (topic) => topic == 'Delete my account'
+                  ? _deleteHelp(context)
+                  : context.push(
+                      Routes.newTicket(topic: topic, tripId: tripId),
+                    ),
+              onRaiseTicket: () =>
+                  context.push(Routes.newTicket(tripId: tripId)),
+              onWhatsApp:
+                  support == null || !support.hasSupportPhone || showcase
+                  ? null
+                  : () => openWhatsAppTo(
+                      context,
+                      support.supportPhone,
+                      'Hi Tamil Taxi support, ',
+                    ),
             ),
     );
   }

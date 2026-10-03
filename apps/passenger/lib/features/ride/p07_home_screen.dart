@@ -133,7 +133,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
         // Live: the banner explains and its button fixes it; the demo keeps S-05.
         if (!ref.read(isLiveApiProvider)) context.push(Routes.locationDenied);
       case LocateResult.unavailable:
-        _moveTo(_camera);
+        _moveTo(_cameraFor(ref.read(rideFlowProvider).pickup.location));
     }
   }
 
@@ -270,7 +270,6 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
                   key: ValueKey(tripActive),
                   initialSize: sheetSize,
                   minSize: tripActive ? 0.3 : 0.34,
-                  snapSizes: [sheetSize],
                   footer: tripActive ? null : const HomeFooter(),
                   builder: (context) => tripActive ? _activeSheet(profile) : _bookingSheet(profile),
                 ),
@@ -289,7 +288,7 @@ class _P07HomeScreenState extends ConsumerState<P07HomeScreen> {
         : ref.watch(recentDestinationsProvider);
     return [
       AsyncView<List<Place>>(
-        value: recent,
+        value: recent.hasError ? const AsyncData<List<Place>>([]) : recent,
         onRetry: () => ref.invalidate(recentDestinationsProvider),
         loading: const S07aHomeSheetSkeleton(),
         data: (places) => Column(

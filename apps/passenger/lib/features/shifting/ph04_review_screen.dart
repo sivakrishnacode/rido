@@ -42,27 +42,48 @@ class _PH04ReviewScreenState extends ConsumerState<PH04ReviewScreen> {
     final shown = _allItems ? items : items.take(4).toList();
     final extras = [
       if (d.packing != PackingLevel.none) '${d.packing.label} packing',
-      if (d.dismantlePieces > 0) '${d.dismantlePieces} piece${d.dismantlePieces == 1 ? '' : 's'} taken apart',
+      if (d.dismantlePieces > 0)
+        '${d.dismantlePieces} piece${d.dismantlePieces == 1 ? '' : 's'} taken apart',
       if (d.unpack) 'Unpacking',
     ];
 
     Widget change(String route) => TextButton(
-          onPressed: widget.showcase ? () {} : () => context.go(route),
-          style: TextButton.styleFrom(foregroundColor: TtColors.coral600, minimumSize: const Size(48, 36), padding: const EdgeInsets.symmetric(horizontal: 8)),
-          child: const Text('Change'),
-        );
+      onPressed: widget.showcase ? () {} : () => context.go(route),
+      style: TextButton.styleFrom(
+        foregroundColor: TtColors.coral600,
+        minimumSize: const Size(48, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+      ),
+      child: const Text('Change'),
+    );
 
     return ShiftingScaffold(
+      error: s.quoteError,
+      onRetry: () => ref.read(shiftingFlowProvider.notifier).refreshQuote(),
       title: 'Review your move',
       bottom: SafeArea(
         top: false,
         child: Container(
-          decoration: const BoxDecoration(color: TtColors.surface, border: Border(top: BorderSide(color: TtColors.divider))),
-          padding: const EdgeInsets.fromLTRB(TtSpacing.l, TtSpacing.m, TtSpacing.l, TtSpacing.m),
+          decoration: const BoxDecoration(
+            color: TtColors.surface,
+            border: Border(top: BorderSide(color: TtColors.divider)),
+          ),
+          padding: const EdgeInsets.fromLTRB(
+            TtSpacing.l,
+            TtSpacing.m,
+            TtSpacing.l,
+            TtSpacing.m,
+          ),
           child: TtButton(
-            label: q == null ? 'Getting the price…' : 'Book · ${formatInr(q.lines.total)}',
+            label: q == null
+                ? (s.quoteError == null
+                      ? 'Getting the price…'
+                      : 'Price unavailable')
+                : 'Book · ${formatInr(q.lines.total)}',
             loading: s.busy,
-            onPressed: widget.showcase ? () {} : (q == null || drop == null ? null : _book),
+            onPressed: widget.showcase
+                ? () {}
+                : (q == null || drop == null ? null : _book),
           ),
         ),
       ),

@@ -4,6 +4,7 @@ import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/phone.dart';
+import '../../common/launch.dart';
 import '../../state/passenger_session.dart';
 import 'p24b_add_contact_sheet.dart';
 
@@ -39,42 +40,62 @@ class P24EmergencyContactsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: const TtAppBar(
         title: 'Emergency contacts',
-        bottom: PreferredSize(preferredSize: Size.fromHeight(1), child: Divider(height: 1)),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text("We'll send them your live location if you press SOS. Add up to 3 people.",
-              style: t.body.copyWith(color: TtColors.navy700)),
+          Text(
+            "We'll send them your live location if you press SOS. Add up to 3 people.",
+            style: t.body.copyWith(color: TtColors.navy700),
+          ),
           const SizedBox(height: 16),
           if (contacts.isEmpty)
             TtCard(
-              child: Row(children: [
-                const Icon(Symbols.group_add_rounded, color: TtColors.navy500),
-                const SizedBox(width: 12),
-                Expanded(child: Text('No contacts yet. Add someone you trust.', style: t.bodySmall)),
-              ]),
+              child: Row(
+                children: [
+                  const Icon(
+                    Symbols.group_add_rounded,
+                    color: TtColors.navy500,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'No contacts yet. Add someone you trust.',
+                      style: t.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
             )
           else
-            TtListGroup(children: [
-              for (final c in contacts)
-                Dismissible(
-                  key: ValueKey(c.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: TtColors.errorTint,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    child: const Icon(Symbols.delete_rounded, color: TtColors.error),
+            TtListGroup(
+              children: [
+                for (final c in contacts)
+                  Dismissible(
+                    key: ValueKey(c.id),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      color: TtColors.errorTint,
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      child: const Icon(
+                        Symbols.delete_rounded,
+                        color: TtColors.error,
+                      ),
+                    ),
+                    onDismissed: (_) => _remove(context, ref, c),
+                    child: _ContactTile(
+                      contact: c,
+                      onCall: () => callNumber(context, c.phone, name: c.name),
+                      onRemove: () => _remove(context, ref, c),
+                    ),
                   ),
-                  onDismissed: (_) => _remove(context, ref, c),
-                  child: _ContactTile(
-                    contact: c,
-                    onCall: () => showTtSnack(context, 'Calling ${c.name}'),
-                    onRemove: () => _remove(context, ref, c),
-                  ),
-                ),
-            ]),
+              ],
+            ),
           const SizedBox(height: 16),
           TtButton.secondary(
             label: 'Add contact',

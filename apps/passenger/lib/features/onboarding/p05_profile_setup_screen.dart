@@ -67,11 +67,16 @@ class _P05ProfileSetupScreenState extends ConsumerState<P05ProfileSetupScreen> {
 
   Future<void> _submit() async {
     final name = _name.text.trim();
-    if (name.isEmpty || _saving) return;
+    if (_saving) return;
+    if (name.length < 2 || name.length > 60) {
+      showTtSnack(context, 'Enter a name with 2 to 60 characters');
+      return;
+    }
     FocusScope.of(context).unfocus();
     setState(() => _saving = true);
-    final saved =
-        await ref.read(passengerProfileProvider.notifier).setBasics(name: name, email: _email.text.trim(), gender: _gender);
+    final saved = await ref
+        .read(passengerProfileProvider.notifier)
+        .setBasics(name: name, email: _email.text.trim(), gender: _gender);
     if (!mounted) return;
     setState(() => _saving = false);
     if (!saved) return;

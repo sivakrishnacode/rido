@@ -78,27 +78,36 @@ class _Details extends StatelessWidget {
 
   /// Plain-text receipt for the share sheet (email, WhatsApp, save to files…).
   String _receipt(FareQuote q) => [
-        'Tamil Taxi receipt · ${trip.isParcel ? 'Parcel' : trip.vehicle.label}',
-        '${formatRelativeDay(trip.startedAt, withTime: true)} · Trip ${trip.id}',
-        'From: ${trip.pickup.name}',
-        'To: ${trip.drop.name}',
-        if (trip.driver != null) 'Driver: ${trip.driver!.name} · ${trip.driver!.plate}',
-        '${q.distanceKm.toStringAsFixed(1)} km · ${q.durationMin} min',
-        'Base ${formatInr(q.base)} · Distance ${formatInr(q.distanceCharge)} · Time ${formatInr(q.timeCharge)}'
-            '${q.minFareTopUp > 0 ? ' · Minimum fare ${formatInr(q.minFareTopUp)}' : ''}'
-            '${q.hasPeak ? ' · Peak ${formatInr(q.peakCharge)}' : ''}'
-            '${q.hasWaiting ? ' · Waiting ${formatInr(q.waitingCharge)}' : ''}'
-            '${q.hasCancellationFee ? ' · Previous cancellation fee ${formatInr(q.previousCancellationFee)}' : ''}'
-            '${q.hasExtra ? ' · Extra you added ${formatInr(q.extra)}' : ''}',
-        'Total: ${formatInr(trip.fare)} (paid to the driver, ${trip.paymentMode == PaymentMode.upi ? 'UPI' : 'cash'})',
-      ].join('\n');
+    'Tamil Taxi receipt · ${trip.isShifting
+        ? 'Packers & Movers'
+        : trip.isParcel
+        ? 'Parcel'
+        : trip.vehicle.label}',
+    '${formatRelativeDay(trip.startedAt, withTime: true)} · Trip ${trip.id}',
+    'From: ${trip.pickup.name}',
+    'To: ${trip.drop.name}',
+    if (trip.driver != null)
+      'Driver: ${trip.driver!.name} · ${trip.driver!.plate}',
+    '${q.distanceKm.toStringAsFixed(1)} km · ${q.durationMin} min',
+    'Base ${formatInr(q.base)} · Distance ${formatInr(q.distanceCharge)} · Time ${formatInr(q.timeCharge)}'
+        '${q.minFareTopUp > 0 ? ' · Minimum fare ${formatInr(q.minFareTopUp)}' : ''}'
+        '${q.hasPeak ? ' · Peak ${formatInr(q.peakCharge)}' : ''}'
+        '${q.hasWaiting ? ' · Waiting ${formatInr(q.waitingCharge)}' : ''}'
+        '${q.hasCancellationFee ? ' · Previous cancellation fee ${formatInr(q.previousCancellationFee)}' : ''}'
+        '${q.hasExtra ? ' · Extra you added ${formatInr(q.extra)}' : ''}',
+    'Total: ${formatInr(trip.fare)} (paid to the driver, ${trip.paymentMode == PaymentMode.upi ? 'UPI' : 'cash'})',
+  ].join('\n');
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
     final (kind, label) = tripStatusOf(trip);
     final cancelled = trip.status == TripStatus.cancelled;
-    final route = roadPath(trip.pickup.location, trip.drop.location, mode: travelModeFor(trip.vehicle));
+    final route = roadPath(
+      trip.pickup.location,
+      trip.drop.location,
+      mode: travelModeFor(trip.vehicle),
+    );
     final end = trip.startedAt.add(Duration(minutes: trip.durationMin));
     final driver = trip.driver;
     final quote = P22TripDetailsScreen.quoteFor(trip);
@@ -135,7 +144,11 @@ class _Details extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                '${formatRelativeDay(trip.startedAt, withTime: true)} · ${trip.isParcel ? 'Parcel' : trip.vehicle.label}',
+                '${formatRelativeDay(trip.startedAt, withTime: true)} · ${trip.isShifting
+                    ? 'Packers & Movers'
+                    : trip.isParcel
+                    ? 'Parcel'
+                    : trip.vehicle.label}',
                 style: TtTextStyles.tabular(t.h2),
               ),
             ),
@@ -192,22 +205,44 @@ class _Details extends StatelessWidget {
           child: cancelled
               ? Row(
                   children: [
-                    const Icon(Symbols.money_off_rounded, color: TtColors.navy700),
+                    const Icon(
+                      Symbols.money_off_rounded,
+                      color: TtColors.navy700,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text.rich(TextSpan(children: [
-                        TextSpan(text: 'No charge. ', style: t.bodySemibold),
+                      child: Text.rich(
                         TextSpan(
-                          text: 'This trip was cancelled before pickup. Estimated fare was ${formatInr(trip.fare)}.',
-                          style: t.bodySmall.copyWith(color: TtColors.navy700),
+                          children: [
+                            TextSpan(
+                              text: 'No charge. ',
+                              style: t.bodySemibold,
+                            ),
+                            TextSpan(
+                              text:
+                                  'This trip was cancelled before pickup. Estimated fare was ${formatInr(trip.fare)}.',
+                              style: t.bodySmall.copyWith(
+                                color: TtColors.navy700,
+                              ),
+                            ),
+                          ],
                         ),
-                      ])),
+                      ),
                     ),
                   ],
                 )
+              : trip.shifting?.lines != null
+              ? FareBreakdown.fromShifting(
+                  trip.shifting!.lines!,
+                  vehicle: trip.vehicle,
+                  between: trip.shifting!.between,
+                  details: trip.shifting,
+                )
               : _FareTable(
                   quote: quote,
-                  totalLabel: trip.isParcel && trip.parcel?.payer == ParcelPayer.receiver
+                  totalLabel:
+                      trip.isParcel &&
+                          trip.parcel?.payer == ParcelPayer.receiver
                       ? 'Paid by receiver · $paidBy'
                       : 'Paid to driver · $paidBy',
                 ),

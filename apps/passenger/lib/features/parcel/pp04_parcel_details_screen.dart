@@ -63,12 +63,10 @@ class PP04ParcelDetailsScreen extends ConsumerWidget {
                     onChanged: (w) => ctrl.updateDetails(d.copyWith(weight: w)),
                   ),
                   const SizedBox(height: 24),
-                  _PhotoTile(
-                    added: d.hasPhoto,
-                    onTap: () {
-                      ctrl.updateDetails(d.copyWith(hasPhoto: !d.hasPhoto));
-                      showTtSnack(context, d.hasPhoto ? 'Photo removed' : 'Photo added', success: !d.hasPhoto);
-                    },
+                  PhotoAttachmentTile(
+                    photo: ctrl.photo,
+                    label: 'Add photo of parcel',
+                    onChanged: ctrl.setPhoto,
                   ),
                   const SizedBox(height: 16),
                   _ProhibitedCheck(
@@ -96,71 +94,12 @@ class PP04ParcelDetailsScreen extends ConsumerWidget {
   }
 }
 
-class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.added, required this.onTap});
-  final bool added;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.type;
-    return Semantics(
-      button: true,
-      label: added ? 'Photo added. Tap to remove' : 'Add photo of parcel, optional',
-      excludeSemantics: true,
-      child: Material(
-        color: added ? TtColors.successTint : TtColors.background,
-        shape: RoundedRectangleBorder(
-          borderRadius: TtRadii.cardRadius,
-          side: BorderSide(color: added ? TtColors.success : TtColors.navy300),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: TtColors.surface,
-                    borderRadius: TtRadii.cardRadius,
-                    border: Border.all(color: TtColors.divider),
-                  ),
-                  child: Icon(
-                    added ? Symbols.image_rounded : Symbols.add_a_photo_rounded,
-                    color: added ? TtColors.success : TtColors.coral600,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(added ? 'Photo added ✓' : 'Add photo of parcel',
-                          style: t.bodySemibold.copyWith(color: added ? TtColors.successText : TtColors.navy900)),
-                      const SizedBox(height: 2),
-                      Text(
-                        added ? 'parcel_photo.jpg · Tap to remove' : 'Optional · helps the driver pick the right vehicle',
-                        style: t.bodySmall.copyWith(color: TtColors.navy500),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ProhibitedCheck extends StatelessWidget {
-  const _ProhibitedCheck({required this.value, required this.onChanged, required this.onSeeList});
+  const _ProhibitedCheck({
+    required this.value,
+    required this.onChanged,
+    required this.onSeeList,
+  });
   final bool value;
   final ValueChanged<bool> onChanged;
   final VoidCallback onSeeList;
