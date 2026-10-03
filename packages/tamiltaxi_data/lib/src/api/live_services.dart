@@ -23,6 +23,10 @@ Json _map(dynamic body) => (body as Map).cast<String, dynamic>();
 /// A trip update from the API: the mapped [trip] plus the raw API [status] (which also has `NO_DRIVERS`).
 class LiveTripUpdate {
   const LiveTripUpdate(this.trip, this.status, this.json);
+
+  /// A trip as the API sends it (`trip.updated`, `GET /trips/:id`).
+  factory LiveTripUpdate.fromJson(Json j) => LiveTripUpdate(tripFromJson(j), apiStatusOf(j), j);
+
   final Trip trip;
 
   /// SEARCHING, NO_DRIVERS, DRIVER_ASSIGNED, DRIVER_ARRIVED, IN_PROGRESS, PICKED_UP, COMPLETED, DELIVERED, CANCELLED.
@@ -187,7 +191,7 @@ class LiveTrips {
 
   Future<void> rate(String tripId, int rating) => api.post('/trips/$tripId/rate', {'rating': rating});
 
-  static LiveTripUpdate _update(Json j) => LiveTripUpdate(tripFromJson(j), apiStatusOf(j), j);
+  static LiveTripUpdate _update(Json j) => LiveTripUpdate.fromJson(j);
 }
 
 /// A reminder about the driver's current trip (`trip.nudge`). [kind]: NOT_MOVING, NO_SHOW_ALLOWED, END_TRIP,
