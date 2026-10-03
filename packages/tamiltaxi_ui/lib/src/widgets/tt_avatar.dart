@@ -55,16 +55,20 @@ class TtAvatar extends StatelessWidget {
               border: ringColor != null ? Border.all(color: ringColor!, width: 3) : null,
             ),
             clipBehavior: Clip.antiAlias,
+            // The photo sits inside the ring: clipped to its own circle, else its square corners cover the ring
+            // and the ring shows only at the top, bottom and sides.
             child: image == null
                 ? label
-                : Image(
-                    image: image!,
-                    width: size,
-                    height: size,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    frameBuilder: (_, child, frame, wasSync) => frame == null && !wasSync ? label : child,
-                    errorBuilder: (_, _, _) => label,
+                : ClipOval(
+                    child: Image(
+                      image: image!,
+                      width: size,
+                      height: size,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      frameBuilder: (_, child, frame, wasSync) => frame == null && !wasSync ? label : child,
+                      errorBuilder: (_, _, _) => label,
+                    ),
                   ),
           ),
           if (online)
