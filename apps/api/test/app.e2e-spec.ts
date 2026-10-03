@@ -17,6 +17,7 @@ import { statsKey } from '../src/modules/trips/driver-rank.js';
 import { DEMAND_RES } from '../src/modules/geo/demand.service.js';
 import { cellAt } from '../src/modules/geo/h3.util.js';
 import { haversineMeters } from '../src/modules/fares/fare-engine.js';
+import { DriverLocationService } from '../src/modules/drivers/driver-location.service.js';
 import { DiditClient } from '../src/modules/kyc/didit.client.js';
 import type { DiditDecision } from '../src/modules/kyc/didit.js';
 
@@ -1846,7 +1847,18 @@ describe('Tamil Taxi API (e2e)', () => {
     await redis.expire(`driver:online_since:${driverId}`, 60);
     await http.post('/v1/drivers/me/location').set(auth).send({ lat: 11.0186, lng: 76.9728 }).expect(204);
     expect(await redis.ttl(`driver:online_since:${driverId}`)).toBeGreaterThan(5 * 3600);
+    // The driver's index entries carry a TTL too.
+    const [, cell] = (await redis.get(`driver:cell:${driverId}`))!.split('|');
+    expect(await redis.ttl(`driver:cell:${driverId}`)).toBeGreaterThan(23 * 3600);
+    expect(await redis.ttl(`h3:drv:BIKE:${cell}`)).toBeGreaterThan(23 * 3600);
     await http.post('/v1/drivers/me/offline').set(auth).expect(200);
     expect(await redis.exists(`driver:online_since:${driverId}`)).toBe(0);
+
+    // A driver whose heartbeat is gone but who never went offline is pruned when a search meets them.
+    await redis.multi().sadd(`h3:drv:BIKE:${cell}`, 'ghost-driver').set('driver:cell:ghost-driver', `BIKE|${cell}`).exec();
+    const found = await app.get(DriverLocationService).nearby({ kind: 'BIKE', lat: 11.0185, lng: 76.9727, radiusKm: 2, limit: 50 });
+    expect(found.map((d) => d.driverId)).not.toContain('ghost-driver');
+    expect(await redis.sismember(`h3:drv:BIKE:${cell}`, 'ghost-driver')).toBe(0);
+    expect(await redis.exists('driver:cell:ghost-driver')).toBe(0);
   });
 });

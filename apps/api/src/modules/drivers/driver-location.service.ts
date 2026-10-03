@@ -12,6 +12,25 @@ import { ONLINE_SESSION_TTL_S, onlineSessionKey } from './driver-earnings.servic
 export const DRIVER_H3_RES = 8;
 const RING_SPACING_KM = 0.92;
 const ALIVE_TTL_S = 90;
+/**
+ * `driver:cell:<id>` and the `h3:drv:*` cell sets live a day from the last fix that wrote them: a driver whose app
+ * stopped without going offline doesn't stay in Redis for ever. Members whose heartbeat is gone are pruned by
+ * [DriverLocationService.nearby] as it meets them.
+ */
+const INDEX_TTL_S = 86_400;
+
+/**
+ * Removes ARGV (driver ids) from every set in KEYS, each only if `driver:alive:<id>` is still gone (a fix may have
+ * brought them back meanwhile), and their `driver:cell` entry. Returns how many set entries were removed.
+ */
+const PRUNE = `local n = 0
+for _, id in ipairs(ARGV) do
+  if redis.call('exists', 'driver:alive:' .. id) == 0 then
+    for _, k in ipairs(KEYS) do n = n + redis.call('srem', k, id) end
+    redis.call('del', 'driver:cell:' .. id)
+  end
+end
+return n`;
 
 /** `driver:busy` can never stick for good: it expires unless GPS updates keep refreshing it during the trip. */
 export const BUSY_TTL_S = 6 * 3600;
@@ -62,7 +81,8 @@ export class DriverLocationService {
       tx.srem(DriverLocationService.cellKey(pk as VehicleKind, pc), params.driverId);
     }
     tx.sadd(DriverLocationService.cellKey(params.kind, cell), params.driverId)
-      .set(`driver:cell:${params.driverId}`, next)
+      .expire(DriverLocationService.cellKey(params.kind, cell), INDEX_TTL_S)
+      .set(`driver:cell:${params.driverId}`, next, 'EX', INDEX_TTL_S)
       .set(
         `driver:alive:${params.driverId}`,
         `${params.lat},${params.lng},${params.at ?? Date.now()}${params.heading == null ? '' : `,${Math.round(params.heading)}`}`,
@@ -131,7 +151,8 @@ export class DriverLocationService {
 
   /**
    * Available drivers from the pickup hexagon outward, ring by ring, up to [radiusKm].
-   * Stops after the ring where at least [limit] drivers were found.
+   * Stops after the ring where at least [limit] drivers were found. Members without a heartbeat (the app stopped
+   * without going offline) are pruned from the ring's cell sets on the way.
    */
   async nearby(params: { kind: VehicleKind; lat: number; lng: number; radiusKm: number; limit: number }): Promise<NearbyDriver[]> {
     const origin = cellAt(params.lat, params.lng, DRIVER_H3_RES);
@@ -141,18 +162,17 @@ export class DriverLocationService {
     for (let ring = 0; ring < rings.length; ring++) {
       const keys = rings[ring].map((c) => DriverLocationService.cellKey(params.kind, c));
       const ids = keys.length ? await this.redis.sunion(...keys) : [];
+      const stale: string[] = [];
       for (const driverId of ids) {
-        const d = await this.available(driverId, params);
-        if (d && d.distanceKm <= params.radiusKm) found.push({ ...d, ring });
+        const [pos, isBusy] = await Promise.all([this.position(driverId), this.redis.exists(`driver:busy:${driverId}`)]);
+        if (!pos) stale.push(driverId);
+        if (!pos || isBusy) continue;
+        const distanceKm = haversineMeters(pos, params) / 1000;
+        if (distanceKm <= params.radiusKm) found.push({ driverId, ...pos, distanceKm, ring });
       }
+      if (stale.length) await this.redis.eval(PRUNE, keys.length, ...keys, ...stale);
       if (found.length >= params.limit) break;
     }
     return found.sort((a, b) => a.ring - b.ring || a.distanceKm - b.distanceKm);
-  }
-
-  private async available(driverId: string, at: { lat: number; lng: number }): Promise<Omit<NearbyDriver, 'ring'> | null> {
-    const [pos, isBusy] = await Promise.all([this.position(driverId), this.redis.exists(`driver:busy:${driverId}`)]);
-    if (!pos || isBusy) return null;
-    return { driverId, ...pos, distanceKm: haversineMeters(pos, at) / 1000 };
   }
 }
