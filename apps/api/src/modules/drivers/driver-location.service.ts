@@ -6,6 +6,7 @@ import type { VehicleKind } from '../../generated/prisma/enums.js';
 import { haversineMeters } from '../fares/fare-engine.js';
 import { cellAt } from '../geo/h3.util.js';
 import { IDLE_KEY_TTL_S, lastTripEndKey, onlineSinceKey } from '../trips/driver-rank.js';
+import { ONLINE_SESSION_TTL_S, onlineSessionKey } from './driver-earnings.service.js';
 
 /** Resolution used to index drivers (≈0.74 km² hexes, ~0.9 km between neighbouring centres). */
 export const DRIVER_H3_RES = 8;
@@ -69,7 +70,9 @@ export class DriverLocationService {
         ALIVE_TTL_S,
       )
       // Keeps the busy flag alive while the driver is on a trip (no-op when free).
-      .expire(`driver:busy:${params.driverId}`, BUSY_TTL_S);
+      .expire(`driver:busy:${params.driverId}`, BUSY_TTL_S)
+      // And the open online session (earnings' online hours) while the app sends fixes.
+      .expire(onlineSessionKey(params.driverId), ONLINE_SESSION_TTL_S);
     await tx.exec();
   }
 
