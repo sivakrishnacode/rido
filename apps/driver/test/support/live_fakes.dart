@@ -44,6 +44,10 @@ class FakeRealtime extends RealtimeClient {
   bool connected = true;
   bool batchAck = true;
   final connectionCtl = StreamController<bool>.broadcast();
+  final statusCtl = StreamController<Map<String, dynamic>>.broadcast();
+
+  @override
+  Stream<Map<String, dynamic>> on(String name) => name == 'driver.status' ? statusCtl.stream : super.on(name);
 
   @override
   bool get isConnected => connected;

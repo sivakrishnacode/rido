@@ -8,6 +8,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 import '../../common/showcase.dart';
 import '../../common/go_online.dart';
 import '../../router/routes.dart';
+import '../../common/load_error.dart';
 import '../../state/driver_account.dart';
 import '../../state/driver_session.dart';
 import 'widgets/signup_widgets.dart';
@@ -26,11 +27,33 @@ class D12bAutopaySuccessScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final pay = purpose == 'pay';
-    final plan = showcase ? Seed.plan() : (ref.watch(planProvider).value ?? Seed.plan());
-    final upi = showcase ? Seed.karthik.upiId : (ref.watch(driverProfileProvider).value?.upiId ?? Seed.karthik.upiId);
+    final planState = ref.watch(planProvider);
+    if (!showcase && ref.watch(isLiveApiProvider) && planState.value == null) {
+      return Scaffold(
+        appBar: const TtAppBar(title: 'Your plan'),
+        body: planState.hasError
+            ? LoadError(
+                error: planState.error!,
+                what: 'your plan',
+                onRetry: () => ref.invalidate(planProvider),
+              )
+            : const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final plan = showcase
+        ? Seed.plan()
+        : (ref.watch(planProvider).value ?? Seed.plan());
+    final upi = showcase
+        ? Seed.karthik.upiId
+        : (ref.watch(driverProfileProvider).value?.upiId ??
+              (ref.watch(isLiveApiProvider) ? '' : Seed.karthik.upiId));
     final daysLeft = plan.nextDebit.difference(TtClock.today).inDays;
-    final price = plan.monthlyPrice == null ? '₹—' : formatInr(plan.monthlyPrice!);
-    final vehicle = plan.vehicle == VehicleKind.truck ? 'Truck' : plan.vehicle.label;
+    final price = plan.monthlyPrice == null
+        ? '₹—'
+        : formatInr(plan.monthlyPrice!);
+    final vehicle = plan.vehicle == VehicleKind.truck
+        ? 'Truck'
+        : plan.vehicle.label;
     final date = formatDate(plan.nextDebit);
 
     Future<void> goOnline() async {

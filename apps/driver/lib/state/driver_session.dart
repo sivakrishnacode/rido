@@ -7,6 +7,8 @@ import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 
 import 'driver_location.dart';
+import 'driver_account.dart';
+import '../router/routes.dart';
 import 'live_helpers.dart';
 
 /// Where the driver's current job is.
@@ -32,7 +34,8 @@ enum JobPhase {
 /// A one-off message from the session for a snack bar (live API), e.g. "The passenger cancelled".
 @immutable
 class SessionNotice {
-  const SessionNotice(this.message, {this.jobEnded = false});
+  const SessionNotice(this.message, {this.jobEnded = false, this.goTo});
+  final String? goTo;
   final String message;
 
   /// The job ended from the other side: the job screens close and Home shows.
@@ -133,26 +136,27 @@ class DriverSessionState {
     SessionNotice? notice,
     DateTime? noShowAt,
     WaitingTerms? waiting,
-  }) =>
-      DriverSessionState(
-        online: online ?? this.online,
-        goingOnline: goingOnline ?? this.goingOnline,
-        selfieDoneThisSession: selfieDoneThisSession ?? this.selfieDoneThisSession,
-        incoming: clearIncoming ? null : (incoming ?? this.incoming),
-        incomingExpiresAt: clearIncoming ? null : (incomingExpiresAt ?? this.incomingExpiresAt),
-        queued: queued ?? (clearIncoming ? const [] : this.queued),
-        missedRequest: missedRequest ?? this.missedRequest,
-        job: clearJob ? null : (job ?? this.job),
-        phase: phase ?? this.phase,
-        route: route ?? this.route,
-        etaMin: etaMin ?? this.etaMin,
-        todayEarnings: todayEarnings ?? this.todayEarnings,
-        todayRides: todayRides ?? this.todayRides,
-        gpsLost: gpsLost ?? this.gpsLost,
-        notice: notice ?? this.notice,
-        noShowAt: clearJob ? null : (noShowAt ?? this.noShowAt),
-        waiting: clearJob ? null : (waiting ?? this.waiting),
-      );
+  }) => DriverSessionState(
+    online: online ?? this.online,
+    goingOnline: goingOnline ?? this.goingOnline,
+    selfieDoneThisSession: selfieDoneThisSession ?? this.selfieDoneThisSession,
+    incoming: clearIncoming ? null : (incoming ?? this.incoming),
+    incomingExpiresAt: clearIncoming
+        ? null
+        : (incomingExpiresAt ?? this.incomingExpiresAt),
+    queued: queued ?? (clearIncoming ? const [] : this.queued),
+    missedRequest: missedRequest ?? this.missedRequest,
+    job: clearJob ? null : (job ?? this.job),
+    phase: phase ?? this.phase,
+    route: route ?? this.route,
+    etaMin: etaMin ?? this.etaMin,
+    todayEarnings: todayEarnings ?? this.todayEarnings,
+    todayRides: todayRides ?? this.todayRides,
+    gpsLost: gpsLost ?? this.gpsLost,
+    notice: notice ?? this.notice,
+    noShowAt: clearJob ? null : (noShowAt ?? this.noShowAt),
+    waiting: clearJob ? null : (waiting ?? this.waiting),
+  );
 }
 
 /// The driver's session: online / offline, incoming requests and the current job's phases.
@@ -177,6 +181,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   StreamSubscription<bool>? _connectionSub;
   StreamSubscription<LiveTripUpdate>? _jobSub;
   StreamSubscription<TripNudge>? _nudgeSub;
+  DateTime? _pendingPause;
+  String? _pendingStatusRoute;
+  StreamSubscription<Map<String, dynamic>>? _statusSub;
 
   /// The driver's own cancel is in flight: its SEARCHING / CANCELLED push is not "the server ended your job".
   bool _cancelling = false;
@@ -237,10 +244,14 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (_live) {
       // A rebuild (log out / log in) starts a fresh session.
       _attached = false;
+      _pendingPause = null;
+      _pendingStatusRoute = null;
+      _statusSub?.cancel();
       _closedOffers.clear();
       _declinedFares.clear();
       _legKey = null;
       ref.onDispose(() {
+        _statusSub?.cancel();
         _stopTracking();
         _stopPreview();
         _unwatchJob();
@@ -271,7 +282,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       // A recent position (offline preview) is enough to go online right away, also indoors; the online GPS
       // stream refines it within seconds. A fresh fix is only needed when there's none.
       final at = _lastFixAt;
-      final recent = _position != null && at != null && DateTime.now().difference(at) < const Duration(minutes: 2)
+      final recent =
+          _position != null &&
+              at != null &&
+              DateTime.now().difference(at) < const Duration(minutes: 2)
           ? GpsFix(_position!, heading: _heading, at: at)
           : null;
       // Always checked (fast): also catches approximate-only location, which delivers a fix every 10 minutes.
@@ -294,14 +308,23 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   Future<void> goOffline({bool tellServer = true}) async {
     _sim.cancelAll();
     if (!_live) {
-      state = state.copyWith(online: false, clearIncoming: true, missedRequest: false);
+      state = state.copyWith(
+        online: false,
+        clearIncoming: true,
+        missedRequest: false,
+      );
       return;
     }
     final pending = [?state.incoming, for (final q in state.queued) q.request];
     _stopTracking();
     // Kept only while online or on a job.
     if (!state.onJob) _buffer.clear();
-    state = state.copyWith(online: false, clearIncoming: true, missedRequest: false, gpsLost: false);
+    state = state.copyWith(
+      online: false,
+      clearIncoming: true,
+      missedRequest: false,
+      gpsLost: false,
+    );
     for (final r in pending) {
       _quiet(_jobs.decline(r.id));
     }
@@ -319,7 +342,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (_live) return;
     _sim.after(delay, () {
       if (!state.online || state.onJob || state.incoming != null) return;
-      state = state.copyWith(incoming: ref.read(driverRepositoryProvider).nextRequest(workType), missedRequest: false);
+      state = state.copyWith(
+        incoming: ref.read(driverRepositoryProvider).nextRequest(workType),
+        missedRequest: false,
+      );
     });
   }
 
@@ -331,7 +357,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     final expires = state.incomingExpiresAt;
     if (expires == null) return _t(SimTimings.requestCountdown);
     final left = expires.difference(DateTime.now());
-    return left < const Duration(seconds: 1) ? const Duration(seconds: 1) : left;
+    return left < const Duration(seconds: 1)
+        ? const Duration(seconds: 1)
+        : left;
   }
 
   void declineRequest() {
@@ -366,7 +394,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       incoming: pick.request,
       incomingExpiresAt: pick.expiresAt,
       queued: [
-        QueuedOffer(current, state.incomingExpiresAt ?? DateTime.now().add(incomingCountdown)),
+        QueuedOffer(
+          current,
+          state.incomingExpiresAt ?? DateTime.now().add(incomingCountdown),
+        ),
         for (final q in state.queued)
           if (q.request.id != tripId) q,
       ],
@@ -379,9 +410,16 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       timedOut ? requestTimedOut() : declineRequest();
       return;
     }
-    final declined = state.queued.where((q) => q.request.id == tripId).firstOrNull;
+    final declined = state.queued
+        .where((q) => q.request.id == tripId)
+        .firstOrNull;
     if (declined == null) return;
-    state = state.copyWith(queued: [for (final q in state.queued) if (q.request.id != tripId) q]);
+    state = state.copyWith(
+      queued: [
+        for (final q in state.queued)
+          if (q.request.id != tripId) q,
+      ],
+    );
     if (timedOut || !_live) return;
     _declinedFares[tripId] = declined.request.fare;
     _quiet(_jobs.decline(tripId));
@@ -390,18 +428,26 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// Accepts [tripId] from the list of open requests (brought into focus first).
   Future<void> acceptOffer(String tripId) {
     if (state.incoming?.id != tripId) focusQueued(tripId);
+    if (state.incoming?.id != tripId) return Future.value();
     return acceptRequest();
   }
 
   /// The oldest stacked request (not yet expired) comes into focus; false (and nothing in focus) when none is left.
   bool _promoteNext() {
     final now = DateTime.now().add(const Duration(seconds: 1));
-    final left = [for (final q in state.queued) if (q.expiresAt.isAfter(now)) q];
+    final left = [
+      for (final q in state.queued)
+        if (q.expiresAt.isAfter(now)) q,
+    ];
     if (left.isEmpty) {
       state = state.copyWith(clearIncoming: true);
       return false;
     }
-    state = state.copyWith(incoming: left.first.request, incomingExpiresAt: left.first.expiresAt, queued: left.sublist(1));
+    state = state.copyWith(
+      incoming: left.first.request,
+      incomingExpiresAt: left.first.expiresAt,
+      queued: left.sublist(1),
+    );
     return true;
   }
 
@@ -415,9 +461,24 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (r == null) return;
     if (!_live) {
       final start = Seed.driverHome;
-      final leg = roadPath(start, r.pickup.location, bend: -0.2, mode: travelModeFor(r.vehicle));
-      state = state.copyWith(clearIncoming: true, job: r, phase: JobPhase.toPickup, route: leg, etaMin: r.pickupEtaMin);
-      _sim.animateAlong(leg, _t(SimTimings.driverLegDuration), onProgress: (p) => _eta(r.pickupEtaMin, p));
+      final leg = roadPath(
+        start,
+        r.pickup.location,
+        bend: -0.2,
+        mode: travelModeFor(r.vehicle),
+      );
+      state = state.copyWith(
+        clearIncoming: true,
+        job: r,
+        phase: JobPhase.toPickup,
+        route: leg,
+        etaMin: r.pickupEtaMin,
+      );
+      _sim.animateAlong(
+        leg,
+        _t(SimTimings.driverLegDuration),
+        onProgress: (p) => _eta(r.pickupEtaMin, p),
+      );
       return;
     }
     _closedOffers.add(r.id);
@@ -426,15 +487,27 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       final update = await _jobs.accept(r.id);
       if (!ref.mounted) return;
       final job = rideRequestFromUpdate(update, offer: r);
-      state = state.copyWith(clearIncoming: true, job: job, phase: JobPhase.toPickup, missedRequest: false);
-      _setLeg(_position ?? job.pickup.location, job.pickup.location, job.vehicle, job.pickupEtaMin);
+      state = state.copyWith(
+        clearIncoming: true,
+        job: job,
+        phase: JobPhase.toPickup,
+        missedRequest: false,
+      );
+      _setLeg(
+        _position ?? job.pickup.location,
+        job.pickup.location,
+        job.vehicle,
+        job.pickupEtaMin,
+      );
       _watchJob(job.id);
     } on ApiException catch (e) {
       // A server error may come after the trip was assigned: check before giving up.
       if (e.status >= 500 && await _recoverAccepted(r)) return;
       // Gone (someone else took it, or it was cancelled): the next stacked request, if any.
       if (ref.mounted && state.incoming?.id == r.id) _promoteNext();
-      if (e.status == 404 || e.status == 409) throw const ApiException(409, 'This request is no longer available');
+      if (e.status == 404 || e.status == 409) {
+        throw const ApiException(409, 'This request is no longer available');
+      }
       rethrow;
     } catch (_) {
       // The answer was lost (timeout, dropped connection; the POST is not retried) while the server may have assigned
@@ -451,7 +524,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   Future<bool> _recoverAccepted(RideRequest offer) async {
     try {
       final active = await _jobs.active();
-      if (!ref.mounted || active == null || active.trip.id != offer.id) return false;
+      if (!ref.mounted || active == null || active.trip.id != offer.id) {
+        return false;
+      }
       final phase = jobPhaseForStatus(active.status);
       if (phase == JobPhase.none) return false;
       final job = rideRequestFromUpdate(active, offer: offer);
@@ -463,8 +538,12 @@ class DriverSessionController extends Notifier<DriverSessionState> {
         noShowAt: active.noShowAt,
         waiting: waitingOf(active),
       );
-      _setLeg(_position ?? job.pickup.location, phase == JobPhase.toPickup ? job.pickup.location : job.drop.location,
-          job.vehicle, phase == JobPhase.toPickup ? job.pickupEtaMin : job.tripMin);
+      _setLeg(
+        _position ?? job.pickup.location,
+        phase == JobPhase.toPickup ? job.pickup.location : job.drop.location,
+        job.vehicle,
+        phase == JobPhase.toPickup ? job.pickupEtaMin : job.tripMin,
+      );
       _watchJob(job.id);
       return true;
     } catch (_) {
@@ -475,7 +554,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// A job step was refused as if the trip moved on (400 / 404 / 409): it may have been cancelled while the socket
   /// was down. Checks with the server (the error still shows); [_syncJob] ends the job if it's gone.
   void _checkAfterRefusal(Object error) {
-    if (error is ApiException && error.tooFar == null && const {400, 404, 409}.contains(error.status)) {
+    if (error is ApiException &&
+        error.tooFar == null &&
+        const {400, 404, 409}.contains(error.status)) {
       unawaited(_syncJob());
     }
   }
@@ -484,7 +565,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// without one; mock mode keeps returning null (the design gallery opens job screens with no job).
   RideRequest? _jobOrGone() {
     final job = state.job;
-    if (job == null && _live) throw const ApiException(409, 'This trip was cancelled');
+    if (job == null && _live) {
+      throw const ApiException(409, 'This trip was cancelled');
+    }
     return job;
   }
 
@@ -502,7 +585,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (_live) {
       final LiveTripUpdate update;
       try {
-        update = await _jobs.arrived(job.id, at: _position, farReason: farReason);
+        update = await _jobs.arrived(
+          job.id,
+          at: _position,
+          farReason: farReason,
+        );
       } catch (e) {
         _checkAfterRefusal(e);
         rethrow;
@@ -519,7 +606,12 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     }
     _sim.cancelAll();
     _sim.place(job.pickup.location);
-    state = state.copyWith(phase: JobPhase.atPickup, etaMin: 0, noShowAt: _defaultNoShowAt(), waiting: _defaultWaiting(job));
+    state = state.copyWith(
+      phase: JobPhase.atPickup,
+      etaMin: 0,
+      noShowAt: _defaultNoShowAt(),
+      waiting: _defaultWaiting(job),
+    );
   }
 
   /// D-17 (mock only): true if [code] matches the ride OTP (4829). With the live API the server checks it
@@ -541,17 +633,36 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       }
       if (!ref.mounted) return;
       // The fare now includes any waiting charge; a rental's clock runs from the server's start time.
-      final started = update.json['startedAt'] is String ? DateTime.tryParse(update.json['startedAt'] as String)?.toLocal() : null;
+      final started = update.json['startedAt'] is String
+          ? DateTime.tryParse(update.json['startedAt'] as String)?.toLocal()
+          : null;
       state = state.copyWith(
         phase: JobPhase.toDrop,
-        job: job.copyWith(fare: update.trip.fare, quote: update.trip.quote, rideStartedAt: started ?? DateTime.now()),
+        job: job.copyWith(
+          fare: update.trip.fare,
+          quote: update.trip.quote,
+          rideStartedAt: started ?? DateTime.now(),
+        ),
       );
       _setLeg(job.pickup.location, job.drop.location, job.vehicle, job.tripMin);
       return;
     }
-    final leg = roadPath(job.pickup.location, job.drop.location, mode: travelModeFor(job.vehicle));
-    state = state.copyWith(phase: JobPhase.toDrop, route: leg, etaMin: job.tripMin, job: job.copyWith(rideStartedAt: DateTime.now()));
-    _sim.animateAlong(leg, _t(SimTimings.rideDuration), onProgress: (p) => _eta(job.tripMin, p));
+    final leg = roadPath(
+      job.pickup.location,
+      job.drop.location,
+      mode: travelModeFor(job.vehicle),
+    );
+    state = state.copyWith(
+      phase: JobPhase.toDrop,
+      route: leg,
+      etaMin: job.tripMin,
+      job: job.copyWith(rideStartedAt: DateTime.now()),
+    );
+    _sim.animateAlong(
+      leg,
+      _t(SimTimings.rideDuration),
+      onProgress: (p) => _eta(job.tripMin, p),
+    );
   }
 
   /// D-18 "Swipe to end ride" → collect payment. Live API: completes the trip (the fare is recorded); far from
@@ -562,7 +673,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (_live) {
       final LiveTripUpdate update;
       try {
-        update = await _jobs.complete(job.id, at: _position, farReason: farReason);
+        update = await _jobs.complete(
+          job.id,
+          at: _position,
+          farReason: farReason,
+        );
       } catch (e) {
         _checkAfterRefusal(e);
         rethrow;
@@ -571,7 +686,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       _unwatchJob();
       // The final fare (it may include the passenger's earlier cancellation fee, a rental's extra km and minutes):
       // D-19 collects this and lists its lines.
-      state = state.copyWith(phase: JobPhase.collect, etaMin: 0, job: job.copyWith(fare: update.trip.fare, quote: update.trip.quote));
+      state = state.copyWith(
+        phase: JobPhase.collect,
+        etaMin: 0,
+        job: job.copyWith(fare: update.trip.fare, quote: update.trip.quote),
+      );
       return;
     }
     _sim.cancelAll();
@@ -592,7 +711,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   }
 
   /// D-22a (mock only): true if [code] matches the delivery OTP (7153).
-  bool verifyDeliveryOtp(String code) => code == (state.job?.parcel?.deliveryOtp ?? Seed.deliveryOtp);
+  bool verifyDeliveryOtp(String code) =>
+      code == (state.job?.parcel?.deliveryOtp ?? Seed.deliveryOtp);
 
   /// D-22a "Complete delivery" → collect view. Live API: the server checks the receiver's [otp] and
   /// throws [ApiException] when it is wrong.
@@ -601,7 +721,12 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (job == null) return;
     if (_live) {
       try {
-        await _jobs.complete(job.id, otp: otp, at: _position, farReason: farReason);
+        await _jobs.complete(
+          job.id,
+          otp: otp,
+          at: _position,
+          farReason: farReason,
+        );
       } catch (e) {
         _checkAfterRefusal(e);
         rethrow;
@@ -632,22 +757,27 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       );
       ref.invalidate(earningsProvider);
       unawaited(refreshToday());
-      unawaited(_recoverOffer());
+      _applyPendingRestrictions();
+      if (state.online) unawaited(_recoverOffer());
       return;
     }
     final now = TtClock.now();
-    await ref.read(driverRepositoryProvider).recordCompletedJob(EarningsTrip(
-          id: 'e${now.millisecondsSinceEpoch}',
-          time: now,
-          from: job.pickup.name.split(' ').first,
-          to: job.drop.name.split(' ').first,
-          fare: job.fare,
-          paymentMode: mode,
-          distanceKm: job.tripKm,
-          durationMin: job.tripMin,
-          passengerName: job.customerName,
-          isDelivery: job.isDelivery,
-        ));
+    await ref
+        .read(driverRepositoryProvider)
+        .recordCompletedJob(
+          EarningsTrip(
+            id: 'e${now.millisecondsSinceEpoch}',
+            time: now,
+            from: job.pickup.name.split(' ').first,
+            to: job.drop.name.split(' ').first,
+            fare: job.fare,
+            paymentMode: mode,
+            distanceKm: job.tripKm,
+            durationMin: job.tripMin,
+            passengerName: job.customerName,
+            isDelivery: job.isDelivery,
+          ),
+        );
     state = state.copyWith(
       clearJob: true,
       phase: JobPhase.none,
@@ -662,15 +792,22 @@ class DriverSessionController extends Notifier<DriverSessionState> {
 
   /// Mock mode and an older API without waiting terms: the default free minutes and cap, the vehicle's rate.
   /// None for rentals, outstation trips and house shifts (no waiting charge there).
-  WaitingTerms? _defaultWaiting(RideRequest job) => job.rideMode != RideMode.local || job.isShifting
+  WaitingTerms? _defaultWaiting(RideRequest job) =>
+      job.rideMode != RideMode.local || job.isShifting
       ? null
-      : WaitingTerms(arrivedAt: DateTime.now(), perMin: Seed.vehicle(job.vehicle).fareRule.waitPerMin);
+      : WaitingTerms(
+          arrivedAt: DateTime.now(),
+          perMin: Seed.vehicle(job.vehicle).fareRule.waitPerMin,
+        );
 
   /// The API's default no-show wait (5 min), for mock mode and an older API without `noShowAt`.
   DateTime _defaultNoShowAt() => DateTime.now().add(const Duration(minutes: 5));
 
   /// D-16 overflow → Cancel ride → reason [code]. Back to D-14 online. Live API: throws when the API refuses.
-  Future<void> cancelJob({CancelCode code = CancelCode.other, String? note}) async {
+  Future<void> cancelJob({
+    CancelCode code = CancelCode.other,
+    String? note,
+  }) async {
     final job = state.job;
     if (_live) {
       _cancelling = true;
@@ -696,7 +833,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       return;
     }
     _sim.cancelAll();
-    state = state.copyWith(clearJob: true, phase: JobPhase.none, route: const []);
+    state = state.copyWith(
+      clearJob: true,
+      phase: JobPhase.none,
+      route: const [],
+    );
     _scheduleRequest(_t(SimTimings.nextRequest));
   }
 
@@ -710,6 +851,8 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _attached = true;
     unawaited(refreshToday());
     try {
+      _listenStatus();
+      ref.read(realtimeProvider).connect();
       final active = await _jobs.active();
       if (!ref.mounted) return;
       if (active != null && jobPhaseForStatus(active.status) != JobPhase.none) {
@@ -737,9 +880,15 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (!ref.mounted) return;
     ref.read(locationAccessProvider.notifier).set(access);
     // Approximate is enough to show the car offline; going online asks for the precise location.
-    if ((access != LocationAccess.granted && access != LocationAccess.approximate) || state.online) return;
+    if ((access != LocationAccess.granted &&
+            access != LocationAccess.approximate) ||
+        state.online) {
+      return;
+    }
     final last = await locator.lastKnownFix();
-    if (last != null && ref.mounted && !state.online) _onFix(last, upload: false);
+    if (last != null && ref.mounted && !state.online) {
+      _onFix(last, upload: false);
+    }
     if (!ref.mounted || state.online) return;
     await _preview?.cancel();
     _preview = locator.previewPositions().listen((fix) {
@@ -757,7 +906,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (!_live || !state.online) return;
     ref.read(realtimeProvider).connect();
     final at = _lastFixAt;
-    if (at == null || DateTime.now().difference(at) >= _gpsHealAfter) _healGps(force: true);
+    if (at == null || DateTime.now().difference(at) >= _gpsHealAfter) {
+      _healGps(force: true);
+    }
     unawaited(_recoverOffer());
     unawaited(_syncJob());
   }
@@ -766,8 +917,12 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   Future<void> refreshToday() async {
     if (!_live) return;
     try {
-      final s = await ref.read(driverRepositoryProvider).earnings(EarningsPeriod.today);
-      if (ref.mounted) state = state.copyWith(todayEarnings: s.total, todayRides: s.rides);
+      final s = await ref
+          .read(driverRepositoryProvider)
+          .earnings(EarningsPeriod.today);
+      if (ref.mounted) {
+        state = state.copyWith(todayEarnings: s.total, todayRides: s.rides);
+      }
     } catch (_) {
       // Keep the last numbers.
     }
@@ -794,20 +949,71 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _startTracking();
     switch (phase) {
       case JobPhase.toPickup:
-        _setLeg(_position ?? job.pickup.location, job.pickup.location, job.vehicle, 0);
+        _setLeg(
+          _position ?? job.pickup.location,
+          job.pickup.location,
+          job.vehicle,
+          0,
+        );
       case JobPhase.toDrop || JobPhase.atDrop:
-        _setLeg(job.pickup.location, job.drop.location, job.vehicle, job.tripMin);
+        _setLeg(
+          job.pickup.location,
+          job.drop.location,
+          job.vehicle,
+          job.tripMin,
+        );
       case JobPhase.none || JobPhase.atPickup || JobPhase.collect:
         break;
     }
   }
 
+  void _listenStatus() {
+    _statusSub?.cancel();
+    _statusSub = ref.read(realtimeProvider).on('driver.status').listen((data) {
+      if (!ref.mounted) return;
+      ref.invalidate(driverProfileProvider);
+      ref.invalidate(kycProvider);
+      final status = data['status'];
+      if (status is String) {
+        unawaited(ref.read(apiClientProvider).session.saveDriverStatus(status));
+      }
+      if (status == 'APPROVED' && data['isOnline'] != false) {
+        _pendingStatusRoute = null;
+        return;
+      }
+      final route = status == 'PENDING'
+          ? Routes.documents
+          : status == 'ON_HOLD'
+          ? Routes.accountOnHold
+          : null;
+      _pendingStatusRoute = state.onJob ? route : null;
+      state = state.copyWith(
+        online: false,
+        clearIncoming: true,
+        missedRequest: false,
+        notice: SessionNotice(
+          status == 'APPROVED'
+              ? 'You have been taken offline.'
+              : status == 'ON_HOLD'
+              ? 'Your account is on hold. Contact support for help.'
+              : 'Your documents need review.',
+          goTo: state.onJob ? null : route,
+        ),
+      );
+      if (!state.onJob) _stopTracking();
+    }, onError: (Object _) {});
+  }
+
   void _startTracking() {
+    _listenStatus();
     _stopTracking();
     _stopPreview();
     _listenGps();
     _offerSub = _jobs.offers().listen(_onOffer, onError: (Object _) {});
-    _closedSub = _jobs.closedOffers().listen(_onOfferClosed, onError: (Object _) {});
+    _closedSub = _jobs.closedOffers().listen(
+      _onOfferClosed,
+      onError: (Object _) {},
+    );
     _pauseSub = _jobs.pauses().listen(_onPaused, onError: (Object _) {});
     _connectionSub = ref.read(realtimeProvider).connection.listen((up) {
       if (!up) return;
@@ -823,7 +1029,10 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   void _listenGps() {
     _gps?.cancel();
     _gpsRestartedAt = DateTime.now();
-    _gps = ref.read(driverLocatorProvider).positions().listen(
+    _gps = ref
+        .read(driverLocatorProvider)
+        .positions()
+        .listen(
           _onFix,
           onError: (Object _) => _gpsRestartedAt = null,
           onDone: () => _gpsRestartedAt = null,
@@ -837,18 +1046,28 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (!_live || !state.online) return;
     final now = DateTime.now();
     final restartedAt = _gpsRestartedAt;
-    if (_appInForeground && (force || restartedAt == null || now.difference(restartedAt) >= _gpsHealAfter)) {
+    if (_appInForeground &&
+        (force ||
+            restartedAt == null ||
+            now.difference(restartedAt) >= _gpsHealAfter)) {
       _listenGps();
     }
     if (_fixInFlight) return;
     _fixInFlight = true;
-    unawaited(ref.read(driverLocatorProvider).currentFix().then((fix) {
-      // currentFix falls back to the last known position: an old one must not hide the banner.
-      final fresh = DateTime.now().difference(fix.at) < _gpsStaleAfter;
-      if (fresh && ref.mounted && state.online) _onFix(fix);
-    }).catchError((Object _) {
-      // Still no fix: the banner stays and the next tick tries again.
-    }).whenComplete(() => _fixInFlight = false));
+    unawaited(
+      ref
+          .read(driverLocatorProvider)
+          .currentFix()
+          .then((fix) {
+            // currentFix falls back to the last known position: an old one must not hide the banner.
+            final fresh = DateTime.now().difference(fix.at) < _gpsStaleAfter;
+            if (fresh && ref.mounted && state.online) _onFix(fix);
+          })
+          .catchError((Object _) {
+            // Still no fix: the banner stays and the next tick tries again.
+          })
+          .whenComplete(() => _fixInFlight = false),
+    );
   }
 
   static bool get _appInForeground {
@@ -863,7 +1082,11 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// `driver.blocked`: paused for too many cancellations. The server already took the driver offline; the app
   /// follows (Home shows the pause from [cancelRateProvider]).
   void _onPaused(DateTime until) {
-    if (!ref.mounted || state.onJob) return;
+    if (!ref.mounted) return;
+    if (state.onJob) {
+      _pendingPause = until;
+      return;
+    }
     _sim.cancelAll();
     _stopTracking();
     _buffer.clear();
@@ -872,7 +1095,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       clearIncoming: true,
       missedRequest: false,
       gpsLost: false,
-      notice: const SessionNotice("You cancelled too many rides, so you're paused for a while"),
+      notice: SessionNotice(
+        "You cancelled too many rides, so you're paused for a while",
+      ),
     );
     ref.invalidate(cancelRateProvider);
   }
@@ -903,14 +1128,21 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _lastFixAt = DateTime.now();
     if (fix.heading != null) {
       _heading = fix.heading!;
-    } else if (prev != null && const Distance().as(LengthUnit.Meter, prev, p) > 5) {
+    } else if (prev != null &&
+        const Distance().as(LengthUnit.Meter, prev, p) > 5) {
       _heading = const Distance().bearing(prev, p);
     }
     _sim.place(p, heading: _heading);
     if (!ref.mounted) return;
     if (state.gpsLost) state = state.copyWith(gpsLost: false);
     final now = DateTime.now();
-    if (upload && shouldSendFix(last: _lastSent, lastAt: _lastSentAt, next: p, now: now)) {
+    if (upload &&
+        shouldSendFix(
+          last: _lastSent,
+          lastAt: _lastSentAt,
+          next: p,
+          now: now,
+        )) {
       // Socket down: kept for the batch upload, so the trip's path has no hole.
       if (ref.read(realtimeProvider).isConnected) {
         _jobs.sendLocation(fix.toUpload());
@@ -926,7 +1158,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   void _updateEta() {
     final p = _position;
     if (p == null || !state.onJob || state.route.length < 2) return;
-    if (state.phase != JobPhase.toPickup && state.phase != JobPhase.toDrop) return;
+    if (state.phase != JobPhase.toPickup && state.phase != JobPhase.toDrop) {
+      return;
+    }
     final eta = etaAlong(state.route, p, _legMin);
     if (eta != state.etaMin) state = state.copyWith(etaMin: eta);
   }
@@ -948,7 +1182,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       unawaited(state.onJob ? _syncJob() : _recoverOffer());
     }
     final last = _lastFix;
-    if (last != null && (_lastHeartbeat == null || now.difference(_lastHeartbeat!) >= _heartbeatEvery)) {
+    if (last != null &&
+        (_lastHeartbeat == null ||
+            now.difference(_lastHeartbeat!) >= _heartbeatEvery)) {
       _lastHeartbeat = now;
       // The buffered fixes end with the latest one, so they double as the heartbeat.
       if (_buffer.isEmpty) {
@@ -966,7 +1202,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _flushing = true;
     final fixes = _buffer.drain();
     try {
-      final ok = overSocket ? await _jobs.sendBufferedLocations(fixes) : await _jobs.uploadLocations(fixes).then((_) => true);
+      final ok = overSocket
+          ? await _jobs.sendBufferedLocations(fixes)
+          : await _jobs.uploadLocations(fixes).then((_) => true);
       if (!ok) _buffer.restore(fixes);
     } catch (_) {
       _buffer.restore(fixes);
@@ -987,22 +1225,35 @@ class DriverSessionController extends Notifier<DriverSessionState> {
       _declinedFares.remove(id);
     }
     if (state.incoming?.id == id) {
-      if (state.incoming!.fare != offer.request.fare) state = state.copyWith(incoming: offer.request);
+      if (state.incoming!.fare != offer.request.fare) {
+        state = state.copyWith(incoming: offer.request);
+      }
       return;
     }
     if (state.queued.any((q) => q.request.id == id)) {
-      state = state.copyWith(queued: [
-        for (final q in state.queued) q.request.id == id ? QueuedOffer(offer.request, q.expiresAt) : q,
-      ]);
+      state = state.copyWith(
+        queued: [
+          for (final q in state.queued)
+            q.request.id == id ? QueuedOffer(offer.request, q.expiresAt) : q,
+        ],
+      );
       return;
     }
-    final expiresAt = DateTime.now().add(Duration(seconds: offer.expiresInSeconds));
+    final expiresAt = DateTime.now().add(
+      Duration(seconds: offer.expiresInSeconds),
+    );
     if (state.incoming == null) {
-      state = state.copyWith(incoming: offer.request, incomingExpiresAt: expiresAt, missedRequest: false);
+      state = state.copyWith(
+        incoming: offer.request,
+        incomingExpiresAt: expiresAt,
+        missedRequest: false,
+      );
       return;
     }
     if (state.queued.length >= kMaxQueuedOffers) return;
-    state = state.copyWith(queued: [...state.queued, QueuedOffer(offer.request, expiresAt)]);
+    state = state.copyWith(
+      queued: [...state.queued, QueuedOffer(offer.request, expiresAt)],
+    );
   }
 
   /// `trip.offer_closed`: the request went elsewhere (cancelled, timed out, released): drop its card.
@@ -1011,7 +1262,12 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     if (state.incoming?.id == tripId) {
       if (!_promoteNext()) state = state.copyWith(clearIncoming: true);
     } else if (state.queued.any((q) => q.request.id == tripId)) {
-      state = state.copyWith(queued: [for (final q in state.queued) if (q.request.id != tripId) q]);
+      state = state.copyWith(
+        queued: [
+          for (final q in state.queued)
+            if (q.request.id != tripId) q,
+        ],
+      );
     }
   }
 
@@ -1037,14 +1293,27 @@ class DriverSessionController extends Notifier<DriverSessionState> {
   /// After a reconnect: the job may have been cancelled while the socket was down.
   Future<void> _syncJob() async {
     final job = state.job;
-    if (job == null || state.phase == JobPhase.collect) return;
+    if (job == null || state.phase == JobPhase.collect) {
+      return;
+    }
     try {
       final active = await _jobs.active();
-      if (!ref.mounted || state.job?.id != job.id || state.phase == JobPhase.collect) return;
-      if (active != null && active.trip.id == job.id && active.status == 'CANCELLED') {
+      if (!ref.mounted ||
+          state.job?.id != job.id ||
+          state.phase == JobPhase.collect) {
+        return;
+      }
+      if (active != null &&
+          active.trip.id == job.id &&
+          active.status == 'CANCELLED') {
         _endJob(notice: jobEndedNotice(active, job));
       } else if (active == null || active.trip.id != job.id) {
-        _endJob(notice: const SessionNotice('This ride was cancelled or given to another driver', jobEnded: true));
+        _endJob(
+          notice: SessionNotice(
+            'This ride was cancelled or given to another driver',
+            jobEnded: true,
+          ),
+        );
       }
     } catch (_) {
       // Checked again on the next reconnect.
@@ -1056,16 +1325,28 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _nudgeSub?.cancel();
     _jobSub = _jobs.updates(tripId).listen((u) {
       final job = state.job;
-      if (!ref.mounted || job == null || u.trip.id != job.id || state.phase == JobPhase.collect || _cancelling) return;
+      if (!ref.mounted ||
+          job == null ||
+          u.trip.id != job.id ||
+          state.phase == JobPhase.collect ||
+          _cancelling) {
+        return;
+      }
       // CANCELLED, or back to SEARCHING without this driver (the server gave the ride to another driver).
-      if (u.status == 'CANCELLED' || u.status == 'SEARCHING') _endJob(notice: jobEndedNotice(u, job));
+      if (u.status == 'CANCELLED' || u.status == 'SEARCHING') {
+        _endJob(notice: jobEndedNotice(u, job));
+      }
     }, onError: (Object _) {});
     _nudgeSub = _jobs.nudges(tripId).listen((n) {
       if (!ref.mounted || state.job?.id != n.tripId) return;
       // Ending nudges come with a trip update, which closes the job with its own notice.
       if (n.kind == 'REASSIGNED' || n.kind == 'CANCELLED') return;
       final sep = RegExp(r'[.?!]$').hasMatch(n.title) ? ' ' : '. ';
-      state = state.copyWith(notice: SessionNotice(n.message.isEmpty ? n.title : '${n.title}$sep${n.message}'));
+      state = state.copyWith(
+        notice: SessionNotice(
+          n.message.isEmpty ? n.title : '${n.title}$sep${n.message}',
+        ),
+      );
     }, onError: (Object _) {});
   }
 
@@ -1081,24 +1362,49 @@ class DriverSessionController extends Notifier<DriverSessionState> {
     _unwatchJob();
     if (job != null) ref.read(realtimeProvider).leaveTrip(job.id);
     _legKey = null;
-    state = state.copyWith(clearJob: true, phase: JobPhase.none, route: const [], etaMin: 0, notice: notice);
-    unawaited(_recoverOffer());
+    state = state.copyWith(
+      clearJob: true,
+      phase: JobPhase.none,
+      route: const [],
+      etaMin: 0,
+      notice: notice,
+    );
+    _applyPendingRestrictions();
+    if (state.online) unawaited(_recoverOffer());
     // A cancel (theirs, or the ride taken off them) may have moved their cancellation rate (Home banner).
     ref.invalidate(cancelRateProvider);
+  }
+
+  void _applyPendingRestrictions() {
+    final route = _pendingStatusRoute;
+    _pendingStatusRoute = null;
+    if (route != null) {
+      state = state.copyWith(
+        online: false,
+        notice: SessionNotice('Your account needs attention.', goTo: route),
+      );
+      _stopTracking();
+    }
+    final pause = _pendingPause;
+    _pendingPause = null;
+    if (pause != null && pause.isAfter(DateTime.now())) _onPaused(pause);
   }
 
   /// Draws the leg [from] → [to] now (curved stand-in or cached road) and swaps in the road route once
   /// it arrives. One routing call per leg (cost rule).
   void _setLeg(LatLng from, LatLng to, VehicleKind vehicle, int minutes) {
     final mode = travelModeFor(vehicle);
-    final key = '${from.latitude},${from.longitude}|${to.latitude},${to.longitude}';
+    final key =
+        '${from.latitude},${from.longitude}|${to.latitude},${to.longitude}';
     _legKey = key;
     final route = roadPath(from, to, mode: mode);
     _legMin = minutes > 0 ? minutes : estimateMinutes(routeKm(route));
     state = state.copyWith(route: route, etaMin: _legMin);
     _updateEta();
     RoadRouter.fetch(from, to, mode: mode).then((road) {
-      if (road == null || road.length < 2 || !ref.mounted || _legKey != key) return;
+      if (road == null || road.length < 2 || !ref.mounted || _legKey != key) {
+        return;
+      }
       state = state.copyWith(route: road);
       _updateEta();
     }, onError: (Object _) {});
@@ -1108,7 +1414,9 @@ class DriverSessionController extends Notifier<DriverSessionState> {
 }
 
 final driverSessionProvider =
-    NotifierProvider<DriverSessionController, DriverSessionState>(DriverSessionController.new);
+    NotifierProvider<DriverSessionController, DriverSessionState>(
+      DriverSessionController.new,
+    );
 
 /// D-13 banner: the driver's cancellation rate and pause (live API only; null in mock mode or when it can't load).
 final cancelRateProvider = FutureProvider<DriverCancelRate?>((ref) async {
@@ -1121,26 +1429,39 @@ final cancelRateProvider = FutureProvider<DriverCancelRate?>((ref) async {
 });
 
 /// Earnings for the Today / Week / Month tabs.
-final earningsProvider = FutureProvider.family<EarningsSummary, EarningsPeriod>((ref, period) {
-  ref.watch(mockDatabaseProvider);
-  ref.watch(demoSettingsProvider.select((s) => (s.emptyEarnings, s.offline, s.slowLoading)));
-  return ref.watch(driverRepositoryProvider).earnings(period);
-});
+final earningsProvider = FutureProvider.family<EarningsSummary, EarningsPeriod>(
+  (ref, period) {
+    ref.watch(mockDatabaseProvider);
+    ref.watch(
+      demoSettingsProvider.select(
+        (s) => (s.emptyEarnings, s.offline, s.slowLoading),
+      ),
+    );
+    return ref.watch(driverRepositoryProvider).earnings(period);
+  },
+);
 
 /// What the driver is told when their job ends from the server's side: the passenger cancelled, the system cancelled
 /// (it never started), or it went back to searching without them (they weren't moving to the pickup).
 SessionNotice jobEndedNotice(LiveTripUpdate u, RideRequest job) {
   if (u.status == 'SEARCHING') {
-    return const SessionNotice("You weren't moving towards the pickup, so the ride went to another driver", jobEnded: true);
+    return SessionNotice(
+      "You weren't moving towards the pickup, so the ride went to another driver",
+      jobEnded: true,
+    );
   }
   if (u.cancelledBy == CancelledBy.system) {
     return SessionNotice(
-      u.cancelCode == CancelCode.stuck ? "The ride didn't start in time, so it was cancelled" : 'This ride was cancelled',
+      u.cancelCode == CancelCode.stuck
+          ? "The ride didn't start in time, so it was cancelled"
+          : 'This ride was cancelled',
       jobEnded: true,
     );
   }
   return SessionNotice(
-    job.isDelivery ? 'The sender cancelled this delivery' : '${job.customerName.split(' ').first} cancelled the ride',
+    job.isDelivery
+        ? 'The sender cancelled this delivery'
+        : '${job.customerName.split(' ').first} cancelled the ride',
     jobEnded: true,
   );
 }

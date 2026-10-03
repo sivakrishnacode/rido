@@ -11,18 +11,20 @@ abstract final class Routes {
   static const personalDetails = '/signup/details';
   static const documents = '/signup/documents';
   static String uploadDocument(String type) => '/signup/documents/upload/$type';
-  static const selfie = '/signup/selfie';
   static const profilePhoto = '/signup/photo';
   static const choosePlan = '/signup/plan';
 
   /// D-12 frame 1. [purpose] is `setup` (D-11), `change` (D-24) or `pay` (D-25 / S-14).
-  static String autopay({String purpose = 'setup'}) => '/autopay?purpose=$purpose';
-  static String autopaySuccess({String purpose = 'setup'}) => '/autopay/success?purpose=$purpose';
+  static String autopay({String purpose = 'setup'}) =>
+      '/autopay?purpose=$purpose';
+  static String autopaySuccess({String purpose = 'setup'}) =>
+      '/autopay/success?purpose=$purpose';
   static const accountOnHold = '/account-on-hold';
 
   /// Paused for too many cancellations until [until] (S-10b).
   static const accountPausedPath = '/account-paused';
-  static String accountPaused(DateTime until) => '$accountPausedPath?until=${Uri.encodeQueryComponent(until.toUtc().toIso8601String())}';
+  static String accountPaused(DateTime until) =>
+      '$accountPausedPath?until=${Uri.encodeQueryComponent(until.toUtc().toIso8601String())}';
   static const selfieCheck = '/selfie-check';
   static const dailySelfie = '/selfie-check/camera';
   static String legal(String doc) => '/legal/$doc';

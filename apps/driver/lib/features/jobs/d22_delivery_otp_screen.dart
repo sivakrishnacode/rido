@@ -21,24 +21,47 @@ class D22DeliveryOtpScreen extends ConsumerStatefulWidget {
   final bool showcase;
 
   @override
-  ConsumerState<D22DeliveryOtpScreen> createState() => _D22DeliveryOtpScreenState();
+  ConsumerState<D22DeliveryOtpScreen> createState() =>
+      _D22DeliveryOtpScreenState();
 }
 
 class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen>
     with OtpLockout<D22DeliveryOtpScreen> {
-  late final RideRequest _job = ref.read(driverSessionProvider).job ?? Seed.deliveryRequest;
+  late final RideRequest _job =
+      ref.read(driverSessionProvider).job ?? Seed.deliveryRequest;
   late String _code = widget.showcase ? Seed.deliveryOtp : '';
   late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
   String? _errorText;
-  bool _photo = false;
+  PhotoAttachment? _photo;
   int _shake = 0;
   bool _busy = false;
 
+  Future<void> _uploadPhoto(PhotoAttachment photo) async {
+    final api = ref.read(apiClientProvider);
+    try {
+      await api.upload(
+        '/trips/${_job.id}/delivery-photo',
+        field: 'file',
+        bytes: photo.bytes,
+        filename: photo.name,
+      );
+    } catch (_) {
+      if (mounted) {
+        showTtSnack(
+          context,
+          'Photo could not upload. You can still complete delivery.',
+          actionLabel: 'Retry',
+          onAction: () => _uploadPhoto(photo),
+        );
+      }
+    }
+  }
+
   void _fail(String message) => setState(() {
-        _busy = false;
-        _errorText = message;
-        _shake++;
-      });
+    _busy = false;
+    _errorText = message;
+    _shake++;
+  });
 
   Future<void> _complete() async {
     if (_busy) return;
@@ -80,15 +103,18 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen>
 
   @override
   Widget build(BuildContext context) {
-    final t = context.type;
     final receiver = _job.parcel?.receiverName ?? _job.customerName;
     final phone = _job.parcel?.receiverPhone ?? _job.customerPhone;
     return OtpStepScaffold(
-      onJob: !widget.showcase && ref.watch(driverSessionProvider.select((s) => s.job != null)),
+      onJob:
+          !widget.showcase &&
+          ref.watch(driverSessionProvider.select((s) => s.job != null)),
       delivery: true,
       appBarTitle: 'Complete delivery',
       title: 'Ask ${receiver.split(' ').first} for the delivery OTP',
-      subtitle: _api ? 'The sender sees it in their Tamil Taxi app and shares it with them.' : 'It was sent to $phone by SMS.',
+      subtitle: _api
+          ? 'The sender sees it in their Tamil Taxi app and shares it with them.'
+          : 'It was sent to $phone by SMS.',
       otp: OtpInput(
         length: 4,
         boxSize: 80,
@@ -102,42 +128,14 @@ class _D22DeliveryOtpScreenState extends ConsumerState<D22DeliveryOtpScreen>
         }),
       ),
       error: _errorText,
-      extra: Material(
-        color: _photo ? TtColors.successTint : TtColors.background,
-        shape: RoundedRectangleBorder(
-          borderRadius: TtRadii.cardRadius,
-          side: BorderSide(color: _photo ? TtColors.success : TtColors.navy300),
-        ),
-        child: InkWell(
-          borderRadius: TtRadii.cardRadius,
-          onTap: () {
-            setState(() => _photo = !_photo);
-            showTtSnack(context, _photo ? 'Photo of delivered parcel added' : 'Photo removed');
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(TtSpacing.l),
-            child: Row(children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: TtColors.surface,
-                  borderRadius: TtRadii.cardRadius,
-                  border: Border.all(color: TtColors.divider),
-                ),
-                child: Icon(_photo ? Symbols.check_circle_rounded : Symbols.add_a_photo_rounded,
-                    color: _photo ? TtColors.success : TtColors.coral600, fill: _photo ? 1 : 0),
-              ),
-              const SizedBox(width: TtSpacing.l),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(_photo ? 'Photo added' : 'Take photo of delivered parcel', style: t.bodySemibold),
-                  Text(_photo ? 'Tap to remove' : 'Optional · protects you in disputes', style: t.caption),
-                ]),
-              ),
-            ]),
-          ),
-        ),
+      extra: PhotoAttachmentTile(
+        photo: _photo,
+        camera: true,
+        label: 'Take photo of delivered parcel',
+        onChanged: (photo) async {
+          setState(() => _photo = photo);
+          if (_api && photo != null) await _uploadPhoto(photo);
+        },
       ),
       buttonLabel: 'Complete delivery',
       busy: _busy,

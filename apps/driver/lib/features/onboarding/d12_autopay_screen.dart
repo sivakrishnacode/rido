@@ -8,6 +8,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/showcase.dart';
 import '../../router/routes.dart';
+import '../../common/load_error.dart';
 import '../../state/driver_account.dart';
 import '../states/s14_payment_failed_dialog.dart';
 import 'widgets/signup_widgets.dart';
@@ -87,20 +88,50 @@ class _D12AutopayScreenState extends ConsumerState<D12AutopayScreen> {
     } on OfflineException {
       if (!mounted) return;
       setState(() => _processing = false);
-      showTtSnack(context, "You're offline. Check your connection and try again.");
+      showTtSnack(
+        context,
+        "You're offline. Check your connection and try again.",
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _processing = false);
       showTtSnack(context, e.message);
+    } catch (_) {
+      if (mounted) {
+        showTtSnack(context, 'Could not complete payment. Try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _processing = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.type;
-    final plan = widget.showcase ? Seed.plan() : (ref.watch(planProvider).value ?? Seed.plan());
-    final amount = formatInr(plan.monthlyPrice ?? 2000);
-    final title = _pay ? 'Pay $amount now' : (_change ? 'Change UPI app' : 'Set up UPI Autopay');
+    final planState = ref.watch(planProvider);
+    if (!widget.showcase &&
+        ref.watch(isLiveApiProvider) &&
+        planState.value == null) {
+      return Scaffold(
+        appBar: const TtAppBar(title: 'Your plan'),
+        body: planState.hasError
+            ? LoadError(
+                error: planState.error!,
+                what: 'your plan',
+                onRetry: () => ref.invalidate(planProvider),
+              )
+            : const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final plan = widget.showcase
+        ? Seed.plan()
+        : (ref.watch(planProvider).value ?? Seed.plan());
+    final amount = plan.monthlyPrice == null
+        ? '₹—'
+        : formatInr(plan.monthlyPrice!);
+    final title = _pay
+        ? 'Pay $amount now'
+        : (_change ? 'Change UPI app' : 'Set up UPI Autopay');
     return PopScope(
       canPop: !_processing,
       child: Stack(

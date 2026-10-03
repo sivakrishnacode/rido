@@ -63,9 +63,15 @@ class _TtDriverAppState extends ConsumerState<TtDriverApp> with WidgetsBindingOb
   /// (Home once approved, else the registration page with what to fix).
   void _onPushTap(PushData data) {
     switch (data['type']) {
-      case 'offer' || 'trip' || 'chat':
+      case 'offer' || 'trip' || 'chat' || 'nudge':
         ref.read(driverSessionProvider.notifier).onAppResumed();
-      case 'kyc':
+        if (data['type'] == 'chat' &&
+            ref.read(driverSessionProvider).job != null) {
+          _router.push(Routes.chat);
+        }
+      case 'kyc' || 'identity' || 'account':
+        ref.invalidate(identityProvider);
+        ref.invalidate(driverProfileProvider);
         if (!_authPaths.contains(_path)) _router.go(Routes.splash);
     }
   }
@@ -103,12 +109,18 @@ class _TtDriverAppState extends ConsumerState<TtDriverApp> with WidgetsBindingOb
     if (_authPaths.contains(_path)) return;
     _router.go(Routes.welcome);
     final context = rootNavigatorKey.currentContext;
-    if (context != null) showTtSnack(context, 'Your session ended. Please log in again.');
+    if (context != null) {
+      showTtSnack(context, 'Your session ended. Please log in again.');
+    }
   }
 
   void _onNotice(SessionNotice notice) {
     // Job screens are pushed over Home, so the router's path stays /home: always go (it clears the pushed screens).
-    if (notice.jobEnded) _router.go(Routes.home);
+    if (notice.goTo != null) {
+      _router.go(notice.goTo!);
+    } else if (notice.jobEnded) {
+      _router.go(Routes.home);
+    }
     // Let the navigation settle so the snack shows on the new screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = rootNavigatorKey.currentContext;

@@ -53,9 +53,12 @@ class OverlayOffer {
     this.modeTerms,
     this.scheduledAt,
     this.shifting,
+    this.parcel,
+    this.bookedBy,
   });
 
-  factory OverlayOffer.fromRequest(RideRequest r, DateTime expiresAt) => OverlayOffer(
+  factory OverlayOffer.fromRequest(RideRequest r, DateTime expiresAt) =>
+      OverlayOffer(
         id: r.id,
         fare: r.fare,
         vehicle: r.vehicle,
@@ -80,6 +83,8 @@ class OverlayOffer {
         modeTerms: r.modeTerms,
         scheduledAt: r.scheduledAt,
         shifting: r.shifting,
+        parcel: r.parcel,
+        bookedBy: r.bookedBy,
       );
 
   /// Null when [json] isn't an offer (e.g. a message from an older build).
@@ -108,13 +113,27 @@ class OverlayOffer {
       pickupLandmark: s('pickupLandmark').isEmpty ? null : s('pickupLandmark'),
       rating: json['rating'] is num ? (json['rating'] as num).toDouble() : 4.8,
       isVerified: json['isVerified'] == true,
-      womenDriver: WomenDriverPref.values.asNameMap()[json['womenDriver']] ??
-          (json['isWomenOnly'] == true ? WomenDriverPref.only : WomenDriverPref.none),
+      womenDriver:
+          WomenDriverPref.values.asNameMap()[json['womenDriver']] ??
+          (json['isWomenOnly'] == true
+              ? WomenDriverPref.only
+              : WomenDriverPref.none),
       extra: n('extra').round(),
       rideMode: RideMode.values.asNameMap()[json['rideMode']] ?? RideMode.local,
       modeTerms: ModeTerms.fromJson(json['modeTerms']),
-      scheduledAt: json['scheduledAtMs'] is num ? DateTime.fromMillisecondsSinceEpoch((json['scheduledAtMs'] as num).round()) : null,
+      scheduledAt: json['scheduledAtMs'] is num
+          ? DateTime.fromMillisecondsSinceEpoch(
+              (json['scheduledAtMs'] as num).round(),
+            )
+          : null,
       shifting: ShiftingDetails.fromJson(json['shifting']),
+      parcel: json['parcel'] is Map
+          ? parcelFromJson(
+              Map<String, dynamic>.from(json['parcel'] as Map),
+              otp: '',
+            )
+          : null,
+      bookedBy: json['bookedBy'] as String?,
     );
   }
 
@@ -135,29 +154,44 @@ class OverlayOffer {
 
   /// House shifting: the home, items, floors and the team.
   final ShiftingDetails? shifting;
+  final ParcelDetails? parcel;
+  final String? bookedBy;
 
   /// Back to a [RideRequest] for the shared card widgets (no coordinates: the overlay draws no map).
   RideRequest toRequest() => RideRequest(
-        id: id,
-        kind: isDelivery ? TripKind.parcel : TripKind.ride,
-        vehicle: vehicle,
-        fare: fare,
-        pickup: Place(id: '$id-p', name: pickupName, address: pickupAddress, location: const LatLng(0, 0), landmark: pickupLandmark),
-        drop: Place(id: '$id-d', name: dropName, address: dropAddress, location: const LatLng(0, 0)),
-        pickupDistanceKm: pickupKm,
-        pickupEtaMin: pickupEtaMin,
-        tripKm: tripKm,
-        tripMin: tripMin,
-        customerName: customerName,
-        customerRating: rating,
-        isCustomerVerified: isVerified,
-        womenDriver: womenDriver,
-        extra: extra,
-        rideMode: rideMode,
-        modeTerms: modeTerms,
-        scheduledAt: scheduledAt,
-        shifting: shifting,
-      );
+    id: id,
+    kind: isDelivery ? TripKind.parcel : TripKind.ride,
+    vehicle: vehicle,
+    fare: fare,
+    pickup: Place(
+      id: '$id-p',
+      name: pickupName,
+      address: pickupAddress,
+      location: const LatLng(0, 0),
+      landmark: pickupLandmark,
+    ),
+    drop: Place(
+      id: '$id-d',
+      name: dropName,
+      address: dropAddress,
+      location: const LatLng(0, 0),
+    ),
+    pickupDistanceKm: pickupKm,
+    pickupEtaMin: pickupEtaMin,
+    tripKm: tripKm,
+    tripMin: tripMin,
+    customerName: customerName,
+    customerRating: rating,
+    isCustomerVerified: isVerified,
+    womenDriver: womenDriver,
+    extra: extra,
+    rideMode: rideMode,
+    modeTerms: modeTerms,
+    scheduledAt: scheduledAt,
+    shifting: shifting,
+    parcel: parcel,
+    bookedBy: bookedBy,
+  );
 
   DateTime get expiresAt => DateTime.fromMillisecondsSinceEpoch(expiresAtMs);
 
@@ -178,36 +212,49 @@ class OverlayOffer {
   final int expiresAtMs;
 
   Duration remaining(DateTime now) {
-    final left = Duration(milliseconds: expiresAtMs - now.millisecondsSinceEpoch);
+    final left = Duration(
+      milliseconds: expiresAtMs - now.millisecondsSinceEpoch,
+    );
     return left.isNegative ? Duration.zero : left;
   }
 
   Map<String, Object> toJson() => {
-        'id': id,
-        'fare': fare,
-        'vehicle': vehicle.name,
-        'vehicleLabel': vehicleLabel,
-        'isDelivery': isDelivery,
-        'pickupName': pickupName,
-        'dropName': dropName,
-        'pickupKm': pickupKm,
-        'pickupEtaMin': pickupEtaMin,
-        'tripKm': tripKm,
-        'tripMin': tripMin,
-        'customerName': customerName,
-        'expiresAtMs': expiresAtMs,
-        'pickupAddress': pickupAddress,
-        'dropAddress': dropAddress,
-        'pickupLandmark': ?pickupLandmark,
-        'rating': rating,
-        'extra': extra,
-        'isVerified': isVerified,
-        'womenDriver': womenDriver.name,
-        'rideMode': rideMode.name,
-        'modeTerms': ?modeTerms?.toJson(),
-        'scheduledAtMs': ?scheduledAt?.millisecondsSinceEpoch,
-        'shifting': ?shifting?.toJson(withLines: true),
-      };
+    'id': id,
+    'fare': fare,
+    'vehicle': vehicle.name,
+    'vehicleLabel': vehicleLabel,
+    'isDelivery': isDelivery,
+    'pickupName': pickupName,
+    'dropName': dropName,
+    'pickupKm': pickupKm,
+    'pickupEtaMin': pickupEtaMin,
+    'tripKm': tripKm,
+    'tripMin': tripMin,
+    'customerName': customerName,
+    'expiresAtMs': expiresAtMs,
+    'pickupAddress': pickupAddress,
+    'dropAddress': dropAddress,
+    'pickupLandmark': ?pickupLandmark,
+    'rating': rating,
+    'extra': extra,
+    'isVerified': isVerified,
+    'womenDriver': womenDriver.name,
+    'rideMode': rideMode.name,
+    'modeTerms': ?modeTerms?.toJson(),
+    'scheduledAtMs': ?scheduledAt?.millisecondsSinceEpoch,
+    'shifting': ?shifting?.toJson(withLines: true),
+    'parcel': ?(parcel == null
+        ? null
+        : {
+            'category': parcel!.category.name,
+            'weight': parcel!.weight.name,
+            'senderName': parcel!.senderName,
+            'receiverName': parcel!.receiverName,
+            'senderPhone': '',
+            'receiverPhone': '',
+          }),
+    'bookedBy': ?bookedBy,
+  };
 }
 
 /// What to put over other apps (or in the notification shade) for the live driver session.

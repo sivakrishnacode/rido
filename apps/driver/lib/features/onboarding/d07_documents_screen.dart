@@ -64,12 +64,16 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
 
   /// Plans on → D-11 choose a plan; the free app → straight to Home.
   Future<String> _approvedRoute() async =>
-      (await ref.read(appConfigProvider.future)).driverPlansEnabled ? Routes.choosePlan : Routes.home;
+      (await ref.read(appConfigProvider.future)).driverPlansEnabled
+      ? Routes.choosePlan
+      : Routes.home;
 
   /// Asks whether the application is approved. [silent]: the background check (no spinner, no "still under
   /// review" snack).
   Future<void> _check({bool silent = false}) async {
-    if (_checking || !mounted) return;
+    if (_checking || !mounted || ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
     // Not created yet (new driver before D-06): nothing to check.
     if (_live && !ref.read(driverRepositoryProvider).isLoggedIn) return;
     if (!silent) setState(() => _checking = true);
@@ -91,13 +95,20 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
     if (ok == true) {
       _poll?.cancel();
       final route = await _approvedRoute();
-      if (!mounted) return;
-      showTtSnack(context, "You're approved! Welcome to Tamil Taxi", success: true);
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      showTtSnack(
+        context,
+        "You're approved! Welcome to Tamil Taxi",
+        success: true,
+      );
       context.go(route);
       return;
     }
     if (!silent && ok == null) {
-      showTtSnack(context, "Still under review. We'll let you know as soon as an admin approves your documents.");
+      showTtSnack(
+        context,
+        "Still under review. We'll let you know as soon as an admin approves your documents.",
+      );
     }
   }
 
@@ -154,35 +165,89 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
     final signup = ref.watch(signupProvider);
     // Live: a new driver has no account until D-06 saves, so nothing is loaded from the API before that.
     final loggedIn = !live || ref.read(driverRepositoryProvider).isLoggedIn;
-    final allDocs = showcase || !loggedIn ? Seed.kycFresh : (ref.watch(kycProvider).value ?? Seed.kycFresh);
-    final docs = [for (final d in allDocs) if (driverUploadDocs.contains(d.type)) d];
-    final identity = showcase || !loggedIn ? null : ref.watch(identityProvider).value;
-    final profile = live && loggedIn ? ref.watch(driverProfileProvider).value : null;
+    final kyc = live && loggedIn ? ref.watch(kycProvider) : null;
+    final identityState = live && loggedIn ? ref.watch(identityProvider) : null;
+    if (kyc != null && (kyc.isLoading || identityState!.isLoading)) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (kyc != null && (kyc.hasError || identityState!.hasError)) {
+      return Scaffold(
+        appBar: const TtAppBar(title: 'Registration'),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Could not load your documents. Try again.'),
+              TextButton(
+                onPressed: () {
+                  ref.invalidate(kycProvider);
+                  ref.invalidate(identityProvider);
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final allDocs = showcase || !loggedIn
+        ? Seed.kycFresh
+        : live
+        ? (kyc?.value ?? const <KycDocument>[])
+        : (ref.watch(kycProvider).value ?? Seed.kycFresh);
+    final docs = [
+      for (final d in allDocs)
+        if (driverUploadDocs.contains(d.type)) d,
+    ];
+    final identity = showcase || !loggedIn
+        ? null
+        : ref.watch(identityProvider).value;
+    final profile = live && loggedIn
+        ? ref.watch(driverProfileProvider).value
+        : null;
 
     // 1. Vehicle and personal details: live, the driver exists once D-06 has saved; mock, once D-06 committed.
     final detailsDone = showcase || signup.detailsSaved || (live && loggedIn);
     // 2. Identity check (Didit off in dev counts as nothing to do; live before D-06 it shows locked) and, once it
     // is approved, the profile photo.
-    final hasIdentity = identity?.isEnabled ?? (live && !loggedIn);
+    final hasIdentity = identity?.isEnabled ?? live;
     final identityApproved = identity?.isApproved ?? false;
     final identityDone = !hasIdentity || (identity?.isSubmitted ?? false);
-    final identityError = hasIdentity && identity?.status == IdentityStatus.declined;
+    final identityError =
+        hasIdentity && identity?.status == IdentityStatus.declined;
     final needsPhoto = live && hasIdentity;
-    final photoDone = !needsPhoto || !identityApproved || profile?.photoPath != null || (profile?.hasPendingPhoto ?? false);
-    final photoError = needsPhoto && profile != null && profile.photoRejectReason != null && profile.photoPath == null && !profile.hasPendingPhoto;
+    final photoDone =
+        !needsPhoto ||
+        !identityApproved ||
+        profile?.photoPath != null ||
+        (profile?.hasPendingPhoto ?? false);
+    final photoError =
+        needsPhoto &&
+        profile != null &&
+        profile.photoRejectReason != null &&
+        profile.photoPath == null &&
+        !profile.hasPendingPhoto;
     // 3. Documents.
-    bool isIn(KycDocument d) => d.status == KycStatus.verified || d.status == KycStatus.underReview;
+    bool isIn(KycDocument d) =>
+        d.status == KycStatus.verified || d.status == KycStatus.underReview;
     final docsDone = docs.where(isIn).length;
     final docErrors = docs.where((d) => d.status == KycStatus.rejected).length;
 
-    final steps = 1 + (hasIdentity ? 1 : 0) + (needsPhoto ? 1 : 0) + docs.length;
+    final steps =
+        1 + (hasIdentity ? 1 : 0) + (needsPhoto ? 1 : 0) + docs.length;
     // Steps after the details only count once they are open.
     final done = detailsDone
-        ? 1 + (hasIdentity && identityDone ? 1 : 0) + (needsPhoto && photoDone && identityApproved ? 1 : 0) + docsDone
+        ? 1 +
+              (hasIdentity && identityDone ? 1 : 0) +
+              (needsPhoto && photoDone && identityApproved ? 1 : 0) +
+              docsDone
         : 0;
     final errors = docErrors + (identityError ? 1 : 0) + (photoError ? 1 : 0);
-    final allIn = detailsDone && identityDone && photoDone && docsDone == docs.length;
-    if (allIn && errors == 0 && !showcase) WidgetsBinding.instance.addPostFrameCallback((_) => _startMockReview());
+    final allIn =
+        detailsDone && identityDone && photoDone && docsDone == docs.length;
+    if (allIn && errors == 0 && !showcase) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startMockReview());
+    }
 
     final kind = profile?.vehicleKind ?? signup.vehicle;
     final plate = (profile?.plate ?? signup.plate).trim();
@@ -191,23 +256,45 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
 
     // The card's status pill and the next thing to do (its navy band).
     final (String pill, Color pillBg, Color pillFg) = errors > 0
-        ? (errors == 1 ? '1 error' : '$errors errors', TtColors.error, Colors.white)
+        ? (
+            errors == 1 ? '1 error' : '$errors errors',
+            TtColors.error,
+            Colors.white,
+          )
         : allIn
-            ? ('Under review', TtColors.warning, TtColors.navy900)
-            : ('${steps - done} to do', TtColors.navy900, Colors.white);
-    final firstRejected = docs.where((d) => d.status == KycStatus.rejected).firstOrNull;
-    final firstMissing = docs.where((d) => d.status == KycStatus.notUploaded).firstOrNull;
+        ? ('Under review', TtColors.warning, TtColors.navy900)
+        : ('${steps - done} to do', TtColors.navy900, Colors.white);
+    final firstRejected = docs
+        .where((d) => d.status == KycStatus.rejected)
+        .firstOrNull;
+    final firstMissing = docs
+        .where((d) => d.status == KycStatus.notUploaded)
+        .firstOrNull;
     final (String next, VoidCallback? onNext) = !detailsDone
         ? ('Add your vehicle and details', () => context.push(Routes.workType))
         : firstRejected != null
-            ? ('Re-upload your ${firstRejected.type.label}', () => _upload(firstRejected.type))
-            : hasIdentity && !identityDone
-                ? ('Verify your licence and Aadhaar', null)
-                : !photoDone
-                    ? ('Take your profile photo', () => context.push(Routes.profilePhoto))
-                    : firstMissing != null
-                        ? ('Upload your ${firstMissing.type.label}', () => _upload(firstMissing.type))
-                        : ("Under review · we'll notify you", null);
+        ? (
+            'Re-upload your ${firstRejected.type.label}',
+            () => _upload(firstRejected.type),
+          )
+        : hasIdentity && !identityDone
+        ? (
+            'Verify your licence and Aadhaar',
+            () async {
+              final error = await ref.read(identityProvider.notifier).verify();
+              if (context.mounted && error != null) {
+                showTtSnack(context, error);
+              }
+            },
+          )
+        : !photoDone
+        ? ('Take your profile photo', () => context.push(Routes.profilePhoto))
+        : firstMissing != null
+        ? (
+            'Upload your ${firstMissing.type.label}',
+            () => _upload(firstMissing.type),
+          )
+        : ("Under review · we'll notify you", null);
 
     return Scaffold(
       backgroundColor: TtColors.background,
@@ -319,8 +406,13 @@ class _D07DocumentsScreenState extends ConsumerState<D07DocumentsScreen> {
     final t = context.type;
     final showcase = widget.showcase;
     final live = _live;
-    final allDocs = !live ? Seed.kycAllVerified : (ref.watch(kycProvider).value ?? Seed.kycFresh);
-    final docs = [for (final d in allDocs) if (driverUploadDocs.contains(d.type)) d];
+    final allDocs = !live
+        ? Seed.kycAllVerified
+        : (ref.watch(kycProvider).value ?? const <KycDocument>[]);
+    final docs = [
+      for (final d in allDocs)
+        if (driverUploadDocs.contains(d.type)) d,
+    ];
     final identity = showcase ? null : ref.watch(identityProvider).value;
     final hasIdentity = identity?.isEnabled ?? showcase;
     final verified = docs.where((d) => d.status == KycStatus.verified).length;

@@ -11,9 +11,12 @@ import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'widgets/job_common.dart';
+import 'widgets/job_menu.dart';
+import 'widgets/no_show_button.dart';
 import 'widgets/shifting_sheet.dart';
 import 'widgets/too_far_sheet.dart';
 import 'widgets/job_map.dart';
+import 'widgets/parcel_photo.dart';
 
 /// D-21 Delivery in progress: stepper Go to pickup → Picked up → Go to drop → Delivered,
 /// driven by the session phase. One swipe per step: "Reached pickup", "Picked up",
@@ -32,18 +35,69 @@ class D21DeliveryInProgressScreen extends ConsumerStatefulWidget {
   final JobPhase samplePhase;
 
   @override
-  ConsumerState<D21DeliveryInProgressScreen> createState() => _D21DeliveryInProgressScreenState();
+  ConsumerState<D21DeliveryInProgressScreen> createState() =>
+      _D21DeliveryInProgressScreenState();
 }
 
-class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgressScreen> {
-  static const _steps = ['Go to pickup', 'Picked up', 'Go to drop', 'Delivered'];
-
-  late final RideRequest _job = ref.read(driverSessionProvider).job ?? widget.sample ?? Seed.deliveryRequest;
+class _D21DeliveryInProgressScreenState
+    extends ConsumerState<D21DeliveryInProgressScreen> {
+  static const _steps = [
+    'Go to pickup',
+    'Picked up',
+    'Go to drop',
+    'Delivered',
+  ];
+  RideRequest get _job =>
+      ref.read(driverSessionProvider).job ??
+      widget.sample ??
+      Seed.deliveryRequest;
 
   /// Phase used when there is no live job (showcase / opened directly): the D-21 frame.
   late JobPhase _localPhase = widget.samplePhase;
   late final bool _api = !widget.showcase && ref.read(isLiveApiProvider);
   bool _busy = false;
+
+  /// ⋮ → Cancel (before the pickup) and the no-show cancel at the pickup: reason → the API → Home.
+  Future<void> _cancel({CancelCode? code}) async {
+    if (widget.showcase) return showTtSnack(context, kPreviewNote);
+    final noun = _job.isShifting ? 'job' : 'delivery';
+    final reason =
+        code ??
+        await CancelReasonDialog.show(
+          context,
+          reasons: CancelCode.forDriver,
+          noun: noun,
+        );
+    if (reason == null || !mounted) return;
+    if (code != null) {
+      final ok = await showTtConfirm(
+        context,
+        title: "Sender didn't come?",
+        message: "Cancel this $noun as a no-show. It won't count against you.",
+        confirmLabel: 'Cancel $noun',
+        cancelLabel: 'Keep waiting',
+        icon: Symbols.person_off_rounded,
+      );
+      if (!ok || !mounted) return;
+    }
+    if (ref.read(driverSessionProvider).job != null) {
+      setState(() => _busy = true);
+      try {
+        await ref.read(driverSessionProvider.notifier).cancelJob(code: reason);
+      } on Exception catch (e) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        showTtSnack(context, userMessage(e));
+        return;
+      }
+      if (!mounted) return;
+    }
+    showTtSnack(
+      context,
+      '${_job.isShifting ? 'Job' : 'Delivery'} cancelled · ${reason.label}',
+    );
+    context.go(Routes.home);
+  }
 
   Future<void> _advance(bool live, JobPhase phase) async {
     if (_busy) return;
@@ -129,37 +183,66 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
         body: Column(
           children: [
             NavyHeader(
-              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.gutter, TtSpacing.m),
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(
-                      phase == JobPhase.atPickup
-                          ? (shift == null ? 'Load the parcel' : 'Load up${helpers == null ? '' : ' · $helpers helpers'}')
-                          : (toDrop ? 'Go to drop' : 'Go to pickup'),
-                      style: t.bodySmall.copyWith(color: Colors.white70),
+              padding: const EdgeInsets.fromLTRB(
+                TtSpacing.gutter,
+                TtSpacing.s,
+                TtSpacing.gutter,
+                TtSpacing.m,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          phase == JobPhase.atPickup
+                              ? (shift == null
+                                    ? 'Load the parcel'
+                                    : 'Load up${helpers == null ? '' : ' · $helpers helpers'}')
+                              : (toDrop ? 'Go to drop' : 'Go to pickup'),
+                          style: t.bodySmall.copyWith(color: Colors.white70),
+                        ),
+                        Text(
+                          phase == JobPhase.atPickup
+                              ? place.name
+                              : '${place.name} · $eta min',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TtTextStyles.tabular(
+                            t.h2.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      phase == JobPhase.atPickup ? place.name : '${place.name} · $eta min',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TtTextStyles.tabular(t.h2.copyWith(color: Colors.white)),
-                    ),
-                  ]),
-                ),
-                const SizedBox(width: TtSpacing.s),
-                NavigatePill(
-                  onDark: true,
-                  onPressed: () =>
-                      _api ? openNavigation(context, place.location) : showTtSnack(context, 'Opening Google Maps'),
-                ),
-              ]),
+                  ),
+                  const SizedBox(width: TtSpacing.s),
+                  JobMoreMenu(
+                    onHelp: () => widget.showcase
+                        ? showTtSnack(context, kPreviewNote)
+                        : context.push(Routes.help),
+                    // Before the pickup only: once loaded, the job is finished at the drop.
+                    onCancel: toDrop ? null : _cancel,
+                    cancelLabel: shift == null
+                        ? 'Cancel delivery'
+                        : 'Cancel job',
+                  ),
+                  NavigatePill(
+                    onDark: true,
+                    onPressed: () => _api
+                        ? openNavigation(context, place.location)
+                        : showTtSnack(context, 'Opening Google Maps'),
+                  ),
+                ],
+              ),
             ),
             Expanded(
               child: LiveVehicleMap(
                 key: ValueKey('delivery-map-$toDrop'),
                 vehicleType: _job.vehicle.mapType,
-                fixedPosition: live ? null : pointAlong(route, phase == JobPhase.atPickup ? 1 : 0.3),
+                fixedPosition: live
+                    ? null
+                    : pointAlong(route, phase == JobPhase.atPickup ? 1 : 0.3),
                 pickup: toDrop ? null : _job.pickup.location,
                 drop: toDrop ? _job.drop.location : null,
                 route: route,
@@ -170,81 +253,143 @@ class _D21DeliveryInProgressScreenState extends ConsumerState<D21DeliveryInProgr
             ),
             BottomPanel(
               handle: true,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                StepperTimeline(steps: _steps, currentIndex: stepIndex),
-                const Divider(height: TtSpacing.xl),
-                Row(children: [
-                  TtAvatar(initials: initialsOf(contactName), size: 52),
-                  const SizedBox(width: TtSpacing.m),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(contactName, style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(
-                        shift == null
-                            ? contactNote
-                            : (toDrop ? floorLabel(shift.dropFloor, shift.dropLift) : floorLabel(shift.pickupFloor, shift.pickupLift)),
-                        style: t.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StepperTimeline(steps: _steps, currentIndex: stepIndex),
+                  const Divider(height: TtSpacing.xl),
+                  Row(
+                    children: [
+                      TtAvatar(initials: initialsOf(contactName), size: 52),
+                      const SizedBox(width: TtSpacing.m),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              contactName,
+                              style: t.h2,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              shift == null
+                                  ? contactNote
+                                  : (toDrop
+                                        ? floorLabel(
+                                            shift.dropFloor,
+                                            shift.dropLift,
+                                          )
+                                        : floorLabel(
+                                            shift.pickupFloor,
+                                            shift.pickupLift,
+                                          )),
+                              style: t.bodySmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
-                    ]),
+                      const SizedBox(width: TtSpacing.s),
+                      RoundIconButton(
+                        icon: Symbols.chat_rounded,
+                        tooltip: 'Chat with ${_job.customerName}',
+                        size: 48,
+                        onPressed: unlessShowcase(
+                          context,
+                          widget.showcase,
+                          () => context.push(Routes.chat),
+                        )!,
+                      ),
+                      const SizedBox(width: TtSpacing.s),
+                      TtButton(
+                        label: 'Call',
+                        icon: Symbols.call_rounded,
+                        expand: false,
+                        semanticLabel: 'Call $contactName',
+                        onPressed: () => _api
+                            ? dialNumber(
+                                context,
+                                contactPhone,
+                                name: contactName,
+                              )
+                            : showTtSnack(
+                                context,
+                                'Calling ${contactName.split(' ').first} (number hidden)',
+                              ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: TtSpacing.s),
-                  TtButton(
-                    label: 'Call',
-                    icon: Symbols.call_rounded,
-                    expand: false,
-                    semanticLabel: 'Call $contactName',
-                    onPressed: () => _api
-                        ? dialNumber(context, contactPhone, name: contactName)
-                        : showTtSnack(context, 'Calling ${contactName.split(' ').first} (number hidden)'),
-                  ),
-                ]),
-                const SizedBox(height: TtSpacing.m),
-                Wrap(spacing: TtSpacing.s, runSpacing: TtSpacing.s, children: [
-                  if (shift != null) ...[
-                    _Chip(
-                      icon: Symbols.home_rounded,
-                      text: [shift.homeSize.label, if (helpers != null) '$helpers helpers'].join(' · '),
-                      bg: TtColors.coral50,
-                      fg: TtColors.coral700,
-                    ),
-                    _Chip(
-                      icon: Symbols.checklist_rounded,
-                      text: 'See ${shift.items.length} items',
-                      bg: TtColors.infoTint,
-                      fg: TtColors.navy900,
-                      onTap: () => showShiftingDetails(context, _job),
-                    ),
-                  ] else if (parcel != null)
-                    _Chip(
-                      icon: Symbols.checkroom_rounded,
-                      text: '${parcel.category.label} · ${parcel.weight.label}',
-                      bg: TtColors.inputBg,
-                      fg: TtColors.navy700,
-                    ),
-                  _Chip(
-                    text: shift != null
-                        ? 'Collect ${formatInr(_job.fare)} after the move'
-                        : byReceiver
+                  const SizedBox(height: TtSpacing.m),
+                  Wrap(
+                    spacing: TtSpacing.s,
+                    runSpacing: TtSpacing.s,
+                    children: [
+                      if (shift != null) ...[
+                        _Chip(
+                          icon: Symbols.home_rounded,
+                          text: [
+                            shift.homeSize.label,
+                            if (helpers != null) '$helpers helpers',
+                          ].join(' · '),
+                          bg: TtColors.coral50,
+                          fg: TtColors.coral700,
+                        ),
+                        _Chip(
+                          icon: Symbols.checklist_rounded,
+                          text: 'See ${shift.items.length} items',
+                          bg: TtColors.infoTint,
+                          fg: TtColors.navy900,
+                          onTap: () => showShiftingDetails(context, _job),
+                        ),
+                      ] else if (parcel != null)
+                        _Chip(
+                          icon: Symbols.checkroom_rounded,
+                          text:
+                              '${parcel.category.label} · ${parcel.weight.label}',
+                          bg: TtColors.inputBg,
+                          fg: TtColors.navy700,
+                        ),
+                      _Chip(
+                        text: shift != null
+                            ? 'Collect ${formatInr(_job.fare)} after the move'
+                            : byReceiver
                             ? 'Collect ${formatInr(_job.fare)} from receiver'
                             : 'Collect ${formatInr(_job.fare)} from sender',
-                    bg: TtColors.warningTint,
-                    fg: TtColors.warningText,
+                        bg: TtColors.warningTint,
+                        fg: TtColors.warningText,
+                      ),
+                    ],
                   ),
-                ]),
-                if (phase == JobPhase.atPickup && waiting != null) ...[
-                  const SizedBox(height: TtSpacing.m),
-                  WaitingTimerChip(terms: waiting, isTicking: live),
+                  if (phase == JobPhase.atPickup && waiting != null) ...[
+                    const SizedBox(height: TtSpacing.m),
+                    WaitingTimerChip(terms: waiting, isTicking: live),
+                  ],
+                  // At the pickup and nobody came: after the wait, cancel as a no-show (doesn't count against the driver).
+                  if (live && phase == JobPhase.atPickup) ...[
+                    const SizedBox(height: TtSpacing.s),
+                    NoShowButton(
+                      noShowAt: session.noShowAt,
+                      who: 'Sender',
+                      enabled: !_busy,
+                      onCancel: () => _cancel(code: CancelCode.passengerNoShow),
+                    ),
+                  ],
+                  const SizedBox(height: TtSpacing.l),
+                  if (_api && _job.parcelPhotoFile != null) ...[
+                    const SizedBox(height: TtSpacing.m),
+                    ParcelPhoto(tripId: _job.id),
+                  ],
+                  SwipeToConfirm(
+                    key: ValueKey('swipe-$phase'),
+                    label: swipeLabel,
+                    enabled: !_busy,
+                    onConfirmed: () => _advance(live, phase),
+                  ),
                 ],
-                const SizedBox(height: TtSpacing.l),
-                SwipeToConfirm(
-                  key: ValueKey('swipe-$phase'),
-                  label: swipeLabel,
-                  enabled: !_busy,
-                  onConfirmed: () => _advance(live, phase),
-                ),
-              ]),
+              ),
             ),
           ],
         ),

@@ -10,7 +10,7 @@ import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
 import 'widgets/signup_widgets.dart';
 
-/// D-06 Personal details: photo, name, date of birth, gender, city (locked), the vehicle's model,
+/// D-06 Personal details: photo, name, gender, city (locked), the vehicle's model,
 /// colour and number plate, emergency contact and the UPI ID that receives fares. "Save and continue"
 /// → D-07. Live API: this is where the driver account (with its free trial) is created; the API's
 /// validation messages (plate, UPI ID) show in a snack bar.
@@ -21,44 +21,44 @@ class D06PersonalDetailsScreen extends ConsumerStatefulWidget {
   final bool showcase;
 
   @override
-  ConsumerState<D06PersonalDetailsScreen> createState() => _D06PersonalDetailsScreenState();
+  ConsumerState<D06PersonalDetailsScreen> createState() =>
+      _D06PersonalDetailsScreenState();
 }
 
-const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/// Parses "14 Mar 1994".
-DateTime? _parseDob(String s) {
-  final p = s.split(' ');
-  if (p.length != 3) return null;
-  final m = _months.indexOf(p[1]);
-  final d = int.tryParse(p[0]);
-  final y = int.tryParse(p[2]);
-  if (m < 0 || d == null || y == null) return null;
-  return DateTime(y, m + 1, d);
-}
-
-String _two(int n) => n.toString().padLeft(2, '0');
-
-class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScreen> {
+class _D06PersonalDetailsScreenState
+    extends ConsumerState<D06PersonalDetailsScreen> {
   late final SignupDraft _draft = ref.read(signupProvider);
-  late final TextEditingController _name = TextEditingController(text: _draft.name);
-  late final TextEditingController _emergency =
-      TextEditingController(text: _draft.emergencyContact.replaceFirst('+91', '').trim());
-  late final TextEditingController _upi = TextEditingController(text: _draft.upiId);
+  late final TextEditingController _name = TextEditingController(
+    text: _draft.name,
+  );
+  late final TextEditingController _emergency = TextEditingController(
+    text: _draft.emergencyContact.replaceFirst('+91', '').trim(),
+  );
+  late final TextEditingController _upi = TextEditingController(
+    text: _draft.upiId,
+  );
   late final bool _live = ref.read(isLiveApiProvider);
 
   /// Mock: the seed driver's vehicle for the chosen type unless the driver typed one.
-  late final DriverProfile _seedDriver = _draft.vehicle.isGoods ? Seed.selvam : Seed.karthik;
-  late final TextEditingController _model =
-      TextEditingController(text: _draft.vehicleModel.isNotEmpty || _live ? _draft.vehicleModel : _seedDriver.vehicleModel);
-  late final TextEditingController _color =
-      TextEditingController(text: _draft.vehicleColor.isNotEmpty || _live ? _draft.vehicleColor : _seedDriver.vehicleColor);
-  late final TextEditingController _plate =
-      TextEditingController(text: _draft.plate.isNotEmpty || _live ? _draft.plate : _seedDriver.plate);
+  late final DriverProfile _seedDriver = _draft.vehicle.isGoods
+      ? Seed.selvam
+      : Seed.karthik;
+  late final TextEditingController _model = TextEditingController(
+    text: _draft.vehicleModel.isNotEmpty || _live
+        ? _draft.vehicleModel
+        : _seedDriver.vehicleModel,
+  );
+  late final TextEditingController _color = TextEditingController(
+    text: _draft.vehicleColor.isNotEmpty || _live
+        ? _draft.vehicleColor
+        : _seedDriver.vehicleColor,
+  );
+  late final TextEditingController _plate = TextEditingController(
+    text: _draft.plate.isNotEmpty || _live ? _draft.plate : _seedDriver.plate,
+  );
 
   /// Live API: fields start empty, so errors show only after the first "Save and continue".
   bool _tried = false;
-  late DateTime _dob = _parseDob(_draft.dob) ?? DateTime(1994, 6, 14);
   late Gender _gender = _draft.gender;
   late bool _hasPhoto = _draft.hasPhoto;
   bool _saving = false;
@@ -93,20 +93,13 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
       _plateValid;
 
   String get _initials {
-    final parts = _name.text.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = _name.text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return 'D';
     return parts.take(2).map((p) => p[0].toUpperCase()).join();
-  }
-
-  Future<void> _pickDob() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dob,
-      firstDate: DateTime(1950),
-      lastDate: DateTime(TtClock.today.year - 18, TtClock.today.month, TtClock.today.day),
-      helpText: 'Date of birth',
-    );
-    if (picked != null && mounted) setState(() => _dob = picked);
   }
 
   Future<void> _save() async {
@@ -119,23 +112,30 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
     FocusScope.of(context).unfocus();
     setState(() => _saving = true);
     final digits = PhoneInput.digitsOf(_emergency.text);
-    ref.read(signupProvider.notifier).update((d) => d.copyWith(
-          name: _name.text.trim(),
-          dob: formatDate(_dob),
-          gender: _gender,
-          emergencyContact: '+91 ${digits.substring(0, 5)} ${digits.substring(5)}',
-          upiId: _upi.text.trim(),
-          hasPhoto: _hasPhoto,
-          vehicleModel: _model.text.trim(),
-          vehicleColor: _color.text.trim(),
-          plate: _plate.text.trim().toUpperCase(),
-        ));
+    ref
+        .read(signupProvider.notifier)
+        .update(
+          (d) => d.copyWith(
+            name: _name.text.trim(),
+            gender: _gender,
+            emergencyContact:
+                '+91 ${digits.substring(0, 5)} ${digits.substring(5)}',
+            upiId: _upi.text.trim(),
+            hasPhoto: _hasPhoto,
+            vehicleModel: _model.text.trim(),
+            vehicleColor: _color.text.trim(),
+            plate: _plate.text.trim().toUpperCase(),
+          ),
+        );
     try {
       await ref.read(signupProvider.notifier).commit();
-    } on Exception catch (e) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      showTtSnack(context, userMessage(e));
+      showTtSnack(
+        context,
+        e is Exception ? userMessage(e) : 'Something went wrong. Try again.',
+      );
       return;
     }
     if (!mounted) return;
@@ -177,48 +177,33 @@ class _D06PersonalDetailsScreenState extends ConsumerState<D06PersonalDetailsScr
                     textCapitalization: TextCapitalization.words,
                     textInputAction: TextInputAction.next,
                     onChanged: (_) => setState(() {}),
-                    errorText: _showErrors && _name.text.trim().length < 2 ? 'Enter your name as on your licence' : null,
+                    errorText: _showErrors && _name.text.trim().length < 2
+                        ? 'Enter your name as on your licence'
+                        : null,
                   ),
                   const SizedBox(height: TtSpacing.l),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: TtTextField(
-                          key: ValueKey(_dob),
-                          label: 'Date of birth',
-                          initialValue: '${_two(_dob.day)}/${_two(_dob.month)}/${_dob.year}',
-                          readOnly: true,
-                          onTap: _pickDob,
-                          suffix: IconButton(
-                            tooltip: 'Pick date of birth',
-                            icon: const Icon(Symbols.calendar_month_rounded, color: TtColors.navy500),
-                            onPressed: _pickDob,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: TtSpacing.m),
-                      Expanded(
-                        child: TtTextField(
-                          // The service city from the API (nearest to the city default); none is built in.
-                          key: ValueKey('city-$_city'),
-                          label: 'City',
-                          initialValue: _city,
-                          enabled: false,
-                          suffix: const Icon(Symbols.lock_rounded, color: TtColors.navy500, semanticLabel: 'Locked'),
-                        ),
-                      ),
-                    ],
+                  TtTextField(
+                    label: 'City',
+                    initialValue: _city,
+                    enabled: false,
+                    suffix: const Icon(
+                      Symbols.lock_rounded,
+                      color: TtColors.navy500,
+                    ),
                   ),
                   const SizedBox(height: TtSpacing.l),
                   TtTextField(
                     label: 'Vehicle model',
-                    hint: _draft.vehicle.isGoods ? 'Bajaj Maxima Cargo' : 'Honda Activa',
+                    hint: _draft.vehicle.isGoods
+                        ? 'Bajaj Maxima Cargo'
+                        : 'Honda Activa',
                     controller: _model,
                     textCapitalization: TextCapitalization.words,
                     textInputAction: TextInputAction.next,
                     onChanged: (_) => setState(() {}),
-                    errorText: _showErrors && !_modelValid ? 'Enter the vehicle model' : null,
+                    errorText: _showErrors && !_modelValid
+                        ? 'Enter the vehicle model'
+                        : null,
                   ),
                   const SizedBox(height: TtSpacing.l),
                   Row(

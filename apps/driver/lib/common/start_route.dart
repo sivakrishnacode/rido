@@ -9,8 +9,8 @@ import '../router/routes.dart';
 String applicationRoute({required bool? approved}) =>
     approved == true ? Routes.home : Routes.documents;
 
-/// Asks the API for the driver's application status and picks the start route. Offline → Home
-/// (it shows its own offline state). On hold → Home too: the account, help and trips stay reachable, and Go online
+/// Asks the API for the driver's application status and picks the start route. Offline uses the last known
+/// approval: unapproved or unknown stays on Registration. On hold → Home: the account, help and trips stay reachable, and Go online
 /// explains the hold (S-10) instead of D-07 claiming it is under review.
 Future<String> driverStartRoute(DriverRepository repo, IdentityRepository identity) async {
   bool? approved;
@@ -21,7 +21,12 @@ Future<String> driverStartRoute(DriverRepository repo, IdentityRepository identi
   } on AccountOnHoldException {
     return Routes.home;
   } on OfflineException {
-    return Routes.home;
+    final status = repo is ApiDriverRepository
+        ? repo.api.session.lastDriverStatus
+        : null;
+    return const {'APPROVED', 'ON_HOLD'}.contains(status)
+        ? Routes.home
+        : Routes.documents;
   }
   return applicationRoute(approved: approved);
 }

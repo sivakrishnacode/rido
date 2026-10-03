@@ -6,6 +6,7 @@ import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import '../../common/showcase.dart';
 import '../../router/routes.dart';
+import '../../common/load_error.dart';
 import '../../state/driver_account.dart';
 import 'widgets/signup_widgets.dart';
 
@@ -24,16 +25,38 @@ class D11ChoosePlanScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final signup = ref.watch(signupProvider);
-    final plan = showcase ? Seed.plan() : (ref.watch(planProvider).value ?? Seed.plan(vehicle: signup.vehicle));
-    final name = showcase ? Seed.karthik.firstName : (ref.watch(driverProfileProvider).value?.firstName ?? '');
+    final planState = ref.watch(planProvider);
+    if (!showcase && ref.watch(isLiveApiProvider) && planState.value == null) {
+      return Scaffold(
+        appBar: const TtAppBar(title: 'Your plan'),
+        body: planState.hasError
+            ? LoadError(
+                error: planState.error!,
+                what: 'your plan',
+                onRetry: () => ref.invalidate(planProvider),
+              )
+            : const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final plan = showcase
+        ? Seed.plan()
+        : (ref.watch(planProvider).value ?? Seed.plan(vehicle: signup.vehicle));
+    final name = showcase
+        ? Seed.karthik.firstName
+        : (ref.watch(driverProfileProvider).value?.firstName ?? '');
     final price = plan.monthlyPrice;
     final priceText = price == null ? '₹—' : formatInr(price);
-    final vehicleName = plan.vehicle == VehicleKind.truck ? 'Truck' : plan.vehicle.label;
+    final vehicleName = plan.vehicle == VehicleKind.truck
+        ? 'Truck'
+        : plan.vehicle.label;
     final deliveries = plan.vehicle.isGoods;
 
     return Scaffold(
       backgroundColor: TtColors.background,
-      appBar: SignupAppBar(title: 'Your plan', onBack: backOr(context, Routes.home)),
+      appBar: SignupAppBar(
+        title: 'Your plan',
+        onBack: backOr(context, Routes.home),
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

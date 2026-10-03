@@ -34,33 +34,59 @@ class DriverHelpScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(right: TtSpacing.s),
             child: TextButton.icon(
-              onPressed: showcase ? inert : () => dialNumber(context, supportPhone, name: 'support'),
+              onPressed: showcase
+                  ? inert
+                  : () => dialNumber(context, supportPhone, name: 'support'),
               icon: const Icon(Symbols.call_rounded, fill: 1),
               label: const Text('Call'),
-              style: TextButton.styleFrom(foregroundColor: TtColors.coral600, minimumSize: const Size(48, 48)),
+              style: TextButton.styleFrom(
+                foregroundColor: TtColors.coral600,
+                minimumSize: const Size(48, 48),
+              ),
             ),
           ),
         ],
       ),
       body: SupportHomeView(
         topics: driverHelpTopics(ref),
-        tickets: tickets.hasError ? const [] : tickets.value,
+        tickets: tickets.value,
+        ticketsError: tickets.hasError
+            ? 'Could not load tickets. Try again.'
+            : null,
+        onRetryTickets: () => ref.invalidate(driverTicketsProvider),
         recentTrip: latest == null
             ? null
             : SupportTripRef(
                 id: latest.id,
                 title: '${latest.from} → ${latest.to}',
-                subtitle: '${formatRelativeDay(latest.time, withTime: true)} · ${formatInr(latest.fare)}',
+                subtitle:
+                    '${formatRelativeDay(latest.time, withTime: true)} · ${formatInr(latest.fare)}',
                 // The driver's own vehicle did the trip.
-                icon: vehicle?.icon ?? (latest.isDelivery ? Symbols.local_shipping_rounded : Symbols.two_wheeler_rounded),
+                icon:
+                    vehicle?.icon ??
+                    (latest.isDelivery
+                        ? Symbols.local_shipping_rounded
+                        : Symbols.two_wheeler_rounded),
               ),
         // The ticket names the trip, so support knows which one.
         onRecentTrip: latest == null
             ? null
-            : (showcase ? inert : () => context.push(Routes.newTicket(topic: 'Payment issue', tripId: latest.id))),
-        onTopic: (topic) => showcase ? inert() : context.push(Routes.newTicket(topic: topic)),
-        onRaiseTicket: showcase ? inert : () => context.push(Routes.newTicket()),
-        onWhatsApp: showcase ? inert : () => openWhatsAppChat(context, supportPhone),
+            : (showcase
+                  ? inert
+                  : () => context.push(
+                      Routes.newTicket(
+                        topic: 'Payment issue',
+                        tripId: latest.id,
+                      ),
+                    )),
+        onTopic: (topic) =>
+            showcase ? inert() : context.push(Routes.newTicket(topic: topic)),
+        onRaiseTicket: showcase
+            ? inert
+            : () => context.push(Routes.newTicket()),
+        onWhatsApp: showcase
+            ? inert
+            : () => openWhatsAppChat(context, supportPhone),
       ),
     );
   }

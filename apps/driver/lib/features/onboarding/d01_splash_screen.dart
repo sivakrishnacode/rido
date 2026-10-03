@@ -14,8 +14,7 @@ import 'widgets/signup_widgets.dart';
 /// D-01 Splash: navy background, the white "தமிழ் / Taxi" name (same art and place as the native splash)
 /// and a coral "DRIVER" tag under it.
 /// After 1.5 s: signed in → Home, otherwise → D-02 Welcome. With the live API a signed-in driver goes
-/// where their application stands: Home (approved), D-07 (documents missing), D-10 (under review) or
-/// S-09 (a document was rejected).
+/// where their application stands: Home (approved), or D-07 (missing documents, under review or rejected).
 class D01SplashScreen extends ConsumerStatefulWidget {
   const D01SplashScreen({super.key, this.showcase = false});
 
@@ -46,10 +45,15 @@ class _D01SplashScreenState extends ConsumerState<D01SplashScreen> {
     var route = Routes.home;
     if (ref.read(isLiveApiProvider)) {
       try {
-        route = await driverStartRoute(repo, ref.read(identityRepositoryProvider));
+        route = await driverStartRoute(
+          repo,
+          ref.read(identityRepositoryProvider),
+        );
       } on ApiException catch (e) {
         // 401: the session was cleared; anything else: Home shows what it can.
-        route = e.status == 401 ? Routes.welcome : Routes.home;
+        route = e.status == 401 ? Routes.welcome : Routes.documents;
+      } catch (_) {
+        route = Routes.documents;
       }
     }
     if (mounted) context.go(route);

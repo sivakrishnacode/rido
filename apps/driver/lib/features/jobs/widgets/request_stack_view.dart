@@ -823,9 +823,16 @@ class _SecondsLeftState extends State<SecondsLeft> {
   @override
   void didUpdateWidget(SecondsLeft old) {
     super.didUpdateWidget(old);
+    if (widget.left != old.left) {
+      _secs = (widget.left.inMilliseconds / 1000).ceil();
+    }
     if (!widget.running) {
       _tick?.cancel();
       _tick = null;
+    } else {
+      _tick ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted && _secs > 0) setState(() => _secs--);
+      });
     }
   }
 

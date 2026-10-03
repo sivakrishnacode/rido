@@ -11,6 +11,7 @@ import '../../state/driver_session.dart';
 import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'widgets/job_common.dart';
+import 'widgets/job_menu.dart';
 import 'widgets/too_far_sheet.dart';
 import 'widgets/job_map.dart';
 
@@ -70,8 +71,11 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
   Future<void> _cancel() async {
     if (widget.showcase) return showTtSnack(context, kPreviewNote);
     // Butterfly (women riders): the rider at the pickup may turn out not to be a woman.
-    final reasons = [if (_job.isButterfly) kRiderNotWoman, ...CancelCode.forDriver];
-    final reason = await showDialog<CancelCode>(context: context, builder: (_) => _CancelReasonDialog(reasons: reasons));
+    final reasons = [
+      if (_job.isButterfly) kRiderNotWoman,
+      ...CancelCode.forDriver,
+    ];
+    final reason = await CancelReasonDialog.show(context, reasons: reasons);
     if (reason == null || !mounted) return;
     if (_live) {
       try {
@@ -119,134 +123,179 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
         body: Column(
           children: [
             NavyHeader(
-              padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.s, TtSpacing.s, TtSpacing.m),
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    // Booked ahead: the time the rider expects you (accepting early only means setting off in time).
-                    if (_job.scheduledAt case final at?)
-                      Text('Pickup ${formatWhen(at)}',
-                          style: t.bodySmallMedium.copyWith(color: TtColors.coral100, fontWeight: FontWeight.w700))
-                    else
-                      Text('Going to pickup', style: t.bodySmall.copyWith(color: Colors.white70)),
-                    Text(eta <= 0 ? 'Arriving now' : '$eta min · ${formatKm(km)}',
-                        style: TtTextStyles.tabular(t.h1.copyWith(color: Colors.white))),
-                  ]),
-                ),
-                PopupMenuButton<String>(
-                  tooltip: 'More options',
-                  icon: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(color: TtColors.navy700, shape: BoxShape.circle),
-                    child: const Icon(Symbols.more_vert_rounded, color: Colors.white),
+              padding: const EdgeInsets.fromLTRB(
+                TtSpacing.gutter,
+                TtSpacing.s,
+                TtSpacing.s,
+                TtSpacing.m,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Booked ahead: the time the rider expects you (accepting early only means setting off in time).
+                        if (_job.scheduledAt case final at?)
+                          Text(
+                            'Pickup ${formatWhen(at)}',
+                            style: t.bodySmallMedium.copyWith(
+                              color: TtColors.coral100,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        else
+                          Text(
+                            'Going to pickup',
+                            style: t.bodySmall.copyWith(color: Colors.white70),
+                          ),
+                        Text(
+                          eta <= 0
+                              ? 'Arriving now'
+                              : '$eta min · ${formatKm(km)}',
+                          style: TtTextStyles.tabular(
+                            t.h1.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  color: TtColors.surface,
-                  shape: RoundedRectangleBorder(borderRadius: TtRadii.cardRadius),
-                  position: PopupMenuPosition.under,
-                  onSelected: (v) {
-                    if (widget.showcase) return showTtSnack(context, kPreviewNote);
-                    if (v == 'help') context.push(Routes.help);
-                    if (v == 'cancel') _cancel();
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem(
-                      value: 'help',
-                      height: 56,
-                      child: Row(children: [
-                        const Icon(Symbols.support_agent_rounded, color: TtColors.navy700),
-                        const SizedBox(width: TtSpacing.m),
-                        Text('Help', style: t.body),
-                      ]),
-                    ),
-                    PopupMenuItem(
-                      value: 'cancel',
-                      height: 56,
-                      child: Row(children: [
-                        const Icon(Symbols.cancel_rounded, color: TtColors.error),
-                        const SizedBox(width: TtSpacing.m),
-                        Text('Cancel ride', style: t.body.copyWith(color: TtColors.error)),
-                      ]),
-                    ),
-                  ],
-                ),
-              ]),
+                  JobMoreMenu(
+                    onHelp: () => widget.showcase
+                        ? showTtSnack(context, kPreviewNote)
+                        : context.push(Routes.help),
+                    onCancel: _cancel,
+                  ),
+                ],
+              ),
             ),
             Expanded(
-              child: Stack(children: [
-                Positioned.fill(
-                  child: LiveVehicleMap(
-                    vehicleType: _job.vehicle.mapType,
-                    fixedPosition: live ? null : pointAlong(route, 0.35),
-                    pickup: _job.pickup.location,
-                    route: route,
-                    fitPoints: route,
-                    fitPadding: const EdgeInsets.fromLTRB(56, 72, 56, 96),
-                    centerOnVehicle: false,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: LiveVehicleMap(
+                      vehicleType: _job.vehicle.mapType,
+                      fixedPosition: live ? null : pointAlong(route, 0.35),
+                      pickup: _job.pickup.location,
+                      route: route,
+                      fitPoints: route,
+                      fitPadding: const EdgeInsets.fromLTRB(56, 72, 56, 96),
+                      centerOnVehicle: false,
+                    ),
                   ),
-                ),
-                Positioned(
-                  right: TtSpacing.gutter,
-                  bottom: TtSpacing.xl,
-                  child: NavigatePill(
-                    onPressed: () => _api
-                        ? openNavigation(context, _job.pickup.location)
-                        : showTtSnack(context, 'Opening Google Maps'),
+                  Positioned(
+                    right: TtSpacing.gutter,
+                    bottom: TtSpacing.xl,
+                    child: NavigatePill(
+                      onPressed: () => _api
+                          ? openNavigation(context, _job.pickup.location)
+                          : showTtSnack(context, 'Opening Google Maps'),
+                    ),
                   ),
-                ),
-              ]),
+                ],
+              ),
             ),
             BottomPanel(
               handle: true,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                Row(children: [
-                  TtAvatar(initials: initialsOf(_job.customerName), size: 52),
-                  const SizedBox(width: TtSpacing.m),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Flexible(
-                          child: Text('${_job.customerName} · ${_job.customerRating.toStringAsFixed(1)}',
-                              style: t.h2, maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      TtAvatar(
+                        initials: initialsOf(_job.customerName),
+                        size: 52,
+                      ),
+                      const SizedBox(width: TtSpacing.m),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    '${_job.customerName} · ${_job.customerRating.toStringAsFixed(1)}',
+                                    style: t.h2,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(
+                                  Symbols.star_rounded,
+                                  fill: 1,
+                                  size: 20,
+                                  color: TtColors.navy900,
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '${formatInr(_job.fare)} · ${_job.modeLabel ?? 'Cash / UPI'}',
+                              style: TtTextStyles.tabular(
+                                t.bodySmall.copyWith(color: TtColors.navy500),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
-                        const Icon(Symbols.star_rounded, fill: 1, size: 20, color: TtColors.navy900),
-                      ]),
-                      Text('${formatInr(_job.fare)} · ${_job.modeLabel ?? 'Cash / UPI'}',
-                          style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ]),
+                      ),
+                      RoundIconButton(
+                        icon: Symbols.chat_rounded,
+                        tooltip: 'Chat with ${_job.customerName}',
+                        onPressed: unlessShowcase(
+                          context,
+                          widget.showcase,
+                          () => context.push(Routes.chat),
+                        )!,
+                      ),
+                      const SizedBox(width: TtSpacing.m),
+                      RoundIconButton(
+                        icon: Symbols.call_rounded,
+                        tooltip: 'Call ${_job.customerName}',
+                        background: TtColors.coral600,
+                        foreground: Colors.white,
+                        onPressed: _call,
+                      ),
+                    ],
                   ),
-                  RoundIconButton(
-                    icon: Symbols.chat_rounded,
-                    tooltip: 'Chat with ${_job.customerName}',
-                    onPressed: unlessShowcase(context, widget.showcase, () => context.push(Routes.chat))!,
-                  ),
-                  const SizedBox(width: TtSpacing.m),
-                  RoundIconButton(
-                    icon: Symbols.call_rounded,
-                    tooltip: 'Call ${_job.customerName}',
-                    background: TtColors.coral600,
-                    foreground: Colors.white,
-                    onPressed: _call,
-                  ),
-                ]),
-                const SizedBox(height: TtSpacing.l),
-                TtCard(
-                  child: Row(children: [
-                    const PickupDot(),
-                    const SizedBox(width: TtSpacing.m),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(_job.pickup.name, style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        Text(_pickupNote(_job), style: t.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
-                      ]),
+                  const SizedBox(height: TtSpacing.l),
+                  TtCard(
+                    child: Row(
+                      children: [
+                        const PickupDot(),
+                        const SizedBox(width: TtSpacing.m),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _job.pickup.name,
+                                style: t.bodySemibold,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                _pickupNote(_job),
+                                style: t.bodySmall,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ]),
-                ),
-                const SizedBox(height: TtSpacing.l),
-                SwipeToConfirm(label: _arrivedLabel(), enabled: !_busy, onConfirmed: _arrived),
-              ]),
+                  ),
+                  const SizedBox(height: TtSpacing.l),
+                  SwipeToConfirm(
+                    label: _arrivedLabel(),
+                    enabled: !_busy,
+                    onConfirmed: _arrived,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -257,47 +306,8 @@ class _D16NavigateToPickupScreenState extends ConsumerState<D16NavigateToPickupS
   /// The rider's landmark first ("Near KG Hospital"), then the address.
   static String _pickupNote(RideRequest r) => r.pickup.id == Seed.gandhipuram.id
       ? 'Gate 2, opposite Annapoorna hotel'
-      : [?r.pickup.landmark, if (r.pickup.address.isNotEmpty) r.pickup.address].join(' · ');
-}
-
-/// Radio list of cancel reasons. Returns the chosen code, or null for "Keep ride".
-class _CancelReasonDialog extends StatefulWidget {
-  const _CancelReasonDialog({required this.reasons});
-  final List<CancelCode> reasons;
-
-  @override
-  State<_CancelReasonDialog> createState() => _CancelReasonDialogState();
-}
-
-class _CancelReasonDialogState extends State<_CancelReasonDialog> {
-  CancelCode? _reason;
-
-  @override
-  Widget build(BuildContext context) => TtDialog(
-        title: 'Why are you cancelling?',
-        message: 'Frequent cancellations can lower your rating.',
-        icon: Symbols.cancel_rounded,
-        destructive: true,
-        content: RadioGroup<CancelCode>(
-          groupValue: _reason,
-          onChanged: (v) => setState(() => _reason = v),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            for (final r in widget.reasons)
-              RadioListTile<CancelCode>(
-                value: r,
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: Text(r.label, style: context.type.body),
-              ),
-          ]),
-        ),
-        actions: [
-          TtButton.danger(
-            label: 'Cancel ride',
-            onPressed: _reason == null ? null : () => Navigator.of(context).pop(_reason),
-          ),
-          const SizedBox(height: TtSpacing.xs),
-          TtButton.text(label: 'Keep ride', expand: true, onPressed: () => Navigator.of(context).pop()),
-        ],
-      );
+      : [
+          ?r.pickup.landmark,
+          if (r.pickup.address.isNotEmpty) r.pickup.address,
+        ].join(' · ');
 }

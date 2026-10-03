@@ -25,271 +25,448 @@ void main() {
   late FakeLocator locator;
   late ProviderContainer container;
 
-  DriverSessionController session() => container.read(driverSessionProvider.notifier);
+  DriverSessionController session() =>
+      container.read(driverSessionProvider.notifier);
   DriverSessionState state() => container.read(driverSessionProvider);
 
   setUp(() async {
     RoadRouter.enabled = false;
     SharedPreferences.setMockInitialValues({});
-    final api = ApiClient(baseUrl: 'http://localhost:1/v1', session: ApiSession(await SharedPreferences.getInstance()));
+    final api = ApiClient(
+      baseUrl: 'http://localhost:1/v1',
+      session: ApiSession(await SharedPreferences.getInstance()),
+    );
     realtime = FakeRealtime(api);
     jobs = FakeJobs(api, realtime);
     locator = FakeLocator();
-    container = ProviderContainer(overrides: [
-      isLiveApiProvider.overrideWithValue(true),
-      apiClientProvider.overrideWithValue(api),
-      realtimeProvider.overrideWithValue(realtime),
-      liveJobsProvider.overrideWithValue(jobs),
-      driverLocatorProvider.overrideWithValue(locator),
-      requestSpeakerProvider.overrideWithValue(SilentSpeaker()),
-    ]);
+    container = ProviderContainer(
+      overrides: [
+        isLiveApiProvider.overrideWithValue(true),
+        apiClientProvider.overrideWithValue(api),
+        realtimeProvider.overrideWithValue(realtime),
+        liveJobsProvider.overrideWithValue(jobs),
+        driverLocatorProvider.overrideWithValue(locator),
+        requestSpeakerProvider.overrideWithValue(SilentSpeaker()),
+      ],
+    );
     // Keep the provider alive between reads.
     container.listen(driverSessionProvider, (_, _) {});
   });
 
   tearDown(() => container.dispose());
 
+  test('a disappeared stacked offer never accepts the focused trip', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(liveOffer('focus'));
+    await pumpEventQueue();
+    await session().acceptOffer('withdrawn');
+    expect(state().incoming?.id, 'focus');
+    expect(jobs.calls, isNot(contains('accept')));
+  });
+
+  test(
+    'a cancellation pause arriving during a job applies after it ends',
+    () async {
+      await session().goOnline();
+      jobs.offersCtl.add(liveOffer('t1'));
+      await pumpEventQueue();
+      await session().acceptRequest();
+      jobs.pausesCtl.add(DateTime.now().add(const Duration(minutes: 20)));
+      await pumpEventQueue();
+      expect(state().job, isNotNull);
+      jobs.updatesCtl.add(liveUpdate('t1', 'CANCELLED'));
+      await pumpEventQueue();
+      expect(state().job, isNull);
+      expect(state().online, isFalse);
+      expect(state().notice?.message, contains('paused'));
+    },
+  );
+
+  test('a pause during a completed job applies after collecting payment', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(liveOffer('t1'));
+    await pumpEventQueue();
+    await session().acceptRequest();
+    jobs.pausesCtl.add(DateTime.now().add(const Duration(minutes: 20)));
+    await pumpEventQueue();
+    await session().collectPayment(PaymentMode.cash);
+    expect(state().job, isNull);
+    expect(state().online, isFalse);
+    expect(state().notice?.message, contains('paused'));
+  });
+
+  test('pending review during a job routes to documents after payment', () async {
+    await session().goOnline();
+    jobs.offersCtl.add(liveOffer('t1'));
+    await pumpEventQueue();
+    await session().acceptRequest();
+    realtime.statusCtl.add({'status': 'PENDING', 'isOnline': false});
+    await pumpEventQueue();
+    expect(state().job, isNotNull);
+    expect(state().notice?.goTo, isNull);
+    expect(container.read(apiClientProvider).session.lastDriverStatus, 'PENDING');
+    await session().collectPayment(PaymentMode.cash);
+    expect(state().online, isFalse);
+    expect(state().notice?.goTo, '/signup/documents');
+  });
+
   test('live state starts with no seed earnings', () {
     expect(state().todayEarnings, 0);
     expect(state().todayRides, 0);
   });
 
-  test('going online needs a GPS fix; a location problem keeps the driver offline', () async {
-    locator.problem = const LocationProblem('Turn on Location to go online');
-    await expectLater(session().goOnline(), throwsA(isA<LocationProblem>()));
-    expect(state().online, isFalse);
-    expect(state().goingOnline, isFalse);
-    expect(jobs.calls, isEmpty);
-  });
+  test(
+    'going online needs a GPS fix; a location problem keeps the driver offline',
+    () async {
+      locator.problem = const LocationProblem('Turn on Location to go online');
+      await expectLater(session().goOnline(), throwsA(isA<LocationProblem>()));
+      expect(state().online, isFalse);
+      expect(state().goingOnline, isFalse);
+      expect(jobs.calls, isEmpty);
+    },
+  );
 
-  test('an API refusal (plan expired) keeps the driver offline with the message', () async {
-    jobs.onlineError = const ApiException(403, 'Plan expired. Renew to go online again');
-    await expectLater(
-      session().goOnline(),
-      throwsA(isA<ApiException>().having((e) => e.message, 'message', 'Plan expired. Renew to go online again')),
-    );
-    expect(state().online, isFalse);
-  });
+  test(
+    'an API refusal (plan expired) keeps the driver offline with the message',
+    () async {
+      jobs.onlineError = const ApiException(
+        403,
+        'Plan expired. Renew to go online again',
+      );
+      await expectLater(
+        session().goOnline(),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            'Plan expired. Renew to go online again',
+          ),
+        ),
+      );
+      expect(state().online, isFalse);
+    },
+  );
 
-  test('paused for cancellations: going online is refused with the end time', () async {
-    final until = DateTime.utc(2026, 9, 29, 10, 10);
-    jobs.onlineError = ApiException(403, "You cancelled too many rides, so you can't go online until 3:40 pm",
-        code: 'DRIVER_TEMP_BLOCKED', details: {'until': until.toIso8601String()});
-    await expectLater(
-      session().goOnline(),
-      throwsA(isA<ApiException>().having((e) => e.tempBlockedUntil, 'tempBlockedUntil', until.toLocal())),
-    );
-    expect(state().online, isFalse);
-  });
+  test(
+    'paused for cancellations: going online is refused with the end time',
+    () async {
+      final until = DateTime.utc(2026, 9, 29, 10, 10);
+      jobs.onlineError = ApiException(
+        403,
+        "You cancelled too many rides, so you can't go online until 3:40 pm",
+        code: 'DRIVER_TEMP_BLOCKED',
+        details: {'until': until.toIso8601String()},
+      );
+      await expectLater(
+        session().goOnline(),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.tempBlockedUntil,
+            'tempBlockedUntil',
+            until.toLocal(),
+          ),
+        ),
+      );
+      expect(state().online, isFalse);
+    },
+  );
 
-  test('a pause from the server while online takes the driver offline with a notice', () async {
-    await session().goOnline();
-    expect(state().online, isTrue);
-    jobs.pausesCtl.add(DateTime.now().add(const Duration(hours: 24)));
-    await Future<void>.delayed(Duration.zero);
-    expect(state().online, isFalse);
-    expect(state().notice?.message, contains('paused'));
-  });
+  test(
+    'a pause from the server while online takes the driver offline with a notice',
+    () async {
+      await session().goOnline();
+      expect(state().online, isTrue);
+      jobs.pausesCtl.add(DateTime.now().add(const Duration(hours: 24)));
+      await Future<void>.delayed(Duration.zero);
+      expect(state().online, isFalse);
+      expect(state().notice?.message, contains('paused'));
+    },
+  );
 
-  test('stacked requests: the second waits behind the first; decline, close and switch move between them', () async {
-    await session().goOnline();
-    jobs.offersCtl
-      ..add(liveOffer('t1', seconds: 12))
-      ..add(liveOffer('t2', seconds: 14))
-      ..add(liveOffer('t3', seconds: 14));
-    await pumpEventQueue();
-    expect(state().incoming?.id, 't1');
-    expect(state().queued.map((q) => q.request.id), ['t2', 't3']);
+  test(
+    'stacked requests: the second waits behind the first; decline, close and switch move between them',
+    () async {
+      await session().goOnline();
+      jobs.offersCtl
+        ..add(liveOffer('t1', seconds: 12))
+        ..add(liveOffer('t2', seconds: 14))
+        ..add(liveOffer('t3', seconds: 14));
+      await pumpEventQueue();
+      expect(state().incoming?.id, 't1');
+      expect(state().queued.map((q) => q.request.id), ['t2', 't3']);
 
-    // Switch to t3: t1 waits in the stack with its own time left.
-    session().focusQueued('t3');
-    expect(state().incoming?.id, 't3');
-    expect(state().queued.map((q) => q.request.id), ['t1', 't2']);
+      // Switch to t3: t1 waits in the stack with its own time left.
+      session().focusQueued('t3');
+      expect(state().incoming?.id, 't3');
+      expect(state().queued.map((q) => q.request.id), ['t1', 't2']);
 
-    // t2 taken elsewhere: its chip goes. Then the focused one closes: the next comes in.
-    jobs.closedCtl.add('t2');
-    await pumpEventQueue();
-    expect(state().queued.map((q) => q.request.id), ['t1']);
-    jobs.closedCtl.add('t3');
-    await pumpEventQueue();
-    expect(state().incoming?.id, 't1');
-    expect(state().queued, isEmpty);
+      // t2 taken elsewhere: its chip goes. Then the focused one closes: the next comes in.
+      jobs.closedCtl.add('t2');
+      await pumpEventQueue();
+      expect(state().queued.map((q) => q.request.id), ['t1']);
+      jobs.closedCtl.add('t3');
+      await pumpEventQueue();
+      expect(state().incoming?.id, 't1');
+      expect(state().queued, isEmpty);
 
-    // Declining the last one leaves nothing.
-    session().declineRequest();
-    await pumpEventQueue();
-    expect(state().incoming, isNull);
-    expect(jobs.calls, ['online', 'decline']);
-  });
+      // Declining the last one leaves nothing.
+      session().declineRequest();
+      await pumpEventQueue();
+      expect(state().incoming, isNull);
+      expect(jobs.calls, ['online', 'decline']);
+    },
+  );
 
-  test('stacked requests: accepting one clears the rest; a failed accept moves to the next', () async {
-    await session().goOnline();
-    jobs.offersCtl
-      ..add(liveOffer('t1'))
-      ..add(liveOffer('t2'));
-    await pumpEventQueue();
-    jobs.acceptError = const ApiException(409, 'This request is no longer available');
-    await expectLater(session().acceptRequest(), throwsA(isA<ApiException>()));
-    expect(state().incoming?.id, 't2');
+  test(
+    'stacked requests: accepting one clears the rest; a failed accept moves to the next',
+    () async {
+      await session().goOnline();
+      jobs.offersCtl
+        ..add(liveOffer('t1'))
+        ..add(liveOffer('t2'));
+      await pumpEventQueue();
+      jobs.acceptError = const ApiException(
+        409,
+        'This request is no longer available',
+      );
+      await expectLater(
+        session().acceptRequest(),
+        throwsA(isA<ApiException>()),
+      );
+      expect(state().incoming?.id, 't2');
 
-    jobs.acceptError = null;
-    jobs.offersCtl.add(liveOffer('t3'));
-    await pumpEventQueue();
-    expect(state().queued.map((q) => q.request.id), ['t3']);
-    await session().acceptRequest();
-    expect(state().job?.id, 't2');
-    expect(state().incoming, isNull);
-    expect(state().queued, isEmpty);
-  });
+      jobs.acceptError = null;
+      jobs.offersCtl.add(liveOffer('t3'));
+      await pumpEventQueue();
+      expect(state().queued.map((q) => q.request.id), ['t3']);
+      await session().acceptRequest();
+      expect(state().job?.id, 't2');
+      expect(state().incoming, isNull);
+      expect(state().queued, isEmpty);
+    },
+  );
 
-  test('the rider adds extra: the request on screen and the one stacked behind get the new fare, same countdown', () async {
-    await session().goOnline();
-    jobs.offersCtl
-      ..add(liveOffer('t1'))
-      ..add(liveOffer('t2'));
-    await pumpEventQueue();
-    final focusEnds = state().incomingExpiresAt;
-    final stackedEnds = state().queued.single.expiresAt;
-    final fare = Seed.rideRequest.fare;
-    jobs.offersCtl
-      ..add(LiveOffer(liveOffer('t1').request.copyWith(fare: fare + 20, extra: 20), 4))
-      ..add(LiveOffer(liveOffer('t2').request.copyWith(fare: fare + 10, extra: 10), 4));
-    await pumpEventQueue();
-    expect(state().incoming?.fare, fare + 20);
-    expect(state().incoming?.extra, 20);
-    expect(state().incomingExpiresAt, focusEnds);
-    expect(state().queued.single.request.extra, 10);
-    expect(state().queued.single.expiresAt, stackedEnds);
-  });
+  test(
+    'the rider adds extra: the request on screen and the one stacked behind get the new fare, same countdown',
+    () async {
+      await session().goOnline();
+      jobs.offersCtl
+        ..add(liveOffer('t1'))
+        ..add(liveOffer('t2'));
+      await pumpEventQueue();
+      final focusEnds = state().incomingExpiresAt;
+      final stackedEnds = state().queued.single.expiresAt;
+      final fare = Seed.rideRequest.fare;
+      jobs.offersCtl
+        ..add(
+          LiveOffer(
+            liveOffer('t1').request.copyWith(fare: fare + 20, extra: 20),
+            4,
+          ),
+        )
+        ..add(
+          LiveOffer(
+            liveOffer('t2').request.copyWith(fare: fare + 10, extra: 10),
+            4,
+          ),
+        );
+      await pumpEventQueue();
+      expect(state().incoming?.fare, fare + 20);
+      expect(state().incoming?.extra, 20);
+      expect(state().incomingExpiresAt, focusEnds);
+      expect(state().queued.single.request.extra, 10);
+      expect(state().queued.single.expiresAt, stackedEnds);
+    },
+  );
 
-  test('going offline declines every open request; a resume recovers all of them', () async {
-    await session().goOnline();
-    jobs.openOffers.addAll([liveOffer('t1'), liveOffer('t2')]);
-    session().onAppResumed();
-    await pumpEventQueue();
-    expect(state().incoming?.id, 't1');
-    expect(state().queued.single.request.id, 't2');
-    await session().goOffline();
-    expect(jobs.calls.where((c) => c == 'decline'), hasLength(2));
-    expect(state().queued, isEmpty);
-  });
+  test(
+    'going offline declines every open request; a resume recovers all of them',
+    () async {
+      await session().goOnline();
+      jobs.openOffers.addAll([liveOffer('t1'), liveOffer('t2')]);
+      session().onAppResumed();
+      await pumpEventQueue();
+      expect(state().incoming?.id, 't1');
+      expect(state().queued.single.request.id, 't2');
+      await session().goOffline();
+      expect(jobs.calls.where((c) => c == 'decline'), hasLength(2));
+      expect(state().queued, isEmpty);
+    },
+  );
 
-  test('ride: offer → accept → arrived → wrong OTP → start → complete → collect', () async {
-    await session().goOnline();
-    expect(state().online, isTrue);
-    expect(jobs.calls, ['online']);
+  test(
+    'ride: offer → accept → arrived → wrong OTP → start → complete → collect',
+    () async {
+      await session().goOnline();
+      expect(state().online, isTrue);
+      expect(jobs.calls, ['online']);
 
-    jobs.offersCtl.add(liveOffer('t1', seconds: 12));
-    await pumpEventQueue();
-    expect(state().incoming?.id, 't1');
-    expect(session().incomingCountdown.inSeconds, inInclusiveRange(10, 12));
+      jobs.offersCtl.add(liveOffer('t1', seconds: 12));
+      await pumpEventQueue();
+      expect(state().incoming?.id, 't1');
+      expect(session().incomingCountdown.inSeconds, inInclusiveRange(10, 12));
 
-    await session().acceptRequest();
-    expect(state().incoming, isNull);
-    expect(state().job?.id, 't1');
-    expect(state().job?.customerPhone, '+919876543210');
-    expect(state().phase, JobPhase.toPickup);
-    expect(state().route, isNotEmpty);
+      await session().acceptRequest();
+      expect(state().incoming, isNull);
+      expect(state().job?.id, 't1');
+      expect(state().job?.customerPhone, '+919876543210');
+      expect(state().phase, JobPhase.toPickup);
+      expect(state().route, isNotEmpty);
 
-    // Another offer while on a job is ignored.
-    jobs.offersCtl.add(liveOffer('t2'));
-    await pumpEventQueue();
-    expect(state().incoming, isNull);
+      // Another offer while on a job is ignored.
+      jobs.offersCtl.add(liveOffer('t2'));
+      await pumpEventQueue();
+      expect(state().incoming, isNull);
 
-    await session().arrivedAtPickup();
-    expect(state().phase, JobPhase.atPickup);
+      await session().arrivedAtPickup();
+      expect(state().phase, JobPhase.atPickup);
 
-    await expectLater(
-      session().startTrip(otp: '9999'),
-      throwsA(isA<ApiException>().having((e) => e.message, 'message', 'Wrong OTP, please try again')),
-    );
-    expect(state().phase, JobPhase.atPickup);
+      await expectLater(
+        session().startTrip(otp: '9999'),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            'Wrong OTP, please try again',
+          ),
+        ),
+      );
+      expect(state().phase, JobPhase.atPickup);
 
-    await session().startTrip(otp: '1234');
-    expect(state().phase, JobPhase.toDrop);
-    expect(state().etaMin, greaterThan(0));
+      await session().startTrip(otp: '1234');
+      expect(state().phase, JobPhase.toDrop);
+      expect(state().etaMin, greaterThan(0));
 
-    await session().endRide();
-    expect(state().phase, JobPhase.collect);
+      await session().endRide();
+      expect(state().phase, JobPhase.collect);
 
-    await session().collectPayment(PaymentMode.cash);
-    expect(state().job, isNull);
-    expect(state().online, isTrue);
-    expect(jobs.calls, ['online', 'accept', 'arrived', 'start:9999', 'start:1234', 'complete']);
-  });
+      await session().collectPayment(PaymentMode.cash);
+      expect(state().job, isNull);
+      expect(state().online, isTrue);
+      expect(jobs.calls, [
+        'online',
+        'accept',
+        'arrived',
+        'start:9999',
+        'start:1234',
+        'complete',
+      ]);
+    },
+  );
 
-  test('GPS fixes move the marker and go up over the socket (throttled)', () async {
-    await session().goOnline();
-    final next = offsetPoint(kHere, 50, 0);
-    locator.fixes.add(GpsFix(next, at: DateTime.now()));
-    await pumpEventQueue();
-    expect(session().vehicle.value?.position, next);
-    expect(realtime.sent, [next]);
-    // A second fix right away is not uploaded.
-    locator.fixes.add(GpsFix(offsetPoint(next, 5, 0), at: DateTime.now()));
-    await pumpEventQueue();
-    expect(realtime.sent, hasLength(1));
-  });
+  test(
+    'GPS fixes move the marker and go up over the socket (throttled)',
+    () async {
+      await session().goOnline();
+      final next = offsetPoint(kHere, 50, 0);
+      locator.fixes.add(GpsFix(next, at: DateTime.now()));
+      await pumpEventQueue();
+      expect(session().vehicle.value?.position, next);
+      expect(realtime.sent, [next]);
+      // A second fix right away is not uploaded.
+      locator.fixes.add(GpsFix(offsetPoint(next, 5, 0), at: DateTime.now()));
+      await pumpEventQueue();
+      expect(realtime.sent, hasLength(1));
+    },
+  );
 
-  test('fixes carry time, accuracy, speed, heading and the mock flag', () async {
-    await session().goOnline();
-    final at = DateTime.fromMillisecondsSinceEpoch(1800000000000);
-    locator.fixes.add(GpsFix(offsetPoint(kHere, 50, 0), at: at, accuracy: 6.44, speed: 7.5, heading: 92.26, isMocked: true));
-    await pumpEventQueue();
-    expect(realtime.payloads.single, {
-      'lat': realtime.sent.single.latitude,
-      'lng': realtime.sent.single.longitude,
-      'ts': 1800000000000,
-      'acc': 6.4,
-      'spd': 7.5,
-      'hdg': 92.3,
-      'mock': true,
-    });
-  });
+  test(
+    'fixes carry time, accuracy, speed, heading and the mock flag',
+    () async {
+      await session().goOnline();
+      final at = DateTime.fromMillisecondsSinceEpoch(1800000000000);
+      locator.fixes.add(
+        GpsFix(
+          offsetPoint(kHere, 50, 0),
+          at: at,
+          accuracy: 6.44,
+          speed: 7.5,
+          heading: 92.26,
+          isMocked: true,
+        ),
+      );
+      await pumpEventQueue();
+      expect(realtime.payloads.single, {
+        'lat': realtime.sent.single.latitude,
+        'lng': realtime.sent.single.longitude,
+        'ts': 1800000000000,
+        'acc': 6.4,
+        'spd': 7.5,
+        'hdg': 92.3,
+        'mock': true,
+      });
+    },
+  );
 
-  test('socket down: fixes are buffered, then flushed as one batch on reconnect (kept if the flush fails)', () async {
-    await session().goOnline();
-    realtime.connected = false;
-    final next = offsetPoint(kHere, 100, 0);
-    locator.fixes.add(GpsFix(next, at: DateTime.now(), accuracy: 5));
-    await pumpEventQueue();
-    expect(realtime.sent, isEmpty, reason: 'nothing goes up while the socket is down');
+  test(
+    'socket down: fixes are buffered, then flushed as one batch on reconnect (kept if the flush fails)',
+    () async {
+      await session().goOnline();
+      realtime.connected = false;
+      final next = offsetPoint(kHere, 100, 0);
+      locator.fixes.add(GpsFix(next, at: DateTime.now(), accuracy: 5));
+      await pumpEventQueue();
+      expect(
+        realtime.sent,
+        isEmpty,
+        reason: 'nothing goes up while the socket is down',
+      );
 
-    realtime.batchAck = false;
-    realtime.connected = true;
-    realtime.connectionCtl.add(true);
-    await pumpEventQueue();
-    expect(realtime.batches, hasLength(1));
-    expect(realtime.batches.single.single, containsPair('acc', 5.0));
+      realtime.batchAck = false;
+      realtime.connected = true;
+      realtime.connectionCtl.add(true);
+      await pumpEventQueue();
+      expect(realtime.batches, hasLength(1));
+      expect(realtime.batches.single.single, containsPair('acc', 5.0));
 
-    realtime.batchAck = true;
-    realtime.connectionCtl.add(true);
-    await pumpEventQueue();
-    expect(realtime.batches, hasLength(2));
-    expect(realtime.batches.last, hasLength(1), reason: 'a failed flush keeps the fixes for the next one');
-    expect(realtime.batches.last.single['lat'], next.latitude);
-    expect(realtime.sent, isEmpty);
+      realtime.batchAck = true;
+      realtime.connectionCtl.add(true);
+      await pumpEventQueue();
+      expect(realtime.batches, hasLength(2));
+      expect(
+        realtime.batches.last,
+        hasLength(1),
+        reason: 'a failed flush keeps the fixes for the next one',
+      );
+      expect(realtime.batches.last.single['lat'], next.latitude);
+      expect(realtime.sent, isEmpty);
 
-    realtime.connectionCtl.add(true);
-    await pumpEventQueue();
-    expect(realtime.batches, hasLength(2), reason: 'the buffer is empty after a flush the server took');
-  });
+      realtime.connectionCtl.add(true);
+      await pumpEventQueue();
+      expect(
+        realtime.batches,
+        hasLength(2),
+        reason: 'the buffer is empty after a flush the server took',
+      );
+    },
+  );
 
-  test('GPS lost while Location is on: Fix now restarts the stream and a fresh fix clears the banner', () async {
-    await session().goOnline();
-    expect(locator.gpsListens, 1);
-    locator.currentFixCalls = 0;
-    session().restartGps();
-    await pumpEventQueue();
-    expect(locator.gpsListens, 2, reason: 'the GPS stream is subscribed again');
-    expect(locator.currentFixCalls, 1, reason: 'a one-shot fix does not wait for the stream');
-    expect(state().gpsLost, isFalse);
-    // The restarted stream keeps delivering.
-    final next = offsetPoint(kHere, 80, 0);
-    locator.fixes.add(GpsFix(next, at: DateTime.now()));
-    await pumpEventQueue();
-    expect(session().vehicle.value?.position, next);
-  });
+  test(
+    'GPS lost while Location is on: Fix now restarts the stream and a fresh fix clears the banner',
+    () async {
+      await session().goOnline();
+      expect(locator.gpsListens, 1);
+      locator.currentFixCalls = 0;
+      session().restartGps();
+      await pumpEventQueue();
+      expect(
+        locator.gpsListens,
+        2,
+        reason: 'the GPS stream is subscribed again',
+      );
+      expect(
+        locator.currentFixCalls,
+        1,
+        reason: 'a one-shot fix does not wait for the stream',
+      );
+      expect(state().gpsLost, isFalse);
+      // The restarted stream keeps delivering.
+      final next = offsetPoint(kHere, 80, 0);
+      locator.fixes.add(GpsFix(next, at: DateTime.now()));
+      await pumpEventQueue();
+      expect(session().vehicle.value?.position, next);
+    },
+  );
 
   test('decline and timeout clear the card; a declined trip comes back only with more money, a timed-out one can be '
       're-offered', () async {

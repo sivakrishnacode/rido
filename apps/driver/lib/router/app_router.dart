@@ -48,84 +48,167 @@ import 'routes.dart';
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
 /// Full-screen route above the tab shell (no bottom nav).
-GoRoute _full(String path, Widget Function(GoRouterState s) builder, {bool fullscreenDialog = false}) => GoRoute(
-      path: path,
-      parentNavigatorKey: rootNavigatorKey,
-      pageBuilder: (context, s) => MaterialPage(key: s.pageKey, fullscreenDialog: fullscreenDialog, child: builder(s)),
-    );
+GoRoute _full(
+  String path,
+  Widget Function(GoRouterState s) builder, {
+  bool fullscreenDialog = false,
+}) => GoRoute(
+  path: path,
+  parentNavigatorKey: rootNavigatorKey,
+  pageBuilder: (context, s) => MaterialPage(
+    key: s.pageKey,
+    fullscreenDialog: fullscreenDialog,
+    child: builder(s),
+  ),
+);
 
 bool _signup(GoRouterState s) => s.uri.queryParameters['mode'] != 'login';
 String _purpose(GoRouterState s) => s.uri.queryParameters['purpose'] ?? 'setup';
 
 /// Every driver route is defined here and nowhere else.
-GoRouter createDriverRouter({String initialLocation = Routes.splash}) => GoRouter(
-      navigatorKey: rootNavigatorKey,
-      initialLocation: initialLocation,
-      routes: [
-        _full(Routes.splash, (_) => const D01SplashScreen()),
-        _full(Routes.welcome, (_) => const D02WelcomeScreen()),
-        _full('/auth/phone', (s) => D03PhoneScreen(signup: _signup(s))),
-        _full('/auth/otp', (s) => D03bOtpScreen(phone: s.uri.queryParameters['phone'] ?? '98430 12345', signup: _signup(s))),
-        _full(Routes.workType, (_) => const D04WorkTypeScreen()),
-        _full(Routes.chooseVehicle, (_) => const D05ChooseVehicleScreen()),
-        _full(Routes.personalDetails, (_) => const D06PersonalDetailsScreen()),
-        _full(Routes.documents, (_) => const D07DocumentsScreen()),
-        _full(
-          '/signup/documents/upload/:type',
-          (s) => D08UploadDocumentScreen(
-            type: KycDocType.values.firstWhere((t) => t.name == s.pathParameters['type'],
-                orElse: () => KycDocType.insurance),
-          ),
+GoRouter createDriverRouter({
+  String initialLocation = Routes.splash,
+}) => GoRouter(
+  navigatorKey: rootNavigatorKey,
+  initialLocation: initialLocation,
+  routes: [
+    _full(Routes.splash, (_) => const D01SplashScreen()),
+    _full(Routes.welcome, (_) => const D02WelcomeScreen()),
+    _full('/auth/phone', (s) => D03PhoneScreen(signup: _signup(s))),
+    _full(
+      '/auth/otp',
+      (s) => D03bOtpScreen(
+        phone: s.uri.queryParameters['phone'] ?? '98430 12345',
+        signup: _signup(s),
+      ),
+    ),
+    _full(Routes.workType, (_) => const D04WorkTypeScreen()),
+    _full(Routes.chooseVehicle, (_) => const D05ChooseVehicleScreen()),
+    _full(Routes.personalDetails, (_) => const D06PersonalDetailsScreen()),
+    _full(Routes.documents, (_) => const D07DocumentsScreen()),
+    _full(
+      '/signup/documents/upload/:type',
+      (s) => D08UploadDocumentScreen(
+        type: KycDocType.values.firstWhere(
+          (t) => t.name == s.pathParameters['type'],
+          orElse: () => KycDocType.insurance,
         ),
-        _full(Routes.selfie, (_) => const D09SelfieScreen()),
-        _full(Routes.profilePhoto, (_) => const ProfilePhotoScreen()),
-        _full(Routes.choosePlan, (_) => const D11ChoosePlanScreen()),
-        _full('/autopay', (s) => D12AutopayScreen(purpose: _purpose(s))),
-        _full('/autopay/success', (s) => D12bAutopaySuccessScreen(purpose: _purpose(s))),
-        _full(Routes.accountOnHold, (_) => const S10AccountOnHoldScreen()),
-        _full(
-          Routes.accountPausedPath,
-          (s) => S10AccountOnHoldScreen(pausedUntil: DateTime.tryParse(s.uri.queryParameters['until'] ?? '')?.toLocal()),
+      ),
+    ),
+    _full(Routes.profilePhoto, (_) => const ProfilePhotoScreen()),
+    _full(Routes.choosePlan, (_) => const D11ChoosePlanScreen()),
+    _full('/autopay', (s) => D12AutopayScreen(purpose: _purpose(s))),
+    _full(
+      '/autopay/success',
+      (s) => D12bAutopaySuccessScreen(purpose: _purpose(s)),
+    ),
+    _full(Routes.accountOnHold, (_) => const S10AccountOnHoldScreen()),
+    _full(
+      Routes.accountPausedPath,
+      (s) => S10AccountOnHoldScreen(
+        pausedUntil: DateTime.tryParse(
+          s.uri.queryParameters['until'] ?? '',
+        )?.toLocal(),
+      ),
+    ),
+    _full(Routes.selfieCheck, (_) => const S13SelfieCheckScreen()),
+    _full(Routes.dailySelfie, (_) => const D09SelfieScreen(dailyCheck: true)),
+    _full(
+      '/legal/:doc',
+      (s) => LegalScreen(doc: s.pathParameters['doc'] ?? 'terms'),
+    ),
+    // Jobs
+    _full(Routes.request, (_) => const D15RideRequestScreen()),
+    _full('/driver/delivery-request', (_) => const D20DeliveryRequestScreen()),
+    _full(Routes.pickup, (_) => const D16NavigateToPickupScreen()),
+    _full(Routes.rideOtp, (_) => const D17RideOtpScreen()),
+    _full(Routes.trip, (_) => const D18RideInProgressScreen()),
+    _full(
+      Routes.sos,
+      (_) => const D18bDriverSosScreen(),
+      fullscreenDialog: true,
+    ),
+    _full(
+      Routes.collect,
+      (s) => D19CollectPaymentScreen(
+        delivery: s.uri.queryParameters['delivery'] == '1',
+      ),
+    ),
+    _full(Routes.delivery, (_) => const D21DeliveryInProgressScreen()),
+    _full(Routes.deliveryOtp, (_) => const D22DeliveryOtpScreen()),
+    _full(Routes.chat, (_) => const DriverChatScreen()),
+    _full(Routes.help, (_) => const DriverHelpScreen()),
+    _full(
+      '/help/new-ticket',
+      (s) => DriverNewTicketScreen(
+        topic: s.uri.queryParameters['topic'],
+        tripId: s.uri.queryParameters['tripId'],
+      ),
+    ),
+    _full(Routes.gallery, (_) => const DesignGalleryScreen()),
+    _full(
+      '/gallery/view/:frameId',
+      (s) => GalleryFrameView(frameId: s.pathParameters['frameId']!),
+    ),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, shell) => DriverShell(navigationShell: shell),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: Routes.home,
+              builder: (_, _) => const D13HomeScreen(),
+            ),
+          ],
         ),
-        _full(Routes.selfieCheck, (_) => const S13SelfieCheckScreen()),
-        _full(Routes.dailySelfie, (_) => const D09SelfieScreen(dailyCheck: true)),
-        _full('/legal/:doc', (s) => LegalScreen(doc: s.pathParameters['doc'] ?? 'terms')),
-        // Jobs
-        _full(Routes.request, (_) => const D15RideRequestScreen()),
-        _full('/driver/delivery-request', (_) => const D20DeliveryRequestScreen()),
-        _full(Routes.pickup, (_) => const D16NavigateToPickupScreen()),
-        _full(Routes.rideOtp, (_) => const D17RideOtpScreen()),
-        _full(Routes.trip, (_) => const D18RideInProgressScreen()),
-        _full(Routes.sos, (_) => const D18bDriverSosScreen(), fullscreenDialog: true),
-        _full(Routes.collect, (s) => D19CollectPaymentScreen(delivery: s.uri.queryParameters['delivery'] == '1')),
-        _full(Routes.delivery, (_) => const D21DeliveryInProgressScreen()),
-        _full(Routes.deliveryOtp, (_) => const D22DeliveryOtpScreen()),
-        _full(Routes.chat, (_) => const DriverChatScreen()),
-        _full(Routes.help, (_) => const DriverHelpScreen()),
-        _full('/help/new-ticket', (s) => DriverNewTicketScreen(topic: s.uri.queryParameters['topic'])),
-        _full(Routes.gallery, (_) => const DesignGalleryScreen()),
-        _full('/gallery/view/:frameId', (s) => GalleryFrameView(frameId: s.pathParameters['frameId']!)),
-        StatefulShellRoute.indexedStack(
-          builder: (context, state, shell) => DriverShell(navigationShell: shell),
-          branches: [
-            StatefulShellBranch(routes: [GoRoute(path: Routes.home, builder: (_, _) => const D13HomeScreen())]),
-            StatefulShellBranch(routes: [GoRoute(path: Routes.earnings, builder: (_, _) => const D23EarningsScreen())]),
-            StatefulShellBranch(routes: [GoRoute(path: Routes.plan, builder: (_, _) => const D24PlanScreen())]),
-            StatefulShellBranch(routes: [
-              GoRoute(
-                path: Routes.account,
-                builder: (_, _) => const D26AccountScreen(),
-                routes: [
-                  GoRoute(path: 'documents', builder: (_, _) => const D07DocumentsScreen(readOnly: true)),
-                  GoRoute(path: 'vehicle', builder: (_, _) => const VehicleDetailsScreen()),
-                  GoRoute(path: 'upi', builder: (_, _) => const UpiIdScreen()),
-                  GoRoute(path: 'contribute', builder: (_, _) => const ContributeScreen()),
-                  GoRoute(path: 'booking-preferences', builder: (_, _) => const BookingPreferencesScreen()),
-                  GoRoute(path: 'emergency-contact', builder: (_, _) => const DriverEmergencyContactScreen()),
-                ],
-              ),
-            ]),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: Routes.earnings,
+              builder: (_, _) => const D23EarningsScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: Routes.plan,
+              builder: (_, _) => const D24PlanScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: Routes.account,
+              builder: (_, _) => const D26AccountScreen(),
+              routes: [
+                GoRoute(
+                  path: 'documents',
+                  builder: (_, _) => const D07DocumentsScreen(readOnly: true),
+                ),
+                GoRoute(
+                  path: 'vehicle',
+                  builder: (_, _) => const VehicleDetailsScreen(),
+                ),
+                GoRoute(path: 'upi', builder: (_, _) => const UpiIdScreen()),
+                GoRoute(
+                  path: 'contribute',
+                  builder: (_, _) => const ContributeScreen(),
+                ),
+                GoRoute(
+                  path: 'booking-preferences',
+                  builder: (_, _) => const BookingPreferencesScreen(),
+                ),
+                GoRoute(
+                  path: 'emergency-contact',
+                  builder: (_, _) => const DriverEmergencyContactScreen(),
+                ),
+              ],
+            ),
           ],
         ),
       ],
-    );
+    ),
+  ],
+);

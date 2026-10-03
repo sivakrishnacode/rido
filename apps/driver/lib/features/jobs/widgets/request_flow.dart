@@ -146,6 +146,14 @@ mixin RequestFlow<W extends ConsumerStatefulWidget> on ConsumerState<W> {
 
   /// Accepts [tripId] from the comparison list.
   Future<void> acceptOffer(String tripId) async {
+    final s = ref.read(driverSessionProvider);
+    if (!showcase &&
+        s.incoming?.id != tripId &&
+        !s.queued.any(
+          (q) => q.request.id == tripId && q.expiresAt.isAfter(DateTime.now()),
+        )) {
+      return;
+    }
     if (tripId != _last.id) {
       ref.read(driverSessionProvider.notifier).focusQueued(tripId);
       _last = ref.read(driverSessionProvider).incoming ?? _last;

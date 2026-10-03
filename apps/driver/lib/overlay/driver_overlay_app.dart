@@ -113,6 +113,11 @@ class _DriverOverlayAppState extends State<DriverOverlayApp> {
 
   Future<void> _expand(OverlayOffer offer, List<OverlayOffer> others) async {
     _collapseTimer?.cancel();
+    if (_accepting &&
+        (_acceptingId == offer.id || others.any((o) => o.id == _acceptingId))) {
+      setState(() => _others = others);
+      return;
+    }
     // Already open: only the list changed (a request joined or went).
     if (_offer != null && !_accepting) {
       setState(() {

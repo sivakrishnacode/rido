@@ -15,10 +15,14 @@ import 'widgets/signup_widgets.dart';
 
 /// D-03b OTP verification: 6 boxes, a 30 s resend countdown and "Verify".
 /// 000000 → "Incorrect OTP" + shake. Sign-up → D-04; log-in → Home as Karthik.
-/// Live API: a phone that is already a driver goes where the application stands (Home, D-07, D-10 or
-/// S-09) from either entry; a new phone continues to sign-up (D-04).
+/// Live API: a phone that is already a driver goes where the application stands (Home or D-07) from either entry; a new phone continues to Registration (D-07).
 class D03bOtpScreen extends ConsumerStatefulWidget {
-  const D03bOtpScreen({super.key, this.phone = '98430 12345', this.signup = true, this.showcase = false});
+  const D03bOtpScreen({
+    super.key,
+    this.phone = '98430 12345',
+    this.signup = true,
+    this.showcase = false,
+  });
 
   final String phone;
   final bool signup;
@@ -71,8 +75,13 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
     try {
       await ref.read(driverRepositoryProvider).sendOtp(_apiPhone);
       if (mounted) showTtSnack(context, 'OTP resent');
-    } on Exception catch (e) {
-      if (mounted) showTtSnack(context, userMessage(e));
+    } catch (e) {
+      if (mounted) {
+        showTtSnack(
+          context,
+          e is Exception ? userMessage(e) : 'Something went wrong. Try again.',
+        );
+      }
     }
   }
 
@@ -82,11 +91,16 @@ class _D03bOtpScreenState extends ConsumerState<D03bOtpScreen> {
     setState(() => _verifying = true);
     OtpResult result;
     try {
-      result = await ref.read(driverRepositoryProvider).verifyOtp(_apiPhone, _code);
-    } on Exception catch (e) {
+      result = await ref
+          .read(driverRepositoryProvider)
+          .verifyOtp(_apiPhone, _code);
+    } catch (e) {
       if (!mounted) return;
       setState(() => _verifying = false);
-      showTtSnack(context, userMessage(e));
+      showTtSnack(
+        context,
+        e is Exception ? userMessage(e) : 'Something went wrong. Try again.',
+      );
       return;
     }
     if (!mounted) return;
