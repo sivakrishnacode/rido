@@ -367,7 +367,8 @@ export const geoApi = {
 export const authApi = {
   sendOtp: (phone: string) =>
     apiFetch<{ expiresInSeconds: number }>("/auth/otp", { method: "POST", body: { phone }, auth: false }),
+  /** `app: "admin"`: the API gives the ADMIN role only to admin-panel sign-ins. */
   verify: (phone: string, code: string) =>
-    apiFetch<LoginResult>("/auth/verify", { method: "POST", body: { phone, code, app: "ADMIN" }, auth: false }),
+    apiFetch<LoginResult>("/auth/verify", { method: "POST", body: { phone, code, app: "admin" }, auth: false }),
 };
 
