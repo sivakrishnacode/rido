@@ -12,6 +12,11 @@ const IST_MS = 5.5 * 3600_000;
 /** Commission apps take about 30% of fares; Tamil Taxi takes none (drivers pay a flat plan). */
 const COMMISSION_RATE = 0.3;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** `driver:online_since:<id>`: when the open online session started (epoch ms). */
+export const onlineSessionKey = (driverId: string): string => `driver:online_since:${driverId}`;
+/** An open session with no go-online and no GPS fix for this long is dropped (the app died without going offline). */
+export const ONLINE_SESSION_TTL_S = 6 * 3600;
 const HOUR_BUCKETS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
 
 export interface Earnings {
@@ -135,14 +140,19 @@ export class DriverEarningsService {
     };
   }
 
-  /** Called when the driver goes online. */
+  /**
+   * Called when the driver goes online (also again on every app resume: the session keeps its start). The key lives
+   * [ONLINE_SESSION_TTL_S] from the last go-online or GPS fix ([DriverLocationService.update] refreshes it), so an
+   * app that died without going offline doesn't count as online for ever.
+   */
   async sessionStarted(driverId: string, now = new Date()): Promise<void> {
-    await this.redis.set(`driver:online_since:${driverId}`, String(now.getTime()), 'NX');
+    const key = onlineSessionKey(driverId);
+    await this.redis.multi().set(key, String(now.getTime()), 'EX', ONLINE_SESSION_TTL_S, 'NX').expire(key, ONLINE_SESSION_TTL_S).exec();
   }
 
   /** Called when the driver goes offline: adds the session to its IST day. */
   async sessionEnded(driverId: string, now = new Date()): Promise<void> {
-    const since = Number(await this.redis.getdel(`driver:online_since:${driverId}`));
+    const since = Number(await this.redis.getdel(onlineSessionKey(driverId)));
     if (!since) return;
     const key = `driver:online_secs:${driverId}:${istDay(new Date(since))}`;
     await this.redis.incrby(key, Math.max(0, Math.round((now.getTime() - since) / 1000)));
@@ -151,7 +161,7 @@ export class DriverEarningsService {
 
   private async onlineSeconds(driverId: string, from: Date, days: number, now: Date): Promise<number> {
     const keys = Array.from({ length: days }, (_, i) => `driver:online_secs:${driverId}:${istDay(new Date(from.getTime() + i * DAY_MS + DAY_MS / 2))}`);
-    const [values, since] = await Promise.all([this.redis.mget(...keys), this.redis.get(`driver:online_since:${driverId}`)]);
+    const [values, since] = await Promise.all([this.redis.mget(...keys), this.redis.get(onlineSessionKey(driverId))]);
     const open = since ? Math.max(0, (now.getTime() - Math.max(Number(since), from.getTime())) / 1000) : 0;
     return values.reduce((a, v) => a + Number(v ?? 0), 0) + open;
   }

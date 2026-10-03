@@ -1834,4 +1834,19 @@ describe('Tamil Taxi API (e2e)', () => {
     await http.post('/v1/kyc/didit/webhook').set(expired.headers).send(expired.body).expect(200);
     expect((await http.get('/v1/kyc/me').set(rider).expect(200)).body.status).toBe('APPROVED');
   });
+
+  it('driver Redis keys expire: an app that dies without going offline leaves nothing behind for ever', async () => {
+    const redis = app.get(RedisService);
+    const token = await onlineDriver('BIKE', { lat: 11.0185, lng: 76.9727 });
+    const auth = { Authorization: `Bearer ${token}` };
+    const driverId = (await http.get('/v1/drivers/me').set(auth).expect(200)).body.id as string;
+
+    // The open online session (earnings' online hours) has a TTL, renewed by GPS fixes, and is gone once offline.
+    expect(await redis.ttl(`driver:online_since:${driverId}`)).toBeGreaterThan(5 * 3600);
+    await redis.expire(`driver:online_since:${driverId}`, 60);
+    await http.post('/v1/drivers/me/location').set(auth).send({ lat: 11.0186, lng: 76.9728 }).expect(204);
+    expect(await redis.ttl(`driver:online_since:${driverId}`)).toBeGreaterThan(5 * 3600);
+    await http.post('/v1/drivers/me/offline').set(auth).expect(200);
+    expect(await redis.exists(`driver:online_since:${driverId}`)).toBe(0);
+  });
 });
