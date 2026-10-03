@@ -303,6 +303,8 @@ export const adminApi = {
   user: (id: string) => orNotFound(apiFetch<UserDetail>(`/admin/users/${enc(id)}`)),
   updateUser: (id: string, data: { name?: string; email?: string | null; role?: Role; isBlocked?: boolean; blockedReason?: string }) =>
     apiFetch<UserDetail>(`/admin/users/${enc(id)}`, { method: "PATCH", body: data }),
+  /** Deletes the account (personal details wiped, trips kept); 409 while they have an unfinished trip. */
+  deleteUser: (id: string) => apiFetch<null>(`/admin/users/${enc(id)}`, { method: "DELETE" }),
 
   // One person: notes (shared by their driver and account pages), history, a direct push, driver fixes
   notes: (userId: string) => apiFetch<AdminNote[]>(`/admin/users/${enc(userId)}/notes`),

@@ -36,6 +36,8 @@ describe("other formatters", () => {
     expect(formatPhone("+919000000001")).toBe("+91 90000 00001");
     expect(formatPhone("12345")).toBe("12345");
     expect(formatPhone(null)).toBe("–");
+    expect(formatPhone("deleted:ckxyz")).toBe("Deleted account");
+    expect(displayName({ name: null, phone: "deleted:ckxyz" })).toBe("Deleted account");
   });
 
   it("formats dates in IST", () => {
