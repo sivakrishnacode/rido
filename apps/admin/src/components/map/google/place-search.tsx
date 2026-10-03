@@ -39,7 +39,7 @@ export function PlaceSearch({ onSelect, className }: { onSelect: (place: FoundPl
 
   useEffect(() => {
     const term = q.trim();
-    if (term.length < 3) return;
+    if (term.length < 4) return;
     const id = ++request.current;
     const timer = setTimeout(async () => {
       if (!session.current) session.current = newSession();
@@ -96,7 +96,7 @@ export function PlaceSearch({ onSelect, className }: { onSelect: (place: FoundPl
           className="h-full flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           onChange={(e) => {
             setQ(e.target.value);
-            if (e.target.value.trim().length < 3) {
+            if (e.target.value.trim().length < 4) {
               setResults([]);
               setOpen(false);
             }

@@ -344,8 +344,12 @@ export const adminApi = {
  * cache, so the dashboard's hotspot names cost one geocode per hexagon per day at most. Null on any failure.
  */
 export async function placeNameAt(lat: number, lng: number): Promise<string | null> {
+  // The API needs a signed-in caller for place lookups.
+  const token = await getToken();
+  if (!token) return null;
   try {
     const res = await fetch(apiUrl(apiBaseUrl(), "/places/reverse", { lat: lat.toFixed(4), lng: lng.toFixed(4) }), {
+      headers: { Authorization: `Bearer ${token}` },
       next: { revalidate: 86_400 },
       signal: AbortSignal.timeout(5_000),
     });

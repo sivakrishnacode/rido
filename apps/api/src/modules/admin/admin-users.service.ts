@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { UserAccessService } from '../../core/auth/user-access.service.js';
 import { DriverStateCache } from '../../core/driver-state/driver-state.cache.js';
 import { PrismaService } from '../../core/prisma/prisma.service.js';
 import { RedisService } from '../../core/redis/redis.service.js';
@@ -22,6 +23,7 @@ export class AdminUsersService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly driverState: DriverStateCache,
+    private readonly access: UserAccessService,
   ) {}
 
   async users(q: ListQueryDto & { role?: string; blocked?: string }): Promise<Paged<User>> {
@@ -76,8 +78,10 @@ export class AdminUsersService {
     });
     if (user.isBlocked) await this.redis.set(`user:blocked:${id}`, '1');
     else await this.redis.del(`user:blocked:${id}`);
-    // A blocked driver's GPS is ignored at once, not only after the cache expires.
+    // A blocked driver's GPS is ignored at once, not only after the cache expires; a new role applies to the
+    // tokens they already hold.
     await this.driverState.invalidateUser(id);
+    await this.access.invalidate(id);
     return user;
   }
 
