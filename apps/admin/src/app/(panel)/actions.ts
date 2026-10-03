@@ -267,6 +267,12 @@ export async function setUserBlocked(userId: string, isBlocked: boolean, reason?
   return plain(res);
 }
 
+/** Deletes the account (DELETE /admin/users/:id, audited): they are signed out and their personal details wiped. */
+export async function deleteUserAccount(userId: string, driverId?: string): Promise<ActionResult> {
+  const res = await run(() => adminApi.deleteUser(userId), "Account deleted", [...personPaths(userId, driverId), "/users", "/passengers", "/drivers", "/"]);
+  return plain(res);
+}
+
 // One person: notes, push, details ---------------------------------------------------------------------------------
 
 /** Both pages of a person: their account and, for a driver, the driver page. */

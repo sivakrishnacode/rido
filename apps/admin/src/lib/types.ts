@@ -138,6 +138,8 @@ export interface User {
   readonly blockedReason?: string | null;
   readonly identityStatus?: IdentityStatus;
   readonly identityVerifiedAt?: string | null;
+  /** The account was deleted: personal details wiped, phone is a "deleted:<id>" tombstone. */
+  readonly deletedAt?: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

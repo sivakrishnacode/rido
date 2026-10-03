@@ -1,6 +1,6 @@
 "use client";
 
-import { BanIcon, Loader2Icon, MoreHorizontalIcon, PencilIcon, PowerOffIcon, SendIcon, ShieldCheckIcon } from "lucide-react";
+import { BanIcon, Loader2Icon, MoreHorizontalIcon, PencilIcon, PowerOffIcon, SendIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { vehicleLabel } from "@/lib/format";
 import { DRIVER_VEHICLE_KINDS, type DriverProfileInput, type VehicleKind, type WorkType } from "@/lib/types";
 
-import { setUserBlocked, takeDriverOffline, updateDriverProfile, updateUserDetails, type ActionResult } from "@/app/(panel)/actions";
+import { deleteUserAccount, setUserBlocked, takeDriverOffline, updateDriverProfile, updateUserDetails, type ActionResult } from "@/app/(panel)/actions";
 
 import { MessageDialog } from "./message-dialog";
 
@@ -64,10 +64,10 @@ export function PersonMenu({
   personName: string | null;
   isBlocked: boolean;
   driver?: DriverFields;
-  /** The signed-in admin's own account: no block. */
+  /** The signed-in admin's own account: no block, no delete. */
   isSelf?: boolean;
 }) {
-  const [dialog, setDialog] = useState<"edit" | "message" | "offline" | "block" | null>(null);
+  const [dialog, setDialog] = useState<"edit" | "message" | "offline" | "block" | "delete" | null>(null);
   const [isPending, startTransition] = useTransition();
   const close = () => setDialog(null);
 
@@ -102,11 +102,16 @@ export function PersonMenu({
               <PowerOffIcon /> Take offline
             </DropdownMenuItem>
           )}
-          {!isBlocked && !isSelf && (
+          {!isSelf && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => setDialog("block")}>
-                <BanIcon /> Block account
+              {!isBlocked && (
+                <DropdownMenuItem variant="destructive" onSelect={() => setDialog("block")}>
+                  <BanIcon /> Block account
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem variant="destructive" onSelect={() => setDialog("delete")}>
+                <Trash2Icon /> Delete account
               </DropdownMenuItem>
             </>
           )}
@@ -126,6 +131,7 @@ export function PersonMenu({
       )}
       {dialog === "offline" && driver && <OfflineDialog userId={userId} driverId={driver.id} name={name} onClose={close} />}
       {dialog === "block" && <BlockDialog userId={userId} driverId={driver?.id} name={name} onClose={close} />}
+      {dialog === "delete" && <DeleteDialog userId={userId} driverId={driver?.id} name={name} onClose={close} />}
     </>
   );
 }
@@ -354,6 +360,43 @@ function BlockDialog({ userId, driverId, name, onClose }: { userId: string; driv
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Confirms DELETE /admin/users/:id: what goes, what stays, and that it can't be undone. */
+function DeleteDialog({ userId, driverId, name, onClose }: { userId: string; driverId?: string; name: string; onClose: () => void }) {
+  const [isPending, startTransition] = useTransition();
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete {name}&apos;s account?</DialogTitle>
+          <DialogDescription>
+            This can&apos;t be undone. They are signed out everywhere, and their name, number, email, saved places, emergency
+            contacts and identity-check details are deleted
+            {driverId ? ", with their documents, photos, UPI ID and plate; they can't drive again on this account" : ""}.
+            Trips stay for the records, without personal details. Their number can sign up again as a new account. Not
+            possible while they are on a trip.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button
+            variant="destructive"
+            disabled={isPending}
+            onClick={() =>
+              startTransition(async () => {
+                if (notify(await deleteUserAccount(userId, driverId))) onClose();
+              })
+            }
+          >
+            {isPending ? <Loader2Icon className="animate-spin" /> : <Trash2Icon />} Delete account
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

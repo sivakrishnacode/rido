@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, BanIcon, HeartHandshakeIcon, LifeBuoyIcon, MapPinIcon, RouteIcon } from "lucide-react";
+import { ArrowLeftIcon, BanIcon, HeartHandshakeIcon, LifeBuoyIcon, MapPinIcon, RouteIcon, Trash2Icon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -32,6 +32,7 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
   const driverKyc = u.driver ? kycProgress(u.driver.documents, u.identityStatus ?? "NOT_STARTED") : null;
   const name = displayName(u);
   const isSelf = !!me && me.phone === u.phone;
+  const isDeleted = !!u.deletedAt;
 
   return (
     <>
@@ -54,48 +55,60 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
               <span className="block truncate">{name}</span>
               <span className="mt-1 flex flex-wrap items-center gap-2 font-sans text-sm font-normal text-muted-foreground">
                 <Badge variant="outline">{humanize(u.role)}</Badge>
+                {isDeleted && (
+                  <Badge variant="secondary" className="bg-muted text-muted-foreground">
+                    <Trash2Icon /> Deleted
+                  </Badge>
+                )}
                 {u.isBlocked && (
                   <Badge variant="secondary" className="bg-error-tint text-error">
                     <BanIcon /> Blocked
                   </Badge>
                 )}
-                <span>{formatPhone(u.phone)}</span>
+                {!isDeleted && <span>{formatPhone(u.phone)}</span>}
                 <span>· joined {formatDate(u.createdAt)}</span>
               </span>
             </span>
           </span>
         }
         actions={
-          <>
-            {isSelf ? <p className="text-sm text-muted-foreground">This is your account.</p> : <RoleControl userId={u.id} role={u.role} name={name} />}
-            <PersonMenu
-              userId={u.id}
-              name={name}
-              email={u.email}
-              personName={u.name}
-              isBlocked={!!u.isBlocked}
-              isSelf={isSelf}
-              driver={
-                u.driver
-                  ? {
-                      id: u.driver.id,
-                      isOnline: u.driver.isOnline,
-                      vehicleKind: u.driver.vehicleKind,
-                      workType: u.driver.workType,
-                      vehicleModel: u.driver.vehicleModel,
-                      vehicleColor: u.driver.vehicleColor,
-                      plate: u.driver.plate,
-                      upiId: u.driver.upiId,
-                    }
-                  : undefined
-              }
-            />
-          </>
+          isDeleted ? undefined : (
+            <>
+              {isSelf ? <p className="text-sm text-muted-foreground">This is your account.</p> : <RoleControl userId={u.id} role={u.role} name={name} />}
+              <PersonMenu
+                userId={u.id}
+                name={name}
+                email={u.email}
+                personName={u.name}
+                isBlocked={!!u.isBlocked}
+                isSelf={isSelf}
+                driver={
+                  u.driver
+                    ? {
+                        id: u.driver.id,
+                        isOnline: u.driver.isOnline,
+                        vehicleKind: u.driver.vehicleKind,
+                        workType: u.driver.workType,
+                        vehicleModel: u.driver.vehicleModel,
+                        vehicleColor: u.driver.vehicleColor,
+                        plate: u.driver.plate,
+                        upiId: u.driver.upiId,
+                      }
+                    : undefined
+                }
+              />
+            </>
+          )
         }
       />
       {u.driver && <PersonTabs userId={u.id} driverId={u.driver.id} active="account" />}
 
-      {u.isBlocked && (
+      {isDeleted && (
+        <p className="mb-4 rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
+          Account deleted {formatDateTime(u.deletedAt!)}: personal details are wiped; trips and tickets stay for the records.
+        </p>
+      )}
+      {u.isBlocked && !isDeleted && (
         <p className="mb-4 rounded-lg bg-error-tint px-4 py-3 text-sm text-error">
           Blocked{u.blockedReason ? `: ${u.blockedReason}` : ""}
         </p>

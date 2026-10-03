@@ -73,6 +73,8 @@ export function formatDayLabel(isoDay: string): string {
 /** "+919000000001" → "+91 90000 00001". */
 export function formatPhone(phone: string | null | undefined): string {
   if (!phone) return "–";
+  // A deleted account keeps "deleted:<id>" instead of the number.
+  if (phone.startsWith("deleted:")) return "Deleted account";
   const m = /^\+91(\d{5})(\d{5})$/.exec(phone);
   return m ? `+91 ${m[1]} ${m[2]}` : phone;
 }

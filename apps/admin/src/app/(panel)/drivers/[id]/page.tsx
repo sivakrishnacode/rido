@@ -89,31 +89,40 @@ export default async function DriverPage({ params }: PageProps<"/drivers/[id]">)
           </span>
         }
         actions={
-          <>
-            <DriverStatusActions driverId={d.id} status={d.status} name={name} missing={d.checklist ? missingChecks(d.checklist) : undefined} />
-            <PersonMenu
-              userId={d.user.id}
-              name={name}
-              email={d.user.email}
-              personName={d.user.name}
-              isBlocked={!!d.user.isBlocked}
-              driver={{
-                id: d.id,
-                isOnline: d.isOnline,
-                vehicleKind: d.vehicleKind,
-                workType: d.workType,
-                vehicleModel: d.vehicleModel,
-                vehicleColor: d.vehicleColor,
-                plate: d.plate,
-                upiId: d.upiId,
-              }}
-            />
-          </>
+          d.user.deletedAt ? undefined : (
+            <>
+              <DriverStatusActions driverId={d.id} status={d.status} name={name} missing={d.checklist ? missingChecks(d.checklist) : undefined} />
+              <PersonMenu
+                userId={d.user.id}
+                name={name}
+                email={d.user.email}
+                personName={d.user.name}
+                isBlocked={!!d.user.isBlocked}
+                driver={{
+                  id: d.id,
+                  isOnline: d.isOnline,
+                  vehicleKind: d.vehicleKind,
+                  workType: d.workType,
+                  vehicleModel: d.vehicleModel,
+                  vehicleColor: d.vehicleColor,
+                  plate: d.plate,
+                  upiId: d.upiId,
+                }}
+              />
+            </>
+          )
         }
       />
       <PersonTabs userId={d.user.id} driverId={d.id} active="driver" />
 
-      {d.user.isBlocked && (
+      {d.user.deletedAt && (
+        <p className="mb-4 rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
+          Account deleted {formatDateTime(d.user.deletedAt)}: documents, photos and personal details are wiped; trips stay for
+          the records.
+        </p>
+      )}
+
+      {d.user.isBlocked && !d.user.deletedAt && (
         <p className="mb-4 rounded-lg bg-error-tint px-4 py-3 text-sm text-error">
           Account blocked{d.user.blockedReason ? `: ${d.user.blockedReason}` : ""}. The driver can&apos;t sign in or go online.
         </p>
