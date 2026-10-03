@@ -8,8 +8,8 @@ import '../../common/showcase.dart';
 import '../../router/routes.dart';
 import '../../state/driver_account.dart';
 
-/// D-23b Trip detail sheet: route, time and trip id, fare breakdown, "You kept ₹38 ·
-/// commission ₹0", the passenger and Help (→ support).
+/// D-23b Trip detail sheet: route, time and trip reference, fare breakdown, "You kept ₹38 · commission ₹0", the
+/// passenger and Help (→ support). Only what the trip record has: no made-up ratings or city codes.
 class D23bTripDetailSheet extends ConsumerWidget {
   const D23bTripDetailSheet({super.key, this.trip, this.showcase = false});
 
@@ -21,22 +21,27 @@ class D23bTripDetailSheet extends ConsumerWidget {
   static Future<void> show(BuildContext context, EarningsTrip? trip) =>
       showTtSheet<void>(context, builder: (_) => D23bTripDetailSheet(trip: trip));
 
-  static String _fullName(String short) {
+  /// Mock mode stores the first word of a seeded place ("Gandhipuram"): the seeded name it came from. Live names are
+  /// shown as they are.
+  static String _seedName(String short) {
     for (final p in Seed.places) {
       if (p.name.startsWith(short)) return p.name;
     }
     return short;
   }
 
+  /// The trip's own reference for support: the end of its id ("#K3F9Q2XA").
   static String tripCode(EarningsTrip t) {
-    final n = 4667 + t.id.codeUnits.fold<int>(0, (a, b) => a + b);
-    return 'TT-CBE-${t.time.day.toString().padLeft(2, '0')}${t.time.month.toString().padLeft(2, '0')}-$n';
+    final id = t.id.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    return '#${(id.length > 8 ? id.substring(id.length - 8) : id).toUpperCase()}';
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.type;
     final trip = this.trip ?? Seed.todayTrips().first;
+    final live = !showcase && ref.watch(isLiveApiProvider);
+    String place(String name) => live ? name : _seedName(name);
     final start = trip.time.subtract(Duration(minutes: trip.durationMin));
     // The driver's own vehicle (the breakdown only shows when it adds up to the fare).
     final kind = showcase ? null : ref.watch(driverProfileProvider).value?.vehicleKind;
@@ -72,13 +77,13 @@ class D23bTripDetailSheet extends ConsumerWidget {
           Row(children: [
             const PickupDot(size: 12),
             const SizedBox(width: TtSpacing.m),
-            Expanded(child: Text(_fullName(trip.from), style: t.body, overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text(place(trip.from), style: t.body, overflow: TextOverflow.ellipsis)),
           ]),
           const SizedBox(height: TtSpacing.m),
           Row(children: [
             const SizedBox(width: 20, child: Center(child: DropPin())),
             const SizedBox(width: TtSpacing.m),
-            Expanded(child: Text(_fullName(trip.to), style: t.body, overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text(place(trip.to), style: t.body, overflow: TextOverflow.ellipsis)),
           ]),
         ]),
       ),
@@ -132,8 +137,9 @@ class D23bTripDetailSheet extends ConsumerWidget {
         const SizedBox(width: TtSpacing.m),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${trip.passengerName.isEmpty ? 'Passenger' : trip.passengerName} · 4.9★', style: t.bodySemibold),
-            Text('You rated 5★', style: t.caption),
+            Text(trip.passengerName.isEmpty ? (trip.isDelivery ? 'Customer' : 'Passenger') : trip.passengerName,
+                style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
+            if (trip.passengerName.isNotEmpty) Text(trip.isDelivery ? 'Customer' : 'Passenger', style: t.caption),
           ]),
         ),
         TextButton.icon(
