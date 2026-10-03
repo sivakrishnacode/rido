@@ -272,6 +272,7 @@ class RideRequest {
     this.womenDriver = WomenDriverPref.none,
     this.bookedBy,
     this.parcel,
+    this.parcelPhotoFile,
     this.otp = '4829',
     this.extra = 0,
     this.rideMode = RideMode.local,
@@ -345,6 +346,7 @@ class RideRequest {
   /// Booked for someone else: the account holder's name ([customerName] / [customerPhone] are the rider's).
   final String? bookedBy;
   final ParcelDetails? parcel;
+  final String? parcelPhotoFile;
   final String otp;
 
   bool get isDelivery => kind == TripKind.parcel;
@@ -367,6 +369,7 @@ class RideRequest {
     WomenDriverPref? womenDriver,
     String? bookedBy,
     ParcelDetails? parcel,
+    String? parcelPhotoFile,
     String? otp,
     int? extra,
     RideMode? rideMode,
@@ -375,32 +378,32 @@ class RideRequest {
     FareQuote? quote,
     DateTime? rideStartedAt,
     ShiftingDetails? shifting,
-  }) =>
-      RideRequest(
-        id: id ?? this.id,
-        kind: kind ?? this.kind,
-        vehicle: vehicle ?? this.vehicle,
-        fare: fare ?? this.fare,
-        pickup: pickup ?? this.pickup,
-        drop: drop ?? this.drop,
-        pickupDistanceKm: pickupDistanceKm ?? this.pickupDistanceKm,
-        pickupEtaMin: pickupEtaMin ?? this.pickupEtaMin,
-        tripKm: tripKm ?? this.tripKm,
-        tripMin: tripMin ?? this.tripMin,
-        customerName: customerName ?? this.customerName,
-        customerRating: customerRating ?? this.customerRating,
-        customerPhone: customerPhone ?? this.customerPhone,
-        isCustomerVerified: isCustomerVerified ?? this.isCustomerVerified,
-        womenDriver: womenDriver ?? this.womenDriver,
-        bookedBy: bookedBy ?? this.bookedBy,
-        parcel: parcel ?? this.parcel,
-        otp: otp ?? this.otp,
-        extra: extra ?? this.extra,
-        rideMode: rideMode ?? this.rideMode,
-        modeTerms: modeTerms ?? this.modeTerms,
-        scheduledAt: scheduledAt ?? this.scheduledAt,
-        quote: quote ?? this.quote,
-        rideStartedAt: rideStartedAt ?? this.rideStartedAt,
-        shifting: shifting ?? this.shifting,
-      );
+  }) => RideRequest(
+    id: id ?? this.id,
+    kind: kind ?? this.kind,
+    vehicle: vehicle ?? this.vehicle,
+    fare: fare ?? this.fare,
+    pickup: pickup ?? this.pickup,
+    drop: drop ?? this.drop,
+    pickupDistanceKm: pickupDistanceKm ?? this.pickupDistanceKm,
+    pickupEtaMin: pickupEtaMin ?? this.pickupEtaMin,
+    tripKm: tripKm ?? this.tripKm,
+    tripMin: tripMin ?? this.tripMin,
+    customerName: customerName ?? this.customerName,
+    customerRating: customerRating ?? this.customerRating,
+    customerPhone: customerPhone ?? this.customerPhone,
+    isCustomerVerified: isCustomerVerified ?? this.isCustomerVerified,
+    womenDriver: womenDriver ?? this.womenDriver,
+    bookedBy: bookedBy ?? this.bookedBy,
+    parcel: parcel ?? this.parcel,
+    parcelPhotoFile: parcelPhotoFile ?? this.parcelPhotoFile,
+    otp: otp ?? this.otp,
+    extra: extra ?? this.extra,
+    rideMode: rideMode ?? this.rideMode,
+    modeTerms: modeTerms ?? this.modeTerms,
+    scheduledAt: scheduledAt ?? this.scheduledAt,
+    quote: quote ?? this.quote,
+    rideStartedAt: rideStartedAt ?? this.rideStartedAt,
+    shifting: shifting ?? this.shifting,
+  );
 }

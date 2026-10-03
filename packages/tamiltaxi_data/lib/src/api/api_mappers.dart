@@ -280,51 +280,69 @@ RideRequest rideRequestFromTrip(Json j) {
     tripKm: trip.distanceKm,
     tripMin: trip.durationMin,
     // Booked for someone else: the rider is who the driver meets and calls.
-    customerName: j['riderName'] is String ? j['riderName'] as String : _s(passenger['name'], 'Tamil Taxi customer'),
+    customerName: j['riderName'] is String
+        ? j['riderName'] as String
+        : _s(passenger['name'], 'Tamil Taxi customer'),
     customerRating: 4.8,
-    customerPhone: j['riderPhone'] is String ? j['riderPhone'] as String : _s(passenger['phone']),
-    isCustomerVerified: j['riderName'] is! String && passenger['identityStatus'] == 'APPROVED',
+    customerPhone: j['riderPhone'] is String
+        ? j['riderPhone'] as String
+        : _s(passenger['phone']),
+    isCustomerVerified:
+        j['riderName'] is! String && passenger['identityStatus'] == 'APPROVED',
     womenDriver: womenDriverFromApi(j['womenDriver']),
-    bookedBy: j['riderName'] is String ? _s(passenger['name'], 'Tamil Taxi customer') : null,
+    bookedBy: j['riderName'] is String
+        ? _s(passenger['name'], 'Tamil Taxi customer')
+        : null,
     parcel: trip.parcel,
+    parcelPhotoFile: j['parcelPhotoFile'] as String?,
     otp: '',
     extra: trip.quote?.extra ?? 0,
     rideMode: trip.rideMode,
     modeTerms: trip.modeTerms,
     scheduledAt: trip.scheduledAt,
     quote: trip.quote,
-    rideStartedAt: j['startedAt'] is String ? DateTime.tryParse(j['startedAt'] as String)?.toLocal() : null,
+    rideStartedAt: j['startedAt'] is String
+        ? DateTime.tryParse(j['startedAt'] as String)?.toLocal()
+        : null,
     shifting: trip.shifting,
   );
 }
 
 ChatMessage chatFromJson(Json j, {required bool iAmDriver}) => ChatMessage(
-      id: _s(j['id']),
-      text: _s(j['text']),
-      fromMe: (j['from'] == 'DRIVER') == iAmDriver,
-      sentAt: _date(j['at']),
-    );
+  id: _s(j['id']),
+  text: _s(j['text']),
+  fromMe: (j['from'] == 'DRIVER') == iAmDriver,
+  sentAt: _date(j['at']),
+);
 
 SavedPlace savedPlaceFromJson(Json j) => SavedPlace(
-      id: _s(j['id']),
-      label: _s(j['label']),
-      kind: SavedPlaceKind.values.firstWhere((k) => k.name == j['kind'], orElse: () => SavedPlaceKind.other),
-      place: Place(
-        id: 'saved-${j['id']}',
-        name: _s(j['name']),
-        address: _s(j['address']),
-        location: LatLng(_d(j['lat']), _d(j['lng'])),
-      ),
-    );
+  id: _s(j['id']),
+  label: _s(j['label']),
+  note: _s(j['note']),
+  kind: SavedPlaceKind.values.firstWhere(
+    (k) => k.name == j['kind'],
+    orElse: () => SavedPlaceKind.other,
+  ),
+  place: Place(
+    id: 'saved-${j['id']}',
+    name: _s(j['name']),
+    address: _s(j['address']),
+    location: LatLng(_d(j['lat']), _d(j['lng'])),
+  ),
+);
 
 /// Within the API's limits (label 40, name 120, address 200, none empty): a pinned spot has no address of its own.
 Json savedPlaceToJson(SavedPlace p) {
-  String cut(String s, int max) => s.length <= max ? s : s.substring(0, max).trimRight();
+  String cut(String s, int max) =>
+      s.length <= max ? s : s.substring(0, max).trimRight();
   final label = p.label.trim().isEmpty ? 'Saved place' : p.label.trim();
   final name = p.place.name.trim().isEmpty ? label : p.place.name.trim();
-  final address = p.place.address.trim().isEmpty ? name : p.place.address.trim();
+  final address = p.place.address.trim().isEmpty
+      ? name
+      : p.place.address.trim();
   return {
     'label': cut(label, 40),
+    'note': cut(p.note.trim(), 200),
     'kind': p.kind.name,
     'name': cut(name, 120),
     'address': cut(address, 200),
@@ -376,7 +394,9 @@ PaymentRecord paymentFromJson(Json j) {
   final sub = (j['subscription'] as Map?)?.cast<String, dynamic>() ?? const {};
   final plan = (sub['plan'] as Map?)?.cast<String, dynamic>() ?? const {};
   final period = _s(plan['period'], 'MONTHLY');
-  final label = '${period[0]}${period.substring(1).toLowerCase()} plan';
+  final label = period.isEmpty
+      ? 'Plan payment'
+      : '${period[0]}${period.substring(1).toLowerCase()} plan';
   return PaymentRecord(
     label: label,
     amount: _i(j['amount']),
@@ -389,43 +409,52 @@ PaymentRecord paymentFromJson(Json j) {
 }
 
 SupportTicket ticketFromJson(Json j) => SupportTicket(
-      id: _s(j['id']),
-      topic: _s(j['topic']),
-      description: _s(j['description']),
-      status: enumFromApi(TicketStatus.values, j['status'], TicketStatus.open),
-      createdAt: _date(j['createdAt']),
-      tripId: j['tripId'] as String?,
-    );
+  id: _s(j['id']),
+  topic: _s(j['topic']),
+  description: _s(j['description']),
+  status: enumFromApi(TicketStatus.values, j['status'], TicketStatus.open),
+  createdAt: _date(j['createdAt']),
+  updatedAt: j['updatedAt'] == null ? null : _date(j['updatedAt']),
+  tripId: j['tripId'] as String?,
+);
 
 EarningsSummary earningsFromJson(Json j) => EarningsSummary(
-      total: _i(j['total']),
-      rides: _i(j['rides']),
-      onlineHours: _i(j['onlineHours']),
-      rating: _d(j['rating'], 5),
-      commissionSaved: _i(j['commissionSaved']),
-      bars: [
-        for (final b in (j['bars'] as List? ?? const []))
-          EarningsDay(label: _s((b as Map)['label']), amount: _i(b['amount']), rides: _i(b['rides'])),
-      ],
-      trips: [
-        for (final t in (j['trips'] as List? ?? const []))
-          EarningsTrip(
-            id: _s((t as Map)['id']),
-            time: _date(t['at']),
-            from: _s(t['from']),
-            to: _s(t['to']),
-            fare: _i(t['fare']),
-            waitingCharge: _i(t['waitingCharge']),
-            previousCancellationFee: _i(t['previousCancellationFee']),
-            extra: _i(t['extra']),
-            paymentMode: enumFromApi(PaymentMode.values, t['paymentMode'], PaymentMode.cash),
-            distanceKm: _d(t['distanceKm']),
-            durationMin: _i(t['durationMin']),
-            passengerName: _s(t['passengerName']),
-            isDelivery: t['isDelivery'] == true,
-          ),
-      ],
-    );
+  total: _i(j['total']),
+  rides: _i(j['rides']),
+  onlineHours: _i(j['onlineHours']),
+  rating: _d(j['rating'], 5),
+  commissionSaved: _i(j['commissionSaved']),
+  bars: [
+    for (final b in (j['bars'] as List? ?? const []))
+      EarningsDay(
+        label: _s((b as Map)['label']),
+        amount: _i(b['amount']),
+        rides: _i(b['rides']),
+      ),
+  ],
+  trips: [
+    for (final t in (j['trips'] as List? ?? const []))
+      EarningsTrip(
+        id: _s((t as Map)['id']),
+        time: _date(t['at']),
+        from: _s(t['from']),
+        to: _s(t['to']),
+        fare: _i(t['fare']),
+        waitingCharge: _i(t['waitingCharge']),
+        previousCancellationFee: _i(t['previousCancellationFee']),
+        extra: _i(t['extra']),
+        paymentMode: enumFromApi(
+          PaymentMode.values,
+          t['paymentMode'],
+          PaymentMode.cash,
+        ),
+        distanceKm: _d(t['distanceKm']),
+        durationMin: _i(t['durationMin']),
+        passengerName: _s(t['passengerName']),
+        isDelivery: t['isDelivery'] == true,
+      ),
+  ],
+);
 
 /// `POST /fares/shifting-quote` → [ShiftingQuote].
 ShiftingQuote shiftingQuoteFromJson(Json j) {

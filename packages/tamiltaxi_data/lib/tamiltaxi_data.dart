@@ -8,6 +8,7 @@ export 'src/api/api_config.dart';
 export 'src/api/api_mappers.dart'
     show
         apiPhone,
+        parcelFromJson,
         enumToApi,
         rideRequestFromOffer,
         rideRequestFromTrip,

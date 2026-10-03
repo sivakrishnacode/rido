@@ -202,7 +202,9 @@ class IdentityController extends AsyncNotifier<IdentityCheck> {
       await refresh();
       return e.message;
     } catch (e) {
-      return '$e';
+      return e is ApiException
+          ? e.message
+          : 'Could not open the identity check. Please try again.';
     }
   }
 

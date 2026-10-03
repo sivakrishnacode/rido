@@ -50,27 +50,44 @@ class ApiAuthRepository implements AuthRepository {
   @override
   Future<void> logout() => api.session.clear();
 
+  /// `DELETE /me` (204), then signs out. A 409 (an unfinished trip) keeps the account and says why.
   @override
-  Future<PassengerProfile> profile() async => passengerFromJson(_map(await api.get('/me')));
+  Future<void> deleteAccount() async {
+    await api.delete('/me');
+    await api.session.clear();
+  }
+
+  @override
+  Future<PassengerProfile> profile() async =>
+      passengerFromJson(_map(await api.get('/me')));
 
   /// Saves the profile fields, then syncs emergency contacts and saved places by difference.
   @override
   Future<PassengerProfile> updateProfile(PassengerProfile profile) async {
     final current = await this.profile();
     await api.patch('/me', {
-      'name': profile.name,
-      if (profile.email.isNotEmpty) 'email': profile.email,
+      if (!(current.name.trim().isEmpty && profile.name == 'Rider'))
+        'name': profile.name,
+      'email': profile.email.trim().isEmpty ? null : profile.email.trim(),
       'gender': enumToApi(profile.gender),
       'preferWomenDriver': profile.preferWomenDriver,
       'autoShareTrips': profile.autoShareTrips,
     });
     final keepContacts = {for (final c in profile.emergencyContacts) c.id};
-    for (final c in current.emergencyContacts.where((c) => !keepContacts.contains(c.id))) {
+    for (final c in current.emergencyContacts.where(
+      (c) => !keepContacts.contains(c.id),
+    )) {
       await api.delete('/me/emergency-contacts/${c.id}');
     }
     final known = {for (final c in current.emergencyContacts) c.id};
-    for (final c in profile.emergencyContacts.where((c) => !known.contains(c.id))) {
-      await api.post('/me/emergency-contacts', {'name': c.name, 'relation': c.relation, 'phone': apiPhone(c.phone)});
+    for (final c in profile.emergencyContacts.where(
+      (c) => !known.contains(c.id),
+    )) {
+      await api.post('/me/emergency-contacts', {
+        'name': c.name,
+        'relation': c.relation,
+        'phone': apiPhone(c.phone),
+      });
     }
     return this.profile();
   }
@@ -366,60 +383,104 @@ class ApiDriverRepository implements DriverRepository {
   }
 
   @override
-  Future<DriverProfile> profile() async => driverFromJson(_map(await api.get('/drivers/me')));
+  Future<DriverProfile> profile() async =>
+      driverFromJson(_map(await api.get('/drivers/me')));
 
   @override
-  Future<DriverProfile> updateProfile(DriverProfile profile) async => driverFromJson(_map(await api.patch('/drivers/me', {
+  Future<DriverProfile> updateProfile(DriverProfile profile) async =>
+      driverFromJson(
+        _map(
+          await api.patch('/drivers/me', {
+            'name': profile.name,
+            'gender': enumToApi(profile.gender),
+            'vehicleModel': profile.vehicleModel,
+            'vehicleColor': profile.vehicleColor,
+            'plate': profile.plate,
+            'upiId': profile.upiId,
+          }),
+        ),
+      );
+
+  @override
+  Future<DriverProfile> register(
+    DriverProfile profile,
+    WorkType workType,
+  ) async {
+    final res = _map(
+      await api.post('/drivers', {
         'name': profile.name,
         'gender': enumToApi(profile.gender),
+        'workType': enumToApi(workType),
+        'vehicleKind': enumToApi(profile.vehicleKind),
         'vehicleModel': profile.vehicleModel,
         'vehicleColor': profile.vehicleColor,
         'plate': profile.plate,
         'upiId': profile.upiId,
-      })));
-
-  @override
-  Future<DriverProfile> register(DriverProfile profile, WorkType workType) async {
-    final res = _map(await api.post('/drivers', {
-      'name': profile.name,
-      'gender': enumToApi(profile.gender),
-      'workType': enumToApi(workType),
-      'vehicleKind': enumToApi(profile.vehicleKind),
-      'vehicleModel': profile.vehicleModel,
-      'vehicleColor': profile.vehicleColor,
-      'plate': profile.plate,
-      'upiId': profile.upiId,
-    }));
+      }),
+    );
     // 201 for a new driver; 200 with the same driver and a fresh token when the first answer was lost and the
     // driver sent it again. Either way the session is stored.
     final driver = res['driver'] is Map ? _map(res['driver']) : res;
     final token = res['accessToken'];
     final id = driver['id'];
-    if (token is! String || id is! String) throw const ApiException(500, 'Something went wrong. Please try again.');
+    if (token is! String || id is! String) {
+      throw const ApiException(500, 'Something went wrong. Please try again.');
+    }
     await api.session.save(token: token, driverId: id);
     return this.profile();
   }
 
   @override
-  Future<List<KycDocument>> kycDocuments() async => _list(await api.get('/drivers/me/documents')).map(kycFromJson).toList();
+  Future<List<KycDocument>> kycDocuments() async =>
+      _list(await api.get('/drivers/me/documents'))
+          .where(
+            (j) =>
+                KycDocType.values.any((type) => enumToApi(type) == j['type']),
+          )
+          .map(kycFromJson)
+          .toList();
 
   /// Only an admin changes review status with the live API; this just reloads the list.
   @override
-  Future<List<KycDocument>> setKycStatus(KycDocType type, KycStatus status, {String? reason}) => kycDocuments();
+  Future<List<KycDocument>> setKycStatus(
+    KycDocType type,
+    KycStatus status, {
+    String? reason,
+  }) => kycDocuments();
 
   @override
-  Future<List<KycDocument>> uploadKyc(KycDocType type, List<int> bytes, String filename) async {
-    await api.upload('/drivers/me/documents/${enumToApi(type)}', field: 'file', bytes: bytes, filename: filename);
+  Future<List<KycDocument>> uploadKyc(
+    KycDocType type,
+    List<int> bytes,
+    String filename,
+  ) async {
+    await api.upload(
+      '/drivers/me/documents/${enumToApi(type)}',
+      field: 'file',
+      bytes: bytes,
+      filename: filename,
+    );
     return kycDocuments();
   }
 
   @override
   Future<bool> uploadProfilePhoto(List<int> bytes, String filename) async =>
-      _map(await api.upload('/drivers/me/photo', field: 'file', bytes: bytes, filename: filename))['status'] == 'APPROVED';
+      _map(
+        await api.upload(
+          '/drivers/me/photo',
+          field: 'file',
+          bytes: bytes,
+          filename: filename,
+        ),
+      )['status'] ==
+      'APPROVED';
 
   @override
   Future<bool> checkApplication() async {
     final me = _map(await api.get('/drivers/me'));
+    if (me['status'] is String) {
+      await api.session.saveDriverStatus(me['status'] as String);
+    }
     return switch (me['status']) {
       'APPROVED' => true,
       'REJECTED' => false,
@@ -488,55 +549,107 @@ class ApiSubscriptionRepository implements SubscriptionRepository {
   /// Only pause / resume / cancel can be set by the driver; other statuses come from the API.
   @override
   Future<SubscriptionPlan> setStatus(PlanStatus status) => switch (status) {
-        PlanStatus.paused => pause(),
-        PlanStatus.cancelled => cancel(),
-        PlanStatus.active => resume(),
-        _ => plan(),
-      };
+    PlanStatus.paused => pause(),
+    PlanStatus.cancelled => cancel(),
+    PlanStatus.active => resume(),
+    _ => plan(),
+  };
 
   @override
-  Future<SubscriptionPlan> setupAutopay(String upiApp) async =>
-      planFromJson(_map(await api.post('/subscriptions/me/autopay', {'upiApp': upiApp})));
+  Future<SubscriptionPlan> setupAutopay(String upiApp) async => planFromJson(
+    _map(await api.post('/subscriptions/me/autopay', {'upiApp': upiApp})),
+  );
 
   /// Buys the monthly plan for the driver's vehicle (extends from the current end date).
   @override
   Future<SubscriptionPlan> payNow(String upiApp) async {
     final current = await plan();
-    final plans = _list(await api.get('/plans', query: {'vehicleKind': enumToApi(current.vehicle)}));
-    final monthly = plans.firstWhere((p) => p['period'] == 'MONTHLY', orElse: () => plans.first);
+    final plans = _list(
+      await api.get(
+        '/plans',
+        query: {'vehicleKind': enumToApi(current.vehicle)},
+      ),
+    );
+    if (plans.isEmpty) {
+      throw const ApiException(409, 'No plans are available for this vehicle');
+    }
+    final monthly = plans.firstWhere(
+      (p) => p['period'] == 'MONTHLY',
+      orElse: () => plans.first,
+    );
     try {
-      return planFromJson(_map(await api.post('/subscriptions', {'planId': monthly['id'], 'upiApp': upiApp})));
+      return planFromJson(
+        _map(
+          await api.post('/subscriptions', {
+            'planId': monthly['id'],
+            'upiApp': upiApp,
+          }),
+        ),
+      );
     } on ApiException {
       throw PaymentFailedException(_intOf(monthly['price']));
     }
   }
 
   @override
-  Future<SubscriptionPlan> pause() async => planFromJson(_map(await api.post('/subscriptions/me/pause')));
+  Future<SubscriptionPlan> pause() async =>
+      planFromJson(_map(await api.post('/subscriptions/me/pause')));
   @override
-  Future<SubscriptionPlan> resume() async => planFromJson(_map(await api.post('/subscriptions/me/resume')));
+  Future<SubscriptionPlan> resume() async =>
+      planFromJson(_map(await api.post('/subscriptions/me/resume')));
   @override
-  Future<SubscriptionPlan> cancel() async => planFromJson(_map(await api.post('/subscriptions/me/cancel')));
+  Future<SubscriptionPlan> cancel() async =>
+      planFromJson(_map(await api.post('/subscriptions/me/cancel')));
 
   /// Plans are priced per vehicle and the vehicle is fixed at sign-up; support changes it after checking the RC.
   @override
   Future<SubscriptionPlan> changePlanVehicle(VehicleKind vehicle) async =>
-      throw const ApiException(400, 'To change your vehicle, raise a "Documents / KYC" ticket in Help');
+      throw const ApiException(
+        400,
+        'To change your vehicle, raise a "Documents / KYC" ticket in Help',
+      );
 
   static int _intOf(Object? v) => v is num ? v.round() : 0;
 }
 
 class ApiSupportRepository implements SupportRepository {
+  @override
+  Future<void> uploadAttachment(
+    String ticketId,
+    List<int> bytes,
+    String filename,
+  ) async {
+    await api.upload(
+      '/tickets/$ticketId/attachment',
+      field: 'file',
+      bytes: bytes,
+      filename: filename,
+    );
+  }
+
   ApiSupportRepository(this.api);
   final ApiClient api;
 
   @override
-  List<String> topics({required bool driver}) => driver ? Seed.driverHelpTopics : Seed.helpTopics;
+  List<String> topics({required bool driver}) =>
+      driver ? Seed.driverHelpTopics : Seed.helpTopics;
 
   @override
-  Future<List<SupportTicket>> tickets() async => _list(await api.get('/tickets')).map(ticketFromJson).toList();
+  Future<List<SupportTicket>> tickets() async =>
+      _list(await api.get('/tickets')).map(ticketFromJson).toList();
 
   @override
-  Future<SupportTicket> raiseTicket({required String topic, required String description, String? tripId}) async =>
-      ticketFromJson(_map(await api.post('/tickets', {'topic': topic, 'description': description, 'tripId': ?tripId})));
+  Future<SupportTicket> raiseTicket({
+    required String topic,
+    required String description,
+    String? tripId,
+  }) async => ticketFromJson(
+    _map(
+      await api.post('/tickets', {
+        'topic': topic,
+        'description': description,
+        'tripId': ?tripId,
+      }),
+    ),
+  );
 }

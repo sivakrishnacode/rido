@@ -56,6 +56,20 @@ class _CountdownRingState extends State<CountdownRing> with SingleTickerProvider
   }
 
   @override
+  void didUpdateWidget(CountdownRing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.duration != oldWidget.duration) {
+      _c.duration = widget.duration;
+      _c.value = 0;
+    }
+    if (widget.running) {
+      _c.forward();
+    } else {
+      _c.stop();
+    }
+  }
+
+  @override
   void dispose() {
     _c.dispose();
     super.dispose();

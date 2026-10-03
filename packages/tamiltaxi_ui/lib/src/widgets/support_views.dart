@@ -11,23 +11,31 @@ import 'tt_card.dart';
 import 'section_label.dart';
 import 'skeleton_box.dart';
 import 'status_pill.dart';
+import 'photo_attachment.dart';
 
 /// Icon for a help topic.
 IconData helpTopicIcon(String topic) => switch (topic) {
-      'Lost item' => Symbols.luggage_rounded,
-      'Driver behaviour' || 'Rider behaviour' => Symbols.sentiment_dissatisfied_rounded,
-      'Fare issue' || 'Payment issue' => Symbols.currency_rupee_rounded,
-      'Parcel issue' => Symbols.deployed_code_rounded,
-      'App problem' => Symbols.bug_report_rounded,
-      'Safety concern' => Symbols.shield_rounded,
-      'Plan & Autopay' => Symbols.workspace_premium_rounded,
-      'Documents / KYC' => Symbols.badge_rounded,
-      _ => Symbols.help_rounded,
-    };
+  'Lost item' => Symbols.luggage_rounded,
+  'Driver behaviour' ||
+  'Rider behaviour' => Symbols.sentiment_dissatisfied_rounded,
+  'Fare issue' || 'Payment issue' => Symbols.currency_rupee_rounded,
+  'Parcel issue' => Symbols.deployed_code_rounded,
+  'App problem' => Symbols.bug_report_rounded,
+  'Safety concern' => Symbols.shield_rounded,
+  'Plan & Autopay' => Symbols.workspace_premium_rounded,
+  'Documents / KYC' => Symbols.badge_rounded,
+  'Delete my account' => Symbols.person_remove_rounded,
+  _ => Symbols.help_rounded,
+};
 
 /// A trip shortcut shown on the help screens ("Gandhipuram → Brookefields · Today, 3:28 PM · ₹38").
 class SupportTripRef {
-  const SupportTripRef({required this.id, required this.title, required this.subtitle, required this.icon});
+  const SupportTripRef({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
   final String id;
   final String title;
   final String subtitle;
@@ -43,18 +51,24 @@ class SupportHomeView extends StatefulWidget {
     required this.tickets,
     required this.onTopic,
     required this.onRaiseTicket,
-    required this.onWhatsApp,
+    this.onWhatsApp,
     this.recentTrip,
     this.onRecentTrip,
+    this.ticketsError,
+    this.onRetryTickets,
   });
 
   final List<String> topics;
 
   /// Null while loading.
   final List<SupportTicket>? tickets;
+  final String? ticketsError;
+  final VoidCallback? onRetryTickets;
   final ValueChanged<String> onTopic;
   final VoidCallback onRaiseTicket;
-  final VoidCallback onWhatsApp;
+
+  /// Null hides the WhatsApp button (no support number set up).
+  final VoidCallback? onWhatsApp;
   final SupportTripRef? recentTrip;
   final VoidCallback? onRecentTrip;
 
@@ -92,61 +106,123 @@ class _SupportHomeViewState extends State<SupportHomeView> {
                 TtCard(
                   onTap: widget.onRecentTrip,
                   padding: const EdgeInsets.all(14),
-                  child: Row(children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(color: TtColors.coral50, borderRadius: TtRadii.cardRadius),
-                      child: Icon(widget.recentTrip!.icon, color: TtColors.coral500, fill: 1),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(widget.recentTrip!.title, style: t.bodySemibold, overflow: TextOverflow.ellipsis),
-                        Text(widget.recentTrip!.subtitle, style: t.bodySmall.copyWith(color: TtColors.navy500)),
-                      ]),
-                    ),
-                    Text('Get help', style: t.bodySemibold.copyWith(color: TtColors.coral600)),
-                  ]),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: TtColors.coral50,
+                          borderRadius: TtRadii.cardRadius,
+                        ),
+                        child: Icon(
+                          widget.recentTrip!.icon,
+                          color: TtColors.coral500,
+                          fill: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.recentTrip!.title,
+                              style: t.bodySemibold,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              widget.recentTrip!.subtitle,
+                              style: t.bodySmall.copyWith(
+                                color: TtColors.navy500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        'Get help',
+                        style: t.bodySemibold.copyWith(
+                          color: TtColors.coral600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
               const SectionLabel('Topics'),
               if (topics.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text('No topics match "$_query". Raise a ticket and we will help.', style: t.bodySmall),
+                  child: Text(
+                    'No topics match "$_query". Raise a ticket and we will help.',
+                    style: t.bodySmall,
+                  ),
                 ),
-              LayoutBuilder(builder: (context, c) {
-                final w = (c.maxWidth - 12) / 2;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final topic in topics)
-                      SizedBox(
-                        width: w,
-                        child: TtCard(
-                          onTap: () => widget.onTopic(topic),
-                          color: topic == 'Safety concern' ? TtColors.errorTint : TtColors.surface,
-                          borderColor: topic == 'Safety concern' ? const Color(0xFFFECACA) : TtColors.divider,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                          child: Row(children: [
-                            Icon(helpTopicIcon(topic),
-                                color: topic == 'Safety concern' ? TtColors.error : TtColors.navy700),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(topic,
-                                  style: t.bodyMedium.copyWith(
-                                      color: topic == 'Safety concern' ? TtColors.error : TtColors.navy900)),
+              LayoutBuilder(
+                builder: (context, c) {
+                  final w = (c.maxWidth - 12) / 2;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      for (final topic in topics)
+                        SizedBox(
+                          width: w,
+                          child: TtCard(
+                            onTap: () => widget.onTopic(topic),
+                            color: topic == 'Safety concern'
+                                ? TtColors.errorTint
+                                : TtColors.surface,
+                            borderColor: topic == 'Safety concern'
+                                ? const Color(0xFFFECACA)
+                                : TtColors.divider,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 16,
                             ),
-                          ]),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  helpTopicIcon(topic),
+                                  color: topic == 'Safety concern'
+                                      ? TtColors.error
+                                      : TtColors.navy700,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    topic,
+                                    style: t.bodyMedium.copyWith(
+                                      color: topic == 'Safety concern'
+                                          ? TtColors.error
+                                          : TtColors.navy900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                  ],
-                );
-              }),
+                    ],
+                  );
+                },
+              ),
               const SectionLabel('My tickets'),
-              if (widget.tickets == null)
+              if (widget.ticketsError != null)
+                TtCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.ticketsError!, style: t.bodySmall),
+                      TextButton(
+                        onPressed: widget.onRetryTickets,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              else if (widget.tickets == null)
                 const SkeletonBox(height: 72, radius: 12)
               else if (widget.tickets!.isEmpty)
                 Text('No tickets yet.', style: t.bodySmall)
@@ -160,27 +236,46 @@ class _SupportHomeViewState extends State<SupportHomeView> {
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: Text('${tk.topic} · #${tk.id}'),
-                          content: Text('${tk.description}\n\nStatus: ${tk.status.label}. We usually reply within 24 hours.'),
-                          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+                          content: Text(
+                            '${tk.description}\n\nStatus: ${tk.status.label}. We usually reply within 24 hours.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: const Text('OK'),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Row(children: [
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('${tk.topic} · ${formatShortDate(tk.createdAt)}', style: t.bodySemibold),
-                            Text(
-                              '#${tk.id} · ${tk.status == TicketStatus.open ? 'Raised just now' : 'Updated 2h ago'}',
-                              style: t.bodySmall.copyWith(color: TtColors.navy500),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${tk.topic} · ${formatShortDate(tk.createdAt)}',
+                                  style: t.bodySemibold,
+                                ),
+                                Text(
+                                  '#${tk.id} · ${tk.status == TicketStatus.open ? 'Raised ${formatRelativeDay(tk.createdAt, withTime: true)}' : 'Updated ${formatRelativeDay(tk.updatedAt ?? tk.createdAt, withTime: true)}'}',
+                                  style: t.bodySmall.copyWith(
+                                    color: TtColors.navy500,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ]),
-                        ),
-                        StatusPill(tk.status == TicketStatus.inProgress
-                            ? StatusKind.inProgress
-                            : tk.status == TicketStatus.open
+                          ),
+                          StatusPill(
+                            tk.status == TicketStatus.inProgress
+                                ? StatusKind.inProgress
+                                : tk.status == TicketStatus.open
                                 ? StatusKind.open
                                 : StatusKind.completed,
-                            label: tk.status.label),
-                      ]),
+                            label: tk.status.label,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
             ],
@@ -190,17 +285,27 @@ class _SupportHomeViewState extends State<SupportHomeView> {
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Row(children: [
-              Expanded(
-                child: TtButton.secondary(
-                  label: 'WhatsApp', // "Chat on WhatsApp" was cut to "Chat on W…" beside Raise a ticket
-                  icon: Symbols.chat_rounded,
-                  onPressed: widget.onWhatsApp,
+            child: Row(
+              children: [
+                if (widget.onWhatsApp case final onWhatsApp?) ...[
+                  Expanded(
+                    child: TtButton.secondary(
+                      label:
+                          'WhatsApp', // "Chat on WhatsApp" was cut to "Chat on W…" beside Raise a ticket
+                      icon: Symbols.chat_rounded,
+                      onPressed: onWhatsApp,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: TtButton(
+                    label: 'Raise a ticket',
+                    onPressed: widget.onRaiseTicket,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: TtButton(label: 'Raise a ticket', onPressed: widget.onRaiseTicket)),
-            ]),
+              ],
+            ),
           ),
         ),
       ],
@@ -217,6 +322,7 @@ class NewTicketView extends StatefulWidget {
     this.initialTopic,
     this.trip,
     this.onChangeTrip,
+    this.onSubmitWithPhoto,
   });
 
   final List<String> topics;
@@ -226,15 +332,22 @@ class NewTicketView extends StatefulWidget {
 
   /// Called with (topic, description). The view shows a loading button until it completes.
   final Future<void> Function(String topic, String description) onSubmit;
+  final Future<void> Function(
+    String topic,
+    String description,
+    PhotoAttachment? photo,
+  )?
+  onSubmitWithPhoto;
 
   @override
   State<NewTicketView> createState() => _NewTicketViewState();
 }
 
 class _NewTicketViewState extends State<NewTicketView> {
-  late String? _topic = widget.initialTopic ?? (widget.trip != null ? 'Fare issue' : null);
+  late String? _topic =
+      widget.initialTopic ?? (widget.trip != null ? 'Fare issue' : null);
   final _text = TextEditingController();
-  bool _photo = false;
+  PhotoAttachment? _photo;
   bool _sending = false;
 
   @override
@@ -297,23 +410,14 @@ class _NewTicketViewState extends State<NewTicketView> {
                 maxLines: 4,
                 maxLength: 500,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(hintText: 'Tell us what went wrong'),
+                decoration: const InputDecoration(
+                  hintText: 'Tell us what went wrong',
+                ),
               ),
               const SizedBox(height: 8),
-              TtCard(
-                color: TtColors.background,
-                onTap: () => setState(() => _photo = !_photo),
-                child: Row(children: [
-                  Icon(_photo ? Symbols.check_circle_rounded : Symbols.add_a_photo_rounded,
-                      color: _photo ? TtColors.success : TtColors.coral600, fill: _photo ? 1 : 0),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text.rich(TextSpan(children: [
-                      TextSpan(text: _photo ? 'Screenshot added' : 'Add a photo or screenshot ', style: t.bodyMedium),
-                      if (!_photo) TextSpan(text: '(optional)', style: t.body.copyWith(color: TtColors.navy500)),
-                    ])),
-                  ),
-                ]),
+              PhotoAttachmentTile(
+                photo: _photo,
+                onChanged: (photo) => setState(() => _photo = photo),
               ),
             ],
           ),
@@ -322,24 +426,30 @@ class _NewTicketViewState extends State<NewTicketView> {
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Column(children: [
-              TtButton(
-                label: 'Submit ticket',
-                loading: _sending,
-                onPressed: canSubmit
-                    ? () async {
-                        setState(() => _sending = true);
-                        try {
-                          await widget.onSubmit(_topic!, _text.text.trim());
-                        } finally {
-                          if (mounted) setState(() => _sending = false);
+            child: Column(
+              children: [
+                TtButton(
+                  label: 'Submit ticket',
+                  loading: _sending,
+                  onPressed: canSubmit
+                      ? () async {
+                          setState(() => _sending = true);
+                          try {
+                            if (widget.onSubmitWithPhoto case final submit?) {
+                              await submit(_topic!, _text.text.trim(), _photo);
+                            } else {
+                              await widget.onSubmit(_topic!, _text.text.trim());
+                            }
+                          } finally {
+                            if (mounted) setState(() => _sending = false);
+                          }
                         }
-                      }
-                    : null,
-              ),
-              const SizedBox(height: 8),
-              Text('We usually reply within 24 hours', style: t.caption),
-            ]),
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                Text('We usually reply within 24 hours', style: t.caption),
+              ],
+            ),
           ),
         ),
       ],

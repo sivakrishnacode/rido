@@ -11,7 +11,7 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsEmail()
-  email?: string;
+  email?: string | null;
 
   @IsOptional()
   @IsEnum(Gender)

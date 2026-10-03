@@ -56,3 +56,5 @@ export 'src/widgets/showcase_frame.dart';
 export 'src/widgets/chat_scaffold.dart';
 export 'src/widgets/support_views.dart';
 export 'src/design_system_board.dart';
+
+export 'src/widgets/photo_attachment.dart';

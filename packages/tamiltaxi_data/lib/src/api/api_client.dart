@@ -80,15 +80,21 @@ class ApiSession {
       await _prefs.setString(_driverKey, driverId);
     } else {
       await _prefs.remove(_driverKey);
+      await _prefs.remove('tamiltaxi.driverStatus');
     }
     tokenChanges.value = token;
   }
+
+  String? get lastDriverStatus => _prefs.getString('tamiltaxi.driverStatus');
+  Future<void> saveDriverStatus(String status) =>
+      _prefs.setString('tamiltaxi.driverStatus', status);
 
   Future<void> markOnboardingSeen() => _prefs.setBool(_onboardingKey, true);
 
   Future<void> clear() async {
     await _prefs.remove(_tokenKey);
     await _prefs.remove(_driverKey);
+    await _prefs.remove('tamiltaxi.driverStatus');
     tokenChanges.value = null;
   }
 }

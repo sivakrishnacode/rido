@@ -274,6 +274,7 @@ class SupportTicket {
     required this.status,
     required this.createdAt,
     this.tripId,
+    this.updatedAt,
   });
 
   final String id;
@@ -281,6 +282,7 @@ class SupportTicket {
   final String description;
   final TicketStatus status;
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final String? tripId;
 
   SupportTicket copyWith({
@@ -289,14 +291,15 @@ class SupportTicket {
     String? description,
     TicketStatus? status,
     DateTime? createdAt,
+    DateTime? updatedAt,
     String? tripId,
-  }) =>
-      SupportTicket(
-        id: id ?? this.id,
-        topic: topic ?? this.topic,
-        description: description ?? this.description,
-        status: status ?? this.status,
-        createdAt: createdAt ?? this.createdAt,
-        tripId: tripId ?? this.tripId,
-      );
+  }) => SupportTicket(
+    id: id ?? this.id,
+    topic: topic ?? this.topic,
+    description: description ?? this.description,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    tripId: tripId ?? this.tripId,
+  );
 }

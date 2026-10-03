@@ -49,6 +49,9 @@ abstract interface class AuthRepository {
   Future<OtpResult> verifyOtp(String phone, String otp);
   Future<void> logout();
 
+  /// Deletes the account and signs out. Throws [ApiException] (409, with why) while a trip is unfinished.
+  Future<void> deleteAccount();
+
   Future<PassengerProfile> profile();
   Future<PassengerProfile> updateProfile(PassengerProfile profile);
 }
@@ -180,5 +183,14 @@ abstract interface class SubscriptionRepository {
 abstract interface class SupportRepository {
   List<String> topics({required bool driver});
   Future<List<SupportTicket>> tickets();
-  Future<SupportTicket> raiseTicket({required String topic, required String description, String? tripId});
+  Future<SupportTicket> raiseTicket({
+    required String topic,
+    required String description,
+    String? tripId,
+  });
+  Future<void> uploadAttachment(
+    String ticketId,
+    List<int> bytes,
+    String filename,
+  );
 }

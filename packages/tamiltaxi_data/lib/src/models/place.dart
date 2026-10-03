@@ -64,17 +64,26 @@ class SavedPlace {
     required this.label,
     required this.kind,
     required this.place,
+    this.note = '',
   });
 
   final String id;
   final String label;
   final SavedPlaceKind kind;
   final Place place;
+  final String note;
 
-  SavedPlace copyWith({String? id, String? label, SavedPlaceKind? kind, Place? place}) => SavedPlace(
-        id: id ?? this.id,
-        label: label ?? this.label,
-        kind: kind ?? this.kind,
-        place: place ?? this.place,
-      );
+  SavedPlace copyWith({
+    String? id,
+    String? label,
+    SavedPlaceKind? kind,
+    Place? place,
+    String? note,
+  }) => SavedPlace(
+    id: id ?? this.id,
+    label: label ?? this.label,
+    kind: kind ?? this.kind,
+    place: place ?? this.place,
+    note: note ?? this.note,
+  );
 }

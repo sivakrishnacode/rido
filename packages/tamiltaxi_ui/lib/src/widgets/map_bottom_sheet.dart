@@ -11,7 +11,7 @@ abstract final class SheetSizes {
 }
 
 /// A draggable bottom sheet that sits over a map, with a drag handle and 16px top corners.
-/// Snaps between [snapSizes]. Content scrolls inside the sheet via the provided controller.
+/// Content scrolls inside the sheet via the provided controller.
 class MapBottomSheet extends StatelessWidget {
   const MapBottomSheet({
     super.key,
@@ -19,7 +19,6 @@ class MapBottomSheet extends StatelessWidget {
     this.initialSize = SheetSizes.half,
     this.minSize = SheetSizes.peek,
     this.maxSize = SheetSizes.full,
-    this.snapSizes,
     this.controller,
     this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 16),
     this.footer,
@@ -30,7 +29,6 @@ class MapBottomSheet extends StatelessWidget {
   final double initialSize;
   final double minSize;
   final double maxSize;
-  final List<double>? snapSizes;
   final DraggableScrollableController? controller;
   final EdgeInsets padding;
 

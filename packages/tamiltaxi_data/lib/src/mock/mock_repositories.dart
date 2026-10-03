@@ -69,6 +69,10 @@ class MockAuthRepository with _Latency implements AuthRepository {
     db.passengerLoggedIn = false;
   }
 
+  /// Seed data: signs out (nothing to delete).
+  @override
+  Future<void> deleteAccount() => logout();
+
   @override
   Future<PassengerProfile> profile() async {
     await delay(network: false);
@@ -548,18 +552,28 @@ class MockSubscriptionRepository with _Latency implements SubscriptionRepository
 
   @override
   Future<SubscriptionPlan> changePlanVehicle(VehicleKind vehicle) async {
-    return db.plan = db.plan.copyWith(vehicle: vehicle, monthlyPrice: Seed.vehicle(vehicle).subscriptionPrice);
+    return db.plan = db.plan.copyWith(
+      vehicle: vehicle,
+      monthlyPrice: Seed.vehicle(vehicle).subscriptionPrice,
+    );
   }
 }
 
 class MockSupportRepository with _Latency implements SupportRepository {
+  @override
+  Future<void> uploadAttachment(
+    String ticketId,
+    List<int> bytes,
+    String filename,
+  ) async {}
   MockSupportRepository(this.db, this.settings);
   final MockDatabase db;
   @override
   final SettingsReader settings;
 
   @override
-  List<String> topics({required bool driver}) => driver ? Seed.driverHelpTopics : Seed.helpTopics;
+  List<String> topics({required bool driver}) =>
+      driver ? Seed.driverHelpTopics : Seed.helpTopics;
 
   @override
   Future<List<SupportTicket>> tickets() async {

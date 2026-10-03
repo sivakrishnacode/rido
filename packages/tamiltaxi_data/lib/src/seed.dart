@@ -523,6 +523,7 @@ abstract final class Seed {
     'Parcel issue',
     'App problem',
     'Safety concern',
+    'Delete my account',
   ];
 
   static const List<String> driverHelpTopics = [
