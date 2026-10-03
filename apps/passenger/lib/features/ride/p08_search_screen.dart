@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
+import '../../common/device_location.dart';
 import '../../router/routes.dart';
 import '../../state/ride_flow.dart';
 import '../states/s04_no_internet_screen.dart';
@@ -172,8 +173,18 @@ class _P08SearchScreenState extends ConsumerState<P08SearchScreen> {
     context.push(Routes.chooseVehicle);
   }
 
-  void _useCurrentLocation() {
-    final here = ref.read(placesRepositoryProvider).currentLocation;
+  Future<void> _useCurrentLocation() async {
+    var here = ref.read(placesRepositoryProvider).currentLocation;
+    if (here.isUnknownPickup) {
+      // No fix yet: ask the phone now (and for the permission if needed).
+      await ref.read(deviceLocationProvider.notifier).locate();
+      if (!mounted) return;
+      here = ref.read(placesRepositoryProvider).currentLocation;
+      if (here.isUnknownPickup) {
+        showTtSnack(context, "Couldn't find your location. Search for the pickup or set it on the map.");
+        return;
+      }
+    }
     ref.read(rideFlowProvider.notifier).setPickup(here);
     _pickupFocus.unfocus();
     _dropFocus.requestFocus();

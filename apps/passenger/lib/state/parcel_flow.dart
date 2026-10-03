@@ -8,7 +8,7 @@ import '../router/routes.dart';
 import 'app_notice.dart';
 import 'live_trip.dart';
 import 'passenger_session.dart';
-import 'ride_flow.dart' show upcomingTripsProvider;
+import 'ride_flow.dart' show kChoosePickupFirst, kChoosePickupForFares, upcomingTripsProvider;
 
 enum ParcelPhase {
   /// PP-01 … PP-06: filling in details.
@@ -343,6 +343,10 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
   Future<void> loadQuotes() async {
     if (!_live) return;
     final a = state.pickup, b = state.drop;
+    if (a.isUnknownPickup) {
+      state = state.copyWith(serverQuotes: null, quotesError: kChoosePickupForFares);
+      return;
+    }
     state = state.copyWith(serverQuotes: null, quotesError: null);
     try {
       final quotes = await ref.read(parcelRepositoryProvider).quotes(a, b, outstation: state.outstation);
@@ -429,6 +433,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
 
   // ------------------------------------------------------------- live trips
   Future<String?> _bookLive() async {
+    if (state.pickup.isUnknownPickup) return kChoosePickupFirst;
     if (state.busy) return null;
     state = state.copyWith(busy: true);
     try {
@@ -455,6 +460,7 @@ class ParcelFlowController extends Notifier<ParcelFlowState> {
   Future<({String? error, Trip? trip})> bookForLater() async {
     final at = state.leaveAt;
     if (!state.outstation || at == null) return (error: 'Choose a pickup time', trip: null);
+    if (state.pickup.isUnknownPickup) return (error: kChoosePickupFirst, trip: null);
     if (state.busy) return (error: null, trip: null);
     state = state.copyWith(busy: true);
     try {

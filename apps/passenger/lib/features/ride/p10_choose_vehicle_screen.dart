@@ -71,7 +71,9 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
     // Live API: wait for the server's quotes; never show a locally computed fare.
     final quotesReady = !live || widget.showcase || state.serverQuotes != null;
     final quote = state.quote;
-    final route = state.routeOrDefault;
+    // Before the phone is located the pickup is only a stand-in: no pin, route or vehicles around it.
+    final noPickup = state.pickup.isUnknownPickup && !widget.showcase;
+    final route = noPickup ? const <LatLng>[] : state.routeOrDefault;
     final womenDriver = flow.womenDriver;
     final fastest = _fastestKind(state.quotes);
     final now = TtClock.now();
@@ -97,13 +99,14 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                 top: 0,
                 height: mapH,
                 child: TtMap(
-                  pickup: state.pickup.location,
+                  center: noPickup ? state.drop.location : null,
+                  pickup: noPickup ? null : state.pickup.location,
                   drop: state.drop.location,
                   route: route,
                   // The free vehicles that could take the selected tier (bikes and scooters for Bike, autos for
                   // Auto Priority), like Rapido.
-                  vehicles: nearbyMarkers(ref, state.pickup.location, kinds: state.vehicle.servedBy),
-                  fitPoints: route,
+                  vehicles: noPickup ? const [] : nearbyMarkers(ref, state.pickup.location, kinds: state.vehicle.servedBy),
+                  fitPoints: noPickup ? null : route,
                   fitPadding: const EdgeInsets.fromLTRB(56, 96, 56, 88),
                   // The sheet overlaps the map's bottom edge; keep the Google logo above it.
                   mapPadding: sheetMapPadding(TtSpacing.l + 8),
@@ -141,7 +144,7 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                         const Icon(Symbols.conversion_path_rounded, size: 20, color: TtColors.coral600),
                         const SizedBox(width: TtSpacing.s),
                         Text(
-                          quotesReady ? state.estimate.label : 'Getting fares…',
+                          noPickup ? 'Choose your pickup' : (quotesReady ? state.estimate.label : 'Getting fares…'),
                           style: TtTextStyles.tabular(t.bodySemibold),
                         ),
                       ],
@@ -201,7 +204,9 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                               ),
                               const SizedBox(height: TtSpacing.s),
                               if (!quotesReady)
-                                _QuotesPending(error: state.quotesError, onRetry: flow.loadQuotes)
+                                noPickup
+                                    ? const _QuotesPending(error: kChoosePickupForFares, onRetry: null)
+                                    : _QuotesPending(error: state.quotesError, onRetry: flow.loadQuotes)
                               else
                               for (final q in state.quotes) ...[
                                 VehicleOptionCard(
@@ -282,11 +287,13 @@ class _P10ChooseVehicleScreenState extends ConsumerState<P10ChooseVehicleScreen>
                             TtSpacing.l,
                             TtSpacing.l,
                           ),
-                          child: TtButton(
-                            label: quotesReady ? 'Book ${quote.vehicle.name} · ${formatInr(quote.total)}' : 'Book',
-                            loading: state.busy,
-                            onPressed: quotesReady && !state.busy ? _book : null,
-                          ),
+                          child: noPickup
+                              ? TtButton(label: 'Choose your pickup', onPressed: () => context.push(Routes.pinPickupOnMap))
+                              : TtButton(
+                                  label: quotesReady ? 'Book ${quote.vehicle.name} · ${formatInr(quote.total)}' : 'Book',
+                                  loading: state.busy,
+                                  onPressed: quotesReady && !state.busy ? _book : null,
+                                ),
                         ),
                       ],
                     ),
@@ -437,7 +444,9 @@ class ButterflyCard extends StatelessWidget {
 class _QuotesPending extends StatelessWidget {
   const _QuotesPending({required this.error, required this.onRetry});
   final String? error;
-  final VoidCallback onRetry;
+
+  /// Null: the message alone (the main button says what to do).
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -460,8 +469,10 @@ class _QuotesPending extends StatelessWidget {
       child: Column(
         children: [
           Text(message, style: t.body.copyWith(color: TtColors.navy700), textAlign: TextAlign.center),
-          const SizedBox(height: TtSpacing.s),
-          TtButton.text(label: 'Try again', onPressed: onRetry),
+          if (onRetry case final retry?) ...[
+            const SizedBox(height: TtSpacing.s),
+            TtButton.text(label: 'Try again', onPressed: retry),
+          ],
         ],
       ),
     );

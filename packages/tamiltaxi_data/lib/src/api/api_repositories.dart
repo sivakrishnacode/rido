@@ -81,8 +81,8 @@ class ApiPlacesRepository implements PlacesRepository {
   ApiPlacesRepository(this.api);
   final ApiClient api;
 
-  /// Last known device / pin location (set by the apps when the GPS answers); until then the first service city's
-  /// centre.
+  /// Last known device location (set by the apps when the GPS answers); until then [kUnknownPickupId] at the first
+  /// service city's centre, which the apps show as "Choose your pickup" and never book from.
   Place? _current;
   String _session = _newSession();
   final Map<String, bool> _serviceArea = {};
@@ -94,7 +94,7 @@ class ApiPlacesRepository implements PlacesRepository {
 
   @override
   Place get currentLocation =>
-      _current ?? Place(id: 'current', name: 'Current location', address: '', location: CityDefaults.center);
+      _current ?? Place(id: kUnknownPickupId, name: 'Choose your pickup', address: '', location: CityDefaults.center);
 
   /// Remembers the device location (used as the default pickup).
   set currentLocation(Place place) => _current = place;
