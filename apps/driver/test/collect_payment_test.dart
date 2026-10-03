@@ -5,11 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:tamiltaxi_data/tamiltaxi_data.dart';
+import 'package:tamiltaxi_driver/features/home/d13_home_screen.dart';
 import 'package:tamiltaxi_driver/features/jobs/d19_collect_payment_screen.dart';
+import 'package:tamiltaxi_driver/features/jobs/widgets/rate_customer_sheet.dart';
+import 'package:tamiltaxi_driver/router/routes.dart';
 import 'package:tamiltaxi_driver/state/driver_account.dart';
 import 'package:tamiltaxi_ui/tamiltaxi_ui.dart';
 
 import 'support/harness.dart';
+import 'support/live_fakes.dart';
 
 class _Profile extends DriverProfileController {
   _Profile(this.profile);
@@ -48,5 +52,27 @@ void main() {
     await _pump(tester, live: true, profile: Seed.karthik.copyWith(upiId: 'priya@oksbi'));
     expect(find.byType(QrImageView), findsOneWidget);
     expect(find.text('priya@oksbi'), findsOneWidget);
+  });
+
+  testWidgets('live: Received cash goes straight Home, no rating sheet (there is no API for it)', (tester) async {
+    final rig = await LiveRig.create(prefs: {'tamiltaxi.accessToken': 'token', 'tamiltaxi.driverId': 'd1'});
+    final container = await pumpRoute(tester, Routes.collect, overrides: rig.overrides);
+    await tester.tap(find.text('Received cash'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(RateCustomerSheet), findsNothing);
+    expect(find.byType(D13HomeScreen), findsOneWidget);
+    await closeApp(tester, container);
+  });
+
+  testWidgets('demo: the rating sheet still shows', (tester) async {
+    final container = await pumpRoute(tester, Routes.collect);
+    await tester.tap(find.text('Received cash'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(RateCustomerSheet), findsOneWidget);
+    await closeApp(tester, container);
   });
 }
