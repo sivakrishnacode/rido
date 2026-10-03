@@ -12,11 +12,11 @@ import '../../state/driver_account.dart';
 import '../../state/live_helpers.dart';
 import '../home/widgets/navy_header.dart';
 import 'account_providers.dart';
-import 'refer_driver_sheet.dart';
 import 'services_screen.dart';
 
-/// D-26 Driver account: profile header, Refer a driver, Documents, Vehicle details, UPI ID,
-/// Emergency contact, Contribute, Help & support, Terms, Design gallery, Log out and Delete account.
+/// D-26 Driver account: profile header, Documents, Vehicle details, Services, Rate card, Booking preferences, UPI ID,
+/// Emergency contact, Contribute, Help & support, Terms, Design gallery (dev builds) and Log out. No Delete account:
+/// a driver's records are kept at least 6 months for police enquiries, so drivers ask support to close it.
 class D26AccountScreen extends ConsumerStatefulWidget {
   const D26AccountScreen({super.key, this.showcase = false});
 
@@ -27,14 +27,12 @@ class D26AccountScreen extends ConsumerStatefulWidget {
   ConsumerState<D26AccountScreen> createState() => _D26AccountScreenState();
 }
 
-/// What D-26 is doing to leave the account (the rows show a spinner and can't be tapped twice).
-enum _Leaving { none, logout, delete }
-
 class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
-  _Leaving _leaving = _Leaving.none;
+  /// Logging out: the row shows a spinner and can't be tapped twice.
+  bool _leaving = false;
 
   Future<void> _logout() async {
-    if (_leaving != _Leaving.none) return;
+    if (_leaving) return;
     final ok = await showTtConfirm(
       context,
       title: 'Log out?',
@@ -45,50 +43,16 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
       icon: Symbols.logout_rounded,
     );
     if (!ok || !mounted) return;
-    setState(() => _leaving = _Leaving.logout);
+    setState(() => _leaving = true);
     await signOutDriver(ref);
     if (mounted) context.go(Routes.welcome);
-  }
-
-  /// Account deletion (`DELETE /me`): says what goes and what stays first. Refused while a trip is unfinished (409).
-  Future<void> _deleteAccount() async {
-    if (_leaving != _Leaving.none) return;
-    final ok = await showTtConfirm(
-      context,
-      title: 'Delete your account?',
-      message: 'This deletes your profile, vehicle details, documents, photos, identity check, UPI ID, booking '
-          'preferences and emergency contact, and logs you out. Trip records are kept for 3 years for safety and tax. '
-          "This can't be undone.",
-      confirmLabel: 'Delete account',
-      cancelLabel: 'Keep my account',
-      destructive: true,
-      icon: Symbols.delete_forever_rounded,
-    );
-    if (!ok || !mounted) return;
-    setState(() => _leaving = _Leaving.delete);
-    final live = ref.read(isLiveApiProvider);
-    try {
-      if (live) await ref.read(liveJobsProvider).deleteAccount();
-    } on Exception catch (e) {
-      if (!mounted) return;
-      setState(() => _leaving = _Leaving.none);
-      showTtSnack(context, userMessage(e));
-      return;
-    }
-    if (!mounted) return;
-    // Mock mode has no server account: the demo just logs out.
-    await signOutDriver(ref, deleted: live);
-    if (!mounted) return;
-    context.go(Routes.welcome);
-    showTtSnack(context, 'Your account was deleted');
   }
 
   static const _spinner = SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: TtColors.error));
 
   @override
   Widget build(BuildContext context) {
-    final t = context.type;
-    // Design gallery frame: rows show a note instead of logging out, deleting or opening real screens.
+    // Design gallery frame: rows show a note instead of logging out or opening real screens.
     VoidCallback? act(VoidCallback? action) => unlessShowcase(context, widget.showcase, action);
     final live = !widget.showcase && ref.watch(isLiveApiProvider);
     final profileAsync = ref.watch(driverProfileProvider);
@@ -131,28 +95,6 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(TtSpacing.gutter, TtSpacing.l, TtSpacing.gutter, TtSpacing.xl),
             children: [
-              TtCard(
-                color: TtColors.coral50,
-                borderColor: TtColors.coral100,
-                onTap: act(() => ReferDriverSheet.show(context)),
-                child: Row(children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(color: TtColors.coral600, shape: BoxShape.circle),
-                    child: const Icon(Symbols.group_add_rounded, color: Colors.white, fill: 1),
-                  ),
-                  const SizedBox(width: TtSpacing.l),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Refer a driver', style: t.h2),
-                      Text('Invite the drivers you know', style: t.bodySmall),
-                    ]),
-                  ),
-                  const Icon(Symbols.chevron_right_rounded, color: TtColors.coral600),
-                ]),
-              ),
-              const SizedBox(height: TtSpacing.m),
               TtListGroup(children: [
                 TtListTile(
                   icon: Symbols.folder_shared_rounded,
@@ -233,20 +175,11 @@ class _D26AccountScreenState extends ConsumerState<D26AccountScreen> {
               TtListGroup(children: [
                 TtListTile(
                   icon: Symbols.logout_rounded,
-                  title: _leaving == _Leaving.logout ? 'Logging out…' : 'Log out',
+                  title: _leaving ? 'Logging out…' : 'Log out',
                   destructive: true,
                   showChevron: false,
-                  trailing: _leaving == _Leaving.logout ? _spinner : null,
-                  onTap: act(_leaving == _Leaving.none ? _logout : null),
-                ),
-                TtListTile(
-                  icon: Symbols.delete_forever_rounded,
-                  title: _leaving == _Leaving.delete ? 'Deleting your account…' : 'Delete account',
-                  subtitle: 'Your profile, documents and photos',
-                  destructive: true,
-                  showChevron: false,
-                  trailing: _leaving == _Leaving.delete ? _spinner : null,
-                  onTap: act(_leaving == _Leaving.none ? _deleteAccount : null),
+                  trailing: _leaving ? _spinner : null,
+                  onTap: act(_leaving ? null : _logout),
                 ),
               ]),
             ],

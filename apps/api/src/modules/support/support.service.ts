@@ -11,7 +11,7 @@ const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 @Injectable()
 export class SupportService {
   static readonly passengerTopics = ['Lost item', 'Driver behaviour', 'Fare issue', 'Parcel issue', 'App problem', 'Safety concern'] as const;
-  static readonly driverTopics = ['Payment issue', 'Plan & Autopay', 'Documents / KYC', 'Rider behaviour', 'App problem', 'Safety concern'] as const;
+  static readonly driverTopics = ['Payment issue', 'Plan & Autopay', 'Documents / KYC', 'Rider behaviour', 'App problem', 'Safety concern', 'Delete my account'] as const;
 
   constructor(
     private readonly prisma: PrismaService,

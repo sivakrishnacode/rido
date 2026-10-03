@@ -1,5 +1,5 @@
-// D-26 Log out and Delete account (live): one offline call with a progress state that can't be tapped twice;
-// deleting says what goes, shows a refusal (unfinished trip) and ends at Welcome once deleted.
+// D-26 Log out (live): one offline call with a progress state that can't be tapped twice. There is no Delete
+// account row: drivers ask support (records are kept 6 months for police enquiries).
 import 'dart:async';
 import 'dart:convert';
 
@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:tamiltaxi_driver/features/account/d26_account_screen.dart';
 import 'package:tamiltaxi_driver/features/onboarding/d02_welcome_screen.dart';
 import 'package:tamiltaxi_driver/router/routes.dart';
 
@@ -30,13 +29,12 @@ const _driver = {
 http.Response _json(Object body, [int status = 200]) =>
     http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json'});
 
-/// The API for D-26: the driver, no contacts, no documents; [onOffline] / [onDelete] answer those calls.
-MockClient _api({required Future<http.Response> Function() onOffline, Future<http.Response> Function()? onDelete, List<String>? log}) =>
+/// The API for D-26: the driver, no contacts, no documents; [onOffline] answers going offline.
+MockClient _api({required Future<http.Response> Function() onOffline, List<String>? log}) =>
     MockClient((req) async {
       log?.add('${req.method} ${req.url.path}');
       final path = req.url.path;
       if (req.method == 'POST' && path == '/v1/drivers/me/offline') return onOffline();
-      if (req.method == 'DELETE' && path == '/v1/me') return onDelete!();
       if (path == '/v1/drivers/me') return _json(_driver);
       if (path == '/v1/me') return _json({'emergencyContacts': []});
       if (path == '/v1/drivers/me/documents') return _json([]);
@@ -82,40 +80,13 @@ void main() {
     await closeApp(tester, container);
   });
 
-  testWidgets('delete account: a refusal shows its message; once deleted, Welcome', (tester) async {
-    var refuse = true;
-    final log = <String>[];
-    final rig = await LiveRig.create(
-      prefs: _signedIn,
-      client: _api(
-        log: log,
-        onOffline: () async => _json({}),
-        onDelete: () async => refuse
-            ? _json({'message': 'Finish or cancel your trip before deleting your account'}, 409)
-            : http.Response('', 204),
-      ),
-    );
+  testWidgets('no Delete account row', (tester) async {
+    final rig = await LiveRig.create(prefs: _signedIn, client: _api(onOffline: () async => _json({})));
     final container = await pumpRoute(tester, Routes.account, overrides: rig.overrides);
     await _advance(tester);
-
-    await _tapRow(tester, 'Delete account');
-    expect(find.text('Delete your account?'), findsOneWidget);
-    expect(find.textContaining('Trip records are kept for 3 years'), findsOneWidget);
-    await tester.tap(find.text('Delete account').last);
-    await _advance(tester);
-    expect(find.text('Finish or cancel your trip before deleting your account'), findsOneWidget);
-    expect(find.byType(D26AccountScreen), findsOneWidget);
-    expect(rig.api.session.isLoggedIn, isTrue);
-
-    refuse = false;
-    await _advance(tester, const Duration(seconds: 4));
-    await _tapRow(tester, 'Delete account');
-    await tester.tap(find.text('Delete account').last);
-    await _advance(tester);
-    expect(find.byType(D02WelcomeScreen), findsOneWidget);
-    expect(rig.api.session.isLoggedIn, isFalse);
-    // A deleted account isn't told to go offline.
-    expect(log, isNot(contains('POST /v1/drivers/me/offline')));
+    await tester.dragUntilVisible(find.text('Log out'), find.byType(ListView), const Offset(0, -200));
+    expect(find.text('Delete account'), findsNothing);
+    expect(find.text('Refer a driver'), findsNothing);
     await closeApp(tester, container);
   });
 }

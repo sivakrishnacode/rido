@@ -19,14 +19,18 @@ export default function DeleteAccountPage() {
   return (
     <LegalShell
       title="Delete your account"
-      intro={`You can delete your ${site.apps.rider.name} or ${site.apps.driver.name} account at any time: in the app, or by email if you no longer have it.`}
+      intro={`You can delete your ${site.apps.rider.name} or ${site.apps.driver.name} account at any time: in the app, or by email if you no longer have it. Drivers' records are kept for 6 months first, for police enquiries.`}
     >
       <LegalBlock heading="How to delete it">
         <ol className="space-y-4">
           <li className="rounded-2xl border border-divider p-5">
             <p className="font-semibold text-navy-900">In the app</p>
             <p className="mt-1">
-              Open Account › Delete account and confirm. If a trip is still going, finish or cancel it first.
+              {site.apps.rider.name}: open Account › Delete account and confirm. If a trip is still going, finish or
+              cancel it first.
+            </p>
+            <p className="mt-1">
+              {site.apps.driver.name}: open Account › Help &amp; support › Delete my account and send the ticket.
             </p>
           </li>
           <li className="rounded-2xl border border-divider p-5">

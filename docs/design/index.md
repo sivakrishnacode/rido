@@ -191,7 +191,6 @@ Notes:
 | D-34 | Help & support | Added after the design | [driver/D-34.png](driver/D-34.png) |
 | D-35 | Raise a ticket | Added after the design | [driver/D-35.png](driver/D-35.png) |
 | D-36 | Chat with passenger | Added after the design | [driver/D-36.png](driver/D-36.png) |
-| D-37 | Refer a driver (sheet) | Added after the design | [driver/D-37.png](driver/D-37.png) |
 | D-38 | Terms | Added after the design | [driver/D-38.png](driver/D-38.png) |
 | D-39 | Privacy | Added after the design | [driver/D-39.png](driver/D-39.png) |
 

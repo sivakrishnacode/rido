@@ -16,7 +16,7 @@ export type LegalSection = {
 export type LegalDoc = { title: string; updated: string; intro: string; sections: readonly LegalSection[] };
 
 /** The date on both documents and on the apps' legal screens. */
-export const legalUpdated = "2 October 2026";
+export const legalUpdated = "3 October 2026";
 
 export const privacy: LegalDoc = {
   title: "Privacy policy",
@@ -133,8 +133,10 @@ export const privacy: LegalDoc = {
           "day after the last message.",
         "Trip records (date, pickup, drop, route, fare and vehicle) are kept for safety, accounting and tax " +
           "reasons, for as long as we need them for those reasons or the law requires.",
-        "You can delete your account at any time in either app, from Account › Delete account, or by email. Your " +
-          "name, mobile number and email are removed and your trip records are kept without them.",
+        "You can delete your account at any time: in the rider app from Account › Delete account, in the driver " +
+          "app from Account › Help & support › Delete my account, or by email. Your name, mobile number and email " +
+          "are removed and your trip records are kept without them. A driver's account and records are kept for 6 " +
+          "months after the request, for police enquiries, before they are deleted.",
       ],
       link: { href: "/delete-account/", label: "What is deleted and what is kept" },
     },
@@ -257,6 +259,8 @@ export const deletion = {
     "Drivers: the photos of your documents, your profile photo and your identity-check selfie.",
   ],
   kept: [
+    "Drivers: everything on the account is kept for 6 months after the request, for police enquiries, and " +
+      "deleted as above after that.",
     "Trip records (date, pickup, drop, route, fare, vehicle), without your name, number or email, for safety, " +
       "accounting and tax reasons, for as long as we need them for those reasons or the law requires.",
   ],

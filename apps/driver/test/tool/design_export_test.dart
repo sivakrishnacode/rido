@@ -32,7 +32,6 @@ const extraShots = <({String id, String name, String route, String? tap})>[
   (id: 'D-34', name: 'Help & support', route: Routes.help, tap: null),
   (id: 'D-35', name: 'Raise a ticket', route: '/help/new-ticket', tap: null),
   (id: 'D-36', name: 'Chat with passenger', route: Routes.chat, tap: null),
-  (id: 'D-37', name: 'Refer a driver (sheet)', route: Routes.account, tap: 'Refer a driver'),
   (id: 'D-38', name: 'Terms', route: '/legal/terms', tap: null),
   (id: 'D-39', name: 'Privacy', route: '/legal/privacy', tap: null),
 ];

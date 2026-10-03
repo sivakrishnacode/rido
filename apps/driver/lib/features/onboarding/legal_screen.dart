@@ -83,9 +83,11 @@ class LegalScreen extends StatelessWidget {
     ),
     (
       'Your choices',
-      'You can update your details from Account. You can delete your account at any time from Account › Delete '
-          'account: your name, number and email are removed, your document photos, profile photo and selfie are '
-          'deleted, and your trip records are kept without your name for safety and accounting.',
+      'You can update your details from Account. To close your account, raise a "Delete my account" ticket in '
+          'Account › Help & support, or email us. We keep your details, documents, photos and trips for 6 months '
+          'after that for police enquiries. Then your name, number and email are removed, your document photos, '
+          'profile photo and selfie are deleted, and your trip records are kept without your name for safety and '
+          'accounting.',
     ),
   ];
 
@@ -104,7 +106,7 @@ class LegalScreen extends StatelessWidget {
           children: [
             Text(privacy ? 'Tamil Taxi Driver Privacy Policy' : 'Tamil Taxi Driver Terms of Service', style: t.h1),
             const SizedBox(height: TtSpacing.xs),
-            Text('Last updated 2 October 2026', style: t.caption.copyWith(color: TtColors.navy500)),
+            Text('Last updated 3 October 2026', style: t.caption.copyWith(color: TtColors.navy500)),
             for (final (title, body) in sections) ...[
               const SizedBox(height: TtSpacing.xl),
               Text(title, style: t.h2),

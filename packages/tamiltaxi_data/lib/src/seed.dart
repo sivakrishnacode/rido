@@ -540,6 +540,7 @@ abstract final class Seed {
     'Rider behaviour',
     'App problem',
     'Safety concern',
+    'Delete my account',
   ];
 
   static List<SupportTicket> tickets() => [
