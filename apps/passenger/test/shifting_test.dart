@@ -150,12 +150,13 @@ void main() {
     expect(container.read(parcelFlowProvider).leaveAt, isNull);
   });
 
-  testWidgets("PP-03: I'm receiving it myself fills and locks the receiver", (tester) async {
+  testWidgets("PP-03: I'm receiving it myself shows the rider as the receiver, nothing to type", (tester) async {
     await pumpRoute(tester, Routes.parcelDrop);
     await advance(tester, const Duration(milliseconds: 500));
     await tapText(tester, "I'm receiving it myself");
-    final name = tester.widget<TextField>(find.widgetWithText(TextField, 'Priya Raman'));
-    expect(name.enabled, isFalse);
+    expect(find.text('Priya Raman'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Priya Raman'), findsNothing);
+    expect(find.text('Receiver name'), findsNothing);
     expect(find.text('You get the delivery OTP in the app'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
   });
@@ -174,6 +175,19 @@ void main() {
     expect(find.text('Drop details'), findsNothing);
     expect(find.text('Where should it go?'), findsOneWidget);
     expect(container.read(parcelFlowProvider).dropSet, isFalse);
+  });
+
+  testWidgets('PP-01: "Set on map" in the first drop search opens PP-03 on a new pin at the pickup', (tester) async {
+    final container = await pumpRoute(tester, Routes.parcel);
+    await advance(tester, const Duration(milliseconds: 500));
+    await tapText(tester, 'Where should it go?');
+    expect(find.text('Set on map'), findsOneWidget);
+    await tapText(tester, 'Set on map');
+    await advance(tester, const Duration(milliseconds: 800));
+    expect(find.text('Drop details'), findsOneWidget);
+    final flow = container.read(parcelFlowProvider);
+    expect(flow.dropSet, isTrue);
+    expect(flow.drop.location, flow.pickup.location);
   });
 
   testWidgets('PP-01 Switch: pickup and drop change places, and so do the sender and the receiver', (tester) async {

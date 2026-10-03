@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,7 +38,10 @@ enum _SaveAs {
 /// fine-tune the point), the receiver (or "I'm receiving it myself"), a landmark, and optionally save the drop as
 /// Home / Work / Shop. Confirm → PP-06 choose vehicle and book.
 class PP03DropDetailsScreen extends ConsumerStatefulWidget {
-  const PP03DropDetailsScreen({super.key, this.showcase = false});
+  const PP03DropDetailsScreen({super.key, this.onMap = false, this.showcase = false});
+
+  /// Opened from "Set on map": the sheet starts pulled down, so the map is big for moving the pin.
+  final bool onMap;
 
   /// Opened on its own from the Design gallery: render seed state, start no timers.
   final bool showcase;
@@ -52,9 +58,26 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
   String? _nameError;
   String? _phoneError;
 
-  /// "I'm receiving it myself": the receiver is the sender (fields filled and locked).
+  /// "I'm receiving it myself": the receiver is the sender.
   bool _self = false;
+
+  /// [_self] with the rider's name and number known: shown as a card, nothing to type. Without them the fields
+  /// stay so the rider can fill in what is missing.
+  bool _selfCard = false;
   _SaveAs? _saveAs;
+
+  /// The form is a sheet over the map: drag it down for more map to move the pin, up for the form.
+  final _sheet = DraggableScrollableController();
+
+  /// Where the sheet came to rest (a fraction of the body), for the map's padding; null: where it started.
+  double? _restSize;
+  double _startSize = 0.62;
+  Timer? _settle;
+
+  /// The keyboard is up: the sheet opened all the way, and goes back to [_beforeKeyboard] when it closes. Null
+  /// until the first build: a keyboard still closing from the search that opened PP-03 changes nothing.
+  bool? _keyboardUp;
+  double? _beforeKeyboard;
 
   @override
   void initState() {
@@ -68,10 +91,13 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
     // A parcel coming to the rider (PP-01 Switch): the receiver is already them.
     final receiver = s.details.receiverPhone;
     _self = receiver.trim().isNotEmpty && apiPhone(receiver) == apiPhone(ref.read(currentProfileProvider).phone);
+    _selfCard = _self && _name.text.trim().isNotEmpty;
   }
 
   @override
   void dispose() {
+    _settle?.cancel();
+    _sheet.dispose();
     _name.dispose();
     _phone.dispose();
     _note.dispose();
@@ -147,6 +173,7 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
     final phone = d.senderPhone.trim().isNotEmpty ? d.senderPhone : (me?.phone ?? '');
     setState(() {
       _self = v;
+      _selfCard = v && name.trim().isNotEmpty && phoneDigits(localPhone(phone)).length == 10;
       _nameError = null;
       _phoneError = null;
       if (v) {
@@ -183,7 +210,11 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
       _nameError = name.isEmpty ? 'Enter the receiver’s name' : null;
       _phoneError = digits.length != 10 ? 'Enter a 10-digit mobile number' : null;
     });
-    if (_nameError != null || _phoneError != null) return;
+    if (_nameError != null || _phoneError != null) {
+      // The sheet was pulled down to the map: bring the receiver fields and their message back into view.
+      if (_sheet.isAttached && _sheet.size < _startSize) _moveSheet(_startSize);
+      return;
+    }
     final ctrl = ref.read(parcelFlowProvider.notifier);
     ctrl.setDrop(_drop);
     final d = ref.read(parcelFlowProvider).details;
@@ -192,94 +223,84 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
     context.push(Routes.parcelReview);
   }
 
+  void _moveSheet(double size) =>
+      _sheet.animateTo(size, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+
+  /// The keyboard came up (the form takes the whole body, as the map used to fold away) or went down (back to
+  /// where the sheet was).
+  void _followKeyboard(bool up) {
+    if (up == _keyboardUp) return;
+    final first = _keyboardUp == null;
+    _keyboardUp = up;
+    if (first) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheet.isAttached) return;
+      if (up) {
+        _beforeKeyboard = _sheet.size;
+        _moveSheet(1);
+      } else if (_beforeKeyboard case final size?) {
+        _beforeKeyboard = null;
+        _moveSheet(size);
+      }
+    });
+  }
+
+  /// The sheet moved: once it rests, the map's padding follows (not every frame: the native map would re-lay out).
+  bool _onSheetMoved(DraggableScrollableNotification n) {
+    _settle?.cancel();
+    _settle = Timer(const Duration(milliseconds: 180), () {
+      if (mounted && n.extent != _restSize) setState(() => _restSize = n.extent);
+    });
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.type;
     final firstName = _name.text.trim().isEmpty ? 'The receiver' : _name.text.trim().split(' ').first;
+    _followKeyboard(MediaQuery.viewInsetsOf(context).bottom > 0);
     return Scaffold(
       backgroundColor: TtColors.surface,
       appBar: const TtAppBar(title: 'Drop details'),
       body: Column(
         children: [
-          ParcelPinMap(
-            place: _drop,
-            isPickup: false,
-            folded: MediaQuery.viewInsetsOf(context).bottom > 0,
-            interactive: !widget.showcase,
-            onMoved: _setDrop,
-          ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ParcelLocationCard(place: _drop, isPickup: false, onChange: _changePlace),
-                  const SizedBox(height: 12),
-                  _SelfToggle(value: _self, onChanged: _setSelf),
-                  const SizedBox(height: 12),
-                  TtTextField(
-                    label: 'Receiver name',
-                    controller: _name,
-                    enabled: !_self,
-                    errorText: _nameError,
-                    textCapitalization: TextCapitalization.words,
-                    textInputAction: TextInputAction.next,
-                    onChanged: (_) => setState(() => _nameError = null),
-                  ),
-                  const SizedBox(height: 16),
-                  ParcelPhoneField(
-                    label: 'Receiver phone',
-                    controller: _phone,
-                    enabled: !_self,
-                    errorText: _phoneError,
-                    onChanged: (_) {
-                      if (_phoneError != null) setState(() => _phoneError = null);
-                    },
-                    // The contact list is seeded demo data; the live app has no contacts permission.
-                    suffix: ref.watch(isLiveApiProvider) || _self
-                        ? null
-                        : IconButton(
-                            tooltip: 'Choose from contacts',
-                            onPressed: _pickContact,
-                            icon: const Icon(Symbols.contact_page_rounded, color: TtColors.coral600),
-                          ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(_self ? 'You get the delivery OTP in the app' : '$firstName gets the delivery OTP and a tracking link by SMS',
-                      style: t.caption.copyWith(color: TtColors.navy500)),
-                  const SizedBox(height: 16),
-                  Text.rich(
-                    TextSpan(children: [
-                      const TextSpan(text: 'Landmark '),
-                      TextSpan(text: '(optional)', style: t.bodySmall.copyWith(color: TtColors.navy500)),
-                    ]),
-                    style: t.bodySmallMedium.copyWith(color: TtColors.navy700),
-                  ),
-                  const SizedBox(height: 6),
-                  TtTextField(
-                    hint: 'House number, nearby landmark',
-                    controller: _note,
-                    textCapitalization: TextCapitalization.sentences,
-                  ),
-                  const SizedBox(height: 20),
-                  Text.rich(
-                    TextSpan(children: [
-                      const TextSpan(text: 'Save this address '),
-                      TextSpan(text: '(optional)', style: t.bodySmall.copyWith(color: TtColors.navy500)),
-                    ]),
-                    style: t.bodySmallMedium.copyWith(color: TtColors.navy700),
-                  ),
-                  const SizedBox(height: 8),
-                  ChoiceChips<_SaveAs>(
-                    options: _SaveAs.values,
-                    labelOf: (a) => a.label,
-                    iconOf: (a) => a.icon,
-                    selected: {?_saveAs},
-                    onChanged: (a) => setState(() => _saveAs = _saveAs == a ? null : a),
-                  ),
-                ],
-              ),
+            child: LayoutBuilder(
+              builder: (context, box) {
+                final h = box.maxHeight;
+                // The sizes come from the height without the keyboard, so they hold still while it opens or closes.
+                final full = h + MediaQuery.viewInsetsOf(context).bottom;
+                // At rest the map shows ~220 px above the form; pulled down, the sheet keeps the drop's card.
+                final minSize = (150 / full).clamp(0.15, 0.5);
+                _startSize = (1 - 220 / full).clamp(minSize, 0.85);
+                final firstSize = widget.onMap ? minSize : _startSize;
+                final cover = math.min(h * (_restSize ?? firstSize), h - 80);
+                return Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ParcelPinMap(
+                        place: _drop,
+                        isPickup: false,
+                        height: h,
+                        coverBottom: cover,
+                        interactive: !widget.showcase,
+                        onMoved: _setDrop,
+                      ),
+                    ),
+                    NotificationListener<DraggableScrollableNotification>(
+                      onNotification: _onSheetMoved,
+                      child: MapBottomSheet(
+                        controller: _sheet,
+                        initialSize: firstSize,
+                        minSize: minSize,
+                        maxSize: 1,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        builder: (context) => [_form(t, firstName)],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           SafeArea(
@@ -291,6 +312,122 @@ class _PP03DropDetailsScreenState extends ConsumerState<PP03DropDetailsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// The sheet's content: the drop, the receiver, a landmark and "Save this address".
+  Widget _form(TtTextStyles t, String firstName) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ParcelLocationCard(place: _drop, isPickup: false, onChange: _changePlace),
+        const SizedBox(height: 12),
+        _SelfToggle(value: _self, onChanged: _setSelf),
+        const SizedBox(height: 12),
+        // The rider is the receiver: their name and number as they are, not greyed-out locked fields
+        // (the name used to look like an empty field's hint).
+        if (_selfCard)
+          _SelfReceiver(name: _name.text.trim(), phone: _phone.text, initials: _initials(_name.text))
+        else ...[
+          TtTextField(
+            label: 'Receiver name',
+            controller: _name,
+            errorText: _nameError,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
+            onChanged: (_) => setState(() => _nameError = null),
+          ),
+          const SizedBox(height: 16),
+          ParcelPhoneField(
+            label: 'Receiver phone',
+            controller: _phone,
+            errorText: _phoneError,
+            onChanged: (_) {
+              if (_phoneError != null) setState(() => _phoneError = null);
+            },
+            // The contact list is seeded demo data; the live app has no contacts permission.
+            suffix: ref.watch(isLiveApiProvider) || _self
+                ? null
+                : IconButton(
+                    tooltip: 'Choose from contacts',
+                    onPressed: _pickContact,
+                    icon: const Icon(Symbols.contact_page_rounded, color: TtColors.coral600),
+                  ),
+          ),
+        ],
+        const SizedBox(height: 6),
+        Text(_self ? 'You get the delivery OTP in the app' : '$firstName gets the delivery OTP and a tracking link by SMS',
+            style: t.caption.copyWith(color: TtColors.navy500)),
+        const SizedBox(height: 16),
+        Text.rich(
+          TextSpan(children: [
+            const TextSpan(text: 'Landmark '),
+            TextSpan(text: '(optional)', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+          ]),
+          style: t.bodySmallMedium.copyWith(color: TtColors.navy700),
+        ),
+        const SizedBox(height: 6),
+        TtTextField(
+          hint: 'House number, nearby landmark',
+          controller: _note,
+          textCapitalization: TextCapitalization.sentences,
+        ),
+        const SizedBox(height: 20),
+        Text.rich(
+          TextSpan(children: [
+            const TextSpan(text: 'Save this address '),
+            TextSpan(text: '(optional)', style: t.bodySmall.copyWith(color: TtColors.navy500)),
+          ]),
+          style: t.bodySmallMedium.copyWith(color: TtColors.navy700),
+        ),
+        const SizedBox(height: 8),
+        ChoiceChips<_SaveAs>(
+          options: _SaveAs.values,
+          labelOf: (a) => a.label,
+          iconOf: (a) => a.icon,
+          selected: {?_saveAs},
+          onChanged: (a) => setState(() => _saveAs = _saveAs == a ? null : a),
+        ),
+      ],
+    );
+}
+
+/// The receiver when it is the rider: "Receiver", then their initials, name and number.
+class _SelfReceiver extends StatelessWidget {
+  const _SelfReceiver({required this.name, required this.phone, required this.initials});
+  final String name;
+
+  /// "98765 43210"
+  final String phone;
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.type;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Receiver', style: t.bodySmallMedium.copyWith(color: TtColors.navy700)),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: TtColors.inputBg, borderRadius: TtRadii.cardRadius),
+          child: Row(
+            children: [
+              TtAvatar(initials: initials, size: 44),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name, style: t.bodySemibold, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text('+91 $phone', style: TtTextStyles.tabular(t.bodySmall.copyWith(color: TtColors.navy500))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -136,7 +136,7 @@ GoRouter createPassengerRouter({String initialLocation = Routes.splash}) => GoRo
               builder: (_, _) => const PP01ParcelHomeScreen(),
               routes: [
                 _sub('pickup', (_) => const PP02PickupDetailsScreen()),
-                _sub('drop', (_) => const PP03DropDetailsScreen()),
+                _sub('drop', (s) => PP03DropDetailsScreen(onMap: s.uri.queryParameters['map'] == '1')),
                 _sub('details', (_) => const PP04ParcelDetailsScreen()),
                 _sub('review', (_) => const PP06ChooseGoodsVehicleScreen()),
                 _sub('finding', (_) => const PP07FindingGoodsDriverScreen()),

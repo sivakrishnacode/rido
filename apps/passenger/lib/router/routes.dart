@@ -39,6 +39,9 @@ abstract final class Routes {
   static const parcel = '/parcel';
   static const parcelPickup = '/parcel/pickup';
   static const parcelDrop = '/parcel/drop';
+
+  /// PP-03 opened from "Set on map": the sheet starts pulled down so the map is big.
+  static const parcelDropOnMap = '/parcel/drop?map=1';
   static const parcelDetails = '/parcel/details';
   static const parcelReview = '/parcel/review';
   static const parcelFinding = '/parcel/finding';

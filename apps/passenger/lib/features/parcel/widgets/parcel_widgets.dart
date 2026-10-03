@@ -155,15 +155,26 @@ Future<Place?> showParcelPlacePicker(BuildContext context, {required String titl
 }
 
 /// Opens PP-03. With no drop chosen yet it searches first, so PP-03 never starts on a place the sender didn't
-/// pick; backing out of the search stays where they were.
+/// pick; backing out of the search stays where they were. "Set on map" there opens PP-03 with the map big and a new
+/// pin on the pickup, to be moved to the drop.
 Future<void> openParcelDrop(BuildContext context, WidgetRef ref) async {
   final s = ref.read(parcelFlowProvider);
+  var onMap = false;
   if (!s.dropSet) {
-    final p = await showParcelPlacePicker(context, title: s.outstation ? 'Deliver to (any town)' : 'Deliver to', anywhere: s.outstation);
-    if (p == null || !context.mounted) return;
-    ref.read(parcelFlowProvider.notifier).setDrop(p);
+    final pick = await showPlaceSearchSheet(
+      context,
+      title: s.outstation ? 'Deliver to (any town)' : 'Deliver to',
+      anywhere: s.outstation,
+      offerMap: true,
+    );
+    if (pick == null || !context.mounted) return;
+    final at = s.pickup.location;
+    onMap = pick.onMap;
+    ref.read(parcelFlowProvider.notifier).setDrop(
+      pick.place ?? Place(id: 'pin-${at.latitude},${at.longitude}', name: 'Pinned location', address: '', location: at),
+    );
   }
-  if (context.mounted) await context.push(Routes.parcelDrop);
+  if (context.mounted) await context.push(onMap ? Routes.parcelDropOnMap : Routes.parcelDrop);
 }
 
 /// The map on top of PP-02 / PP-03: the point under a fixed pin. Moving the map by hand moves the point ([onMoved]
@@ -177,6 +188,7 @@ class ParcelPinMap extends ConsumerStatefulWidget {
     this.folded = false,
     this.height = 180,
     this.interactive = true,
+    this.coverBottom = 0,
   });
 
   final Place place;
@@ -189,6 +201,10 @@ class ParcelPinMap extends ConsumerStatefulWidget {
   final double height;
   final bool interactive;
 
+  /// How much of the map's bottom a sheet covers (PP-03's movable sheet, at rest). The pin and the chosen point
+  /// sit in the middle of the part above it, and the Google logo just above the sheet.
+  final double coverBottom;
+
   @override
   ConsumerState<ParcelPinMap> createState() => _ParcelPinMapState();
 }
@@ -198,6 +214,7 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
   final _map = TtMapController();
   late final LatLng _start = widget.place.location;
   late LatLng _centre = _start;
+  double _zoomNow = _zoom;
   Timer? _debounce;
   int _request = 0;
   bool _locating = false;
@@ -205,6 +222,16 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
   /// A finger moved the map since the last address lookup (the map also reports its own camera moves).
   bool _touched = false;
   int _down = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // A new pin ("Set on map"): its address now, before the map is moved.
+    if (widget.interactive && widget.place.id.startsWith('pin-') && widget.place.address.isEmpty) {
+      _locating = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _geocode());
+    }
+  }
 
   @override
   void didUpdateWidget(covariant ParcelPinMap old) {
@@ -218,6 +245,13 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
       _locating = false;
       _map.animateTo(to, _zoom);
     }
+    // The sheet settled somewhere else: the padded area's centre moved with it. Android keeps the view when the
+    // padding changes, so bring the chosen point back under the pin (it moves to the new centre too).
+    if (widget.coverBottom != old.coverBottom && TtMap.usesGoogle) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _map.animateTo(_centre, _zoomNow);
+      });
+    }
   }
 
   @override
@@ -228,6 +262,7 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
   }
 
   void _onMove(TtCamera camera, bool hasGesture) {
+    _zoomNow = camera.zoom;
     if (!_touched) return;
     _centre = camera.center;
     _debounce?.cancel();
@@ -268,7 +303,13 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
             label: '${widget.isPickup ? 'Pickup' : 'Drop'} on the map. Move the map to adjust the point',
             child: Stack(
               children: [
-                Positioned.fill(
+                // Google: the whole height, padded by the sheet (the logo stays above it). flutter_map (no key):
+                // only the part above the sheet, so its centre is the pin's.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: TtMap.usesGoogle ? 0 : widget.coverBottom,
                   child: Listener(
                     onPointerDown: (_) {
                       _down++;
@@ -281,32 +322,46 @@ class _ParcelPinMapState extends ConsumerState<ParcelPinMap> {
                       center: _start,
                       zoom: _zoom,
                       interactive: widget.interactive,
+                      mapPadding: TtMap.usesGoogle ? EdgeInsets.only(bottom: widget.coverBottom) : EdgeInsets.zero,
                       onPositionChanged: _onMove,
                     ),
                   ),
                 ),
-                // Fixed pin: its tip on the map's centre.
-                IgnorePointer(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 70),
-                      child: SizedBox(
-                        height: 70,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 150),
-                              child: Container(
-                                key: ValueKey(label),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.pillRadius),
-                                child: Text(label, style: t.caption.copyWith(color: TtColors.surface, fontWeight: FontWeight.w600)),
-                              ),
+                // Fixed pin: its tip on the centre of the map above the sheet.
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: widget.coverBottom,
+                  child: IgnorePointer(
+                    // Hidden while the sheet leaves too little map for it (pulled all the way up).
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 150),
+                      opacity: widget.height - widget.coverBottom < 120 ? 0 : 1,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 70),
+                          child: SizedBox(
+                            height: 70,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 150),
+                                  child: Container(
+                                    key: ValueKey(label),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: const BoxDecoration(color: TtColors.navy900, borderRadius: TtRadii.pillRadius),
+                                    child: Text(label, style: t.caption.copyWith(color: TtColors.surface, fontWeight: FontWeight.w600)),
+                                  ),
+                                ),
+                                Icon(Symbols.location_on_rounded,
+                                    fill: 1, size: 44, color: widget.isPickup ? TtColors.success : TtColors.coral500),
+                              ],
                             ),
-                            Icon(Symbols.location_on_rounded,
-                                fill: 1, size: 44, color: widget.isPickup ? TtColors.success : TtColors.coral500),
-                          ],
+                          ),
                         ),
                       ),
                     ),
